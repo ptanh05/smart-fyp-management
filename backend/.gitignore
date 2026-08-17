@@ -1,0 +1,11 @@
+# Backend Git Ignore
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.db
+.env
+.env.*
+documents/*
+!documents/.gitkeep

@@ -5,11 +5,14 @@
 .env.local
 .env.*.local
 *.env
+**/.env
+**/.env.*
 
 # ==========================================
 # Python & Django (Backend)
 # ==========================================
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -34,15 +37,21 @@ MANIFEST
 
 # Virtual Environments
 .venv/
+**/.venv/
 venv/
+**/venv/
 ENV/
 env/
 env.bak/
 venv.bak/
+backend/.venv/
 
 # SQLite & Database
 *.sqlite3
 *.db
+**/*.sqlite3
+**/*.db
+backend/db.sqlite3
 
 # Django Media & User Uploaded Documents
 backend/documents/*
@@ -63,6 +72,7 @@ coverage.xml
 # Node.js & Frontend (Vite / React / TS)
 # ==========================================
 node_modules/
+**/node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/dist-ssr/
