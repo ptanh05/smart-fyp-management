@@ -138,7 +138,7 @@ class Group(models.Model):
         Student, on_delete=models.CASCADE, related_name="send_request"
     )
     student_2 = models.ForeignKey(
-        Student, on_delete=models.CASCADE, related_name="receive_request"
+        Student, on_delete=models.CASCADE, related_name="receive_request", null=True, blank=True
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     project_category = models.ForeignKey(

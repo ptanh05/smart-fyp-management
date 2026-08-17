@@ -22,6 +22,7 @@ from .project_views import DocumentDownloadView, SRSTemplateDownloadView
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("app/", include("app.urls")),
+    path("api/", include("app.urls")),
     path(
         "documents/<str:filename>/",
         DocumentDownloadView.as_view(),

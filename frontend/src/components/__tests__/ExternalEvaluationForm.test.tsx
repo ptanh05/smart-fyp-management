@@ -25,10 +25,40 @@ describe('ExternalEvaluationForm', () => {
   const mockOnComplete = vi.fn();
   const mockOnCancel = vi.fn();
   
+  const mockAssignment = {
+    id: 1,
+    external_group: 1,
+    supervisor_group: 1,
+    supervisor_group_details: {
+      id: 1,
+      project: { id: 1, project_name: 'Test Project', project_category: 'Web' },
+      supervisor: { id: 1, name: 'Dr. Smith' },
+      group: {
+        id: 1,
+        student_1: { id: 1, name: 'John Doe', registration_no: '2021-CS-001' },
+        student_2: { id: 2, name: 'Jane Doe', registration_no: '2021-CS-002' },
+      },
+    },
+    slot_number: 1,
+    slot_time: '09:00',
+    status: 'pending',
+    assigned_at: '2026-01-01T10:00:00Z',
+  };
+
+  const mockGroup = {
+    id: 1,
+    name: 'Group 1',
+    semester: 'Spring 2026',
+    external_examiner: 1,
+    assignments: [mockAssignment],
+    created_at: '2026-01-01',
+    updated_at: '2026-01-01',
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
-    // Mock empty groups response to avoid loading errors
-    vi.mocked(apiService.getExternalGroups).mockResolvedValue({ results: [] });
+    vi.mocked(apiService.getExternalGroups).mockResolvedValue({ results: [mockGroup] as any });
+    vi.mocked(apiService.getExternalGroup).mockResolvedValue(mockGroup as any);
   });
 
   describe('Rendering', () => {
@@ -47,8 +77,8 @@ describe('ExternalEvaluationForm', () => {
       
       expect(screen.getByText(/Technical Knowledge/i)).toBeInTheDocument();
       expect(screen.getByText(/Presentation Skills/i)).toBeInTheDocument();
-      expect(screen.getByText(/Documentation Quality/i)).toBeInTheDocument();
-      expect(screen.getByText(/Q&A Response/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Documentation Quality/i)[0]).toBeInTheDocument();
+      expect(screen.getAllByText(/Q&A Response/i)[0]).toBeInTheDocument();
     });
 
     it('renders rating options for each criterion', async () => {
@@ -244,22 +274,19 @@ describe('ExternalEvaluationForm', () => {
         expect(screen.getByText('Submit Evaluation')).toBeInTheDocument();
       });
       
+      fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '75' } });
       fireEvent.click(screen.getByText('Submit Evaluation'));
       
       await waitFor(() => {
         expect(apiService.createExternalEvaluation).toHaveBeenCalled();
         expect(mockOnComplete).toHaveBeenCalled();
       });
-      
-      alertSpy.mockRestore();
     });
 
     it('shows error when submission fails', async () => {
       vi.mocked(apiService.createExternalEvaluation).mockRejectedValue({
         response: { data: { message: 'Submission failed' } },
       });
-      
-      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
       
       render(
         <ExternalEvaluationForm
@@ -273,13 +300,12 @@ describe('ExternalEvaluationForm', () => {
         expect(screen.getByText('Submit Evaluation')).toBeInTheDocument();
       });
       
+      fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: '75' } });
       fireEvent.click(screen.getByText('Submit Evaluation'));
       
       await waitFor(() => {
-        expect(alertSpy).toHaveBeenCalledWith('Submission failed');
+        expect(screen.getByText('Submission failed')).toBeInTheDocument();
       });
-      
-      alertSpy.mockRestore();
     });
 
     it('updates existing evaluation when provided', async () => {

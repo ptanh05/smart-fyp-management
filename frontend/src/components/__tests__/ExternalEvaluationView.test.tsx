@@ -45,7 +45,7 @@ describe('ExternalEvaluationView', () => {
     it('displays total marks', () => {
       render(<ExternalEvaluationView evaluation={baseEvaluation} />);
       
-      expect(screen.getByText(/75/)).toBeInTheDocument();
+      expect(screen.getByText(/75\/100/)).toBeInTheDocument();
     });
 
     it('displays grade', () => {
@@ -91,13 +91,13 @@ describe('ExternalEvaluationView', () => {
     it('displays presentation skills marks', () => {
       render(<ExternalEvaluationView evaluation={baseEvaluation} />);
       
-      expect(screen.getByText(/Presentation/i)).toBeInTheDocument();
+      expect(screen.getByText(/Presentation Skills/i)).toBeInTheDocument();
     });
 
     it('displays documentation quality marks', () => {
       render(<ExternalEvaluationView evaluation={baseEvaluation} />);
       
-      expect(screen.getByText(/Documentation/i)).toBeInTheDocument();
+      expect(screen.getByText(/Documentation Quality/i)).toBeInTheDocument();
     });
 
     it('displays Q&A marks', () => {
@@ -137,7 +137,7 @@ describe('ExternalEvaluationView', () => {
       render(<ExternalEvaluationView evaluation={evaluationWithoutComments} />);
       
       // Should not throw and should still render
-      expect(screen.getByText(/75/)).toBeInTheDocument();
+      expect(screen.getByText(/75\/100/)).toBeInTheDocument();
     });
   });
 

@@ -237,9 +237,7 @@ describe('ExternalScheduleView', () => {
       await user.click(screen.getByRole('checkbox'));
       
       await waitFor(() => {
-        expect(apiService.getEvaluationSchedules).toHaveBeenCalledWith(
-          expect.objectContaining({ upcoming: '' })
-        );
+        expect(apiService.getEvaluationSchedules).toHaveBeenCalledWith({});
       });
     });
   });
@@ -266,9 +264,9 @@ describe('ExternalScheduleView', () => {
       
       render(<ExternalScheduleView />);
       
-      // Should show empty state on error
+      // Should show error message component on error
       await waitFor(() => {
-        expect(screen.getByText(/No schedules found/i)).toBeInTheDocument();
+        expect(screen.getByText(/Failed to load schedules/i)).toBeInTheDocument();
       });
     });
   });

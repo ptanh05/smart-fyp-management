@@ -69,7 +69,7 @@ def main():
         tid = tender["TenderID"]
         print(f"[{i}/{len(tenders)}] Fetching details for TenderID {tid}...")
         details = fetch_tender_details(tid)
-        del details.pop("RecommendedTenders", None)  # remove large unnecessary field
+        details.pop("RecommendedTenders", None)  # remove large unnecessary field
 
         combined = {**tender, **details}  # merge list + detail fields
         all_data.append(combined)

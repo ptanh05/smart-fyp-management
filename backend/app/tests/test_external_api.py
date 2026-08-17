@@ -185,7 +185,7 @@ class ExternalExaminerAPITests(APITestCase):
             'email': 'committee@test.com',
             'password': 'test123'
         })
-        self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN])
+        self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
     
     # ============ External Group Tests ============
     

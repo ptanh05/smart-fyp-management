@@ -1,0 +1,124 @@
+/* External Schedule View Styles */
+
+.external-schedule-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.schedule-header h2 {
+  margin: 0;
+  color: var(--text-primary, #1e293b);
+  font-size: 20px;
+}
+
+.schedule-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.view-mode-toggle {
+  display: flex;
+  background: var(--bg-secondary, #f1f5f9);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.view-mode-toggle button {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #64748b);
+  transition: all 0.2s ease;
+}
+
+.view-mode-toggle button.active {
+  background: white;
+  color: var(--primary-color, #3b82f6);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.schedule-filters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.schedule-filters select {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: white;
+  font-size: 13px;
+}
+
+.schedules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.schedule-card {
+  background: white;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  transition: box-shadow 0.2s ease;
+}
+
+.schedule-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.schedule-info h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: var(--text-primary, #1e293b);
+}
+
+.schedule-details {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-secondary, #64748b);
+  margin-top: 6px;
+}
+
+.calendar-view {
+  background: white;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  padding: 20px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.calendar-day {
+  min-height: 80px;
+  border: 1px solid var(--border-color, #f1f5f9);
+  border-radius: 6px;
+  padding: 6px;
+}

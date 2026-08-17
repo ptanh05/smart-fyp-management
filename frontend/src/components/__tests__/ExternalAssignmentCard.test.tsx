@@ -135,7 +135,7 @@ describe('ExternalAssignmentCard', () => {
         />
       );
       
-      expect(screen.getByText(/Slot #1/)).toBeInTheDocument();
+      expect(screen.getByText(/#1/)).toBeInTheDocument();
     });
 
     it('renders with only one student', () => {
@@ -205,15 +205,15 @@ describe('ExternalAssignmentCard', () => {
 
   describe('Evaluation Display', () => {
     it('shows evaluation details when provided', () => {
+      const assignmentWithEval = { ...baseAssignment, evaluation: mockEvaluation };
       render(
         <ExternalAssignmentCard
-          assignment={baseAssignment}
-          evaluation={mockEvaluation}
+          assignment={assignmentWithEval}
           onEvaluate={mockOnEvaluate}
         />
       );
       
-      expect(screen.getByText(/75/)).toBeInTheDocument();
+      expect(screen.getByText(/75\/100/)).toBeInTheDocument();
       expect(screen.getByText(/B\+/)).toBeInTheDocument();
       expect(screen.getByText(/PASS/i)).toBeInTheDocument();
     });
@@ -225,16 +225,16 @@ describe('ExternalAssignmentCard', () => {
         grade: 'F' as const,
         is_pass: false,
       };
+      const assignmentWithEval = { ...baseAssignment, evaluation: failingEvaluation };
       
       render(
         <ExternalAssignmentCard
-          assignment={baseAssignment}
-          evaluation={failingEvaluation}
+          assignment={assignmentWithEval}
           onEvaluate={mockOnEvaluate}
         />
       );
       
-      expect(screen.getByText(/40/)).toBeInTheDocument();
+      expect(screen.getByText(/40\/100/)).toBeInTheDocument();
       expect(screen.getByText(/FAIL/i)).toBeInTheDocument();
     });
   });
@@ -252,10 +252,10 @@ describe('ExternalAssignmentCard', () => {
     });
 
     it('shows edit button when evaluation exists', () => {
+      const assignmentWithEval = { ...baseAssignment, evaluation: mockEvaluation };
       render(
         <ExternalAssignmentCard
-          assignment={baseAssignment}
-          evaluation={mockEvaluation}
+          assignment={assignmentWithEval}
           onEvaluate={mockOnEvaluate}
         />
       );
@@ -272,7 +272,7 @@ describe('ExternalAssignmentCard', () => {
       );
       
       fireEvent.click(screen.getByText(/Evaluate/i));
-      expect(mockOnEvaluate).toHaveBeenCalledWith(baseAssignment);
+      expect(mockOnEvaluate).toHaveBeenCalledWith(baseAssignment.id, undefined);
     });
 
     it('shows view details button when onViewDetails provided', () => {

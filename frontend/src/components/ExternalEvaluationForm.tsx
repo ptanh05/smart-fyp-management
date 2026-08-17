@@ -119,7 +119,7 @@ const ExternalEvaluationForm: React.FC<ExternalEvaluationFormProps> = ({
       let found = false;
       for (const group of groups.results) {
         const groupDetail = await apiService.getExternalGroup(group.id);
-        const assignmentData = groupDetail.assignments.find(a => a.id === assignmentId);
+        const assignmentData = groupDetail?.assignments?.find(a => a.id === assignmentId);
         if (assignmentData) {
           setAssignment(assignmentData);
           found = true;
