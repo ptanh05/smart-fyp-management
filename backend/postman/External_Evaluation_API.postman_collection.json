@@ -1,0 +1,740 @@
+{
+  "info": {
+    "_postman_id": "external-evaluation-api-v1",
+    "name": "External Evaluation System API",
+    "description": "Complete API collection for the External Evaluation System.\n\n## Setup\n1. Set the `base_url` variable to your API server\n2. Run the 'Login' request to get tokens\n3. Tokens are automatically saved to collection variables\n\n## Folders\n- Authentication: Login and token management\n- External Examiner: Profile, dashboard, groups, evaluations\n- Committee Member: Management endpoints\n- Student: Student-facing endpoints\n- Common: Notifications, schedules",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Standard Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', jsonData.access);",
+                  "    pm.collectionVariables.set('refresh_token', jsonData.refresh);",
+                  "    console.log('Tokens saved successfully');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"external1\",\n  \"password\": \"test123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/token/",
+              "host": ["{{base_url}}"],
+              "path": ["token", ""]
+            },
+            "description": "Login with username and password to get JWT tokens."
+          }
+        },
+        {
+          "name": "External Examiner Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', jsonData.access);",
+                  "    pm.collectionVariables.set('refresh_token', jsonData.refresh);",
+                  "    console.log('External examiner tokens saved');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"external@test.com\",\n  \"password\": \"test123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/external/login/",
+              "host": ["{{base_url}}"],
+              "path": ["external", "login", ""]
+            },
+            "description": "Login specifically for external examiners using email."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', jsonData.access);",
+                  "    console.log('Access token refreshed');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/token/refresh/",
+              "host": ["{{base_url}}"],
+              "path": ["token", "refresh", ""]
+            },
+            "description": "Refresh an expired access token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "External Examiner",
+      "item": [
+        {
+          "name": "Profile",
+          "item": [
+            {
+              "name": "Get Profile",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/profile/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "profile", ""]
+                },
+                "description": "Get the current external examiner's profile."
+              }
+            },
+            {
+              "name": "Update Profile",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"+1-555-9999\",\n  \"specialization\": \"Machine Learning, NLP\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/external/profile/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "profile", ""]
+                },
+                "description": "Update external examiner profile fields."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard",
+          "item": [
+            {
+              "name": "Get Dashboard",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/dashboard/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "dashboard", ""]
+                },
+                "description": "Get dashboard data including statistics and recent activity."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Groups",
+          "item": [
+            {
+              "name": "List Groups",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/groups/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "groups", ""],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "disabled": true
+                    },
+                    {
+                      "key": "semester",
+                      "value": "Spring 2026",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "active",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "List all external groups assigned to the examiner."
+              }
+            },
+            {
+              "name": "Get Group Details",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/groups/1/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "groups", "1", ""]
+                },
+                "description": "Get details of a specific external group including assignments."
+              }
+            },
+            {
+              "name": "Create Group (Committee)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"External Batch 2026-Test\",\n  \"external_examiner\": 1,\n  \"semester\": \"Spring 2026\",\n  \"max_groups\": 10,\n  \"evaluation_date\": \"2026-02-20\",\n  \"evaluation_venue\": \"Room 101\",\n  \"notes\": \"Test batch\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/external/groups/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "groups", ""]
+                },
+                "description": "Create a new external group. Requires committee member permissions."
+              }
+            },
+            {
+              "name": "Update Group",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"evaluation_venue\": \"Room 102\",\n  \"notes\": \"Updated notes\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/external/groups/1/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "groups", "1", ""]
+                },
+                "description": "Update an external group's details."
+              }
+            },
+            {
+              "name": "Delete Group (Committee)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/groups/1/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "groups", "1", ""]
+                },
+                "description": "Delete an external group. Requires committee member permissions."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assignments",
+          "item": [
+            {
+              "name": "List Assignments",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/assignments/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "assignments", ""],
+                  "query": [
+                    {
+                      "key": "external_group",
+                      "value": "1",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "pending",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "List all assignments for the external examiner."
+              }
+            },
+            {
+              "name": "Create Assignment (Committee)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"external_group\": 1,\n  \"supervisor_group\": 5,\n  \"slot_time\": \"10:30\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/external/assignments/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "assignments", ""]
+                },
+                "description": "Assign a student group to an external group. Committee only."
+              }
+            },
+            {
+              "name": "Delete Assignment (Committee)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/assignments/1/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "assignments", "1", ""]
+                },
+                "description": "Remove an assignment. Committee only, and only if not evaluated."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Evaluations",
+          "item": [
+            {
+              "name": "List Evaluations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/evaluations/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "evaluations", ""],
+                  "query": [
+                    {
+                      "key": "external_group",
+                      "value": "1",
+                      "disabled": true
+                    },
+                    {
+                      "key": "is_pass",
+                      "value": "true",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "List all evaluations created by the external examiner."
+              }
+            },
+            {
+              "name": "Get Evaluation",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/evaluations/1/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "evaluations", "1", ""]
+                },
+                "description": "Get details of a specific evaluation."
+              }
+            },
+            {
+              "name": "Create Evaluation",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"assignment\": 1,\n  \"project_completion\": 75,\n  \"code_quality\": 95,\n  \"functionality\": 75,\n  \"understanding_of_technology\": 75,\n  \"problem_solving\": 75,\n  \"innovation\": 50,\n  \"presentation_clarity\": 95,\n  \"communication\": 75,\n  \"time_management\": 75,\n  \"documentation_completeness\": 75,\n  \"documentation_quality\": 75,\n  \"qa_response\": 95,\n  \"overall_comment\": \"Excellent work on the project.\",\n  \"strengths\": \"Strong technical implementation.\",\n  \"areas_of_improvement\": \"Documentation could be improved.\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/external/evaluations/create/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "evaluations", "create", ""]
+                },
+                "description": "Create a new evaluation for an assigned student group."
+              }
+            },
+            {
+              "name": "Update Evaluation",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code_quality\": 95,\n  \"overall_comment\": \"Updated feedback with more details.\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/external/evaluations/1/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "evaluations", "1", ""]
+                },
+                "description": "Update an existing evaluation."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Committee Member",
+      "item": [
+        {
+          "name": "List External Examiners",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/external/examiners/",
+              "host": ["{{base_url}}"],
+              "path": ["external", "examiners", ""]
+            },
+            "description": "List all external examiners in the system."
+          }
+        },
+        {
+          "name": "Get Available Groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/external/available-groups/",
+              "host": ["{{base_url}}"],
+              "path": ["external", "available-groups", ""]
+            },
+            "description": "List student groups that are ready for external evaluation assignment."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student",
+      "item": [
+        {
+          "name": "Get External Evaluation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/student/external-evaluation/",
+              "host": ["{{base_url}}"],
+              "path": ["student", "external-evaluation", ""]
+            },
+            "description": "Get the external evaluation results for the student's group."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Common",
+      "item": [
+        {
+          "name": "Schedules",
+          "item": [
+            {
+              "name": "List Schedules",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/external/schedules/",
+                  "host": ["{{base_url}}"],
+                  "path": ["external", "schedules", ""],
+                  "query": [
+                    {
+                      "key": "type",
+                      "value": "external",
+                      "disabled": true
+                    },
+                    {
+                      "key": "status",
+                      "value": "scheduled",
+                      "disabled": true
+                    },
+                    {
+                      "key": "upcoming",
+                      "value": "true",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "List evaluation schedules."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications",
+          "item": [
+            {
+              "name": "List Notifications",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/notifications/",
+                  "host": ["{{base_url}}"],
+                  "path": ["notifications", ""],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "disabled": true
+                    },
+                    {
+                      "key": "is_read",
+                      "value": "false",
+                      "disabled": true
+                    }
+                  ]
+                },
+                "description": "List user notifications."
+              }
+            },
+            {
+              "name": "Get Unread Count",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/notifications/unread-count/",
+                  "host": ["{{base_url}}"],
+                  "path": ["notifications", "unread-count", ""]
+                },
+                "description": "Get the count of unread notifications."
+              }
+            },
+            {
+              "name": "Mark as Read",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"notification_ids\": [1, 2, 3]\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/notifications/mark-read/",
+                  "host": ["{{base_url}}"],
+                  "path": ["notifications", "mark-read", ""]
+                },
+                "description": "Mark specific notifications as read. Send empty object to mark all."
+              }
+            },
+            {
+              "name": "Delete Notification",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/notifications/1/",
+                  "host": ["{{base_url}}"],
+                  "path": ["notifications", "1", ""]
+                },
+                "description": "Delete a specific notification."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

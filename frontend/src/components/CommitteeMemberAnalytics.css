@@ -1,0 +1,329 @@
+/* ==================== Committee Member Analytics - Dark Mode Support ==================== */
+
+.cm-analytics-container {
+  padding: 20px;
+  background-color: var(--bg-tertiary);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  transition: background-color 0.3s ease;
+}
+
+.cm-analytics-title {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cm-analytics-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.cm-analytics-error {
+  padding: 20px;
+  background-color: var(--danger-bg);
+  border-radius: 8px;
+}
+
+.cm-analytics-error-text {
+  color: var(--danger-text);
+  margin: 0;
+}
+
+/* Card */
+.cm-card {
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--card-shadow);
+  transition: background-color 0.3s ease;
+}
+
+.cm-card-title {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Panel Info */
+.cm-panel-info {
+  text-align: center;
+}
+
+.cm-panel-name {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin-bottom: 20px;
+}
+
+.cm-panel-stats {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.cm-panel-stat {
+  text-align: center;
+  padding: 12px 24px;
+  background-color: var(--primary-light);
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.cm-panel-stat-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--text-primary);
+  display: block;
+}
+
+.cm-panel-stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Completion Circle */
+.cm-completion-container {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cm-completion-circle {
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+
+.cm-completion-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.cm-completion-svg-bg {
+  fill: none;
+  stroke: var(--border-color);
+  stroke-width: 3;
+}
+
+.cm-completion-svg-progress {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke 0.3s ease;
+}
+
+.cm-completion-svg-progress-high {
+  stroke: var(--success-color);
+}
+
+.cm-completion-svg-progress-medium {
+  stroke: #ff9800;
+}
+
+.cm-completion-svg-progress-low {
+  stroke: var(--danger-color);
+}
+
+.cm-completion-percent {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.cm-completion-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cm-completion-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.cm-completion-stat-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.cm-completion-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Evaluation List */
+.cm-evaluation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cm-evaluation-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cm-evaluation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cm-evaluation-label {
+  font-size: 14px;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.cm-evaluation-count {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.cm-progress-bar {
+  height: 8px;
+  background-color: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cm-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.cm-progress-fill-high {
+  background-color: var(--success-color);
+}
+
+.cm-progress-fill-medium {
+  background-color: #ff9800;
+}
+
+.cm-progress-fill-low {
+  background-color: var(--danger-color);
+}
+
+/* Marks Grid */
+.cm-marks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.cm-mark-item {
+  text-align: center;
+  padding: 16px;
+  background-color: var(--success-bg);
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.cm-mark-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--success-text);
+}
+
+.cm-mark-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  text-transform: capitalize;
+}
+
+/* Members List */
+.cm-members-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.cm-member-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: var(--bg-tertiary);
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.cm-member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.cm-member-info {
+  flex: 1;
+}
+
+.cm-member-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cm-member-id {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ==================== Responsive Styles ==================== */
+@media (max-width: 768px) {
+  .cm-analytics-container {
+    padding: 16px;
+  }
+
+  .cm-panel-stats {
+    flex-direction: column;
+  }
+
+  .cm-panel-stat {
+    width: 100%;
+  }
+
+  .cm-completion-container {
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .cm-completion-stat {
+    gap: 20px;
+  }
+
+  .cm-marks-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cm-members-list {
+    grid-template-columns: 1fr;
+  }
+}

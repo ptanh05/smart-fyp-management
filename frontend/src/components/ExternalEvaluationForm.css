@@ -1,0 +1,478 @@
+/* External Evaluation Form Styles */
+
+.external-evaluation-form {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+  background: var(--bg-primary);
+  border-radius: 12px;
+}
+
+/* Loading State */
+.external-evaluation-form .loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.external-evaluation-form .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Form Header */
+.external-evaluation-form .form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.external-evaluation-form .form-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: var(--text-primary);
+}
+
+/* Assignment Info */
+.external-evaluation-form .assignment-info {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border-color);
+}
+
+.external-evaluation-form .assignment-info h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.external-evaluation-form .info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.external-evaluation-form .info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.external-evaluation-form .info-item strong {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.external-evaluation-form .info-item span {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+/* Evaluation Sections (Fieldsets) */
+.external-evaluation-form .evaluation-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.external-evaluation-form .evaluation-section legend {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: auto;
+  padding: 8px 16px;
+  margin-left: -8px;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.external-evaluation-form .legend-text {
+  flex: 1;
+}
+
+.external-evaluation-form .section-marks {
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.external-evaluation-form .section-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* Rating Field */
+.external-evaluation-form .rating-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.external-evaluation-form .rating-field label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.external-evaluation-form .rating-field .max-marks {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.external-evaluation-form .rating-field select {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.external-evaluation-form .rating-field select:hover {
+  border-color: var(--primary-color);
+}
+
+.external-evaluation-form .rating-field select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.1);
+}
+
+.external-evaluation-form .rating-field select:disabled {
+  background: var(--bg-tertiary);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Total Marks Display */
+.external-evaluation-form .total-marks-display {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 2px solid var(--primary-color);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.external-evaluation-form .total-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.external-evaluation-form .total-row h3 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.external-evaluation-form .total-value {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.external-evaluation-form .total-value.pass {
+  color: var(--success-color);
+}
+
+.external-evaluation-form .total-value.fail {
+  color: var(--danger-color);
+}
+
+.external-evaluation-form .grade-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.external-evaluation-form .grade-label {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.external-evaluation-form .grade-value {
+  font-size: 24px;
+  font-weight: 700;
+  padding: 4px 16px;
+  border-radius: 6px;
+}
+
+.external-evaluation-form .grade-value.grade-A {
+  background: #10b981;
+  color: white;
+}
+
+.external-evaluation-form .grade-value.grade-B-plus {
+  background: #22c55e;
+  color: white;
+}
+
+.external-evaluation-form .grade-value.grade-B {
+  background: #84cc16;
+  color: white;
+}
+
+.external-evaluation-form .grade-value.grade-C-plus {
+  background: #eab308;
+  color: white;
+}
+
+.external-evaluation-form .grade-value.grade-C {
+  background: #f59e0b;
+  color: white;
+}
+
+.external-evaluation-form .grade-value.grade-F {
+  background: #ef4444;
+  color: white;
+}
+
+.external-evaluation-form .pass-status {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.external-evaluation-form .pass-status.pass {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+}
+
+.external-evaluation-form .pass-status.fail {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-color);
+}
+
+/* Comments Section */
+.external-evaluation-form .comments-section legend {
+  background: var(--text-secondary);
+}
+
+.external-evaluation-form .comment-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.external-evaluation-form .comment-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.external-evaluation-form .comment-field label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.external-evaluation-form .comment-field textarea {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.external-evaluation-form .comment-field textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.external-evaluation-form .comment-field textarea:hover {
+  border-color: var(--primary-color);
+}
+
+.external-evaluation-form .comment-field textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.1);
+}
+
+.external-evaluation-form .comment-field textarea:disabled {
+  background: var(--bg-tertiary);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Form Actions */
+.external-evaluation-form .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Buttons */
+.external-evaluation-form .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.external-evaluation-form .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.external-evaluation-form .btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.external-evaluation-form .btn-primary:hover:not(:disabled) {
+  background: var(--primary-color-dark);
+  transform: translateY(-1px);
+}
+
+.external-evaluation-form .btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.external-evaluation-form .btn-secondary:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  border-color: var(--text-secondary);
+}
+
+.external-evaluation-form .btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .external-evaluation-form {
+    padding: 16px;
+  }
+
+  .external-evaluation-form .form-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .external-evaluation-form .form-header h2 {
+    font-size: 20px;
+    text-align: center;
+  }
+
+  .external-evaluation-form .form-header .btn {
+    width: 100%;
+  }
+
+  .external-evaluation-form .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .external-evaluation-form .evaluation-section {
+    padding: 16px;
+  }
+
+  .external-evaluation-form .evaluation-section legend {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+    padding: 12px 16px;
+  }
+
+  .external-evaluation-form .total-marks-display {
+    padding: 20px 16px;
+  }
+
+  .external-evaluation-form .total-value {
+    font-size: 28px;
+  }
+
+  .external-evaluation-form .grade-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .external-evaluation-form .form-actions {
+    flex-direction: column;
+  }
+
+  .external-evaluation-form .form-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .external-evaluation-form .form-header h2 {
+    font-size: 18px;
+  }
+
+  .external-evaluation-form .evaluation-section legend {
+    font-size: 14px;
+  }
+
+  .external-evaluation-form .rating-field select {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}

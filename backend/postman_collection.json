@@ -1,0 +1,1030 @@
+{
+  "info": {
+    "name": "Shanza Backend API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "App",
+      "item": [
+        {
+          "name": "Student Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"registration_no\": \"\",\n    \"password\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/student/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "student",
+                "login",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/student/profile/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "student",
+                "profile",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Supervisor Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"\",\n    \"password\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/supervisor/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "supervisor",
+                "login",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Supervisor Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/supervisor/profile/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "supervisor",
+                "profile",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Committee Member Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"\",\n    \"password\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/committee_member/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "committee_member",
+                "login",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Committee Member Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/committee_member/profile/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "committee_member",
+                "profile",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"old_password\": \"\",\n    \"new_password\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/change_password/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "change_password",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List of Students",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/listofstudents/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "listofstudents",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Project Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/project/categories/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "project",
+                "categories",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Groupmate Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"student_2\": \"\",\n    \"category\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/groupmate/request/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "groupmate",
+                "request",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Groupmate Request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/groupmate/request/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "groupmate",
+                "request",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Group Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/group/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "group",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Group Comments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/groupmate/1/comments/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "groupmate",
+                "1",
+                "comments",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Projects List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/projects/list/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "projects",
+                "list",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Supervisor List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/supervisor/list/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "supervisor",
+                "list",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Supervisor Student Comments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/supervisor/student/comments/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "supervisor",
+                "student",
+                "comments",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Supervisor Student Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"supervisor\": \"\",\n    \"project\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/supervisor/student/request/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "supervisor",
+                "student",
+                "request",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Supervisor Student Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/supervisor-student/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "supervisor-student",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Supervisor Student Response",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"supervisor_student_id\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/supervisor/student/response/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "supervisor",
+                "student",
+                "response",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Proposal Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "uploaded_file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/app/proposal-document/scope_document/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "proposal-document",
+                "scope_document",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Scope Document Evaluation Criteria",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"comments\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/scope_document_evaluation_criteria/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "scope_document_evaluation_criteria",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SRS Evaluation Supervisor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"comments\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/srs-evaluation-supervisor/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "srs-evaluation-supervisor",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SRS Evaluation Committee Member",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"comments\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/srs-evaluation-committee-member/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "srs-evaluation-committee-member",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SDD Evaluation Committee Member",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"comments\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/sdd-evaluation-committee-member/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "sdd-evaluation-committee-member",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SDD Evaluation Supervisor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"comments\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/sdd-evaluation-supervisor/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "sdd-evaluation-supervisor",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Evaluation3 Supervisor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"comments\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/evaluation3-supervisor/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "evaluation3-supervisor",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Evaluation3 Committee Member",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"comments\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/evaluation3-committee-member/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "evaluation3-committee-member",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Evaluation4 Supervisor",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"comments\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/evaluation4-supervisor/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "evaluation4-supervisor",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Evaluation4 Committee Member",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"comments\": \"\",\n    \"status\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/app/evaluation4-committee-member/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "evaluation4-committee-member",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Panel Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/panel/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "panel",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Committee Member Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/committee-member/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "committee-member",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Project Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/project/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "project",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Supervisor Student Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/supervisor-student/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "supervisor-student",
+                "1",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SRS Template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "uploaded_file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "semester",
+                  "value": "",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/app/srs_template/srs_template/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "srs_template",
+                "srs_template",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Chatroom",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/chatroom/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "chatroom",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Export Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/app/export/report/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "app",
+                "export",
+                "report",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "item": [
+        {
+          "name": "Document Download",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/documents/example.pdf",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documents",
+                "example.pdf"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Template Download",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/doc_templates/example.pdf",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "doc_templates",
+                "example.pdf"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

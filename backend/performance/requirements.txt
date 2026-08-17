@@ -1,0 +1,12 @@
+# Performance Testing Requirements
+
+# Load Testing
+locust>=2.20.0
+
+# Additional monitoring
+psutil>=5.9.0
+memory-profiler>=0.61.0
+
+# For database profiling
+django-debug-toolbar>=4.0.0
+django-silk>=5.0.0

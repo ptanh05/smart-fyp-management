@@ -1,0 +1,89 @@
+.document-requirements-manager .dr-description {
+  color: var(--text-secondary);
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+}
+
+.document-requirements-manager .dr-filters {
+  margin-bottom: 1.25rem;
+}
+
+.document-requirements-manager .dr-filters .form-group {
+  margin-bottom: 0;
+}
+
+.document-requirements-manager .dr-filters label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+}
+
+.document-requirements-manager .dr-form {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1.25rem;
+}
+
+.document-requirements-manager .dr-form h3,
+.document-requirements-manager .dr-list h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.document-requirements-manager .dr-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.document-requirements-manager .dr-form .form-group,
+.document-requirements-manager .dr-form-grid .form-group {
+  margin-bottom: 0;
+}
+
+.document-requirements-manager .dr-form .form-group label,
+.document-requirements-manager .dr-form-grid .form-group label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+}
+
+.document-requirements-manager .dr-form input[type="text"],
+.document-requirements-manager .dr-form input[type="datetime-local"],
+.document-requirements-manager .dr-form select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.document-requirements-manager .dr-table-wrapper {
+  overflow-x: auto;
+}
+
+.document-requirements-manager .dr-table {
+  width: 100%;
+}
+
+.document-requirements-manager .dr-edit-input {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  width: 100%;
+  max-width: 200px;
+}
+
+.document-requirements-manager .dr-list {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .document-requirements-manager .dr-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

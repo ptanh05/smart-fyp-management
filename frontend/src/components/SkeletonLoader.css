@@ -1,0 +1,244 @@
+/* Base skeleton with shimmer animation */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-tertiary) 25%,
+    var(--border-color) 50%,
+    var(--bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Skeleton text */
+.skeleton-text {
+  width: 100%;
+}
+
+/* Skeleton card */
+.skeleton-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 20px;
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+.skeleton-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.skeleton-card-body {
+  margin-bottom: 16px;
+}
+
+.skeleton-card-footer {
+  display: flex;
+  gap: 12px;
+}
+
+/* Skeleton table */
+.skeleton-table {
+  width: 100%;
+}
+
+.skeleton-table th,
+.skeleton-table td {
+  padding: 12px 16px;
+}
+
+.skeleton-table-row td {
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Skeleton profile */
+.skeleton-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 10px;
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.skeleton-profile-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Skeleton card grid */
+.skeleton-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+/* Skeleton document card */
+.skeleton-document-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: background-color 0.3s ease;
+}
+
+.skeleton-document-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.3s ease;
+}
+
+.skeleton-document-body {
+  padding: 16px;
+}
+
+.skeleton-document-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: var(--bg-tertiary);
+  border-top: 1px solid var(--border-color);
+  transition: background-color 0.3s ease;
+}
+
+/* Skeleton document grid */
+.skeleton-document-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+/* Skeleton evaluation card */
+.skeleton-evaluation-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 20px;
+  min-width: 200px;
+  transition: background-color 0.3s ease;
+}
+
+.skeleton-evaluation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.skeleton-evaluation-marks {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* Skeleton evaluation grid */
+.skeleton-evaluation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* Skeleton dashboard */
+.skeleton-dashboard {
+  padding: 20px 0;
+}
+
+.skeleton-header {
+  margin-bottom: 24px;
+}
+
+.skeleton-content {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease;
+}
+
+/* Skeleton chat */
+.skeleton-chat {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.3s ease;
+}
+
+.skeleton-chat-messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.skeleton-chat-message {
+  max-width: 70%;
+}
+
+.skeleton-chat-message.sent {
+  align-self: flex-end;
+}
+
+.skeleton-chat-message.received {
+  align-self: flex-start;
+}
+
+.skeleton-chat-input {
+  display: flex;
+  gap: 12px;
+}
+
+/* Fade in animation for content after loading */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .skeleton-card-grid,
+  .skeleton-document-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .skeleton-evaluation-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .skeleton-profile-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}

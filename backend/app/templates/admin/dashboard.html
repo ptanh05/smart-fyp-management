@@ -1,0 +1,342 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}FYP Dashboard{% endblock %}
+
+{% block extrahead %}
+<style>
+    .dashboard-container {
+        padding: 20px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-card h3 {
+        color: #666;
+        font-size: 14px;
+        margin: 0 0 10px 0;
+        text-transform: uppercase;
+    }
+    
+    .stat-card .value {
+        font-size: 36px;
+        font-weight: bold;
+        color: #417690;
+    }
+    
+    .stat-card.students .value { color: #28a745; }
+    .stat-card.supervisors .value { color: #007bff; }
+    .stat-card.committee .value { color: #6f42c1; }
+    .stat-card.external .value { color: #fd7e14; }
+    .stat-card.pending .value { color: #dc3545; }
+    .stat-card.completed .value { color: #20c997; }
+    
+    .section-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin: 30px 0 15px 0;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #417690;
+        color: #333;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .data-table th {
+        background: #417690;
+        color: #fff;
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+    }
+    
+    .data-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .data-table tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .data-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .grade-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 12px;
+    }
+    
+    .grade-A { background: #28a745; color: #fff; }
+    .grade-Bplus { background: #20c997; color: #fff; }
+    .grade-B { background: #17a2b8; color: #fff; }
+    .grade-Cplus { background: #ffc107; color: #000; }
+    .grade-C { background: #fd7e14; color: #fff; }
+    .grade-F { background: #dc3545; color: #fff; }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    
+    .status-scheduled { background: #e3f2fd; color: #1976d2; }
+    .status-completed { background: #e8f5e9; color: #388e3c; }
+    .status-pending { background: #fff3e0; color: #f57c00; }
+    
+    .grade-distribution {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 30px;
+    }
+    
+    .grade-item {
+        background: #fff;
+        padding: 15px 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .grade-item .grade {
+        font-size: 24px;
+        font-weight: bold;
+    }
+    
+    .grade-item .count {
+        font-size: 14px;
+        color: #666;
+    }
+    
+    .quick-links {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .quick-link {
+        display: block;
+        padding: 15px 20px;
+        background: #417690;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 8px;
+        text-align: center;
+        transition: background 0.2s;
+    }
+    
+    .quick-link:hover {
+        background: #205067;
+        color: #fff;
+    }
+    
+    .two-columns {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 30px;
+    }
+    
+    .empty-message {
+        color: #999;
+        text-align: center;
+        padding: 20px;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <h1>FYP Management Dashboard</h1>
+    
+    <!-- Quick Links -->
+    <h2 class="section-title">Quick Actions</h2>
+    <div class="quick-links">
+        <a href="/admin/app/externalexaminer/" class="quick-link">Manage External Examiners</a>
+        <a href="/admin/app/externalgroup/" class="quick-link">Manage External Groups</a>
+        <a href="/admin/app/externalgroupassignment/" class="quick-link">View Assignments</a>
+        <a href="/admin/app/externalevaluation/" class="quick-link">View Evaluations</a>
+        <a href="/admin/app/evaluationschedule/" class="quick-link">Manage Schedules</a>
+        <a href="/admin/app/supervisorofstudentgroup/" class="quick-link">Student Groups</a>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <h2 class="section-title">System Statistics</h2>
+    <div class="stats-grid">
+        <div class="stat-card students">
+            <h3>Total Students</h3>
+            <div class="value">{{ statistics.students }}</div>
+        </div>
+        <div class="stat-card supervisors">
+            <h3>Supervisors</h3>
+            <div class="value">{{ statistics.supervisors }}</div>
+        </div>
+        <div class="stat-card committee">
+            <h3>Committee Members</h3>
+            <div class="value">{{ statistics.committee_members }}</div>
+        </div>
+        <div class="stat-card external">
+            <h3>Active External Examiners</h3>
+            <div class="value">{{ statistics.external_examiners }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>Active Student Groups</h3>
+            <div class="value">{{ statistics.active_groups }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>External Groups</h3>
+            <div class="value">{{ statistics.external_groups }}</div>
+        </div>
+        <div class="stat-card pending">
+            <h3>Pending Evaluations</h3>
+            <div class="value">{{ statistics.pending_external }}</div>
+        </div>
+        <div class="stat-card completed">
+            <h3>Completed Evaluations</h3>
+            <div class="value">{{ statistics.completed_evaluations }}</div>
+        </div>
+    </div>
+    
+    <!-- Grade Distribution -->
+    <h2 class="section-title">Grade Distribution (External Evaluations)</h2>
+    <div class="grade-distribution">
+        {% for grade, count in grade_distribution.items %}
+        <div class="grade-item">
+            <div class="grade grade-{{ grade|cut:'+' }}">{{ grade }}</div>
+            <div class="count">{{ count }} student{% if count != 1 %}s{% endif %}</div>
+        </div>
+        {% endfor %}
+        <div class="grade-item">
+            <div class="grade" style="color: #28a745;">{{ pass_count }}</div>
+            <div class="count">Passed</div>
+        </div>
+        <div class="grade-item">
+            <div class="grade" style="color: #dc3545;">{{ fail_count }}</div>
+            <div class="count">Failed</div>
+        </div>
+    </div>
+    
+    <div class="two-columns">
+        <!-- Recent Evaluations -->
+        <div>
+            <h2 class="section-title">Recent External Evaluations</h2>
+            {% if recent_evaluations %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Project</th>
+                        <th>Grade</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for eval in recent_evaluations %}
+                    <tr>
+                        <td>{{ eval.assignment.supervisor_group.group.student_1.user.get_full_name }}</td>
+                        <td>{{ eval.assignment.supervisor_group.project.project_name|default:"-" }}</td>
+                        <td>
+                            <span class="grade-badge grade-{{ eval.grade|cut:'+' }}">{{ eval.grade }}</span>
+                        </td>
+                        <td>{{ eval.evaluated_at|date:"M d, Y" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-message">No evaluations recorded yet.</p>
+            {% endif %}
+        </div>
+        
+        <!-- Upcoming Schedules -->
+        <div>
+            <h2 class="section-title">Upcoming Evaluation Schedules</h2>
+            {% if upcoming_schedules %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for schedule in upcoming_schedules %}
+                    <tr>
+                        <td>{{ schedule.title }}</td>
+                        <td>{{ schedule.evaluation_type }}</td>
+                        <td>{{ schedule.date|date:"M d, Y" }}</td>
+                        <td>
+                            <span class="status-badge status-{{ schedule.status }}">{{ schedule.status }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-message">No upcoming schedules.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Recent External Groups -->
+    <h2 class="section-title">Recent External Groups</h2>
+    {% if recent_external_groups %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Group Name</th>
+                <th>External Examiner</th>
+                <th>Semester</th>
+                <th>Status</th>
+                <th>Evaluation Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for group in recent_external_groups %}
+            <tr>
+                <td>{{ group.name }}</td>
+                <td>{{ group.external_examiner.user.get_full_name }}</td>
+                <td>{{ group.semester }}</td>
+                <td>
+                    <span class="status-badge status-{{ group.status }}">{{ group.status }}</span>
+                </td>
+                <td>{{ group.evaluation_date|date:"M d, Y"|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-message">No external groups created yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

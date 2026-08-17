@@ -1,0 +1,242 @@
+/* External Assignment Card Styles */
+
+.assignment-card {
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  padding: 16px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.assignment-card:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+.assignment-card.evaluated {
+  border-left: 4px solid var(--success-color);
+}
+
+.assignment-card.pending {
+  border-left: 4px solid var(--warning-color);
+}
+
+.assignment-card.scheduled {
+  border-left: 4px solid var(--primary-color);
+}
+
+.assignment-card.cancelled {
+  border-left: 4px solid var(--danger-color);
+  opacity: 0.7;
+}
+
+/* Header */
+.assignment-card .assignment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.assignment-card .student-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.assignment-card .student-info .registration-no {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+/* Status Badge */
+.assignment-card .status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.assignment-card .status-badge.status-pending {
+  background: rgba(234, 179, 8, 0.1);
+  color: #b45309;
+}
+
+.assignment-card .status-badge.status-scheduled {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1d4ed8;
+}
+
+.assignment-card .status-badge.status-evaluated {
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+}
+
+.assignment-card .status-badge.status-cancelled {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+}
+
+/* Details */
+.assignment-card .assignment-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.assignment-card .detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.assignment-card .detail-label {
+  color: var(--text-secondary);
+}
+
+.assignment-card .detail-value {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Evaluation Summary */
+.assignment-card .evaluation-summary {
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.assignment-card .evaluation-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.assignment-card .evaluation-row:last-child {
+  margin-bottom: 0;
+}
+
+.assignment-card .evaluation-row span:first-child {
+  color: var(--text-secondary);
+}
+
+.assignment-card .evaluation-row strong.pass {
+  color: var(--success-color);
+}
+
+.assignment-card .evaluation-row strong.fail {
+  color: var(--danger-color);
+}
+
+/* Grade Badge */
+.assignment-card .grade-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+}
+
+.assignment-card .grade-badge.grade-A { background: #10b981; }
+.assignment-card .grade-badge.grade-B-plus { background: #22c55e; }
+.assignment-card .grade-badge.grade-B { background: #84cc16; }
+.assignment-card .grade-badge.grade-C-plus { background: #eab308; }
+.assignment-card .grade-badge.grade-C { background: #f59e0b; }
+.assignment-card .grade-badge.grade-F { background: #ef4444; }
+
+.assignment-card .pass-fail {
+  font-weight: 600;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.assignment-card .pass-fail.pass {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+}
+
+.assignment-card .pass-fail.fail {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-color);
+}
+
+/* Actions */
+.assignment-card .assignment-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.assignment-card .btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.assignment-card .btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.assignment-card .btn-primary:hover:not(:disabled) {
+  background: var(--primary-color-dark);
+}
+
+.assignment-card .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.assignment-card .btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.assignment-card .btn-secondary:hover {
+  background: var(--bg-secondary);
+  border-color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .assignment-card .assignment-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .assignment-card .detail-value {
+    max-width: 50%;
+  }
+  
+  .assignment-card .assignment-actions {
+    flex-direction: column;
+  }
+  
+  .assignment-card .assignment-actions .btn {
+    width: 100%;
+  }
+}

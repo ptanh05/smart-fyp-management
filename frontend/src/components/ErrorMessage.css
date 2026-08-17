@@ -1,0 +1,92 @@
+.error-message {
+  padding: 16px;
+  border-radius: 8px;
+  margin: 16px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.error-message-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.error-message-warning {
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.error-message-info {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.error-message-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.error-message-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.error-message-text {
+  flex: 1;
+}
+
+.error-message-title {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.error-message-description {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.error-message-retry {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.error-message-error .error-message-retry {
+  background-color: #dc2626;
+  color: white;
+}
+
+.error-message-error .error-message-retry:hover {
+  background-color: #b91c1c;
+}
+
+.error-message-warning .error-message-retry {
+  background-color: #d97706;
+  color: white;
+}
+
+.error-message-warning .error-message-retry:hover {
+  background-color: #b45309;
+}
+
+.error-message-info .error-message-retry {
+  background-color: #2563eb;
+  color: white;
+}
+
+.error-message-info .error-message-retry:hover {
+  background-color: #1d4ed8;
+}

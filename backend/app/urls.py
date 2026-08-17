@@ -1,0 +1,427 @@
+from django.urls import path
+from .views import (
+    GroupRequestView,
+    StudentLoginView,
+    StudentsListView,
+    StudentProfileView,
+    ChangePasswordView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
+    ProjectCategoriesView,
+    ProjectAPIVIEW,
+    SupervisorStudentCommentsAPIView,
+    SendSupervisorRequestAPIView,
+    SupervisorResponseAPIView,
+    SupervisorLoginAPIView,
+    CommitteeMemberLoginAPIView,
+    SupervisorProfileView,
+    GroupComments,
+    CommitteeMemberProfileView,
+    ListSuperisorAPIView,
+    DocumentUploadAPIView,
+    GroupDetailView,
+    ScopeDocumentEvaluationCriteriaView,
+    PanelAPIView,
+    CommitteeMemberPanelDetailAPIView,
+    CommitteeMemberGroupsAPIView,
+    ProjectDetailAPiView,
+    SupervisorStudentDetailAPIView,
+    CommitteeMemberTemplatesAPIView,
+    DocumentRequirementListCreateAPIView,
+    DocumentRequirementDetailAPIView,
+    SRSEvaluationSupervisorView,
+    SRSEvaluationCommitteeMemberView,
+    SDDEvaluationCommitteeMemberView,
+    SDDEvaluationSupervisorView,
+    Evaluation3SupervisorView,
+    Evaluation3CommitteeMemberView,
+    Evaluation4CommitteeMemberView,
+    Evaluation4SupervisorView,
+    ChatRoomAPIView,
+    GetGroupRequestView,
+    ExportReportAPIView,
+    ProjectDeleteAPIView,
+    DocumentDeleteAPIView,
+    DocumentSubmitToCommitteeAPIView,
+    ChatMessageDeleteAPIView,
+    SupervisorDocumentsAPIView,
+    # Notification views
+    NotificationListAPIView,
+    NotificationUnreadCountAPIView,
+    NotificationMarkReadAPIView,
+    NotificationDetailAPIView,
+    NotificationDeleteAllAPIView,
+    NotificationPreferenceAPIView,
+    # Analytics views
+    SupervisorAnalyticsAPIView,
+    CommitteeMemberAnalyticsAPIView,
+    # Audit log views
+    AuditLogListAPIView,
+    AuditLogGroupAPIView,
+    AuditLogStatsAPIView,
+    # External Examiner views
+    ExternalExaminerLoginAPIView,
+    ExternalExaminerProfileAPIView,
+    ExternalExaminerDashboardAPIView,
+    ExternalExaminerListAPIView,
+    ExternalGroupListCreateAPIView,
+    ExternalGroupDetailAPIView,
+    ExternalGroupAssignedStudentsAPIView,
+    AvailableGroupsForExternalAPIView,
+    ExternalGroupAssignmentCreateAPIView,
+    ExternalGroupAssignmentDeleteAPIView,
+    ExternalEvaluationListAPIView,
+    ExternalEvaluationCreateAPIView,
+    ExternalEvaluationDetailAPIView,
+    StudentExternalEvaluationAPIView,
+    EvaluationScheduleListCreateAPIView,
+    EvaluationScheduleDetailAPIView,
+    # Admin Dashboard
+    admin_dashboard,
+)
+
+
+urlpatterns = [
+    # Admin Dashboard (staff only)
+    path("admin/dashboard/", admin_dashboard, name="admin-dashboard"),
+    path("student/login/", StudentLoginView.as_view(), name="student-login"),
+    path("student/profile/", StudentProfileView.as_view(), name="student-profile"),
+    path(
+        "supervisor/login/", SupervisorLoginAPIView.as_view(), name="supervisor-login"
+    ),
+    path(
+        "supervisor/profile/",
+        SupervisorProfileView.as_view(),
+        name="supervisor-profile",
+    ),
+    path(
+        "committee_member/login/",
+        CommitteeMemberLoginAPIView.as_view(),
+        name="committee-member-login",
+    ),
+    path(
+        "committee_member/profile/",
+        CommitteeMemberProfileView.as_view(),
+        name="committee-member-profile",
+    ),
+    path("change_password/", ChangePasswordView.as_view(), name="change_password"),
+    path(
+        "password/reset/",
+        PasswordResetRequestView.as_view(),
+        name="password-reset-request",
+    ),
+    path(
+        "password/reset/confirm/",
+        PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
+    ),
+    path("listofstudents/", StudentsListView.as_view(), name="listofstudents"),
+    path(
+        "project/categories/",
+        ProjectCategoriesView.as_view(),
+        name="project-categories",
+    ),
+    path("groupmate/request/", GroupRequestView.as_view(), name="groupmate-request"),
+    path(
+        "groupmate/request/<int:pk>/",
+        GetGroupRequestView.as_view(),
+        name="groupmate-request",
+    ),
+    path("group/<int:pk>/", GroupDetailView.as_view(), name="group-detail"),
+    path(
+        "groupmate/<int:group>/comments/",
+        GroupComments.as_view(),
+        name="groupmate-comments",
+    ),
+    path("projects/list/", ProjectAPIVIEW.as_view(), name="projects-list"),
+    path(
+        "supervisor/list/",
+        ListSuperisorAPIView.as_view(),
+        name="supervisor-list",
+    ),
+    path(
+        "supervisor/student/comments/",
+        SupervisorStudentCommentsAPIView.as_view(),
+        name="supervisor-student-comments",
+    ),
+    path(
+        "supervisor/student/request/",
+        SendSupervisorRequestAPIView.as_view(),
+        name="supervisor-student-request",
+    ),
+    # Note: supervisor-student/<int:pk>/ is defined below with SupervisorStudentDetailAPIView
+    path(
+        "supervisor/student/response/",
+        SupervisorResponseAPIView.as_view(),
+        name="supervisor-student-response",
+    ),
+    path(
+        "proposal-document/<str:document_type>/",
+        DocumentUploadAPIView.as_view(),
+        name="document-upload",
+    ),
+    path(
+        "scope_document_evaluation_criteria/<int:pk>/",
+        ScopeDocumentEvaluationCriteriaView.as_view(),
+        name="scope-document-evaluation-criteria",
+    ),
+    path(
+        "srs-evaluation-supervisor/<int:pk>/",
+        SRSEvaluationSupervisorView.as_view(),
+        name="srs-evaluation-supervisor",
+    ),
+    path(
+        "srs-evaluation-committee-member/<int:pk>/",
+        SRSEvaluationCommitteeMemberView.as_view(),
+        name="srs-evaluation-committee-member",
+    ),
+    path(
+        "sdd-evaluation-committee-member/<int:pk>/",
+        SDDEvaluationCommitteeMemberView.as_view(),
+        name="sdd-evaluation-committee-member",
+    ),
+    path(
+        "sdd-evaluation-supervisor/<int:pk>/",
+        SDDEvaluationSupervisorView.as_view(),
+        name="sdd-evaluation-supervisor",
+    ),
+    path(
+        "evaluation3-supervisor/<int:pk>/",
+        Evaluation3SupervisorView.as_view(),
+        name="evaluation3-supervisor",
+    ),
+    path(
+        "evaluation3-committee-member/<int:pk>/",
+        Evaluation3CommitteeMemberView.as_view(),
+        name="evaluation3-committee-member",
+    ),
+    path(
+        "evaluation4-supervisor/<int:pk>/",
+        Evaluation4SupervisorView.as_view(),
+        name="evaluation4-supervisor",
+    ),
+    path(
+        "evaluation4-committee-member/<int:pk>/",
+        Evaluation4CommitteeMemberView.as_view(),
+        name="evaluation4-committee-member",
+    ),
+    path(
+        "panel/<int:pk>/",
+        PanelAPIView.as_view(),
+        name="panel-detail",
+    ),
+    path(
+        "committee-member/<int:pk>/",
+        CommitteeMemberPanelDetailAPIView.as_view(),
+        name="committee-member-detail",
+    ),
+    path(
+        "committee-member/groups/",
+        CommitteeMemberGroupsAPIView.as_view(),
+        name="committee-member-groups",
+    ),
+    path(
+        "project/<int:pk>/",
+        ProjectDetailAPiView.as_view(),
+        name="project-detail",
+    ),
+    path(
+        "supervisor-student/<int:pk>/",
+        SupervisorStudentDetailAPIView.as_view(),
+        name="supervisor-student-detail",
+    ),
+    path(
+        "srs_template/<str:template_type>/",
+        CommitteeMemberTemplatesAPIView.as_view(),
+        name="srs-template",
+    ),
+    path(
+        "document-requirements/",
+        DocumentRequirementListCreateAPIView.as_view(),
+        name="document-requirements-list",
+    ),
+    path(
+        "document-requirements/<int:pk>/",
+        DocumentRequirementDetailAPIView.as_view(),
+        name="document-requirements-detail",
+    ),
+    path("chatroom/", ChatRoomAPIView.as_view(), name="chatroom-detail"),
+    path("export/report/", ExportReportAPIView.as_view(), name="export-report"),
+    # Delete endpoints
+    path(
+        "projects/list/<int:pk>/",
+        ProjectDeleteAPIView.as_view(),
+        name="project-delete",
+    ),
+    path(
+        "proposal-document/<str:document_type>/<int:pk>/",
+        DocumentDeleteAPIView.as_view(),
+        name="document-delete",
+    ),
+    path(
+        "document-submit-to-committee/<str:document_type>/<int:pk>/",
+        DocumentSubmitToCommitteeAPIView.as_view(),
+        name="document-submit-to-committee",
+    ),
+    path(
+        "chatroom/<int:pk>/",
+        ChatMessageDeleteAPIView.as_view(),
+        name="chatroom-message-delete",
+    ),
+    path(
+        "supervisor/documents/",
+        SupervisorDocumentsAPIView.as_view(),
+        name="supervisor-documents",
+    ),
+    # Notification endpoints
+    path(
+        "notifications/",
+        NotificationListAPIView.as_view(),
+        name="notifications-list",
+    ),
+    path(
+        "notifications/unread-count/",
+        NotificationUnreadCountAPIView.as_view(),
+        name="notifications-unread-count",
+    ),
+    path(
+        "notifications/mark-read/",
+        NotificationMarkReadAPIView.as_view(),
+        name="notifications-mark-read",
+    ),
+    path(
+        "notifications/<int:pk>/",
+        NotificationDetailAPIView.as_view(),
+        name="notification-detail",
+    ),
+    path(
+        "notifications/delete-all/",
+        NotificationDeleteAllAPIView.as_view(),
+        name="notifications-delete-all",
+    ),
+    path(
+        "notifications/preferences/",
+        NotificationPreferenceAPIView.as_view(),
+        name="notification-preferences",
+    ),
+    # Analytics endpoints
+    path(
+        "supervisor/analytics/",
+        SupervisorAnalyticsAPIView.as_view(),
+        name="supervisor-analytics",
+    ),
+    path(
+        "committee-member/analytics/",
+        CommitteeMemberAnalyticsAPIView.as_view(),
+        name="committee-member-analytics",
+    ),
+    # Audit log endpoints
+    path(
+        "audit-logs/",
+        AuditLogListAPIView.as_view(),
+        name="audit-logs-list",
+    ),
+    path(
+        "audit-logs/group/<int:group_id>/",
+        AuditLogGroupAPIView.as_view(),
+        name="audit-logs-group",
+    ),
+    path(
+        "audit-logs/stats/",
+        AuditLogStatsAPIView.as_view(),
+        name="audit-logs-stats",
+    ),
+    
+    # ==================== External Examiner URLs ====================
+    
+    # External Examiner Login
+    path(
+        "external/login/",
+        ExternalExaminerLoginAPIView.as_view(),
+        name="external-login",
+    ),
+    # External Examiner Profile
+    path(
+        "external/profile/",
+        ExternalExaminerProfileAPIView.as_view(),
+        name="external-profile",
+    ),
+    # External Examiner Dashboard
+    path(
+        "external/dashboard/",
+        ExternalExaminerDashboardAPIView.as_view(),
+        name="external-dashboard",
+    ),
+    # External Examiners List (for committee)
+    path(
+        "external/examiners/",
+        ExternalExaminerListAPIView.as_view(),
+        name="external-examiners-list",
+    ),
+    # External Groups
+    path(
+        "external/groups/",
+        ExternalGroupListCreateAPIView.as_view(),
+        name="external-groups-list-create",
+    ),
+    path(
+        "external/groups/<int:pk>/",
+        ExternalGroupDetailAPIView.as_view(),
+        name="external-group-detail",
+    ),
+    path(
+        "external/groups/<int:pk>/students/",
+        ExternalGroupAssignedStudentsAPIView.as_view(),
+        name="external-group-students",
+    ),
+    # Available groups for assignment
+    path(
+        "external/available-groups/",
+        AvailableGroupsForExternalAPIView.as_view(),
+        name="external-available-groups",
+    ),
+    # Assignments
+    path(
+        "external/assignments/",
+        ExternalGroupAssignmentCreateAPIView.as_view(),
+        name="external-assignment-create",
+    ),
+    path(
+        "external/assignments/<int:pk>/",
+        ExternalGroupAssignmentDeleteAPIView.as_view(),
+        name="external-assignment-delete",
+    ),
+    # External Evaluations
+    path(
+        "external/evaluations/",
+        ExternalEvaluationListAPIView.as_view(),
+        name="external-evaluations-list",
+    ),
+    path(
+        "external/evaluations/create/",
+        ExternalEvaluationCreateAPIView.as_view(),
+        name="external-evaluation-create",
+    ),
+    path(
+        "external/evaluations/<int:pk>/",
+        ExternalEvaluationDetailAPIView.as_view(),
+        name="external-evaluation-detail",
+    ),
+    # Student view of external evaluation
+    path(
+        "student/external-evaluation/",
+        StudentExternalEvaluationAPIView.as_view(),
+        name="student-external-evaluation",
+    ),
+    # Evaluation Schedules
+    path(
+        "schedules/",
+        EvaluationScheduleListCreateAPIView.as_view(),
+        name="evaluation-schedules-list-create",
+    ),
+    path(
+        "schedules/<int:pk>/",
+        EvaluationScheduleDetailAPIView.as_view(),
+        name="evaluation-schedule-detail",
+    ),
+]

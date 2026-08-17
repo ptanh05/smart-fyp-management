@@ -1,0 +1,732 @@
+/* External Dashboard Specific Styles */
+
+.external-avatar {
+  background: linear-gradient(135deg, #fd7e14 0%, #e65c00 100%);
+}
+
+.profile-info-header {
+  flex: 1;
+}
+
+.profile-info-header h1 {
+  margin: 0 0 5px 0;
+  color: var(--text-primary);
+}
+
+.profile-subtitle {
+  color: #fd7e14;
+  font-weight: 600;
+  margin: 0 0 10px 0;
+}
+
+.profile-meta-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.meta-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.meta-tag.institution {
+  background-color: rgba(253, 126, 20, 0.15);
+  color: #fd7e14;
+}
+
+.meta-tag.designation {
+  background-color: rgba(111, 66, 193, 0.15);
+  color: #6f42c1;
+}
+
+.meta-tag.specialization {
+  background-color: rgba(40, 167, 69, 0.15);
+  color: #28a745;
+}
+
+.external-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+  .external-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .external-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* Tab Content */
+.tab-content {
+  margin-top: 20px;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+/* Pending List */
+.pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pending-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+}
+
+.pending-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.student-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.project-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Recent List */
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+}
+
+.recent-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.marks {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.date {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Grade Badges */
+.grade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.grade-A {
+  background: #28a745;
+  color: white;
+}
+
+.grade-Bplus {
+  background: #20c997;
+  color: white;
+}
+
+.grade-B {
+  background: #17a2b8;
+  color: white;
+}
+
+.grade-Cplus {
+  background: #ffc107;
+  color: #000;
+}
+
+.grade-C {
+  background: #fd7e14;
+  color: white;
+}
+
+.grade-F {
+  background: #dc3545;
+  color: white;
+}
+
+/* Pass/Fail Status */
+.pass-status {
+  font-weight: bold;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.pass-status.pass {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28a745;
+}
+
+.pass-status.fail {
+  background: rgba(220, 53, 69, 0.15);
+  color: #dc3545;
+}
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-pending {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+}
+
+.status-scheduled {
+  background: rgba(0, 123, 255, 0.15);
+  color: #007bff;
+}
+
+.status-completed {
+  background: rgba(40, 167, 69, 0.15);
+  color: #28a745;
+}
+
+.status-cancelled {
+  background: rgba(220, 53, 69, 0.15);
+  color: #dc3545;
+}
+
+/* Group Detail View */
+.group-detail-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.btn-back {
+  align-self: flex-start;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.group-detail-header {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.group-detail-header h2 {
+  margin: 0 0 12px 0;
+}
+
+.group-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.group-meta span {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Assignments List */
+.assignments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.assignment-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.assignment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.student-details strong {
+  color: var(--text-primary);
+}
+
+.reg-no {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-left: 8px;
+}
+
+.project-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.supervisor-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.slot-info {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.assignment-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.evaluation-status.completed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* External Groups Grid */
+.external-groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.group-card.clickable {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.group-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+/* Evaluations List */
+.evaluations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.evaluation-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+}
+
+.evaluation-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.student-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.student-info strong {
+  color: var(--text-primary);
+}
+
+.student-info span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.project-info {
+  display: flex;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.group-name {
+  color: var(--text-secondary);
+}
+
+.evaluations-list.completed .evaluation-item {
+  opacity: 0.8;
+}
+
+.evaluations-list.completed .evaluation-info {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Evaluation Form Card */
+.evaluation-form-card {
+  max-width: 900px;
+}
+
+.evaluation-form-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.evaluation-form-header h2 {
+  margin: 0;
+}
+
+.student-being-evaluated {
+  background: var(--bg-tertiary);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.student-being-evaluated h3 {
+  margin: 0 0 4px 0;
+  color: var(--text-primary);
+}
+
+.student-being-evaluated p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* Evaluation Form */
+.external-evaluation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.criteria-section {
+  background: var(--bg-tertiary);
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.criteria-section h4 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.criteria-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.criteria-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.criteria-item label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.criteria-item input[type="number"] {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 16px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.criteria-item input[type="number"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.section-total {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+/* Total Section */
+.total-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 32px;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.total-display,
+.grade-display,
+.pass-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.total-label,
+.grade-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.total-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.grade-display .grade-badge {
+  font-size: 24px;
+  padding: 8px 20px;
+}
+
+.pass-display .pass-status {
+  font-size: 16px;
+  padding: 8px 16px;
+}
+
+/* Comments Section */
+.comments-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.comments-section h4 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.comment-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comment-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.comment-field textarea {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  resize: vertical;
+  font-family: inherit;
+}
+
+.comment-field textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Error Card */
+.error-card {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.error-card h2 {
+  color: #dc3545;
+  margin-bottom: 12px;
+}
+
+.error-card p {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+/* Empty State */
+.empty-state {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+/* Button Link */
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 8px;
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  color: var(--primary-hover);
+}
+
+/* Button Success */
+.btn-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .assignment-card {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .assignment-actions {
+    align-self: stretch;
+    align-items: stretch;
+  }
+  
+  .evaluation-item {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .evaluation-item .btn {
+    width: 100%;
+  }
+  
+  .total-section {
+    gap: 20px;
+  }
+  
+  .total-value {
+    font-size: 24px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions .btn {
+    width: 100%;
+  }
+}

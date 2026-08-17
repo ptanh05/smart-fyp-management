@@ -1,0 +1,235 @@
+/* External Evaluation View Styles */
+
+.external-evaluation-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Summary Card */
+.external-evaluation-view .evaluation-summary-card {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark, #1d4ed8) 100%);
+  border-radius: 12px;
+  padding: 24px;
+  color: white;
+}
+
+.external-evaluation-view .summary-main {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.external-evaluation-view .total-marks,
+.external-evaluation-view .grade-display,
+.external-evaluation-view .pass-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.external-evaluation-view .total-marks .label,
+.external-evaluation-view .grade-display .label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.9;
+}
+
+.external-evaluation-view .total-marks .value {
+  font-size: 36px;
+  font-weight: 700;
+}
+
+.external-evaluation-view .total-marks .value.pass {
+  color: #a7f3d0;
+}
+
+.external-evaluation-view .total-marks .value.fail {
+  color: #fca5a5;
+}
+
+.external-evaluation-view .grade-display .grade {
+  font-size: 32px;
+  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.external-evaluation-view .grade.grade-A { background: #10b981; }
+.external-evaluation-view .grade.grade-B-plus { background: #22c55e; }
+.external-evaluation-view .grade.grade-B { background: #84cc16; }
+.external-evaluation-view .grade.grade-C-plus { background: #eab308; }
+.external-evaluation-view .grade.grade-C { background: #f59e0b; }
+.external-evaluation-view .grade.grade-F { background: #ef4444; }
+
+.external-evaluation-view .status-badge {
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.external-evaluation-view .status-badge.pass {
+  background: rgba(16, 185, 129, 0.3);
+  border: 2px solid #10b981;
+}
+
+.external-evaluation-view .status-badge.fail {
+  background: rgba(239, 68, 68, 0.3);
+  border: 2px solid #ef4444;
+}
+
+.external-evaluation-view .evaluated-date {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+/* Breakdown Section */
+.external-evaluation-view .evaluation-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.external-evaluation-view .breakdown-section {
+  background: var(--bg-secondary, #f8fafc);
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.external-evaluation-view .breakdown-section h4 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  color: var(--text-primary, #1e293b);
+  font-size: 15px;
+}
+
+.external-evaluation-view .section-total {
+  font-weight: 700;
+  color: var(--primary-color, #3b82f6);
+}
+
+/* Criteria Row */
+.external-evaluation-view .criteria-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.external-evaluation-view .criteria-row:last-child {
+  margin-bottom: 0;
+}
+
+.external-evaluation-view .criteria-label {
+  flex: 0 0 140px;
+  font-size: 13px;
+  color: var(--text-secondary, #64748b);
+}
+
+.external-evaluation-view .criteria-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-tertiary, #e2e8f0);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.external-evaluation-view .criteria-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color, #3b82f6), var(--success-color, #10b981));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.external-evaluation-view .criteria-value {
+  flex: 0 0 50px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+}
+
+/* Comments Section */
+.external-evaluation-view .evaluation-comments {
+  background: var(--bg-secondary, #f8fafc);
+  border-radius: 10px;
+  padding: 20px;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.external-evaluation-view .evaluation-comments h3 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary, #1e293b);
+  font-size: 18px;
+}
+
+.external-evaluation-view .comment-block {
+  background: var(--bg-tertiary, #e2e8f0);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.external-evaluation-view .comment-block:last-child {
+  margin-bottom: 0;
+}
+
+.external-evaluation-view .comment-block h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: var(--text-secondary, #64748b);
+}
+
+.external-evaluation-view .comment-block p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary, #1e293b);
+}
+
+.external-evaluation-view .comment-block.strengths {
+  border-left: 3px solid var(--success-color, #10b981);
+}
+
+.external-evaluation-view .comment-block.improvements {
+  border-left: 3px solid var(--warning-color, #f59e0b);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .external-evaluation-view .summary-main {
+    flex-direction: column;
+  }
+  
+  .external-evaluation-view .total-marks .value {
+    font-size: 28px;
+  }
+  
+  .external-evaluation-view .grade-display .grade {
+    font-size: 24px;
+  }
+  
+  .external-evaluation-view .evaluation-breakdown {
+    grid-template-columns: 1fr;
+  }
+  
+  .external-evaluation-view .criteria-label {
+    flex: 0 0 100px;
+    font-size: 12px;
+  }
+}
