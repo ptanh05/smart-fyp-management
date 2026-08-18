@@ -5,7 +5,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.conf import settings
 from rest_framework.test import APIClient
 from rest_framework import status, serializers
-from app.models import Student, Supervisor
+from app.models import (
+    Student,
+    Supervisor,
+    CommitteeMember,
+    CommitteeMemberPanel,
+    ExternalExaminer,
+)
 from app.validators import validate_uploaded_file
 
 User = get_user_model()
@@ -67,6 +73,35 @@ class SecurityTestCase(TestCase):
             user=self.supervisor_user,
             supervisor_id="GV999",
         )
+
+        # Create Committee Member User
+        self.panel = CommitteeMemberPanel.objects.create(name="Panel A")
+        self.committee_user = User.objects.create_user(
+            username="sec_committee",
+            email="sec_committee@utc.edu.vn",
+            password="Password123!",
+            user_type="committee_member",
+        )
+        self.committee_member = CommitteeMember.objects.create(
+            user=self.committee_user,
+            committee_id="CM999",
+            panel=self.panel,
+        )
+
+        # Create External Examiner User
+        self.external_user = User.objects.create_user(
+            username="sec_external",
+            email="sec_external@partner.edu.vn",
+            password="Password123!",
+            user_type="external_examiner",
+        )
+        self.external_examiner = ExternalExaminer.objects.create(
+            user=self.external_user,
+            external_id="EXT999",
+            institution="Partner University",
+            designation="professor",
+        )
+
 
     def test_unauthenticated_download_prevented(self):
         """Verify unauthenticated document downloads return 401 Unauthorized."""
@@ -380,3 +415,106 @@ class SecurityTestCase(TestCase):
         res2 = self.client.get("/app/admin/security-center/")
         self.assertEqual(res2.status_code, status.HTTP_200_OK)
         self.assertIn("security_headers", res2.data)
+
+    def test_unauthenticated_requests_receive_401(self):
+        """Verify unauthenticated requests to protected endpoints return 401 Unauthorized."""
+        self.client.credentials()  # Clear auth headers
+        
+        # Test student profile
+        res_student = self.client.get("/app/student/profile/")
+        self.assertEqual(res_student.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Test supervisor profile
+        res_supervisor = self.client.get("/app/supervisor/profile/")
+        self.assertEqual(res_supervisor.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Test committee member profile
+        res_committee = self.client.get("/app/committee_member/profile/")
+        self.assertEqual(res_committee.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Test external examiner profile
+        res_external = self.client.get("/app/external/profile/")
+        self.assertEqual(res_external.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_student_role_rbac_and_admin_forbidden(self):
+        """Verify Student can access own allowed resources and receives 403 on admin endpoints."""
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        self.assertEqual(login_res.status_code, status.HTTP_200_OK)
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        # Allowed resource: Student profile
+        res_allowed = self.client.get("/app/student/profile/")
+        self.assertEqual(res_allowed.status_code, status.HTTP_200_OK)
+
+        # Forbidden: Admin APIs
+        res_admin_users = self.client.get("/app/admin/users/")
+        self.assertEqual(res_admin_users.status_code, status.HTTP_403_FORBIDDEN)
+        res_security = self.client.get("/app/admin/security-center/")
+        self.assertEqual(res_security.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_supervisor_role_rbac_and_admin_forbidden(self):
+        """Verify Supervisor can access own allowed resources and receives 403 on admin endpoints."""
+        login_res = self.client.post("/app/supervisor/login/", {
+            "email": "sec_supervisor@utc.edu.vn",
+            "password": "Password123!",
+        })
+        self.assertEqual(login_res.status_code, status.HTTP_200_OK)
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        # Allowed resource: Supervisor profile
+        res_allowed = self.client.get("/app/supervisor/profile/")
+        self.assertEqual(res_allowed.status_code, status.HTTP_200_OK)
+
+        # Forbidden: Admin APIs
+        res_admin_users = self.client.get("/app/admin/users/")
+        self.assertEqual(res_admin_users.status_code, status.HTTP_403_FORBIDDEN)
+        res_security = self.client.get("/app/admin/security-center/")
+        self.assertEqual(res_security.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_committee_member_role_rbac_and_admin_forbidden(self):
+        """Verify Committee Member can access own allowed resources and receives 403 on admin endpoints."""
+        login_res = self.client.post("/app/committee_member/login/", {
+            "email": "sec_committee@utc.edu.vn",
+            "password": "Password123!",
+        })
+        self.assertEqual(login_res.status_code, status.HTTP_200_OK)
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        # Allowed resource: Committee Member profile
+        res_allowed = self.client.get("/app/committee_member/profile/")
+        self.assertEqual(res_allowed.status_code, status.HTTP_200_OK)
+
+        # Forbidden: Admin APIs
+        res_admin_users = self.client.get("/app/admin/users/")
+        self.assertEqual(res_admin_users.status_code, status.HTTP_403_FORBIDDEN)
+        res_security = self.client.get("/app/admin/security-center/")
+        self.assertEqual(res_security.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_external_examiner_role_rbac_and_admin_forbidden(self):
+        """Verify External Examiner can access own allowed resources and receives 403 on admin endpoints."""
+        login_res = self.client.post("/app/external/login/", {
+            "email": "sec_external@partner.edu.vn",
+            "password": "Password123!",
+        })
+        self.assertEqual(login_res.status_code, status.HTTP_200_OK)
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        # Allowed resource: External profile & dashboard
+        res_profile = self.client.get("/app/external/profile/")
+        self.assertEqual(res_profile.status_code, status.HTTP_200_OK)
+        res_dashboard = self.client.get("/app/external/dashboard/")
+        self.assertEqual(res_dashboard.status_code, status.HTTP_200_OK)
+
+        # Forbidden: Admin APIs
+        res_admin_users = self.client.get("/app/admin/users/")
+        self.assertEqual(res_admin_users.status_code, status.HTTP_403_FORBIDDEN)
+        res_security = self.client.get("/app/admin/security-center/")
+        self.assertEqual(res_security.status_code, status.HTTP_403_FORBIDDEN)
+

@@ -8,6 +8,9 @@ django-environ==0.11.2
 python-dotenv==1.1.0
 openpyxl==3.1.5
 django-stubs
+# Database URL parsing
+dj-database-url>=3.0.0
 # WebSocket support
 channels>=4.0.0
 channels-redis>=4.1.0
+
