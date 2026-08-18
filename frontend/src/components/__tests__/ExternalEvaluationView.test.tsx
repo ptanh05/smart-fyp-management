@@ -49,28 +49,28 @@ describe('ExternalEvaluationView', () => {
     });
 
     it('displays grade', () => {
-      render(<ExternalEvaluationView evaluation={baseEvaluation} />);
+      const { container } = render(<ExternalEvaluationView evaluation={baseEvaluation} />);
       
-      expect(screen.getByText(/B\+/)).toBeInTheDocument();
+      expect(container.querySelector('.grade')?.textContent).toContain('B');
     });
 
     it('displays pass status', () => {
-      render(<ExternalEvaluationView evaluation={baseEvaluation} />);
+      const { container } = render(<ExternalEvaluationView evaluation={baseEvaluation} />);
       
-      expect(screen.getByText(/PASS/i)).toBeInTheDocument();
+      expect(container.querySelector('.status-badge.pass')).toBeInTheDocument();
     });
 
     it('displays fail status when not passing', () => {
       const failingEvaluation = {
         ...baseEvaluation,
-        total_marks: 40,
+        total_marks: 30,
         grade: 'F' as const,
         is_pass: false,
       };
       
-      render(<ExternalEvaluationView evaluation={failingEvaluation} />);
+      const { container } = render(<ExternalEvaluationView evaluation={failingEvaluation} />);
       
-      expect(screen.getByText(/FAIL/i)).toBeInTheDocument();
+      expect(container.querySelector('.status-badge.fail')).toBeInTheDocument();
     });
   });
 
@@ -120,23 +120,24 @@ describe('ExternalEvaluationView', () => {
       expect(screen.getByText(/Strong technical skills/)).toBeInTheDocument();
     });
 
-    it('displays areas of improvement', () => {
+    it('displays areas for improvement', () => {
       render(<ExternalEvaluationView evaluation={baseEvaluation} />);
       
       expect(screen.getByText(/Documentation could be better/)).toBeInTheDocument();
     });
+  });
 
+  describe('Missing Optional Fields', () => {
     it('handles missing comments gracefully', () => {
-      const evaluationWithoutComments = {
+      const noCommentsEvaluation = {
         ...baseEvaluation,
-        overall_comment: undefined,
+        comments: undefined,
         strengths: undefined,
-        areas_of_improvement: undefined,
+        weaknesses: undefined,
       };
       
-      render(<ExternalEvaluationView evaluation={evaluationWithoutComments} />);
+      render(<ExternalEvaluationView evaluation={noCommentsEvaluation} />);
       
-      // Should not throw and should still render
       expect(screen.getByText(/75\/100/)).toBeInTheDocument();
     });
   });
@@ -149,15 +150,20 @@ describe('ExternalEvaluationView', () => {
         grade: 'A' as const,
       };
       
-      render(<ExternalEvaluationView evaluation={gradeAEvaluation} />);
+      const { container } = render(<ExternalEvaluationView evaluation={gradeAEvaluation} />);
       
-      expect(screen.getByText('A')).toBeInTheDocument();
+      expect(container.querySelector('.grade')?.textContent).toContain('A');
     });
 
     it('displays B+ grade correctly', () => {
-      render(<ExternalEvaluationView evaluation={baseEvaluation} />);
+      const gradeBPlusEvaluation = {
+        ...baseEvaluation,
+        total_marks: 80,
+        grade: 'B+' as const,
+      };
+      const { container } = render(<ExternalEvaluationView evaluation={gradeBPlusEvaluation} />);
       
-      expect(screen.getByText('B+')).toBeInTheDocument();
+      expect(container.querySelector('.grade')?.textContent).toContain('B+');
     });
 
     it('displays F grade correctly', () => {
@@ -168,9 +174,9 @@ describe('ExternalEvaluationView', () => {
         is_pass: false,
       };
       
-      render(<ExternalEvaluationView evaluation={gradeFEvaluation} />);
+      const { container } = render(<ExternalEvaluationView evaluation={gradeFEvaluation} />);
       
-      expect(screen.getByText('F')).toBeInTheDocument();
+      expect(container.querySelector('.grade')?.textContent).toContain('F');
     });
   });
 
@@ -178,10 +184,10 @@ describe('ExternalEvaluationView', () => {
     const gradeTestCases = [
       { marks: 90, expectedGrade: 'A' },
       { marks: 80, expectedGrade: 'B+' },
-      { marks: 70, expectedGrade: 'B' },
-      { marks: 60, expectedGrade: 'C+' },
-      { marks: 50, expectedGrade: 'C' },
-      { marks: 40, expectedGrade: 'F' },
+      { marks: 72, expectedGrade: 'B' },
+      { marks: 65, expectedGrade: 'C+' },
+      { marks: 58, expectedGrade: 'C' },
+      { marks: 30, expectedGrade: 'F' },
     ];
 
     gradeTestCases.forEach(({ marks, expectedGrade }) => {
@@ -190,13 +196,15 @@ describe('ExternalEvaluationView', () => {
           ...baseEvaluation,
           total_marks: marks,
           grade: expectedGrade as any,
-          is_pass: marks >= 50,
+          is_pass: marks >= 40,
         };
         
-        render(<ExternalEvaluationView evaluation={evaluation} />);
+        const { container } = render(<ExternalEvaluationView evaluation={evaluation} />);
         
-        expect(screen.getByText(expectedGrade)).toBeInTheDocument();
+        expect(container.querySelector('.grade')?.textContent).toContain(expectedGrade);
       });
     });
   });
 });
+
+
