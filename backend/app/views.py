@@ -1705,7 +1705,7 @@ class DocumentRequirementListCreateAPIView(ListCreateAPIView):
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             instance = serializer.save(created_by=cm)
-            return Response(out.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         except ValidationError:
             raise
         except OperationalError as e:
