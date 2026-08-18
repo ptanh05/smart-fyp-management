@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
 import type { Supervisor, SupervisorOfStudentGroup } from '../types';
 import Navbar from '../components/Navbar';
+import UTCAppLayout from '../components/UTCAppLayout';
 import ChatRoom from '../components/ChatRoom';
 import DocumentReview from '../components/DocumentReview';
 import EvaluationForm, { supervisorEvaluationConfigs } from '../components/EvaluationForm';
@@ -177,8 +178,7 @@ const SupervisorDashboard: React.FC = () => {
   }
 
   return (
-    <div>
-      <Navbar user={supervisor} onLogout={logout} />
+    <UTCAppLayout user={supervisor} onLogout={logout} activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="container">
         <div className="dashboard-header">
           <div>
@@ -525,7 +525,7 @@ const SupervisorDashboard: React.FC = () => {
           committeeScore: 8.5,
         }}
       />
-    </div>
+    </UTCAppLayout>
   );
 };
 

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
 import type { CommitteeMember, SupervisorOfStudentGroup, Document } from '../types';
 import Navbar from '../components/Navbar';
+import UTCAppLayout from '../components/UTCAppLayout';
 import TemplatesList from '../components/TemplatesList';
 import EvaluationForm, { committeeMemberEvaluationConfigs } from '../components/EvaluationForm';
 import type { EvaluationType } from '../components/EvaluationForm';
@@ -92,8 +93,7 @@ const CommitteeMemberDashboard: React.FC = () => {
   }
 
   return (
-    <div>
-      <Navbar user={committeeMember} onLogout={logout} />
+    <UTCAppLayout user={committeeMember} onLogout={logout} activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="container">
         <div className="dashboard-header">
           <h1>{t('dashboard.committeeTitle', 'Bảng Điều Khiển Hội Đồng Đánh Giá UTC')}</h1>
@@ -369,7 +369,7 @@ const CommitteeMemberDashboard: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+    </UTCAppLayout>
   );
 };
 

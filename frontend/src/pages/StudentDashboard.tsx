@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
 import type { Student, Group, Project, ProjectCategory, SupervisorOfStudentGroup, ExternalEvaluation } from '../types';
 import Navbar from '../components/Navbar';
+import UTCAppLayout from '../components/UTCAppLayout';
 import GroupRequestModal from '../components/GroupRequestModal';
 import ProjectModal from '../components/ProjectModal';
 import SupervisorRequestModal from '../components/SupervisorRequestModal';
@@ -250,8 +251,7 @@ const StudentDashboard: React.FC = () => {
   }
 
   return (
-    <div>
-      <Navbar user={student} onLogout={logout} />
+    <UTCAppLayout user={student} onLogout={logout} activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="container">
         <div className="dashboard-header">
           <h1>{t('dashboard.studentTitle', 'Bảng Điều Khiển Sinh Viên UTC')}</h1>
@@ -778,7 +778,7 @@ const StudentDashboard: React.FC = () => {
           committeeScore: 8.8,
         }}
       />
-    </div>
+    </UTCAppLayout>
   );
 };
 
