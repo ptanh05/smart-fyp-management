@@ -1686,6 +1686,11 @@ class ExportReportAPIView(APIView):
         sheet = workbook.active
         sheet.title = "Project Reports"
 
+        # UTC Official Header
+        sheet.append(["BỘ GIÁO DỤC VÀ ĐÀO TẠO - TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI (UTC)"])
+        sheet.append(["BÁO CÁO TỔNG HỢP TIẾN ĐỘ ĐỒ ÁN TỐT NGHIỆP"])
+        sheet.append([])
+
         # Header row
         headers = [
             "Group ID",
@@ -3244,6 +3249,11 @@ class ConsolidatedEvaluationExportAPIView(APIView):
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "Consolidated Grades"
+
+        # UTC Official Header
+        sheet.append(["BỘ GIÁO DỤC VÀ ĐÀO TẠO - TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI (UTC)"])
+        sheet.append(["BẢNG TỔNG HỢP ĐIỂM VÀ ĐÁNH GIÁ ĐỒ ÁN TỐT NGHIỆP"])
+        sheet.append([])
 
         headers = [
             "Assignment ID",

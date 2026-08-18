@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
 import type { CommitteeMember, SupervisorOfStudentGroup, Document } from '../types';
 import Navbar from '../components/Navbar';
@@ -10,6 +11,7 @@ import CommitteeMemberAnalytics from '../components/CommitteeMemberAnalytics';
 import AuditLogViewer from '../components/AuditLogViewer';
 import ExternalManagement from '../components/ExternalManagement';
 import DocumentRequirementsManager from '../components/DocumentRequirementsManager';
+import UTCFacultyAnalytics from '../components/UTCFacultyAnalytics';
 import { SkeletonProfile, SkeletonCardGrid, SkeletonEvaluationGrid } from '../components/SkeletonLoader';
 import './Dashboard.css';
 import '../components/EvaluationForm.css';
@@ -17,6 +19,7 @@ import '../components/SkeletonLoader.css';
 import '../components/ExternalManagement.css';
 
 const CommitteeMemberDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const committeeMember = user as CommitteeMember;
   const [activeTab, setActiveTab] = useState('overview');
@@ -93,8 +96,8 @@ const CommitteeMemberDashboard: React.FC = () => {
       <Navbar user={committeeMember} onLogout={logout} />
       <div className="container">
         <div className="dashboard-header">
-          <h1>Committee Member Dashboard</h1>
-          <p>Welcome, {committeeMember?.user?.username}</p>
+          <h1>{t('dashboard.committeeTitle', 'Bảng Điều Khiển Hội Đồng Đánh Giá UTC')}</h1>
+          <p>{t('dashboard.welcome', 'Xin chào')}, {committeeMember?.user?.username}</p>
         </div>
 
         <div className="tabs">
@@ -102,49 +105,49 @@ const CommitteeMemberDashboard: React.FC = () => {
             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
-            Overview
+            {t('nav.overview', 'Tổng Quan')}
           </button>
           <button
             className={`tab ${activeTab === 'groups' ? 'active' : ''}`}
             onClick={() => setActiveTab('groups')}
           >
-            Panel Groups
+            {t('nav.groups', 'Nhóm Đồ Án Hội Đồng')}
           </button>
           <button
             className={`tab ${activeTab === 'documents' ? 'active' : ''}`}
             onClick={() => setActiveTab('documents')}
           >
-            Documents
+            {t('nav.documents', 'Tài Liệu Đồ Án')}
           </button>
           <button
             className={`tab ${activeTab === 'evaluations' ? 'active' : ''}`}
             onClick={() => setActiveTab('evaluations')}
           >
-            Evaluations
+            {t('nav.evaluations', 'Đánh Giá & Chấm Điểm')}
           </button>
           <button
             className={`tab ${activeTab === 'templates' ? 'active' : ''}`}
             onClick={() => setActiveTab('templates')}
           >
-            Templates
+            {t('nav.templates', 'Biểu Mẫu Chuẩn')}
           </button>
           <button
             className={`tab ${activeTab === 'doc-requirements' ? 'active' : ''}`}
             onClick={() => setActiveTab('doc-requirements')}
           >
-            Document Requirements
+            {t('nav.documents', 'Yêu Cầu Tài Liệu')}
           </button>
           <button
             className={`tab ${activeTab === 'audit' ? 'active' : ''}`}
             onClick={() => setActiveTab('audit')}
           >
-            Audit Logs
+            {t('nav.auditLogs', 'Nhật Ký Hệ Thống')}
           </button>
           <button
             className={`tab ${activeTab === 'external' ? 'active' : ''}`}
             onClick={() => setActiveTab('external')}
           >
-            External Management
+            {t('nav.externalManagement', 'Hội Đồng & Chấm Phản Biện')}
           </button>
         </div>
 
@@ -152,10 +155,10 @@ const CommitteeMemberDashboard: React.FC = () => {
           {activeTab === 'overview' && (
             <>
               <div className="card">
-                <h2>Profile Information</h2>
+                <h2>{t('profile.title', 'Thông Tin Cá Nhân & Hồ Sơ UTC')}</h2>
                 <div className="profile-info">
-                  <p><strong>Committee ID:</strong> {profile?.committee_id}</p>
-                  <p><strong>Panel:</strong> {profile?.panel_info?.name || `Panel #${profile?.panel}` || 'N/A'}</p>
+                  <p><strong>{t('profile.supervisorId', 'Mã Hội Đồng')}:</strong> {profile?.committee_id}</p>
+                  <p><strong>Hội Đồng Chấm:</strong> {profile?.panel_info?.name || `Panel #${profile?.panel}` || 'N/A'}</p>
                 </div>
               </div>
 
@@ -211,6 +214,9 @@ const CommitteeMemberDashboard: React.FC = () => {
 
               {/* Analytics Section */}
               <CommitteeMemberAnalytics />
+
+              {/* UTC Faculty Analytics Breakdown */}
+              <UTCFacultyAnalytics />
             </>
           )}
 

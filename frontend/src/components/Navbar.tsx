@@ -84,8 +84,8 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
       <nav className="navbar">
         <div className="navbar-content">
           <div className="navbar-brand">
-            <span className="navbar-brand-full">Project Management System</span>
-            <span className="navbar-brand-short">PMS</span>
+            <span className="navbar-brand-full">🎓 UTC - Smart FYP Management</span>
+            <span className="navbar-brand-short">UTC FYP</span>
           </div>
           <div className="navbar-actions navbar-desktop">
             <span className="user-info">Loading...</span>
@@ -100,8 +100,8 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
       <nav className="navbar">
         <div className="navbar-content">
           <div className="navbar-brand">
-            <span className="navbar-brand-full">Project Management System</span>
-            <span className="navbar-brand-short">PMS</span>
+            <span className="navbar-brand-full">🎓 UTC - Smart FYP Management</span>
+            <span className="navbar-brand-short">UTC FYP</span>
           </div>
 
           {/* Mobile hamburger button */}
@@ -142,12 +142,12 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             <button
               className="btn btn-outline"
               onClick={() => setShowChangePassword(true)}
-              title="Change Password"
+              title={t('nav.changePassword', 'Đổi Mật Khẩu')}
             >
-              Change Password
+              {t('nav.changePassword', 'Đổi Mật Khẩu')}
             </button>
             <button className="btn btn-secondary" onClick={onLogout}>
-              {t('nav.logout', 'Sign Out')}
+              {t('nav.logout', 'Đăng Xuất')}
             </button>
           </div>
 

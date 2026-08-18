@@ -1,0 +1,293 @@
+/* UTC Evaluation Sheet Modal & Print Styles with Micro-Animations & Responsiveness */
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.utc-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1200;
+  padding: 20px;
+  backdrop-filter: blur(6px);
+  animation: fadeIn 0.25s ease;
+}
+
+.utc-modal-container {
+  background: #ffffff;
+  width: 900px;
+  max-width: 95vw;
+  max-height: 90vh;
+  border-radius: 12px;
+  box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  animation: modalPopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.utc-modal-header {
+  padding: 16px 24px;
+  background: #003366;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.utc-modal-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.utc-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-utc-print {
+  background: #d97706;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-utc-print:hover {
+  background: #b45309;
+  transform: translateY(-1px);
+}
+
+.btn-utc-print:active {
+  transform: translateY(0);
+}
+
+.btn-utc-close {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.btn-utc-close:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.utc-modal-body {
+  padding: 32px 40px;
+  overflow-y: auto;
+  color: #1e293b;
+  font-family: 'Times New Roman', Times, serif, sans-serif;
+  line-height: 1.6;
+}
+
+/* Document Header Formatting */
+.utc-doc-header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 2px solid #003366;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.utc-header-left {
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  color: #003366;
+}
+
+.utc-header-right {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.utc-doc-title {
+  text-align: center;
+  margin: 20px 0 28px 0;
+}
+
+.utc-doc-title h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #003366;
+  margin: 0 0 6px 0;
+  text-transform: uppercase;
+}
+
+.utc-doc-title p {
+  font-style: italic;
+  color: #64748b;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Info Section */
+.utc-info-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.utc-info-row {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.utc-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.utc-info-label {
+  width: 180px;
+  font-weight: 700;
+  color: #334155;
+  flex-shrink: 0;
+}
+
+.utc-info-value {
+  flex: 1;
+  color: #0f172a;
+}
+
+/* Grade Table */
+.utc-grade-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 28px;
+}
+
+.utc-grade-table th,
+.utc-grade-table td {
+  border: 1px solid #cbd5e1;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+.utc-grade-table th {
+  background-color: #f1f5f9;
+  color: #003366;
+  font-weight: 700;
+}
+
+.utc-grade-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+/* Signatures */
+.utc-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  text-align: center;
+}
+
+.utc-sig-box {
+  width: 200px;
+}
+
+.utc-sig-title {
+  font-weight: 700;
+  margin-bottom: 60px;
+}
+
+.utc-sig-name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Responsive Rules for Mobile Viewing */
+@media (max-width: 640px) {
+  .utc-modal-body {
+    padding: 16px 20px;
+  }
+  .utc-doc-header {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .utc-info-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .utc-info-label {
+    width: 100%;
+  }
+  .utc-signatures {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+}
+
+/* Print CSS Rule */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .utc-modal-container,
+  .utc-modal-container * {
+    visibility: visible;
+  }
+  .utc-modal-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    padding: 0;
+  }
+  .utc-modal-header,
+  .utc-modal-actions {
+    display: none !important;
+  }
+  .utc-modal-container {
+    box-shadow: none;
+    border: none;
+    width: 100%;
+    max-width: 100%;
+  }
+}

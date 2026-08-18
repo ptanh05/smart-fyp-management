@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ExternalEvaluation } from '../types';
+import { convertScoreToUTCGrade } from '../utils/utcGradeCalculator';
 import './ExternalEvaluationView.css';
 
 interface ExternalEvaluationViewProps {
@@ -7,7 +8,7 @@ interface ExternalEvaluationViewProps {
 }
 
 const ExternalEvaluationView: React.FC<ExternalEvaluationViewProps> = ({ evaluation }) => {
-  const getGradeClass = (grade: string) => `grade-${grade.replace('+', '-plus')}`;
+  const utcResult = convertScoreToUTCGrade(evaluation.total_marks / 10);
 
   const renderCriteriaRow = (label: string, value: number, maxMarks: number) => {
     const percentage = (value / 100) * maxMarks;
@@ -37,14 +38,14 @@ const ExternalEvaluationView: React.FC<ExternalEvaluationViewProps> = ({ evaluat
             </span>
           </div>
           <div className="grade-display">
-            <span className="label">Grade</span>
-            <span className={`grade ${getGradeClass(evaluation.grade)}`}>
-              {evaluation.grade}
+            <span className="label">UTC Grade (Thang 4)</span>
+            <span className="grade" style={{ backgroundColor: utcResult.color, color: '#ffffff', padding: '4px 12px', borderRadius: '12px' }}>
+              {utcResult.letterGrade} ({utcResult.gpa4.toFixed(1)})
             </span>
           </div>
           <div className="pass-status">
             <span className={`status-badge ${evaluation.is_pass ? 'pass' : 'fail'}`}>
-              {evaluation.is_pass ? 'PASSED' : 'FAILED'}
+              {utcResult.classification}
             </span>
           </div>
         </div>

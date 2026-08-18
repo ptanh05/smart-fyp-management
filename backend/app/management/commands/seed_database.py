@@ -88,10 +88,10 @@ class Command(BaseCommand):
         if not CustomUser.objects.filter(username="admin").exists():
             CustomUser.objects.create_superuser(
                 username="admin",
-                email="admin@fyp.com",
+                email="admin@utc.edu.vn",
                 password="admin123",
                 first_name="Admin",
-                last_name="User",
+                last_name="UTC",
                 user_type="supervisor"
             )
             self.stdout.write(self.style.SUCCESS("  [OK] Created superuser: admin"))
@@ -99,18 +99,16 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("  - Superuser 'admin' already exists"))
 
     def create_project_categories(self):
-        """Create project categories"""
+        """Create project categories tailored for UTC faculties"""
         categories_data = [
-            "Web Development",
-            "Mobile Application",
-            "Machine Learning / AI",
-            "Data Science",
-            "IoT / Embedded Systems",
-            "Blockchain",
-            "Game Development",
-            "Cybersecurity",
-            "Cloud Computing",
-            "Software Engineering",
+            "Khoa CNTT - Hệ thống Thông tin & Khoa học Dữ liệu",
+            "Khoa CNTT - Công nghệ Phần mềm & Trí tuệ Nhân tạo",
+            "Khoa Điện-Điện tử - Tự động hóa Giao thông",
+            "Khoa Điện-Điện tử - Hệ thống Điện & Viễn thông",
+            "Khoa Cầu đường - Kỹ thuật Hạ tầng Giao thông",
+            "Khoa Vận tải Kinh tế - Logistics & Chuỗi Cung ứng",
+            "Khoa Cơ khí - Đầu máy Toa xe & Kỹ thuật Ô tô",
+            "Khoa Quản lý Dự án Giao thông & Hạ tầng",
         ]
         
         categories = []
@@ -118,12 +116,12 @@ class Command(BaseCommand):
             cat, created = ProjectCategories.objects.get_or_create(category_name=name)
             categories.append(cat)
         
-        self.stdout.write(self.style.SUCCESS(f"  [OK] Created {len(categories)} project categories"))
+        self.stdout.write(self.style.SUCCESS(f"  [OK] Created {len(categories)} UTC project categories"))
         return categories
 
     def create_committee_panels(self):
         """Create committee member panels"""
-        panels_data = ["Panel A", "Panel B", "Panel C"]
+        panels_data = ["Hội đồng A - CNTT & Tự động hóa", "Hội đồng B - Cầu đường & Hạ tầng", "Hội đồng C - Vận tải & Logistics"]
         
         panels = []
         for name in panels_data:
@@ -134,19 +132,19 @@ class Command(BaseCommand):
         return panels
 
     def create_students(self):
-        """Create student users"""
+        """Create student users with UTC registration numbers and emails"""
         students_data = [
             # (username, email, first_name, last_name, reg_no, department, semester, batch)
-            ("student1", "student1@fyp.com", "Ahmed", "Khan", "2021-CS-001", "Computer Science", "semester_7", "2021"),
-            ("student2", "student2@fyp.com", "Sara", "Ali", "2021-CS-002", "Computer Science", "semester_7", "2021"),
-            ("student3", "student3@fyp.com", "Muhammad", "Hassan", "2021-CS-003", "Computer Science", "semester_7", "2021"),
-            ("student4", "student4@fyp.com", "Fatima", "Ahmed", "2021-CS-004", "Computer Science", "semester_7", "2021"),
-            ("student5", "student5@fyp.com", "Ali", "Raza", "2021-CS-005", "Computer Science", "semester_7", "2021"),
-            ("student6", "student6@fyp.com", "Ayesha", "Malik", "2021-CS-006", "Computer Science", "semester_7", "2021"),
-            ("student7", "student7@fyp.com", "Usman", "Shah", "2021-SE-001", "Software Engineering", "semester_7", "2021"),
-            ("student8", "student8@fyp.com", "Zainab", "Tariq", "2021-SE-002", "Software Engineering", "semester_7", "2021"),
-            ("student9", "student9@fyp.com", "Bilal", "Iqbal", "2020-CS-010", "Computer Science", "semester_8", "2020"),
-            ("student10", "student10@fyp.com", "Hira", "Noor", "2020-CS-011", "Computer Science", "semester_8", "2020"),
+            ("student1", "201200101@sv.utc.edu.vn", "Văn A", "Nguyen", "201200101", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
+            ("student2", "201200102@sv.utc.edu.vn", "Thị B", "Tran", "201200102", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
+            ("student3", "201200103@sv.utc.edu.vn", "Văn C", "Le", "201200103", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
+            ("student4", "201200104@sv.utc.edu.vn", "Thị D", "Pham", "201200104", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
+            ("student5", "201200105@sv.utc.edu.vn", "Văn E", "Hoang", "201200105", "Khoa Điện - Điện tử", "semester_7", "K61"),
+            ("student6", "201200106@sv.utc.edu.vn", "Thị F", "Vu", "201200106", "Khoa Điện - Điện tử", "semester_7", "K61"),
+            ("student7", "201200107@sv.utc.edu.vn", "Văn G", "Do", "201200107", "Khoa Cầu đường", "semester_7", "K61"),
+            ("student8", "201200108@sv.utc.edu.vn", "Thị H", "Bui", "201200108", "Khoa Cầu đường", "semester_7", "K61"),
+            ("student9", "201100109@sv.utc.edu.vn", "Văn I", "Dang", "201100109", "Khoa Vận tải - Kinh tế", "semester_8", "K60"),
+            ("student10", "201100110@sv.utc.edu.vn", "Thị K", "Ngo", "201100110", "Khoa Vận tải - Kinh tế", "semester_8", "K60"),
         ]
         
         students = []
@@ -180,19 +178,19 @@ class Command(BaseCommand):
         return students
 
     def create_supervisors(self, categories):
-        """Create supervisor users"""
+        """Create supervisor users with UTC credentials"""
         supervisors_data = [
             # (username, email, first_name, last_name, sup_id, research, academic, category_indices)
-            ("supervisor1", "supervisor1@fyp.com", "Dr. Imran", "Ahmed", "SUP-001", 
-             "Machine Learning, Deep Learning", "PhD Computer Science", [0, 2, 3]),
-            ("supervisor2", "supervisor2@fyp.com", "Dr. Sana", "Malik", "SUP-002", 
-             "Web Technologies, Cloud Computing", "PhD Software Engineering", [0, 8, 9]),
-            ("supervisor3", "supervisor3@fyp.com", "Dr. Asad", "Khan", "SUP-003", 
-             "Mobile Development, IoT", "PhD Information Technology", [1, 4]),
-            ("supervisor4", "supervisor4@fyp.com", "Dr. Nadia", "Hassan", "SUP-004", 
-             "Cybersecurity, Blockchain", "PhD Computer Science", [5, 7]),
-            ("supervisor5", "supervisor5@fyp.com", "Dr. Farhan", "Ali", "SUP-005", 
-             "Game Development, Graphics", "PhD Computer Science", [6, 9]),
+            ("supervisor1", "gvc.nguyen@utc.edu.vn", "TS. Nguyễn", "Văn Minh", "UTC-GV-01", 
+             "Hệ thống thông tin Giao thông, Khoa học dữ liệu", "Tiến sĩ Khoa học Máy tính", [0, 1]),
+            ("supervisor2", "ts.tran@utc.edu.vn", "PGS.TS. Trần", "Thị Mai", "UTC-GV-02", 
+             "Trí tuệ nhân tạo, Tự động hóa Giao thông", "Phó Giáo sư Tiến sĩ", [1, 2]),
+            ("supervisor3", "ts.le@utc.edu.vn", "TS. Lê", "Hoàng Nam", "UTC-GV-03", 
+             "Kỹ thuật Hạ tầng & Cầu đường", "Tiến sĩ Kỹ thuật Cầu đường", [4, 7]),
+            ("supervisor4", "ts.pham@utc.edu.vn", "TS. Phạm", "Quang Huy", "UTC-GV-04", 
+             "Logistics & Vận tải Đa phương thức", "Tiến sĩ Kinh tế Vận tải", [5, 7]),
+            ("supervisor5", "ts.vu@utc.edu.vn", "TS. Vũ", "Đức Anh", "UTC-GV-05", 
+             "Cơ khí Đầu máy Toa xe & Kỹ thuật Ô tô", "Tiến sĩ Cơ khí Động lực", [6]),
         ]
         
         supervisors = []
@@ -231,15 +229,15 @@ class Command(BaseCommand):
         return supervisors
 
     def create_committee_members(self, panels):
-        """Create committee member users"""
+        """Create committee member users with UTC credentials"""
         committee_data = [
             # (username, email, first_name, last_name, committee_id, panel_index)
-            ("committee1", "committee1@fyp.com", "Prof. Adnan", "Siddiqui", "CM-001", 0),
-            ("committee2", "committee2@fyp.com", "Prof. Rabia", "Qureshi", "CM-002", 0),
-            ("committee3", "committee3@fyp.com", "Prof. Kashif", "Mahmood", "CM-003", 1),
-            ("committee4", "committee4@fyp.com", "Prof. Amna", "Batool", "CM-004", 1),
-            ("committee5", "committee5@fyp.com", "Prof. Zahid", "Hussain", "CM-005", 2),
-            ("committee6", "committee6@fyp.com", "Prof. Saima", "Nawaz", "CM-006", 2),
+            ("committee1", "hd.nguyen@utc.edu.vn", "PGS.TS. Nguyễn", "Đức Thắng", "UTC-HD-01", 0),
+            ("committee2", "hd.tran@utc.edu.vn", "TS. Trần", "Thanh Hải", "UTC-HD-02", 0),
+            ("committee3", "hd.le@utc.edu.vn", "PGS.TS. Lê", "Văn Thành", "UTC-HD-03", 1),
+            ("committee4", "hd.pham@utc.edu.vn", "TS. Phạm", "Thị Dung", "UTC-HD-04", 1),
+            ("committee5", "hd.hoang@utc.edu.vn", "PGS.TS. Hoàng", "Quốc Bảo", "UTC-HD-05", 2),
+            ("committee6", "hd.vu@utc.edu.vn", "TS. Vũ", "Thái Sơn", "UTC-HD-06", 2),
         ]
         
         committee_members = []
@@ -274,11 +272,11 @@ class Command(BaseCommand):
         """Create student groups"""
         groups_data = [
             # (student1_idx, student2_idx, category_idx, status)
-            (0, 1, 0, "accepted"),   # Ahmed & Sara - Web Dev
-            (2, 3, 2, "accepted"),   # Muhammad & Fatima - ML/AI
-            (4, 5, 1, "accepted"),   # Ali & Ayesha - Mobile App
-            (6, 7, 9, "accepted"),   # Usman & Zainab - Software Engineering
-            (8, 9, 3, "pending"),    # Bilal & Hira - Data Science (pending)
+            (0, 1, 0, "accepted"),   # Group 1 - Khoa CNTT
+            (2, 3, 1, "accepted"),   # Group 2 - Khoa CNTT AI
+            (4, 5, 2, "accepted"),   # Group 3 - Khoa Điện - Điện tử
+            (6, 7, 4, "accepted"),   # Group 4 - Khoa Cầu đường
+            (8, 9, 5, "pending"),    # Group 5 - Khoa Vận tải - Logistics
         ]
         
         groups = []
@@ -301,39 +299,39 @@ class Command(BaseCommand):
         projects_data = [
             # (name, description, language, functionalities, category_idx)
             (
-                "Smart Campus Portal",
-                "A comprehensive web-based portal for university campus management including attendance, grades, and announcements.",
-                "Python, JavaScript, React",
-                "User Authentication, Dashboard, Attendance Tracking, Grade Management, Announcements, Notifications",
-                0  # Web Development
+                "Hệ thống Quản lý Đồ án Smart FYP UTC",
+                "Hệ thống số hóa quy trình quản lý vòng đời đồ án tốt nghiệp dành cho Trường Đại học Giao thông Vận tải.",
+                "Python, Django, React, TypeScript",
+                "Xác thực vai trò, Quản lý nhóm đồ án, Duyệt đề tài, Nộp tài liệu, Đánh giá hội đồng",
+                0  # Khoa CNTT - Hệ thống Thông tin
             ),
             (
-                "AI-Powered Plagiarism Detector",
-                "Machine learning based system to detect plagiarism in academic documents using NLP techniques.",
-                "Python, TensorFlow, Flask",
-                "Document Upload, Text Analysis, Similarity Detection, Report Generation, Admin Panel",
-                2  # ML/AI
+                "Hệ thống Giám sát & Nhận diện Biển số Xe Giao thông",
+                "Hệ thống xử lý ảnh và trí tuệ nhân tạo nhận diện biển số xe thông minh phục vụ quản lý giao thông đô thị.",
+                "Python, OpenCV, TensorFlow, FastAPI",
+                "Nhận diện biển số, Phân tích mật độ xe, Báo cáo thống kê, Cảnh báo vi phạm",
+                1  # Khoa CNTT - AI
             ),
             (
-                "FYP Management Mobile App",
-                "Cross-platform mobile application for managing Final Year Projects with supervisor communication.",
-                "React Native, Node.js",
-                "Project Submission, Supervisor Chat, Document Upload, Progress Tracking, Push Notifications",
-                1  # Mobile App
+                "Hệ thống Điều khiển Đèn Giao thông Thông minh IoT",
+                "Giải pháp tự động điều chỉnh chu kỳ đèn giao thông theo mật độ dòng xe thực tế qua cảm biến IoT.",
+                "C++, Embedded C, React Native, Python",
+                "Thu thập dữ liệu cảm biến, Thuật toán điều phối luồng xe, Giám sát thời gian thực",
+                2  # Khoa Điện-Điện tử
             ),
             (
-                "Automated Testing Framework",
-                "A software engineering tool for automated testing of web applications with CI/CD integration.",
-                "Python, Selenium, Docker",
-                "Test Case Management, Automated Execution, Report Generation, CI/CD Integration, Dashboard",
-                9  # Software Engineering
+                "Phần mềm Quản lý & Bảo trì Công trình Cầu đường",
+                "Ứng dụng quản lý lịch trình bảo dưỡng, kiểm định kết cấu cầu đường và hạ tầng giao thông.",
+                "Python, PostgreSQL, React",
+                "Quản lý hồ sơ công trình, Cảnh báo hỏng hóc, Lập kế hoạch bảo trì, Xuất báo cáo kỹ thuật",
+                4  # Khoa Cầu đường
             ),
             (
-                "Data Analytics Dashboard",
-                "Interactive dashboard for visualizing and analyzing large datasets with predictive capabilities.",
+                "Hệ thống Quản trị Chuỗi Cung ứng & Logistics Vận tải",
+                "Nền tảng tối ưu hóa tuyến đường vận chuyển container và theo dõi hành trình xe tải đường dài.",
                 "Python, D3.js, PostgreSQL",
-                "Data Import, Visualization, Statistical Analysis, Predictive Models, Export Reports",
-                3  # Data Science
+                "Tối ưu tuyến đường, Theo dõi GPS, Quản lý kho bãi, Tính toán chi phí vận tải",
+                5  # Khoa Vận tải Kinh tế
             ),
         ]
         

@@ -50,8 +50,10 @@ const LoginPage: React.FC = () => {
   return (
     <div className="login-container">
       <div className="login-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h1 style={{ margin: 0, fontSize: '1.5rem' }}>{t('login.title', 'Project Management System')}</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#003366', fontWeight: 700 }}>
+            🎓 {t('login.title', 'Smart FYP UTC')}
+          </h1>
           <button
             onClick={toggleLanguage}
             className="btn"
@@ -68,6 +70,9 @@ const LoginPage: React.FC = () => {
             {i18n.language.startsWith('vi') ? '🇻🇳 Tiếng Việt' : '🇬🇧 English'}
           </button>
         </div>
+        <p style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#0f4c81', fontWeight: 600 }}>
+          {t('login.subtitle', 'Trường Đại học Giao thông Vận tải')}
+        </p>
         
         <h2>{t('login.selectRole', 'Select Your Role')}</h2>
         
@@ -108,7 +113,7 @@ const LoginPage: React.FC = () => {
                 value={registrationNo}
                 onChange={(e) => setRegistrationNo(e.target.value)}
                 required
-                placeholder={t('login.usernamePlaceholder', 'Enter registration number')}
+                placeholder={t('login.usernamePlaceholder', 'Ví dụ: 201200123 (Mã SV UTC)')}
               />
             </div>
           ) : (
@@ -122,7 +127,7 @@ const LoginPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="Enter email"
+                placeholder={t('login.emailPlaceholder', 'staff@utc.edu.vn')}
               />
             </div>
           )}

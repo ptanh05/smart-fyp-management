@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
+import { useTranslation } from 'react-i18next';
 import type { SupervisorAnalytics as SupervisorAnalyticsType } from '../types';
 import './SupervisorAnalytics.css';
 
 const SupervisorAnalytics: React.FC = () => {
+  const { t } = useTranslation();
   const [analytics, setAnalytics] = useState<SupervisorAnalyticsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ const SupervisorAnalytics: React.FC = () => {
   if (loading) {
     return (
       <div className="sv-analytics-container">
-        <div className="sv-analytics-loading">Loading analytics...</div>
+        <div className="sv-analytics-loading">{t('common.loading', 'Đang tải dữ liệu...')}</div>
       </div>
     );
   }
@@ -78,31 +80,31 @@ const SupervisorAnalytics: React.FC = () => {
 
   return (
     <div className="sv-analytics-container">
-      <h3 className="sv-analytics-title">Dashboard Analytics</h3>
+      <h3 className="sv-analytics-title">📊 {t('analytics.title', 'Thống Kê Tổng Quan Đồ Án')}</h3>
       
       {/* Groups Overview */}
       <div className="sv-stats-grid">
         <div className="sv-stat-card sv-stat-card-blue">
           <div className="sv-stat-value">{groups.total}</div>
-          <div className="sv-stat-label">Total Groups</div>
+          <div className="sv-stat-label">{t('analytics.totalGroups', 'Tổng Số Nhóm')}</div>
         </div>
         <div className="sv-stat-card sv-stat-card-orange">
           <div className="sv-stat-value">{groups.pending}</div>
-          <div className="sv-stat-label">Pending Requests</div>
+          <div className="sv-stat-label">{t('analytics.pendingRequests', 'Yêu Cầu Chờ Duyệt')}</div>
         </div>
         <div className="sv-stat-card sv-stat-card-green">
           <div className="sv-stat-value">{groups.accepted}</div>
-          <div className="sv-stat-label">Active Groups</div>
+          <div className="sv-stat-label">{t('analytics.activeGroups', 'Nhóm Đang Hướng Dẫn')}</div>
         </div>
         <div className="sv-stat-card sv-stat-card-red">
           <div className="sv-stat-value">{groups.rejected}</div>
-          <div className="sv-stat-label">Rejected</div>
+          <div className="sv-stat-label">{t('analytics.rejected', 'Từ Chối')}</div>
         </div>
       </div>
 
       {/* Evaluation Progress */}
       <div className="sv-card">
-        <h4 className="sv-card-title">Evaluation Progress</h4>
+        <h4 className="sv-card-title">{t('analytics.evaluationProgress', 'Tiến Độ Đánh Giá Đồ Án')}</h4>
         <div className="sv-progress-container">
           <div className="sv-progress-bar">
             <div 
@@ -133,7 +135,7 @@ const SupervisorAnalytics: React.FC = () => {
 
       {/* Average Marks */}
       <div className="sv-card">
-        <h4 className="sv-card-title">Average Marks</h4>
+        <h4 className="sv-card-title">{t('analytics.averageMarks', 'Điểm Trung Bình Đánh Giá')}</h4>
         <div className="sv-marks-grid">
           {Object.entries(average_marks).map(([key, value]) => (
             <div key={key} className="sv-mark-item">
@@ -148,19 +150,19 @@ const SupervisorAnalytics: React.FC = () => {
 
       {/* Documents Overview */}
       <div className="sv-card">
-        <h4 className="sv-card-title">Documents Overview</h4>
+        <h4 className="sv-card-title">{t('analytics.documentsOverview', 'Tổng Quan Tài Liệu Nộp')}</h4>
         <div className="sv-document-stats">
           <div className="sv-document-stat">
             <span className="sv-document-stat-value">{documents.total}</span>
-            <span className="sv-document-stat-label">Total</span>
+            <span className="sv-document-stat-label">{t('analytics.totalDocs', 'Tổng Số')}</span>
           </div>
           <div className="sv-document-stat">
             <span className="sv-document-stat-value sv-document-stat-pending">{documents.pending}</span>
-            <span className="sv-document-stat-label">Pending Review</span>
+            <span className="sv-document-stat-label">{t('analytics.pendingReview', 'Chờ Duyệt')}</span>
           </div>
           <div className="sv-document-stat">
             <span className="sv-document-stat-value sv-document-stat-approved">{documents.approved}</span>
-            <span className="sv-document-stat-label">Approved</span>
+            <span className="sv-document-stat-label">{t('analytics.approvedDocs', 'Đã Phê Duyệt')}</span>
           </div>
         </div>
       </div>
@@ -168,7 +170,7 @@ const SupervisorAnalytics: React.FC = () => {
       {/* Recent Documents */}
       {recent_documents.length > 0 && (
         <div className="sv-card">
-          <h4 className="sv-card-title">Recent Documents</h4>
+          <h4 className="sv-card-title">{t('analytics.recentDocs', 'Tài Liệu Nộp Gần Đây')}</h4>
           <div className="sv-recent-list">
             {recent_documents.map((doc) => (
               <div key={doc.id} className="sv-recent-item">

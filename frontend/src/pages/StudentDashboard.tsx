@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
 import type { Student, Group, Project, ProjectCategory, SupervisorOfStudentGroup, ExternalEvaluation } from '../types';
 import Navbar from '../components/Navbar';
@@ -14,6 +15,8 @@ import SearchFilter from '../components/SearchFilter';
 import ExternalEvaluationView from '../components/ExternalEvaluationView';
 import StudentTemplatesView from '../components/StudentTemplatesView';
 import CommitteeOfferedProjects from '../components/CommitteeOfferedProjects';
+import UTCFypTimeline from '../components/UTCFypTimeline';
+import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { SkeletonProfile, SkeletonCardGrid } from '../components/SkeletonLoader';
 import './Dashboard.css';
 import '../components/SkeletonLoader.css';
@@ -24,6 +27,7 @@ import '../components/StudentTemplatesView.css';
 import '../components/CommitteeOfferedProjects.css';
 
 const StudentDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const student = user as Student;
   const [activeTab, setActiveTab] = useState('overview');
@@ -42,6 +46,7 @@ const StudentDashboard: React.FC = () => {
   const [externalEvaluation, setExternalEvaluation] = useState<ExternalEvaluation | null>(null);
   const [externalLoading, setExternalLoading] = useState(false);
   const [selectedProjectForSupervisor, setSelectedProjectForSupervisor] = useState<Project | null>(null);
+  const [showUTCSheet, setShowUTCSheet] = useState(false);
 
   const handleProjectSearch = useCallback((search: string) => {
     setProjectSearch(search);
@@ -249,8 +254,8 @@ const StudentDashboard: React.FC = () => {
       <Navbar user={student} onLogout={logout} />
       <div className="container">
         <div className="dashboard-header">
-          <h1>Student Dashboard</h1>
-          <p>Welcome, {student?.user?.username}</p>
+          <h1>{t('dashboard.studentTitle', 'Bảng Điều Khiển Sinh Viên UTC')}</h1>
+          <p>{t('dashboard.welcome', 'Xin chào')}, {student?.user?.username}</p>
         </div>
 
         <div className="tabs">
@@ -258,14 +263,14 @@ const StudentDashboard: React.FC = () => {
             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
-            Overview
+            {t('nav.overview', 'Tổng Quan')}
           </button>
           {!profile?.groupmate_id && (
             <button
               className={`tab ${activeTab === 'groups' ? 'active' : ''}`}
               onClick={() => setActiveTab('groups')}
             >
-              Find Group
+              {t('nav.groups', 'Nhóm Đồ Án')}
             </button>
           )}
           {profile?.groupmate_id && (
@@ -274,25 +279,25 @@ const StudentDashboard: React.FC = () => {
                 className={`tab ${activeTab === 'project' ? 'active' : ''}`}
                 onClick={() => setActiveTab('project')}
               >
-                Project
+                {t('nav.project', 'Đề Tài Đồ Án')}
               </button>
               <button
                 className={`tab ${activeTab === 'supervisor' ? 'active' : ''}`}
                 onClick={() => setActiveTab('supervisor')}
               >
-                Supervisor
+                {t('nav.supervisor', 'Giảng Viên Hướng Dẫn')}
               </button>
               <button
                 className={`tab ${activeTab === 'documents' ? 'active' : ''}`}
                 onClick={() => setActiveTab('documents')}
               >
-                Documents
+                {t('nav.documents', 'Tài Liệu Đồ Án')}
               </button>
               <button
                 className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
                 onClick={() => setActiveTab('chat')}
               >
-                Chat
+                {t('nav.chat', 'Trao Đổi & Thảo Luận')}
               </button>
             </>
           )}
@@ -300,14 +305,14 @@ const StudentDashboard: React.FC = () => {
             className={`tab ${activeTab === 'templates' ? 'active' : ''}`}
             onClick={() => setActiveTab('templates')}
           >
-            Templates
+            {t('nav.templates', 'Biểu Mẫu Chuẩn')}
           </button>
           {profile?.semester === '8' && (
             <button
               className={`tab ${activeTab === 'external' ? 'active' : ''}`}
               onClick={() => setActiveTab('external')}
             >
-              External Evaluation
+              {t('nav.externalManagement', 'Hội Đồng & Chấm Phản Biện')}
             </button>
           )}
         </div>
@@ -315,14 +320,33 @@ const StudentDashboard: React.FC = () => {
         <div className="tab-content">
           {activeTab === 'overview' && (
             <>
+              {/* UTC FYP Progress Timeline */}
+              <UTCFypTimeline currentStep={profile?.groupmate_id ? 3 : 1} />
+
               <div className="card">
-                <h2>Profile Information</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h2 style={{ margin: 0 }}>{t('profile.title', 'Thông Tin Cá Nhân & Hồ Sơ UTC')}</h2>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => setShowUTCSheet(true)}
+                    style={{
+                      borderColor: '#003366',
+                      color: '#003366',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    🎓 {t('dashboard.printUTCSheet', 'In Biên Bản / Phiếu Chấm UTC')}
+                  </button>
+                </div>
                 <div className="profile-info">
-                  <p><strong>Registration Number:</strong> {profile?.registration_no}</p>
-                  <p><strong>Department:</strong> {profile?.department || 'N/A'}</p>
-                  <p><strong>Semester:</strong> {profile?.semester || 'N/A'}</p>
-                  <p><strong>Batch:</strong> {profile?.batch_no || 'N/A'}</p>
-                  <p><strong>Group Status:</strong> {profile?.groupmate_id ? 'In Group' : 'No Group'}</p>
+                  <p><strong>{t('profile.regNo', 'Mã Số Sinh Viên')}:</strong> {profile?.registration_no}</p>
+                  <p><strong>{t('profile.department', 'Khoa / Ngành Đào Tạo')}:</strong> {profile?.department || 'N/A'}</p>
+                  <p><strong>{t('profile.semester', 'Học Kỳ Hiện Tại')}:</strong> {profile?.semester || 'N/A'}</p>
+                  <p><strong>{t('profile.batch', 'Khóa Học')}:</strong> {profile?.batch_no || 'N/A'}</p>
+                  <p><strong>{t('profile.groupStatus', 'Trạng Thái Nhóm')}:</strong> {profile?.groupmate_id ? t('profile.inGroup', 'Đã Có Nhóm') : t('profile.noGroup', 'Chưa Có Nhóm')}</p>
                 </div>
               </div>
 
@@ -734,6 +758,26 @@ const StudentDashboard: React.FC = () => {
           initialProject={selectedProjectForSupervisor}
         />
       )}
+
+      <UTCEvaluationSheetModal
+        isOpen={showUTCSheet}
+        onClose={() => setShowUTCSheet(false)}
+        groupData={{
+          groupId: profile?.id || 1,
+          projectTitle: projects[0]?.project_name || 'Hệ thống Quản lý Đồ án Smart FYP UTC',
+          facultyDepartment: profile?.department || 'Khoa Công nghệ Thông tin - UTC',
+          student1Name: profile?.user?.username || 'Sinh viên UTC',
+          student1RegNo: profile?.registration_no || '201200101',
+          student2Name: profile?.groupmate_id ? 'Sinh viên 2 (Nhóm UTC)' : undefined,
+          student2RegNo: profile?.groupmate_id ? '201200102' : undefined,
+          supervisorName: 'TS. Nguyễn Văn Minh',
+          reviewerName: 'PGS.TS. Trần Thị Mai',
+          committeeName: 'PGS.TS. Nguyễn Đức Thắng',
+          supervisorScore: 8.5,
+          reviewerScore: 8.0,
+          committeeScore: 8.8,
+        }}
+      />
     </div>
   );
 };

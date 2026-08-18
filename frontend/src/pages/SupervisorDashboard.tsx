@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
 import type { Supervisor, SupervisorOfStudentGroup } from '../types';
 import Navbar from '../components/Navbar';
@@ -11,6 +12,8 @@ import SupervisorRequestsList from '../components/SupervisorRequestsList';
 import CommentsSection from '../components/CommentsSection';
 import SupervisorAnalytics from '../components/SupervisorAnalytics';
 import AuditLogViewer from '../components/AuditLogViewer';
+import UTCFypTimeline from '../components/UTCFypTimeline';
+import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { SkeletonProfile, SkeletonEvaluationGrid } from '../components/SkeletonLoader';
 import './Dashboard.css';
 import '../components/EvaluationForm.css';
@@ -19,6 +22,7 @@ import '../components/SkeletonLoader.css';
 import '../components/CommentsSection.css';
 
 const SupervisorDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const supervisor = user as Supervisor;
   const [activeTab, setActiveTab] = useState('overview');
@@ -27,6 +31,7 @@ const SupervisorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState<SupervisorOfStudentGroup | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showUTCSheet, setShowUTCSheet] = useState(false);
   
   // Profile edit state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -161,15 +166,10 @@ const SupervisorDashboard: React.FC = () => {
     return (
       <div>
         <Navbar user={supervisor} onLogout={logout} />
-        <div className="container">
-          <div className="dashboard-header">
-            <div>
-              <h1>Supervisor Dashboard</h1>
-              <p>Loading your dashboard...</p>
-            </div>
-          </div>
-          <div className="card">
-            <SkeletonProfile />
+        <div className="container" style={{ paddingTop: '30px' }}>
+          <SkeletonProfile />
+          <div style={{ marginTop: '30px' }}>
+            <SkeletonEvaluationGrid count={3} />
           </div>
         </div>
       </div>
@@ -182,8 +182,8 @@ const SupervisorDashboard: React.FC = () => {
       <div className="container">
         <div className="dashboard-header">
           <div>
-            <h1>Supervisor Dashboard</h1>
-            <p>Welcome, {supervisor?.user?.username}</p>
+            <h1>{t('dashboard.supervisorTitle', 'Bảng Điều Khiển Giảng Viên Hướng Dẫn')}</h1>
+            <p>{t('dashboard.welcome', 'Xin chào')}, {supervisor?.user?.username}</p>
           </div>
           <button
             className="btn btn-primary"
@@ -194,11 +194,11 @@ const SupervisorDashboard: React.FC = () => {
             {exporting ? (
               <>
                 <span className="spinner-small"></span>
-                Exporting...
+                {t('common.loading', 'Đang tải...')}
               </>
             ) : (
               <>
-                📊 Export Report
+                📊 {t('actions.exportReport', 'Xuất Báo Cáo Excel UTC')}
               </>
             )}
           </button>
@@ -209,65 +209,83 @@ const SupervisorDashboard: React.FC = () => {
             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
-            Overview
+            {t('nav.overview', 'Tổng Quan')}
           </button>
           <button
             className={`tab ${activeTab === 'requests' ? 'active' : ''}`}
             onClick={() => setActiveTab('requests')}
           >
-            Student Requests
+            {t('nav.requests', 'Yêu Cầu Từ Sinh Viên')}
           </button>
           <button
             className={`tab ${activeTab === 'groups' ? 'active' : ''}`}
             onClick={() => setActiveTab('groups')}
           >
-            My Groups
+            {t('nav.groups', 'Nhóm Đồ Án Hướng Dẫn')}
           </button>
           <button
             className={`tab ${activeTab === 'documents' ? 'active' : ''}`}
             onClick={() => setActiveTab('documents')}
           >
-            Documents
+            {t('nav.documents', 'Tài Liệu Đồ Án')}
           </button>
           <button
             className={`tab ${activeTab === 'evaluations' ? 'active' : ''}`}
             onClick={() => setActiveTab('evaluations')}
           >
-            Evaluations
+            {t('nav.evaluations', 'Đánh Giá & Chấm Điểm')}
           </button>
           <button
             className={`tab ${activeTab === 'chat' ? 'active' : ''}`}
             onClick={() => setActiveTab('chat')}
           >
-            Chat
+            {t('nav.chat', 'Trao Đổi & Thảo Luận')}
           </button>
           <button
             className={`tab ${activeTab === 'audit' ? 'active' : ''}`}
             onClick={() => setActiveTab('audit')}
           >
-            Audit Logs
+            {t('nav.auditLogs', 'Nhật Ký Hệ Thống')}
           </button>
         </div>
 
         <div className="tab-content">
           {activeTab === 'overview' && (
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ margin: 0 }}>Profile Information</h2>
-                <button className="btn btn-secondary" onClick={handleEditProfile}>
-                  ✏️ Edit Profile
-                </button>
-              </div>
-              <div className="profile-info">
-                <p><strong>Supervisor ID:</strong> {profile?.supervisor_id}</p>
-                <p><strong>Research Interest:</strong> {profile?.research_interest || 'N/A'}</p>
-                <p><strong>Academic Background:</strong> {profile?.academic_background || 'N/A'}</p>
+            <>
+              <UTCFypTimeline currentStep={3} />
+
+              <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h2 style={{ margin: 0 }}>{t('profile.title', 'Thông Tin Cá Nhân & Hồ Sơ UTC')}</h2>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => setShowUTCSheet(true)}
+                      style={{
+                        borderColor: '#003366',
+                        color: '#003366',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      🎓 {t('dashboard.printUTCSheet', 'In Biên Bản / Phiếu Chấm UTC')}
+                    </button>
+                    <button className="btn btn-secondary" onClick={handleEditProfile}>
+                      ✏️ {t('profile.editProfile', 'Chỉnh Sửa Hồ Sơ')}
+                    </button>
+                  </div>
+                </div>
+                <div className="profile-info">
+                  <p><strong>{t('profile.supervisorId', 'Mã Số Giảng Viên')}:</strong> {profile?.supervisor_id}</p>
+                  <p><strong>{t('profile.researchInterest', 'Hướng Nghiên Cứu')}:</strong> {profile?.research_interest || 'N/A'}</p>
+                  <p><strong>{t('profile.academicBackground', 'Học Hàm / Học Vị')}:</strong> {profile?.academic_background || 'N/A'}</p>
+                </div>
               </div>
 
-              {/* Analytics Section */}
               <SupervisorAnalytics />
 
-              {/* Profile Edit Modal */}
               {isEditingProfile && (
                 <div className="modal-overlay" onClick={handleCancelEdit}>
                   <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
@@ -359,7 +377,7 @@ const SupervisorDashboard: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {activeTab === 'requests' && (
@@ -487,6 +505,26 @@ const SupervisorDashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      <UTCEvaluationSheetModal
+        isOpen={showUTCSheet}
+        onClose={() => setShowUTCSheet(false)}
+        groupData={{
+          groupId: selectedGroup?.id || 1,
+          projectTitle: selectedGroup?.project?.project_name || 'Hệ thống Quản lý Đồ án Smart FYP UTC',
+          facultyDepartment: 'Khoa Công nghệ Thông tin - UTC',
+          student1Name: selectedGroup?.group?.student_1_details?.user?.username || 'Sinh viên 1 (UTC)',
+          student1RegNo: selectedGroup?.group?.student_1_details?.registration_no || '201200101',
+          student2Name: selectedGroup?.group?.student_2_details?.user?.username || 'Sinh viên 2 (UTC)',
+          student2RegNo: selectedGroup?.group?.student_2_details?.registration_no || '201200102',
+          supervisorName: supervisor?.user?.first_name ? `${supervisor.user.first_name} ${supervisor.user.last_name}` : 'TS. Nguyễn Văn Minh',
+          reviewerName: 'PGS.TS. Trần Thị Mai',
+          committeeName: 'PGS.TS. Nguyễn Đức Thắng',
+          supervisorScore: 8.8,
+          reviewerScore: 8.2,
+          committeeScore: 8.5,
+        }}
+      />
     </div>
   );
 };

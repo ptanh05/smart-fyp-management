@@ -19,8 +19,9 @@
 
 .navbar-brand {
   font-size: 20px;
-  font-weight: 600;
-  color: #333;
+  font-weight: 700;
+  color: #003366;
+  letter-spacing: -0.2px;
 }
 
 .navbar-brand-full {
