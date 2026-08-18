@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "dashboard": "Bảng Điều Khiển",
+    "overview": "Tổng Quan",
+    "groups": "Nhóm Đồ Án",
+    "evaluations": "Đánh Giá",
+    "schedule": "Lịch Bảo Vệ",
+    "documents": "Tài Liệu",
+    "templates": "Biểu Mẫu",
+    "analytics": "Phân Tích Báo Cáo",
+    "auditLogs": "Nhật Ký Hệ Thống",
+    "externalManagement": "Chấm Điểm Bên Ngoài",
+    "logout": "Đăng Xuất"
+  },
+  "roles": {
+    "admin": "Quản Trị Viên",
+    "student": "Sinh Viên",
+    "supervisor": "Giảng Viên Hướng Dẫn",
+    "committee_member": "Thành Viên Hội Đồng",
+    "external_examiner": "Cán Bộ Chấm Ngoài"
+  },
+  "login": {
+    "title": "Quản Lý Đồ Án Tốt Nghiệp",
+    "subtitle": "Hệ Thống Quản Lý Vòng Đời Đồ Án Tốt Nghiệp",
+    "selectRole": "Chọn Vai Trò Đăng Nhập",
+    "username": "Tên Đăng Nhập",
+    "password": "Mật Khẩu",
+    "usernamePlaceholder": "Nhập tên đăng nhập của bạn",
+    "passwordPlaceholder": "Nhập mật khẩu của bạn",
+    "submit": "Đăng Nhập",
+    "loggingIn": "Đang đăng nhập...",
+    "loginFailed": "Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản."
+  },
+  "common": {
+    "loading": "Đang tải...",
+    "refresh": "Làm Mới",
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "submit": "Gửi",
+    "close": "Đóng",
+    "delete": "Xóa",
+    "export": "Xuất Báo Cáo",
+    "preview": "Xem Trước",
+    "download": "Tải Về",
+    "status": "Trạng Thái",
+    "actions": "Thao Tác",
+    "search": "Tìm kiếm...",
+    "filter": "Lọc",
+    "all": "Tất cả",
+    "yes": "Có",
+    "no": "Không",
+    "pass": "ĐẠT",
+    "fail": "KHÔNG ĐẠT",
+    "pending": "Chờ Duyệt",
+    "approved": "Đã Phê Duyệt",
+    "rejected": "Bị Từ Chối"
+  },
+  "actions": {
+    "exportReport": "Xuất Bảng Điểm Tổng Hợp",
+    "previewDoc": "Xem Trước Tài Liệu",
+    "downloadDoc": "Tải Tài Liệu Về",
+    "approveDoc": "Phê Duyệt Tài Liệu",
+    "rejectDoc": "Từ Chối Tài Liệu"
+  }
+}

@@ -1076,6 +1076,8 @@ class ExternalGroup(models.Model):
     @property
     def assigned_count(self):
         """Number of student groups currently assigned."""
+        if hasattr(self, '_state') and 'assignments' in getattr(self._state, 'prefetch_cache', {}):
+            return len(self.assignments.all())
         return self.assignments.count()
     
     @property

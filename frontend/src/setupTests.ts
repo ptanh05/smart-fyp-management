@@ -3,6 +3,7 @@
  * This file is loaded before each test file runs
  */
 
+import { beforeAll, afterAll } from 'vitest';
 import '@testing-library/jest-dom';
 
 // Mock window.matchMedia for responsive component tests

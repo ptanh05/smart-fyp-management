@@ -945,14 +945,12 @@ After running `python manage.py seed_database`:
 
 For issues or questions:
 - Create an issue on the repository
-- Contact: Muhammad Tanveer (taneerdaha93@gmail.com)
-- Supervisor: Qaizar Javed
 
 ---
 
 ## License
 
-This project is developed as part of the Final Year Project at COMSATS University Islamabad, Vehari Campus.
+This project is developed as part of the Final Year Project.
 
 **Version:** 1.0  
-**Last Updated:** January 2026
+

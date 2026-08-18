@@ -40,6 +40,7 @@ from .views import (
     ChatRoomAPIView,
     GetGroupRequestView,
     ExportReportAPIView,
+    ConsolidatedEvaluationExportAPIView,
     ProjectDeleteAPIView,
     DocumentDeleteAPIView,
     DocumentSubmitToCommitteeAPIView,
@@ -247,6 +248,7 @@ urlpatterns = [
     ),
     path("chatroom/", ChatRoomAPIView.as_view(), name="chatroom-detail"),
     path("export/report/", ExportReportAPIView.as_view(), name="export-report"),
+    path("export/consolidated-report/", ConsolidatedEvaluationExportAPIView.as_view(), name="export-consolidated-report"),
     # Delete endpoints
     path(
         "projects/list/<int:pk>/",

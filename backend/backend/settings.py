@@ -16,6 +16,7 @@ from typing import List, Optional
 import environ
 import os
 from dotenv import load_dotenv
+import dj_database_url
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -112,18 +113,35 @@ TEMPLATES = [
 WSGI_APPLICATION = "backend.wsgi.application"
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+import sys
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-        "OPTIONS": {
-            "timeout": 20,  # Wait up to 20 seconds for database lock to clear
-        },
+if 'test' in sys.argv or 'pytest' in sys.argv[0]:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
     }
-}
+else:
+    db_url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASES")
+    if db_url and ("postgres" in db_url or "postgresql" in db_url):
+        DATABASES = {
+            "default": dj_database_url.config(
+                default=db_url,
+                conn_max_age=600,
+                ssl_require=True
+            )
+        }
+    else:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": BASE_DIR / "db.sqlite3",
+                "OPTIONS": {
+                    "timeout": 20,  # Wait up to 20 seconds for database lock to clear
+                },
+            }
+        }
 
 
 # Password validation

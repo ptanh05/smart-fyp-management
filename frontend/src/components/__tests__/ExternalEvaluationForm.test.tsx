@@ -57,7 +57,7 @@ describe('ExternalEvaluationForm', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(apiService.getExternalGroups).mockResolvedValue({ results: [mockGroup] as any });
+    vi.mocked(apiService.getExternalGroups).mockResolvedValue({ count: 1, next: null, previous: null, results: [mockGroup] as any });
     vi.mocked(apiService.getExternalGroup).mockResolvedValue(mockGroup as any);
   });
 
@@ -175,8 +175,6 @@ describe('ExternalEvaluationForm', () => {
     });
 
     it('shows section marks correctly', async () => {
-      const user = userEvent.setup();
-      
       render(
         <ExternalEvaluationForm
           assignmentId={1}
@@ -230,7 +228,7 @@ describe('ExternalEvaluationForm', () => {
       expect(mockOnCancel).toHaveBeenCalled();
     });
 
-    it('updates comment fields when typed', async () => {
+    it('updates general comments field', async () => {
       const user = userEvent.setup();
       
       render(
@@ -244,7 +242,7 @@ describe('ExternalEvaluationForm', () => {
       await waitFor(() => {
         expect(screen.getByLabelText(/Overall Comment/i)).toBeInTheDocument();
       });
-      
+
       const commentField = screen.getByLabelText(/Overall Comment/i);
       await user.type(commentField, 'Great work!');
       
@@ -257,10 +255,10 @@ describe('ExternalEvaluationForm', () => {
       vi.mocked(apiService.createExternalEvaluation).mockResolvedValue({
         id: 1,
         total_marks: 75,
-      });
+      } as any);
       
       // Mock window.alert
-      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+      vi.spyOn(window, 'alert').mockImplementation(() => {});
       
       render(
         <ExternalEvaluationForm
@@ -312,9 +310,9 @@ describe('ExternalEvaluationForm', () => {
       vi.mocked(apiService.updateExternalEvaluation).mockResolvedValue({
         id: 1,
         total_marks: 80,
-      });
+      } as any);
       
-      const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+      vi.spyOn(window, 'alert').mockImplementation(() => {});
       
       const existingEvaluation = {
         id: 1,
@@ -362,8 +360,6 @@ describe('ExternalEvaluationForm', () => {
         expect(apiService.updateExternalEvaluation).toHaveBeenCalledWith(1, expect.any(Object));
         expect(mockOnComplete).toHaveBeenCalled();
       });
-      
-      alertSpy.mockRestore();
     });
   });
 

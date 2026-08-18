@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/api';
 import type { EvaluationSchedule } from '../types';
-import { getCalendarDays, formatTime as formatTimeUtil } from '../utils/dateUtils';
+import { getCalendarDays } from '../utils/dateUtils';
 import ErrorMessage from './ErrorMessage';
 import './ExternalScheduleView.css';
 

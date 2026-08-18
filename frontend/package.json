@@ -25,10 +25,13 @@
     "test:e2e:perf-report": "playwright test e2e/performance/ --reporter=html && playwright show-report"
   },
   "dependencies": {
+    "axios": "^1.7.7",
+    "i18next": "^26.3.6",
+    "i18next-browser-languagedetector": "^8.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.0",
-    "axios": "^1.7.7"
+    "react-i18next": "^17.0.11",
+    "react-router-dom": "^6.26.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.41.2",

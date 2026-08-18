@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import type { 
-  ExternalExaminer, 
   ExternalDashboardData, 
   ExternalGroup,
-  ExternalGroupAssignment,
-  EvaluationSchedule
+  ExternalGroupAssignment
 } from '../types';
 import Navbar from '../components/Navbar';
 import { SkeletonProfile, SkeletonCardGrid } from '../components/SkeletonLoader';

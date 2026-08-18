@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Student, Supervisor, CommitteeMember } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
 import './Navbar.css';
@@ -12,10 +13,16 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
+  const { t, i18n } = useTranslation();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { toggleTheme, isDark } = useTheme();
   const navigate = useNavigate();
+
+  const toggleLanguage = () => {
+    const nextLng = i18n.language.startsWith('vi') ? 'en' : 'vi';
+    i18n.changeLanguage(nextLng);
+  };
 
   const handleNotificationNavigate = (url: string) => {
     // Parse the URL and navigate with query params
@@ -114,8 +121,16 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
           <div className="navbar-actions navbar-desktop">
             <NotificationDropdown onNavigate={handleNotificationNavigate} />
             <span className="user-info">
-              {user.user.username} ({getUserTypeLabel(user.user.user_type)})
+              {user.user.username} ({t(`roles.${user.user.user_type}`, { defaultValue: getUserTypeLabel(user.user.user_type) })})
             </span>
+            <button
+              className="btn btn-lang-toggle"
+              onClick={toggleLanguage}
+              title="Switch Language"
+              style={{ padding: '6px 12px', fontWeight: 600, fontSize: '0.85rem' }}
+            >
+              {i18n.language.startsWith('vi') ? '🇻🇳 VI' : '🇬🇧 EN'}
+            </button>
             <button
               className="btn btn-theme-toggle"
               onClick={toggleTheme}
@@ -132,7 +147,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               Change Password
             </button>
             <button className="btn btn-secondary" onClick={onLogout}>
-              Logout
+              {t('nav.logout', 'Sign Out')}
             </button>
           </div>
 

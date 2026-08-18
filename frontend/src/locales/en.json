@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "overview": "Overview",
+    "groups": "Groups",
+    "evaluations": "Evaluations",
+    "schedule": "Schedule",
+    "documents": "Documents",
+    "templates": "Templates",
+    "analytics": "Analytics",
+    "auditLogs": "Audit Logs",
+    "externalManagement": "External Examiners",
+    "logout": "Sign Out"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "student": "Student",
+    "supervisor": "Supervisor",
+    "committee_member": "Committee Member",
+    "external_examiner": "External Examiner"
+  },
+  "login": {
+    "title": "Smart FYP Management",
+    "subtitle": "Final Year Project Lifecycle System",
+    "selectRole": "Select Your Role",
+    "username": "Username",
+    "password": "Password",
+    "usernamePlaceholder": "Enter your username",
+    "passwordPlaceholder": "Enter your password",
+    "submit": "Sign In",
+    "loggingIn": "Signing in...",
+    "loginFailed": "Login failed. Please check your credentials."
+  },
+  "common": {
+    "loading": "Loading...",
+    "refresh": "Refresh",
+    "cancel": "Cancel",
+    "save": "Save",
+    "submit": "Submit",
+    "close": "Close",
+    "delete": "Delete",
+    "export": "Export",
+    "preview": "Preview",
+    "download": "Download",
+    "status": "Status",
+    "actions": "Actions",
+    "search": "Search...",
+    "filter": "Filter",
+    "all": "All",
+    "yes": "Yes",
+    "no": "No",
+    "pass": "PASS",
+    "fail": "FAIL",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected"
+  },
+  "actions": {
+    "exportReport": "Export Grade Report",
+    "previewDoc": "Preview Document",
+    "downloadDoc": "Download Document",
+    "approveDoc": "Approve Document",
+    "rejectDoc": "Reject Document"
+  }
+}

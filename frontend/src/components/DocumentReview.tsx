@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import type { Document, SupervisorOfStudentGroup } from '../types';
+import DocumentViewerModal from './DocumentViewerModal';
 import './DocumentReview.css';
 
 interface DocumentReviewProps {
@@ -33,6 +34,7 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [downloading, setDownloading] = useState<number | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string; type: string } | null>(null);
 
   useEffect(() => {
     loadDocuments();
@@ -354,6 +356,22 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
             </div>
 
             <div className="modal-footer">
+              {selectedDocument.uploaded_file && (
+                <button
+                  className="btn"
+                  style={{ backgroundColor: '#6366f1', color: 'white' }}
+                  onClick={() =>
+                    setPreviewDoc({
+                      url: selectedDocument.uploaded_file || '',
+                      title: selectedDocument.title,
+                      type: selectedDocument.document_type,
+                    })
+                  }
+                >
+                  👁️ Preview Document
+                </button>
+              )}
+
               <button
                 className="btn btn-secondary"
                 onClick={() => handleDownload(selectedDocument)}
@@ -387,6 +405,16 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {previewDoc && (
+        <DocumentViewerModal
+          isOpen={!!previewDoc}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc.title}
+          documentUrl={previewDoc.url}
+          documentType={previewDoc.type}
+        />
       )}
     </div>
   );

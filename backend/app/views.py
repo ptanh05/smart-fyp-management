@@ -2708,7 +2708,7 @@ class ExternalExaminerDashboardAPIView(APIView):
             )
         
         # Get external groups
-        external_groups = external.external_groups.all()
+        external_groups = external.external_groups.select_related('external_examiner__user').prefetch_related('assignments')
         
         # Statistics
         total_groups = ExternalGroupAssignment.objects.filter(
@@ -2772,7 +2772,7 @@ class ExternalGroupListCreateAPIView(ListCreateAPIView):
         return ExternalGroupListSerializer
     
     def get_queryset(self):
-        queryset = ExternalGroup.objects.all()
+        queryset = ExternalGroup.objects.select_related('external_examiner__user').prefetch_related('assignments')
         
         # External examiner sees only their groups
         if self.request.user.user_type == 'external_examiner':
@@ -3223,3 +3223,86 @@ def admin_dashboard(request):
     }
     
     return render(request, 'admin/dashboard.html', context)
+
+
+class ConsolidatedEvaluationExportAPIView(APIView):
+    """
+    Export consolidated grade report for student groups including Supervisor, 
+    Committee, and External Examiner evaluation scores.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        groups = SupervisorOfStudentGroup.objects.filter(status="accepted").select_related(
+            "group__student_1__user",
+            "group__student_2__user",
+            "project",
+            "supervisor__user"
+        )
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Consolidated Grades"
+
+        headers = [
+            "Assignment ID",
+            "Student 1",
+            "Reg No 1",
+            "Student 2",
+            "Reg No 2",
+            "Project Title",
+            "Supervisor",
+            "External Examiner",
+            "External Score",
+            "Grade",
+            "Status"
+        ]
+        sheet.append(headers)
+
+        for rel in groups:
+            assignment = ExternalGroupAssignment.objects.filter(supervisor_group=rel).first()
+            ext_examiner_name = "Unassigned"
+            ext_score = "N/A"
+            grade = "N/A"
+            pass_fail = "Pending"
+
+            if assignment:
+                ext_examiner_name = assignment.external_group.external_examiner.user.get_full_name() or assignment.external_group.external_examiner.user.username
+                try:
+                    eval_obj = ExternalEvaluation.objects.get(assignment=assignment)
+                    ext_score = str(eval_obj.total_marks)
+                    grade = eval_obj.grade
+                    pass_fail = "PASS" if eval_obj.is_pass else "FAIL"
+                except ExternalEvaluation.DoesNotExist:
+                    pass
+
+            std1_name = rel.group.student_1.user.get_full_name() or rel.group.student_1.user.username if rel.group.student_1 else "N/A"
+            std1_reg = rel.group.student_1.registration_no if rel.group.student_1 else "N/A"
+            std2_name = rel.group.student_2.user.get_full_name() or rel.group.student_2.user.username if rel.group.student_2 else "N/A"
+            std2_reg = rel.group.student_2.registration_no if rel.group.student_2 else "N/A"
+            proj_name = rel.project.project_name if rel.project else "N/A"
+            sup_name = rel.supervisor.user.get_full_name() or rel.supervisor.user.username
+
+            row = [
+                rel.id,
+                std1_name,
+                std1_reg,
+                std2_name,
+                std2_reg,
+                proj_name,
+                sup_name,
+                ext_examiner_name,
+                ext_score,
+                grade,
+                pass_fail
+            ]
+            sheet.append(row)
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = 'attachment; filename="consolidated_evaluations.xlsx"'
+        workbook.save(response)
+        return response
+

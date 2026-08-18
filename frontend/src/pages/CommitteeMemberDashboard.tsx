@@ -62,6 +62,15 @@ const CommitteeMemberDashboard: React.FC = () => {
     }
   };
 
+  const handleExportConsolidatedReport = async () => {
+    try {
+      await apiService.downloadConsolidatedReport();
+    } catch (err) {
+      console.error('Failed to download report:', err);
+      alert('Failed to download report. Please try again.');
+    }
+  };
+
   if (loading || !committeeMember) {
     return (
       <div>
@@ -209,9 +218,14 @@ const CommitteeMemberDashboard: React.FC = () => {
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h2>Groups in My Panel</h2>
-                <button className="btn btn-secondary" onClick={loadPanelGroups} disabled={groupsLoading}>
-                  {groupsLoading ? 'Loading...' : 'Refresh'}
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button className="btn btn-primary" onClick={handleExportConsolidatedReport}>
+                    📊 Export Grade Report
+                  </button>
+                  <button className="btn btn-secondary" onClick={loadPanelGroups} disabled={groupsLoading}>
+                    {groupsLoading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
               </div>
               <p style={{ color: '#666', marginBottom: '20px' }}>
                 These are the student groups assigned to your panel for evaluation. 

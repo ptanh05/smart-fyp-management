@@ -849,6 +849,20 @@ class ApiService {
     await this.api.delete(`/schedules/${id}/`);
   }
 
+  // Consolidated Report Export
+  async downloadConsolidatedReport(): Promise<void> {
+    const response = await this.api.get('/export/consolidated-report/', {
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'consolidated_evaluations.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
   // Utility
   logout() {
     localStorage.removeItem('access_token');

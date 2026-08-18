@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ExternalScheduleView from '../ExternalScheduleView';
 import { apiService } from '../../services/api';
@@ -52,6 +52,9 @@ describe('ExternalScheduleView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(apiService.getEvaluationSchedules).mockResolvedValue({
+      count: 2,
+      next: null,
+      previous: null,
       results: mockSchedules,
     });
   });
@@ -245,6 +248,9 @@ describe('ExternalScheduleView', () => {
   describe('Empty State', () => {
     it('shows empty message when no schedules', async () => {
       vi.mocked(apiService.getEvaluationSchedules).mockResolvedValue({
+        count: 0,
+        next: null,
+        previous: null,
         results: [],
       });
       
