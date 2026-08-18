@@ -7,6 +7,11 @@ from .views import (
     ChangePasswordView,
     PasswordResetRequestView,
     PasswordResetConfirmView,
+    CookieTokenRefreshAPIView,
+    CookieLogoutAPIView,
+    WebSocketTicketAPIView,
+    AdminUserManagementAPIView,
+    AdminSecurityCenterAPIView,
     ProjectCategoriesView,
     ProjectAPIVIEW,
     SupervisorStudentCommentsAPIView,
@@ -83,8 +88,15 @@ from .views import (
 
 
 urlpatterns = [
-    # Admin Dashboard (staff only)
+    # Admin Dashboard & Management (staff/admin only)
     path("admin/dashboard/", admin_dashboard, name="admin-dashboard"),
+    path("admin/users/", AdminUserManagementAPIView.as_view(), name="admin-users-list"),
+    path("admin/users/<int:pk>/", AdminUserManagementAPIView.as_view(), name="admin-user-detail"),
+    path("admin/security-center/", AdminSecurityCenterAPIView.as_view(), name="admin-security-center"),
+    # Authentication & Tokens
+    path("token/refresh/", CookieTokenRefreshAPIView.as_view(), name="token-refresh"),
+    path("token/logout/", CookieLogoutAPIView.as_view(), name="token-logout"),
+    path("ws-ticket/", WebSocketTicketAPIView.as_view(), name="ws-ticket"),
     path("student/login/", StudentLoginView.as_view(), name="student-login"),
     path("student/profile/", StudentProfileView.as_view(), name="student-profile"),
     path(

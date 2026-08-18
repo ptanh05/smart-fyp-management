@@ -29,14 +29,21 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Get WebSocket URL
-  const getWebSocketUrl = useCallback(() => {
-    const token = localStorage.getItem('accessToken');
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use the backend host - adjust this based on your setup
-    const host = import.meta.env.VITE_WS_HOST || window.location.hostname;
-    const port = import.meta.env.VITE_WS_PORT || '8000';
-    return `${protocol}//${host}:${port}/ws/chat/${groupId}/?token=${token}`;
+  // Get WebSocket URL using one-time ticket
+  const getWebSocketUrl = useCallback(async () => {
+    try {
+      const { ticket } = await apiService.getWebSocketTicket(groupId);
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = import.meta.env.VITE_WS_HOST || window.location.hostname;
+      const port = import.meta.env.VITE_WS_PORT || '8000';
+      return `${protocol}//${host}:${port}/ws/chat/${groupId}/?ticket=${ticket}`;
+    } catch (err) {
+      console.error('Failed to obtain WebSocket ticket:', err);
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = import.meta.env.VITE_WS_HOST || window.location.hostname;
+      const port = import.meta.env.VITE_WS_PORT || '8000';
+      return `${protocol}//${host}:${port}/ws/chat/${groupId}/`;
+    }
   }, [groupId]);
 
   // Check if message was sent by current user
@@ -72,7 +79,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
   }, []);
 
   // Connect to WebSocket
-  const connectWebSocket = useCallback(() => {
+  const connectWebSocket = useCallback(async () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
@@ -81,7 +88,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
     stopPolling();
 
     try {
-      const ws = new WebSocket(getWebSocketUrl());
+      const url = await getWebSocketUrl();
+      const ws = new WebSocket(url);
       wsRef.current = ws;
 
       ws.onopen = () => {

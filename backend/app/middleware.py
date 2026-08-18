@@ -32,16 +32,33 @@ def get_user_from_token(token_str):
         return AnonymousUser()
 
 
+@database_sync_to_async
+def get_user_from_ticket(ticket_str):
+    """
+    Validate one-time WebSocket ticket from cache, consume it (single-use),
+    and return the associated user and bound group_id.
+    """
+    from django.core.cache import cache
+    ticket_key = f"ws_ticket_{ticket_str}"
+    ticket_data = cache.get(ticket_key)
+    if not ticket_data:
+        return AnonymousUser(), None
+    
+    # Single-use enforcement: immediately consume and delete ticket
+    cache.delete(ticket_key)
+    user_id = ticket_data.get("user_id")
+    group_id = ticket_data.get("group_id")
+    try:
+        user = CustomUser.objects.get(id=user_id)
+        return user, group_id
+    except CustomUser.DoesNotExist:
+        return AnonymousUser(), None
+
+
 class JWTAuthMiddleware(BaseMiddleware):
     """
-    Custom middleware that authenticates WebSocket connections using JWT tokens.
-    
-    The token can be passed via:
-    1. Query string: ws://host/ws/chat/?token=<jwt_token>
-    2. Subprotocol: Not implemented (less common)
-    
-    Usage in frontend:
-        const socket = new WebSocket(`ws://host/ws/chat/123/?token=${accessToken}`);
+    Custom middleware that authenticates WebSocket connections using short-lived 
+    one-time tickets or JWT tokens.
     """
     
     async def __call__(self, scope, receive, send):
@@ -49,15 +66,19 @@ class JWTAuthMiddleware(BaseMiddleware):
         query_string = scope.get("query_string", b"").decode()
         query_params = parse_qs(query_string)
         
-        # Extract token from query parameters
+        ticket_list = query_params.get("ticket", [])
+        ticket = ticket_list[0] if ticket_list else None
+        
         token_list = query_params.get("token", [])
         token = token_list[0] if token_list else None
         
-        if token:
-            # Authenticate with JWT token
+        if ticket:
+            user, ticket_group_id = await get_user_from_ticket(ticket)
+            scope["user"] = user
+            scope["ticket_group_id"] = ticket_group_id
+        elif token:
             scope["user"] = await get_user_from_token(token)
         else:
-            # No token provided
             scope["user"] = AnonymousUser()
         
         return await super().__call__(scope, receive, send)

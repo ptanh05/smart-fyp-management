@@ -18,11 +18,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [userType, setUserType] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const login = (token: string, refreshToken: string, type: UserType) => {
+  const login = (token: string, refreshTokenOrType: string | UserType, type?: UserType) => {
+    const actualUserType = (type ? type : refreshTokenOrType) as UserType;
     localStorage.setItem('access_token', token);
-    localStorage.setItem('refresh_token', refreshToken);
-    localStorage.setItem('user_type', type);
-    setUserType(type);
+    localStorage.removeItem('refresh_token');
+    localStorage.setItem('user_type', actualUserType);
+    setUserType(actualUserType);
     refreshUser();
   };
 

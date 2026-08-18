@@ -43,6 +43,7 @@ class ApiService {
   constructor() {
     this.api = axios.create({
       baseURL: API_BASE_URL,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -60,7 +61,7 @@ class ApiService {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor to handle token refresh
+    // Response interceptor to handle token refresh via HttpOnly Cookie
     this.api.interceptors.response.use(
       (response) => response,
       async (error) => {
@@ -68,21 +69,15 @@ class ApiService {
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
           try {
-            const refreshToken = localStorage.getItem('refresh_token');
-            if (refreshToken) {
-              // Try to refresh token - adjust endpoint if needed
-              const response = await axios.post(`${API_BASE_URL}/token/refresh/`, {
-                refresh: refreshToken,
-              });
-              const { access } = response.data;
-              localStorage.setItem('access_token', access);
-              if (originalRequest.headers) {
-                originalRequest.headers.Authorization = `Bearer ${access}`;
-              }
-              return this.api(originalRequest);
+            // Send request to refresh token endpoint - HttpOnly cookie attached automatically via withCredentials
+            const response = await axios.post(`${API_BASE_URL}/token/refresh/`, {}, { withCredentials: true });
+            const { access } = response.data;
+            localStorage.setItem('access_token', access);
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${access}`;
             }
+            return this.api(originalRequest);
           } catch (refreshError) {
-            // If refresh fails, logout and redirect
             this.logout();
             window.location.href = '/login';
           }
@@ -127,6 +122,12 @@ class ApiService {
   // Student Profile
   async getStudentProfile(): Promise<Student> {
     const response = await this.api.get<Student>('/student/profile/');
+    return response.data;
+  }
+
+  // WebSocket Ticket
+  async getWebSocketTicket(groupId: number): Promise<{ ticket: string; expires_in: number }> {
+    const response = await this.api.post<{ ticket: string; expires_in: number }>('/ws-ticket/', { group_id: groupId });
     return response.data;
   }
 
@@ -864,10 +865,16 @@ class ApiService {
   }
 
   // Utility
-  logout() {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_type');
+  async logout(): Promise<void> {
+    try {
+      await axios.post(`${API_BASE_URL}/token/logout/`, {}, { withCredentials: true });
+    } catch (e) {
+      // Ignore network errors during logout cleanup
+    } finally {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_type');
+    }
   }
 }
 

@@ -36,12 +36,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.group_id = self.scope["url_route"]["kwargs"]["group_id"]
         self.room_group_name = f"chat_{self.group_id}"
         self.user = self.scope.get("user", AnonymousUser())
+        self.message_history = []
         
         # Check if user is authenticated
         if isinstance(self.user, AnonymousUser) or not self.user.is_authenticated:
             await self.close(code=4001)  # Unauthorized
             return
         
+        # Verify ticket group binding if ticket was used
+        ticket_group_id = self.scope.get("ticket_group_id")
+        if ticket_group_id is not None and str(ticket_group_id) != str(self.group_id):
+            await self.close(code=4003)  # Forbidden - ticket bound to different group
+            return
+
         # Verify user is a member of this group
         is_member = await self.is_group_member()
         if not is_member:
@@ -64,7 +71,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "user_type": self.user.user_type,
         }))
         
-        # Notify others that user joined (optional)
+        # Notify others that user joined
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -73,29 +80,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "user_type": self.user.user_type,
             }
         )
-    
-    async def disconnect(self, close_code):
-        """Handle WebSocket disconnection."""
-        # Leave room group
-        if hasattr(self, 'room_group_name'):
-            # Notify others that user left (optional)
-            if hasattr(self, 'user') and self.user.is_authenticated:
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        "type": "user_leave",
-                        "username": self.user.username,
-                        "user_type": getattr(self.user, 'user_type', 'unknown'),
-                    }
-                )
-            
-            await self.channel_layer.group_discard(
-                self.room_group_name,
-                self.channel_name
-            )
-    
+
+    async def check_rate_limit(self):
+        """Frame-level rate limit: max 10 messages per 5 seconds."""
+        import time
+        now = time.time()
+        self.message_history = [t for t in self.message_history if now - t < 5.0]
+        if len(self.message_history) >= 10:
+            return False
+        self.message_history.append(now)
+        return True
+
     async def receive(self, text_data):
         """Handle incoming WebSocket messages."""
+        if not await self.check_rate_limit():
+            await self.send(text_data=json.dumps({
+                "type": "error",
+                "message": "Rate limit exceeded. Please wait a few seconds before sending more messages."
+            }))
+            return
+
         try:
             data = json.loads(text_data)
             message_type = data.get("type", "chat_message")

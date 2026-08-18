@@ -169,7 +169,7 @@ class ExternalExaminerAPITests(APITestCase):
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('access', response.data)
-        self.assertIn('refresh', response.data)
+        self.assertIn('refresh_token', response.cookies)
     
     def test_external_login_invalid_credentials(self):
         """Test login with invalid credentials."""

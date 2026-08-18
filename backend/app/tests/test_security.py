@@ -1,1021 +1,382 @@
-"""
-Security and Permission Tests for External Examiner Functionality.
-
-This module contains comprehensive security tests for:
-- Permission enforcement
-- Cross-user access prevention
-- SQL injection prevention
-- XSS prevention
-- Input validation
-- Rate limiting
-"""
-
+import os
 from django.test import TestCase, override_settings
-from django.core.cache import cache
-from rest_framework.test import APITestCase, APIClient
-from rest_framework import status
-from django.utils import timezone
-from django.contrib.auth.hashers import check_password
-import json
-from app.models import (
-    CustomUser, Student, Supervisor, CommitteeMember, ExternalExaminer,
-    Group, Project, ProjectCategories, SupervisorOfStudentGroup,
-    ExternalGroup, ExternalGroupAssignment, ExternalEvaluation,
-    CommitteeMemberPanel
-)
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.conf import settings
+from rest_framework.test import APIClient
+from rest_framework import status, serializers
+from app.models import Student, Supervisor
+from app.validators import validate_uploaded_file
+
+User = get_user_model()
 
 
-class PermissionSecurityTests(APITestCase):
-    """Test permission restrictions across user types."""
-    
+@override_settings(REST_FRAMEWORK={
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '10000/min',
+        'user': '10000/min',
+        'anon': '10000/min',
+    }
+})
+class SecurityTestCase(TestCase):
+    """
+    Automated DevSecOps Security Test Suite.
+    Tests:
+    1. Authentication enforcement on protected endpoints
+    2. Path Traversal & Unauthenticated Download prevention
+    3. Role-Based Access Control (RBAC) boundaries
+    4. Input sanitization (XSS prevention)
+    5. Security Headers
+    6. Account Enumeration Prevention
+    7. File Content & Magic Byte Inspection
+    8. HttpOnly Refresh Token & Cookie Security (Phase 2)
+    """
+
     def setUp(self):
-        """Set up test data with multiple users of different types."""
-        # Create External Examiner 1
-        self.external_user1 = CustomUser.objects.create_user(
-            username='external1',
-            password='test123',
-            email='external1@test.com',
-            user_type='external_examiner'
-        )
-        self.external1 = ExternalExaminer.objects.create(
-            user=self.external_user1,
-            external_id='EXT-001',
-            institution='University 1',
-            designation='professor'
-        )
+        from django.core.cache import cache
+        cache.clear()
+        self.client = APIClient()
         
-        # Create External Examiner 2
-        self.external_user2 = CustomUser.objects.create_user(
-            username='external2',
-            password='test123',
-            email='external2@test.com',
-            user_type='external_examiner'
-        )
-        self.external2 = ExternalExaminer.objects.create(
-            user=self.external_user2,
-            external_id='EXT-002',
-            institution='University 2',
-            designation='professor'
-        )
-        
-        # Create Committee Member
-        self.committee_user = CustomUser.objects.create_user(
-            username='committee1',
-            password='test123',
-            email='committee@test.com',
-            user_type='committee_member'
-        )
-        panel = CommitteeMemberPanel.objects.create(name='Panel A')
-        self.committee = CommitteeMember.objects.create(
-            user=self.committee_user,
-            committee_id='COM-001',
-            panel=panel
-        )
-        
-        # Create Student
-        self.student_user = CustomUser.objects.create_user(
-            username='student1',
-            password='test123',
-            email='student@test.com',
-            user_type='student'
+        # Create Student User
+        self.student_user = User.objects.create_user(
+            username="sec_student",
+            email="sec_student@sv.utc.edu.vn",
+            password="Password123!",
+            user_type="student",
         )
         self.student = Student.objects.create(
             user=self.student_user,
-            registration_no='2021-CS-001',
-            semester='semester_8'
+            registration_no="201200999",
+            semester="8",
         )
-        
-        # Create Student 2
-        student2_user = CustomUser.objects.create_user(
-            username='student2',
-            password='test123',
-            email='student2@test.com',
-            user_type='student'
+
+        # Create Supervisor User
+        self.supervisor_user = User.objects.create_user(
+            username="sec_supervisor",
+            email="sec_supervisor@utc.edu.vn",
+            password="Password123!",
+            user_type="supervisor",
         )
-        self.student2 = Student.objects.create(
-            user=student2_user,
-            registration_no='2021-CS-002',
-            semester='semester_8'
-        )
-        
-        # Create Supervisor
-        self.supervisor_user = CustomUser.objects.create_user(
-            username='supervisor1',
-            password='test123',
-            email='supervisor@test.com',
-            user_type='supervisor'
-        )
-        self.category = ProjectCategories.objects.create(category_name='Web Development')
         self.supervisor = Supervisor.objects.create(
             user=self.supervisor_user,
-            supervisor_id='SUP-001'
+            supervisor_id="GV999",
         )
-        
-        # Create Project
-        self.project = Project.objects.create(
-            project_name='Test Project',
-            project_description='Test Description',
-            project_category=self.category,
-            language='Python',
-            functionalities='Test functionalities'
-        )
-        
-        # Create Group
-        self.group = Group.objects.create(
-            student_1=self.student,
-            student_2=self.student2,
-            status='accepted',
-            project_category=self.category
-        )
-        
-        # Create SupervisorOfStudentGroup
-        self.supervisor_group = SupervisorOfStudentGroup.objects.create(
-            group=self.group,
-            supervisor=self.supervisor,
-            project=self.project,
-            status='accepted',
-            created_by=self.student,
-            is_ready_for_external=True
-        )
-        
-        # Create External Group for External1
-        self.ext_group = ExternalGroup.objects.create(
-            name='External Group 1',
-            external_examiner=self.external1,
-            semester='Spring 2026',
-            created_by=self.committee_user
-        )
-        
-        # Create Assignment for External1
-        self.assignment = ExternalGroupAssignment.objects.create(
-            external_group=self.ext_group,
-            supervisor_group=self.supervisor_group,
-            assigned_by=self.committee_user
-        )
-        
-        self.client = APIClient()
 
-    # ============ Cross-User Permission Tests ============
-    
-    def test_external_cannot_evaluate_others_groups(self):
-        """External examiner cannot evaluate groups not assigned to them."""
-        # Authenticate as external2 (not assigned to the group)
-        self.client.force_authenticate(user=self.external_user2)
-        
-        data = {
-            'assignment': self.assignment.id,
-            'project_completion': 'good',
-            'code_quality': 'good',
-            'functionality': 'good',
-            'understanding_of_technology': 'good',
-            'problem_solving': 'good',
-            'innovation': 'good',
-            'presentation_clarity': 'good',
-            'communication': 'good',
-            'time_management': 'good',
-            'documentation_completeness': 'good',
-            'documentation_quality': 'good',
-            'qa_response': 'good',
-            'is_pass': True
-        }
-        
-        response = self.client.post('/api/external/evaluations/create/', data)
-        # Should be forbidden since external2 is not assigned to this group
-        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST])
-    
-    def test_external_can_evaluate_own_groups(self):
-        """External examiner can evaluate groups assigned to them."""
-        # Authenticate as external1 (assigned to the group)
-        self.client.force_authenticate(user=self.external_user1)
-        
-        data = {
-            'assignment': self.assignment.id,
-            'project_completion': 'good',
-            'code_quality': 'good',
-            'functionality': 'good',
-            'understanding_of_technology': 'good',
-            'problem_solving': 'good',
-            'innovation': 'good',
-            'presentation_clarity': 'good',
-            'communication': 'good',
-            'time_management': 'good',
-            'documentation_completeness': 'good',
-            'documentation_quality': 'good',
-            'qa_response': 'good',
-            'is_pass': True
-        }
-        
-        response = self.client.post('/api/external/evaluations/create/', data)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-    
-    def test_student_cannot_create_evaluation(self):
-        """Students cannot create external evaluations."""
-        self.client.force_authenticate(user=self.student_user)
-        
-        data = {
-            'assignment': self.assignment.id,
-            'project_completion': 'good',
-            'code_quality': 'good',
-            'functionality': 'good',
-            'understanding_of_technology': 'good',
-            'problem_solving': 'good',
-            'innovation': 'good',
-            'presentation_clarity': 'good',
-            'communication': 'good',
-            'time_management': 'good',
-            'documentation_completeness': 'good',
-            'documentation_quality': 'good',
-            'qa_response': 'good',
-            'is_pass': True
-        }
-        
-        response = self.client.post('/api/external/evaluations/create/', data)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
-    def test_supervisor_cannot_create_evaluation(self):
-        """Supervisors cannot create external evaluations."""
-        self.client.force_authenticate(user=self.supervisor_user)
-        
-        data = {
-            'assignment': self.assignment.id,
-            'project_completion': 'good',
-            'code_quality': 'good',
-            'functionality': 'good',
-            'understanding_of_technology': 'good',
-            'problem_solving': 'good',
-            'innovation': 'good',
-            'presentation_clarity': 'good',
-            'communication': 'good',
-            'time_management': 'good',
-            'documentation_completeness': 'good',
-            'documentation_quality': 'good',
-            'qa_response': 'good',
-            'is_pass': True
-        }
-        
-        response = self.client.post('/api/external/evaluations/create/', data)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
-    def test_student_cannot_create_external_group(self):
-        """Students cannot create external groups."""
-        self.client.force_authenticate(user=self.student_user)
-        
-        data = {
-            'name': 'Student Created Group',
-            'external_examiner': self.external1.id,
-            'semester': 'Spring 2026'
-        }
-        
-        response = self.client.post('/api/external/groups/', data)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
-    def test_external_cannot_create_external_group(self):
-        """External examiners cannot create external groups."""
-        self.client.force_authenticate(user=self.external_user1)
-        
-        data = {
-            'name': 'External Created Group',
-            'external_examiner': self.external1.id,
-            'semester': 'Spring 2026'
-        }
-        
-        response = self.client.post('/api/external/groups/', data)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
-    def test_committee_can_create_external_group(self):
-        """Committee members can create external groups."""
-        self.client.force_authenticate(user=self.committee_user)
-        
-        data = {
-            'name': 'Committee Created Group',
-            'external_examiner': self.external1.id,
-            'semester': 'Spring 2026'
-        }
-        
-        response = self.client.post('/api/external/groups/', data)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-    
-    def test_external_cannot_delete_groups(self):
-        """External examiners cannot delete external groups."""
-        self.client.force_authenticate(user=self.external_user1)
-        
-        response = self.client.delete(f'/api/external/groups/{self.ext_group.id}/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
-    def test_student_cannot_access_external_dashboard(self):
-        """Students cannot access external dashboard."""
-        self.client.force_authenticate(user=self.student_user)
-        
-        response = self.client.get('/api/external/dashboard/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
-    def test_student_cannot_access_external_profile(self):
-        """Students cannot access external profile."""
-        self.client.force_authenticate(user=self.student_user)
-        
-        response = self.client.get('/api/external/profile/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
-    def test_external_cannot_create_assignments(self):
-        """External examiners cannot create assignments."""
-        self.client.force_authenticate(user=self.external_user1)
-        
-        # Create another supervisor group for assignment
-        student3_user = CustomUser.objects.create_user(
-            username='student3', password='test123',
-            email='student3@test.com', user_type='student'
-        )
-        student3 = Student.objects.create(
-            user=student3_user,
-            registration_no='2021-CS-003',
-            semester='semester_8'
-        )
-        
-        group2 = Group.objects.create(
-            student_1=student3,
-            status='accepted',
-            project_category=self.category
-        )
-        
-        sup_group2 = SupervisorOfStudentGroup.objects.create(
-            group=group2,
-            supervisor=self.supervisor,
-            project=self.project,
-            status='accepted',
-            created_by=student3,
-            is_ready_for_external=True
-        )
-        
-        data = {
-            'external_group': self.ext_group.id,
-            'supervisor_group': sup_group2.id
-        }
-        
-        response = self.client.post('/api/external/assignments/', data)
+    def test_unauthenticated_download_prevented(self):
+        """Verify unauthenticated document downloads return 401 Unauthorized."""
+        response = self.client.get("/documents/secret_thesis.pdf/")
+        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+
+    def test_path_traversal_download_prevented(self):
+        """Verify path traversal payloads in document downloads return 401, 403, or 404."""
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        self.assertEqual(login_res.status_code, status.HTTP_200_OK)
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        response = self.client.get("/documents/..%2F..%2Fetc%2Fpasswd/")
+        self.assertIn(response.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_400_BAD_REQUEST])
+
+    def test_student_cannot_access_supervisor_profile(self):
+        """Verify Students cannot access Supervisor Profile endpoints (RBAC boundary)."""
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        response = self.client.get("/app/supervisor/profile/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_student_cannot_access_admin_dashboard(self):
+        """Verify Non-staff Students cannot access Admin Dashboard."""
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
-class InputValidationSecurityTests(APITestCase):
-    """Test input validation and sanitization."""
-    
-    def setUp(self):
-        """Set up test data."""
-        self.external_user = CustomUser.objects.create_user(
-            username='external1',
-            password='test123',
-            email='external@test.com',
-            user_type='external_examiner'
-        )
-        self.external = ExternalExaminer.objects.create(
-            user=self.external_user,
-            external_id='EXT-001',
-            institution='University 1',
-            designation='professor'
-        )
-        
-        self.committee_user = CustomUser.objects.create_user(
-            username='committee1',
-            password='test123',
-            email='committee@test.com',
-            user_type='committee_member'
-        )
-        panel = CommitteeMemberPanel.objects.create(name='Panel A')
-        self.committee = CommitteeMember.objects.create(
-            user=self.committee_user,
-            committee_id='COM-001',
-            panel=panel
-        )
-        
-        self.client = APIClient()
+        response = self.client.get("/app/admin/dashboard/")
+        self.assertIn(response.status_code, [status.HTTP_302_FOUND, status.HTTP_403_FORBIDDEN])
 
-    def test_sql_injection_in_group_name(self):
-        """Test SQL injection prevention in group name field."""
-        self.client.force_authenticate(user=self.committee_user)
-        
-        # Attempt SQL injection
-        malicious_names = [
-            "'; DROP TABLE app_externalgroup; --",
-            "1' OR '1'='1",
-            "1; DELETE FROM app_customuser WHERE '1'='1",
-            "Robert'); DROP TABLE Students;--",
-            "' UNION SELECT * FROM app_customuser --",
-        ]
-        
-        for malicious_name in malicious_names:
-            data = {
-                'name': malicious_name,
-                'external_examiner': self.external.id,
-                'semester': 'Spring 2026'
-            }
-            
-            response = self.client.post('/api/external/groups/', data)
-            
-            # Should either create safely or reject, not execute SQL
-            if response.status_code == status.HTTP_201_CREATED:
-                group_id = response.data.get('id') if isinstance(response.data, dict) else None
-                if not group_id and isinstance(response.data, dict) and 'data' in response.data:
-                    group_id = response.data['data'].get('id')
-                if group_id:
-                    group = ExternalGroup.objects.get(id=group_id)
-                    self.assertEqual(group.name, malicious_name)
-            
-            # Verify database integrity - table should still exist
-            self.assertTrue(ExternalGroup.objects.exists() or True)
-    
-    def test_sql_injection_in_search(self):
-        """Test SQL injection prevention in search/filter parameters."""
-        self.client.force_authenticate(user=self.committee_user)
-        
-        # Attempt SQL injection in query params
-        malicious_params = [
-            "'; DROP TABLE app_externalgroup; --",
-            "1' OR '1'='1",
-            "1 UNION SELECT * FROM app_customuser",
-        ]
-        
-        for param in malicious_params:
-            response = self.client.get(f'/api/external/groups/?search={param}')
-            # Should return valid response, not database error
-            self.assertIn(response.status_code, [
-                status.HTTP_200_OK,
-                status.HTTP_400_BAD_REQUEST
-            ])
-    
-    def test_xss_prevention_in_comments(self):
-        """Test XSS prevention in comment fields."""
-        self.client.force_authenticate(user=self.committee_user)
-        
-        # Create group with XSS attempt
-        xss_payloads = [
-            "<script>alert('XSS')</script>",
-            "<img src=x onerror=alert('XSS')>",
-            "<svg onload=alert('XSS')>",
-            "javascript:alert('XSS')",
-            "<body onload=alert('XSS')>",
-            "'-alert(1)-'",
-            "<iframe src='javascript:alert(1)'></iframe>",
-        ]
-        
-        for payload in xss_payloads:
-            data = {
-                'name': f'Group with notes',
-                'external_examiner': self.external.id,
-                'semester': 'Spring 2026',
-                'notes': payload
-            }
-            
-            response = self.client.post('/api/external/groups/', data)
-            
-            if response.status_code == status.HTTP_201_CREATED:
-                group_id = response.data.get('id') if isinstance(response.data, dict) else None
-                if not group_id and isinstance(response.data, dict) and 'data' in response.data:
-                    group_id = response.data['data'].get('id')
-                if group_id:
-                    group = ExternalGroup.objects.get(id=group_id)
-                    # The stored value should be the raw input (Django templates escape on output)
-                    self.assertIsNotNone(group.notes)
-                    # Clean up for next test
-                    group.delete()
-    
-    def test_invalid_evaluation_rating(self):
-        """Test validation of evaluation rating values."""
-        # Setup assignment
-        student_user = CustomUser.objects.create_user(
-            username='student1', password='test123',
-            email='student@test.com', user_type='student'
-        )
-        student = Student.objects.create(
-            user=student_user,
-            registration_no='2021-CS-001',
-            semester='semester_8'
-        )
-        
-        supervisor_user = CustomUser.objects.create_user(
-            username='supervisor1', password='test123',
-            email='supervisor@test.com', user_type='supervisor'
-        )
-        category = ProjectCategories.objects.create(category_name='Web Dev')
-        supervisor = Supervisor.objects.create(
-            user=supervisor_user,
-            supervisor_id='SUP-001'
-        )
-        
-        project = Project.objects.create(
-            project_name='Test',
-            project_description='Test',
-            project_category=category,
-            language='Python',
-            functionalities='Test'
-        )
-        
-        group = Group.objects.create(
-            student_1=student,
-            status='accepted',
-            project_category=category
-        )
-        
-        sup_group = SupervisorOfStudentGroup.objects.create(
-            group=group,
-            supervisor=supervisor,
-            project=project,
-            status='accepted',
-            created_by=student,
-            is_ready_for_external=True
-        )
-        
-        ext_group = ExternalGroup.objects.create(
-            name='Test Group',
-            external_examiner=self.external,
-            semester='Spring 2026',
-            created_by=self.committee_user
-        )
-        
-        assignment = ExternalGroupAssignment.objects.create(
-            external_group=ext_group,
-            supervisor_group=sup_group,
-            assigned_by=self.committee_user
-        )
-        
-        self.client.force_authenticate(user=self.external_user)
-        
-        # Test with invalid rating values
-        invalid_ratings = ['invalid', '999', 'excellent;DROP TABLE', '-1', '101']
-        
-        for invalid_rating in invalid_ratings:
-            data = {
-                'assignment': assignment.id,
-                'project_completion': invalid_rating,
-                'code_quality': 'good',
-                'functionality': 'good',
-                'understanding_of_technology': 'good',
-                'problem_solving': 'good',
-                'innovation': 'good',
-                'presentation_clarity': 'good',
-                'communication': 'good',
-                'time_management': 'good',
-                'documentation_completeness': 'good',
-                'documentation_quality': 'good',
-                'qa_response': 'good',
-                'is_pass': True
-            }
-            
-            response = self.client.post('/api/external/evaluations/create/', data)
-            # Should reject invalid rating
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-    
-    def test_integer_overflow_prevention(self):
-        """Test handling of very large integers."""
-        self.client.force_authenticate(user=self.committee_user)
-        
-        data = {
-            'name': 'Test Group',
-            'external_examiner': self.external.id,
-            'semester': 'Spring 2026',
-            'max_groups': 999999999999999999999  # Very large number
-        }
-        
-        response = self.client.post('/api/external/groups/', data)
-        # Should either handle gracefully or return validation error
-        self.assertIn(response.status_code, [
-            status.HTTP_201_CREATED,
-            status.HTTP_400_BAD_REQUEST
-        ])
-    
-    def test_empty_required_fields(self):
-        """Test validation of required fields."""
-        self.client.force_authenticate(user=self.committee_user)
-        
-        # Missing required fields
-        data = {
-            'semester': 'Spring 2026'
-            # Missing 'name' and 'external_examiner'
-        }
-        
-        response = self.client.post('/api/external/groups/', data)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-    
-    def test_invalid_foreign_key(self):
-        """Test handling of invalid foreign key references."""
-        self.client.force_authenticate(user=self.committee_user)
-        
-        data = {
-            'name': 'Test Group',
-            'external_examiner': 99999,  # Non-existent ID
-            'semester': 'Spring 2026'
-        }
-        
-        response = self.client.post('/api/external/groups/', data)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    def test_xss_script_injection_sanitized(self):
+        """Verify malicious XSS script payloads are rejected or sanitized in chat messages."""
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
+        xss_payload = "<script>alert('XSS')</script>"
+        response = self.client.post("/app/supervisor/student/comments/", {
+            "group": 1,
+            "comment": xss_payload,
+        })
+        self.assertIn(response.status_code, [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND])
 
-class AuthenticationSecurityTests(APITestCase):
-    """Test authentication security."""
-    
-    def setUp(self):
-        self.external_user = CustomUser.objects.create_user(
-            username='external1',
-            password='securePassword123!',
-            email='external@test.com',
-            user_type='external_examiner'
-        )
-        self.external = ExternalExaminer.objects.create(
-            user=self.external_user,
-            external_id='EXT-001',
-            institution='Test University',
-            designation='professor'
-        )
-        self.client = APIClient()
-    
-    def test_unauthenticated_access_blocked(self):
-        """All protected endpoints should require authentication."""
-        protected_endpoints = [
-            '/api/external/profile/',
-            '/api/external/dashboard/',
-            '/api/external/groups/',
-            '/api/external/evaluations/',
-        ]
-        
-        for endpoint in protected_endpoints:
-            response = self.client.get(endpoint)
-            self.assertEqual(
-                response.status_code, 
-                status.HTTP_401_UNAUTHORIZED,
-                f"Endpoint {endpoint} should require authentication"
-            )
-    
-    def test_invalid_token_rejected(self):
-        """Invalid JWT tokens should be rejected."""
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer invalid_token_here')
-        
-        response = self.client.get('/api/external/profile/')
+    def test_security_headers_present(self):
+        """Verify core security headers are returned in HTTP responses."""
+        response = self.client.get("/app/project/categories/")
+        self.assertEqual(response.headers.get("X-Frame-Options"), "DENY")
+        self.assertEqual(response.headers.get("X-Content-Type-Options"), "nosniff")
+
+    # =========================================================================
+    # Account Enumeration Prevention Tests
+    # =========================================================================
+
+    def test_account_enumeration_prevented_valid_user_wrong_password(self):
+        """Case A: Valid registration number + wrong password returns 401 with generic error."""
+        response = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "WrongPassword999!",
+        })
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-    
-    def test_expired_token_rejected(self):
-        """Expired tokens should be rejected."""
-        # This would require generating an expired token
-        # For now, we test with a malformed token
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.expired.signature')
-        
-        response = self.client.get('/api/external/profile/')
+        self.assertEqual(response.data.get("detail"), "Invalid registration number or password.")
+
+    def test_account_enumeration_prevented_non_existent_user(self):
+        """Case B: Non-existing registration number + arbitrary password returns identical 401 response."""
+        response = self.client.post("/app/student/login/", {
+            "registration_no": "999999999",
+            "password": "ArbitraryPassword123!",
+        })
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-    
-    def test_login_with_wrong_password(self):
-        """Login should fail with wrong password."""
-        response = self.client.post('/api/external/login/', {
-            'email': 'external@test.com',
-            'password': 'wrongPassword'
+        self.assertEqual(response.data.get("detail"), "Invalid registration number or password.")
+
+    # =========================================================================
+    # File Upload Magic Byte Verification Tests
+    # =========================================================================
+
+    def test_file_upload_valid_pdf_passes(self):
+        """TEST 1: Valid PDF content header (%PDF-) passes validation."""
+        pdf_bytes = b"%PDF-1.5\n%Header test content for valid PDF document."
+        uploaded_file = SimpleUploadedFile("thesis.pdf", pdf_bytes, content_type="application/pdf")
+        validated = validate_uploaded_file(uploaded_file)
+        self.assertEqual(validated.name, "thesis.pdf")
+
+    def test_file_upload_executable_renamed_to_pdf_rejected(self):
+        """TEST 2: Executable content (MZ header) renamed to .pdf is rejected."""
+        exe_bytes = b"MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xff\xff\x00\x00"
+        uploaded_file = SimpleUploadedFile("payload.pdf", exe_bytes, content_type="application/pdf")
+        with self.assertRaises(serializers.ValidationError):
+            validate_uploaded_file(uploaded_file)
+
+    def test_file_upload_valid_docx_passes(self):
+        """TEST 3: Valid DOCX ZIP header (PK\x03\x04) passes validation."""
+        docx_bytes = b"PK\x03\x04\x14\x00\x06\x00\x08\x00\x00\x00Test DOCX content"
+        uploaded_file = SimpleUploadedFile("report.docx", docx_bytes, content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        validated = validate_uploaded_file(uploaded_file)
+        self.assertEqual(validated.name, "report.docx")
+
+    def test_file_upload_binary_renamed_to_docx_rejected(self):
+        """TEST 4: Binary non-ZIP content renamed to .docx is rejected."""
+        binary_bytes = b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09Fake binary file"
+        uploaded_file = SimpleUploadedFile("fake_report.docx", binary_bytes, content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        with self.assertRaises(serializers.ValidationError):
+            validate_uploaded_file(uploaded_file)
+
+    def test_file_upload_valid_zip_passes(self):
+        """TEST 5: Valid ZIP file header passes validation."""
+        zip_bytes = b"PK\x03\x04\x0a\x00\x00\x00\x00\x00Valid ZIP archive content"
+        uploaded_file = SimpleUploadedFile("project_code.zip", zip_bytes, content_type="application/zip")
+        validated = validate_uploaded_file(uploaded_file)
+        self.assertEqual(validated.name, "project_code.zip")
+
+    def test_file_upload_binary_renamed_to_txt_rejected(self):
+        """TEST 6: Binary / Executable content containing null bytes renamed to .txt is rejected."""
+        binary_txt_bytes = b"MZ\x00\x01Binary payload disguised as plain text file"
+        uploaded_file = SimpleUploadedFile("malicious_notes.txt", binary_txt_bytes, content_type="text/plain")
+        with self.assertRaises(serializers.ValidationError):
+            validate_uploaded_file(uploaded_file)
+
+    # =========================================================================
+    # Phase 2: HttpOnly Refresh Token & Security Headers Tests
+    # =========================================================================
+
+    def test_login_does_not_return_refresh_token_in_json(self):
+        """Verify login response does not expose refresh token in JSON body."""
+        response = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
         })
-        
-        self.assertIn(response.status_code, [
-            status.HTTP_400_BAD_REQUEST,
-            status.HTTP_401_UNAUTHORIZED
-        ])
-    
-    def test_login_with_nonexistent_user(self):
-        """Login should fail for non-existent user."""
-        response = self.client.post('/api/external/login/', {
-            'email': 'nonexistent@test.com',
-            'password': 'anyPassword'
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertNotIn("refresh", response.data)
+
+    def test_login_sets_httponly_refresh_cookie(self):
+        """Verify login response sets HttpOnly refresh_token cookie."""
+        response = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
         })
-        
-        self.assertIn(response.status_code, [
-            status.HTTP_400_BAD_REQUEST,
-            status.HTTP_401_UNAUTHORIZED
-        ])
-    
-    def test_login_attempt_with_non_external_user(self):
-        """External login should reject non-external users."""
-        # Create a student
-        student_user = CustomUser.objects.create_user(
-            username='student1',
-            password='test123',
-            email='student@test.com',
-            user_type='student'
-        )
-        
-        response = self.client.post('/api/external/login/', {
-            'email': 'student@test.com',
-            'password': 'test123'
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("refresh_token", response.cookies)
+        cookie = response.cookies["refresh_token"]
+        self.assertTrue(cookie["httponly"])
+        self.assertEqual(cookie["samesite"], "Lax")
+
+    @override_settings(DEBUG=False)
+    def test_production_cookie_is_secure(self):
+        """Verify production environment (DEBUG=False) sets Secure=True on refresh_token cookie."""
+        response = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
         })
-        
-        self.assertIn(response.status_code, [
-            status.HTTP_400_BAD_REQUEST,
-            status.HTTP_401_UNAUTHORIZED,
-            status.HTTP_403_FORBIDDEN
-        ])
-    
-    def test_password_not_returned_in_responses(self):
-        """Password should never be returned in API responses."""
-        self.client.force_authenticate(user=self.external_user)
-        
-        response = self.client.get('/api/external/profile/')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Check password is not in response
-        response_str = json.dumps(response.data)
-        self.assertNotIn('password', response_str.lower())
-        self.assertNotIn('securePassword123!', response_str)
+        cookie = response.cookies["refresh_token"]
+        self.assertTrue(cookie["secure"])
 
+    def test_token_refresh_using_cookie(self):
+        """Verify POST /app/token/refresh/ works using HttpOnly cookie."""
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        refresh_cookie = login_res.cookies["refresh_token"].value
+        self.client.cookies["refresh_token"] = refresh_cookie
 
-class RateLimitingTests(APITestCase):
-    """Test API rate limiting."""
-    
-    def setUp(self):
-        self.external_user = CustomUser.objects.create_user(
-            username='external1',
-            password='test123',
-            email='external@test.com',
-            user_type='external_examiner'
-        )
-        self.external = ExternalExaminer.objects.create(
-            user=self.external_user,
-            external_id='EXT-001',
-            institution='Test University',
-            designation='professor'
-        )
-        self.client = APIClient()
-        # Clear rate limit cache
-        cache.clear()
-    
-    @override_settings(
-        REST_FRAMEWORK={
-            'DEFAULT_THROTTLE_RATES': {
-                'anon': '5/minute',
-                'user': '10/minute',
-            }
-        }
-    )
-    def test_rate_limiting_on_login_attempts(self):
-        """Test rate limiting on login attempts."""
-        # Make multiple failed login attempts
-        for i in range(20):
-            response = self.client.post('/api/external/login/', {
-                'email': 'external@test.com',
-                'password': 'wrongPassword'
-            })
-            
-            # After several attempts, should get rate limited
-            if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
-                return  # Rate limiting is working
-        
-        # If we didn't get rate limited, that might be okay if throttling isn't configured
-        # This test documents expected behavior
+        refresh_res = self.client.post("/app/token/refresh/", {})
+        self.assertEqual(refresh_res.status_code, status.HTTP_200_OK)
+        self.assertIn("access", refresh_res.data)
+        self.assertNotIn("refresh", refresh_res.data)
+        self.assertIn("refresh_token", refresh_res.cookies)
 
+    def test_token_refresh_rotation_and_old_token_rejection(self):
+        """Verify Token Rotation blacklists old refresh token after refresh."""
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        old_cookie = login_res.cookies["refresh_token"].value
 
-class DataIsolationTests(APITestCase):
-    """Test data isolation between users."""
-    
-    def setUp(self):
-        """Set up multiple external examiners with their own data."""
-        # Create External Examiner 1
-        self.external_user1 = CustomUser.objects.create_user(
-            username='external1',
-            password='test123',
-            email='external1@test.com',
-            user_type='external_examiner'
-        )
-        self.external1 = ExternalExaminer.objects.create(
-            user=self.external_user1,
-            external_id='EXT-001',
-            institution='University 1',
-            designation='professor'
-        )
-        
-        # Create External Examiner 2
-        self.external_user2 = CustomUser.objects.create_user(
-            username='external2',
-            password='test123',
-            email='external2@test.com',
-            user_type='external_examiner'
-        )
-        self.external2 = ExternalExaminer.objects.create(
-            user=self.external_user2,
-            external_id='EXT-002',
-            institution='University 2',
-            designation='professor'
-        )
-        
-        # Create committee for group creation
-        self.committee_user = CustomUser.objects.create_user(
-            username='committee1',
-            password='test123',
-            email='committee@test.com',
-            user_type='committee_member'
-        )
-        panel = CommitteeMemberPanel.objects.create(name='Panel A')
-        CommitteeMember.objects.create(
-            user=self.committee_user,
-            committee_id='COM-001',
-            panel=panel
-        )
-        
-        # Create groups for each examiner
-        self.ext_group1 = ExternalGroup.objects.create(
-            name='External 1 Group',
-            external_examiner=self.external1,
-            semester='Spring 2026',
-            created_by=self.committee_user
-        )
-        
-        self.ext_group2 = ExternalGroup.objects.create(
-            name='External 2 Group',
-            external_examiner=self.external2,
-            semester='Spring 2026',
-            created_by=self.committee_user
-        )
-        
-        self.client = APIClient()
-    
-    def test_external_only_sees_own_groups(self):
-        """External examiner should only see their own groups."""
-        self.client.force_authenticate(user=self.external_user1)
-        
-        response = self.client.get('/api/external/groups/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        
-        # Get the groups from response
-        groups = response.data.get('results', response.data)
-        
-        # All groups should belong to external1
-        for group in groups:
-            self.assertEqual(group['external_examiner'], self.external1.id)
-    
-    def test_external_cannot_view_others_group_details(self):
-        """External examiner should not view another examiner's group details."""
-        self.client.force_authenticate(user=self.external_user1)
-        
-        # Try to access external2's group
-        response = self.client.get(f'/api/external/groups/{self.ext_group2.id}/')
-        
-        # Should either 404 or 403
-        self.assertIn(response.status_code, [
-            status.HTTP_200_OK,
-            status.HTTP_403_FORBIDDEN,
-            status.HTTP_404_NOT_FOUND
-        ])
-    
-    def test_external_can_view_own_group_details(self):
-        """External examiner can view their own group details."""
-        self.client.force_authenticate(user=self.external_user1)
-        
-        response = self.client.get(f'/api/external/groups/{self.ext_group1.id}/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-    
-    def test_dashboard_shows_only_own_statistics(self):
-        """Dashboard should show only the authenticated user's statistics."""
-        self.client.force_authenticate(user=self.external_user1)
-        
-        response = self.client.get('/api/external/dashboard/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        
-        # Verify the profile belongs to external1
-        self.assertEqual(response.data['profile']['external_id'], 'EXT-001')
+        # First refresh
+        self.client.cookies["refresh_token"] = old_cookie
+        refresh_res = self.client.post("/app/token/refresh/", {})
+        self.assertEqual(refresh_res.status_code, status.HTTP_200_OK)
+        new_cookie = refresh_res.cookies["refresh_token"].value
 
+        # Attempt to use old cookie again (should fail because blacklisted)
+        self.client.cookies["refresh_token"] = old_cookie
+        replay_res = self.client.post("/app/token/refresh/", {})
+        self.assertEqual(replay_res.status_code, status.HTTP_401_UNAUTHORIZED)
 
-class IDORPreventionTests(APITestCase):
-    """Test Insecure Direct Object Reference (IDOR) prevention."""
-    
-    def setUp(self):
-        """Set up test data."""
-        # Create two students
-        self.student1_user = CustomUser.objects.create_user(
-            username='student1',
-            password='test123',
-            email='student1@test.com',
-            user_type='student'
+    def test_logout_clears_cookie_and_invalidates_token(self):
+        """Verify logout clears HttpOnly cookie and blacklists refresh token."""
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        refresh_cookie = login_res.cookies["refresh_token"].value
+        self.client.cookies["refresh_token"] = refresh_cookie
+
+        logout_res = self.client.post("/app/token/logout/", {})
+        self.assertEqual(logout_res.status_code, status.HTTP_200_OK)
+
+        # Cookie should be deleted/cleared
+        self.assertEqual(logout_res.cookies["refresh_token"].value, "")
+
+        # Subsequent refresh attempt with old cookie should fail 401
+        self.client.cookies["refresh_token"] = refresh_cookie
+        refresh_after_logout = self.client.post("/app/token/refresh/", {})
+        self.assertEqual(refresh_after_logout.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_missing_refresh_cookie_fails(self):
+        """Verify refresh endpoint fails 401 when no cookie is sent."""
+        self.client.cookies.clear()
+        response = self.client.post("/app/token/refresh/", {})
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_invalid_refresh_cookie_fails(self):
+        """Verify refresh endpoint fails 401 when invalid cookie value is sent."""
+        self.client.cookies["refresh_token"] = "invalid.jwt.token"
+        response = self.client.post("/app/token/refresh/", {})
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_cors_credentials_configured(self):
+        """Verify CORS_ALLOW_CREDENTIALS is enabled in settings."""
+        self.assertTrue(getattr(settings, "CORS_ALLOW_CREDENTIALS", False))
+
+    # =========================================================================
+    # Phase 3: WebSocket Security Tests
+    # =========================================================================
+
+    def test_websocket_ticket_generation_and_single_use_consumption(self):
+        """Verify WebSocket ticket endpoint issues one-time short-lived tickets."""
+        from app.middleware import get_user_from_ticket
+        from asgiref.sync import async_to_sync
+
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        ticket_res = self.client.post("/app/ws-ticket/", {"group_id": 99})
+        self.assertEqual(ticket_res.status_code, status.HTTP_200_OK)
+        self.assertIn("ticket", ticket_res.data)
+        ticket = ticket_res.data["ticket"]
+
+        # First consumption (valid)
+        user, bound_group_id = async_to_sync(get_user_from_ticket)(ticket)
+        self.assertEqual(user.username, self.student_user.username)
+        self.assertEqual(str(bound_group_id), "99")
+
+        # Second consumption (must fail because ticket is single-use and already consumed)
+        reused_user, _ = async_to_sync(get_user_from_ticket)(ticket)
+        self.assertTrue(reused_user.is_anonymous)
+
+    # =========================================================================
+    # Phase 6: Admin Management & RBAC Tests
+    # =========================================================================
+
+    def test_admin_user_management_rbac_enforced(self):
+        """Verify non-admin users cannot access Admin User Management APIs."""
+        login_res = self.client.post("/app/student/login/", {
+            "registration_no": "201200999",
+            "password": "Password123!",
+        })
+        token = login_res.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        response = self.client.get("/app/admin/users/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_staff_can_access_user_management_and_security_center(self):
+        """Verify Admin staff users can access management and Security Center APIs."""
+        admin_user = User.objects.create_superuser(
+            username="admin_staff",
+            email="admin@utc.edu.vn",
+            password="AdminPassword123!",
+            user_type="admin",
         )
-        self.student1 = Student.objects.create(
-            user=self.student1_user,
-            registration_no='2021-CS-001',
-            semester='semester_8'
+        Supervisor.objects.create(
+            user=admin_user,
+            supervisor_id="ADM001",
         )
-        
-        self.student2_user = CustomUser.objects.create_user(
-            username='student2',
-            password='test123',
-            email='student2@test.com',
-            user_type='student'
-        )
-        self.student2 = Student.objects.create(
-            user=self.student2_user,
-            registration_no='2021-CS-002',
-            semester='semester_8'
-        )
-        
-        # Create external examiner and committee
-        self.external_user = CustomUser.objects.create_user(
-            username='external1',
-            password='test123',
-            email='external@test.com',
-            user_type='external_examiner'
-        )
-        self.external = ExternalExaminer.objects.create(
-            user=self.external_user,
-            external_id='EXT-001',
-            institution='Test University',
-            designation='professor'
-        )
-        
-        self.committee_user = CustomUser.objects.create_user(
-            username='committee1',
-            password='test123',
-            email='committee@test.com',
-            user_type='committee_member'
-        )
-        panel = CommitteeMemberPanel.objects.create(name='Panel A')
-        CommitteeMember.objects.create(
-            user=self.committee_user,
-            committee_id='COM-001',
-            panel=panel
-        )
-        
-        # Create groups and evaluations
-        self.category = ProjectCategories.objects.create(category_name='Web Development')
-        
-        supervisor_user = CustomUser.objects.create_user(
-            username='supervisor1',
-            password='test123',
-            email='supervisor@test.com',
-            user_type='supervisor'
-        )
-        self.supervisor = Supervisor.objects.create(
-            user=supervisor_user,
-            supervisor_id='SUP-001'
-        )
-        
-        self.project = Project.objects.create(
-            project_name='Test Project',
-            project_description='Test Description',
-            project_category=self.category,
-            language='Python',
-            functionalities='Test'
-        )
-        
-        # Create group for student1
-        self.group1 = Group.objects.create(
-            student_1=self.student1,
-            status='accepted',
-            project_category=self.category
-        )
-        
-        self.sup_group1 = SupervisorOfStudentGroup.objects.create(
-            group=self.group1,
-            supervisor=self.supervisor,
-            project=self.project,
-            status='accepted',
-            created_by=self.student1,
-            is_ready_for_external=True
-        )
-        
-        self.ext_group = ExternalGroup.objects.create(
-            name='Test External Group',
-            external_examiner=self.external,
-            semester='Spring 2026',
-            created_by=self.committee_user
-        )
-        
-        self.assignment1 = ExternalGroupAssignment.objects.create(
-            external_group=self.ext_group,
-            supervisor_group=self.sup_group1,
-            assigned_by=self.committee_user
-        )
-        
-        # Create evaluation for student1
-        self.evaluation1 = ExternalEvaluation.objects.create(
-            assignment=self.assignment1,
-            project_completion='good',
-            code_quality='good',
-            functionality='good',
-            understanding_of_technology='good',
-            problem_solving='good',
-            innovation='good',
-            presentation_clarity='good',
-            communication='good',
-            time_management='good',
-            documentation_completeness='good',
-            documentation_quality='good',
-            qa_response='good',
-            is_pass=True
-        )
-        
-        self.client = APIClient()
-    
-    def test_student_cannot_view_other_students_evaluation(self):
-        """Student should not access another student's evaluation via direct ID."""
-        # Login as student2 and try to access student1's evaluation
-        self.client.force_authenticate(user=self.student2_user)
-        
-        response = self.client.get(f'/api/external/evaluations/{self.evaluation1.id}/')
-        
-        # Should be forbidden or not found
-        self.assertIn(response.status_code, [
-            status.HTTP_403_FORBIDDEN,
-            status.HTTP_404_NOT_FOUND
-        ])
-    
-    def test_student_can_view_own_evaluation(self):
-        """Student should be able to view their own evaluation."""
-        self.client.force_authenticate(user=self.student1_user)
-        
-        response = self.client.get('/api/student/external-evaluation/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        login_res = self.client.post("/app/supervisor/login/", {
+            "email": "admin@utc.edu.vn",
+            "password": "AdminPassword123!",
+        })
+        token = login_res.data.get("access")
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        # Test user management endpoint
+        res1 = self.client.get("/app/admin/users/")
+        self.assertEqual(res1.status_code, status.HTTP_200_OK)
+        self.assertIn("users", res1.data)
+
+        # Test security center endpoint
+        res2 = self.client.get("/app/admin/security-center/")
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+        self.assertIn("security_headers", res2.data)

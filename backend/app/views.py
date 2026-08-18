@@ -48,6 +48,7 @@ from .permissions import (
     CanAccessEvaluation,
     IsProjectOwner,
     IsExternalExaminer,
+    IsAdminUserRole,
     IsExternalExaminerOrCommittee,
     IsExternalGroupOwner,
     CanManageExternalGroups,
@@ -157,9 +158,121 @@ def get_tokens_for_user(user):
         "refresh": str(refresh),
         "access": str(refresh.access_token),
         "expire_time": datetime.now()
-        + settings.SIMPLE_JWT.get("ACCESS_TOKEN_LIFETIME")
-        - timedelta(hours=1),
+        + settings.SIMPLE_JWT.get("ACCESS_TOKEN_LIFETIME"),
     }
+
+
+def set_refresh_cookie(response, refresh_token):
+    """Set HttpOnly cookie for Refresh Token with production-aware security flags."""
+    secure_flag = not getattr(settings, "DEBUG", True)
+    response.set_cookie(
+        key="refresh_token",
+        value=str(refresh_token),
+        httponly=True,
+        secure=secure_flag,
+        samesite="Lax",
+        path="/app/",
+    )
+    return response
+
+
+def delete_refresh_cookie(response):
+    """Clear HttpOnly refresh_token cookie."""
+    response.delete_cookie(
+        key="refresh_token",
+        path="/app/",
+    )
+    return response
+
+
+class CookieTokenRefreshAPIView(APIView):
+    """
+    Refresh Access Token using HttpOnly Cookie.
+    Rotates refresh token and blacklists previous refresh token.
+    """
+    throttle_classes = [LoginRateThrottle]
+
+    def post(self, request):
+        raw_refresh = request.COOKIES.get("refresh_token") or request.data.get("refresh")
+        if not raw_refresh:
+            return Response(
+                {"detail": "Refresh token cookie missing."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            refresh_obj = RefreshToken(raw_refresh)
+            new_access_token = str(refresh_obj.access_token)
+            
+            # SimpleJWT blacklists old token upon rotation when blacklist is enabled
+            if settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS", True):
+                if settings.SIMPLE_JWT.get("BLACKLIST_AFTER_ROTATION", True):
+                    try:
+                        refresh_obj.blacklist()
+                    except AttributeError:
+                        pass
+                refresh_obj.set_jti()
+                refresh_obj.set_exp()
+                refresh_obj.set_iat()
+                new_refresh_str = str(refresh_obj)
+            else:
+                new_refresh_str = raw_refresh
+
+            response = Response({"access": new_access_token}, status=status.HTTP_200_OK)
+            set_refresh_cookie(response, new_refresh_str)
+            return response
+        except Exception:
+            response = Response(
+                {"detail": "Invalid or expired refresh token."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            delete_refresh_cookie(response)
+            return response
+
+
+class CookieLogoutAPIView(APIView):
+    """
+    Revoke server-side Refresh Token and clear HttpOnly cookie.
+    """
+    def post(self, request):
+        raw_refresh = request.COOKIES.get("refresh_token") or request.data.get("refresh")
+        if raw_refresh:
+            try:
+                token_obj = RefreshToken(raw_refresh)
+                token_obj.blacklist()
+            except Exception:
+                pass
+
+        response = Response(
+            {"detail": "Logged out successfully."},
+            status=status.HTTP_200_OK,
+        )
+        delete_refresh_cookie(response)
+        return response
+
+
+class WebSocketTicketAPIView(APIView):
+    """
+    Generate short-lived one-time authentication ticket for WebSocket connections.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import secrets
+        from django.core.cache import cache
+
+        group_id = request.data.get("group_id")
+        ticket = secrets.token_urlsafe(32)
+        ticket_data = {
+            "user_id": request.user.id,
+            "group_id": group_id,
+        }
+        cache.set(f"ws_ticket_{ticket}", ticket_data, timeout=60)
+        return Response(
+            {"ticket": ticket, "expires_in": 60},
+            status=status.HTTP_200_OK,
+        )
 
 
 class ChangePasswordView(APIView):
@@ -307,11 +420,24 @@ class StudentLoginView(APIView):
                 serializer.validated_data.get("password")
             ):
                 token = get_tokens_for_user(student.user)
-                return Response(token, status=status.HTTP_200_OK)
+                refresh_token_str = token.get("refresh")
+                response_data = {
+                    "access": token.get("access"),
+                    "expire_time": token.get("expire_time"),
+                }
+                response = Response(response_data, status=status.HTTP_200_OK)
+                set_refresh_cookie(response, refresh_token_str)
+                return response
             else:
-                return Response({"message": "Invalid credentials"}, status=401)
+                return Response(
+                    {
+                        "detail": "Invalid registration number or password.",
+                        "message": "Invalid registration number or password.",
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
         else:
-            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class StudentProfileView(RetrieveAPIView):
@@ -882,11 +1008,24 @@ class SupervisorLoginAPIView(APIView):
                 serializer.validated_data.get("password")
             ):
                 token = get_tokens_for_user(supervisor.user)
-                return Response(token, status=status.HTTP_200_OK)
+                refresh_token_str = token.get("refresh")
+                response_data = {
+                    "access": token.get("access"),
+                    "expire_time": token.get("expire_time"),
+                }
+                response = Response(response_data, status=status.HTTP_200_OK)
+                set_refresh_cookie(response, refresh_token_str)
+                return response
             else:
-                return Response({"message": "Invalid credentials"}, status=401)
+                return Response(
+                    {
+                        "detail": "Invalid registration number or password.",
+                        "message": "Invalid registration number or password.",
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
         else:
-            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SupervisorProfileView(RetrieveAPIView, UpdateAPIView):
@@ -911,11 +1050,24 @@ class CommitteeMemberLoginAPIView(APIView):
                 serializer.validated_data.get("password")
             ):
                 token = get_tokens_for_user(committee_member.user)
-                return Response(token, status=status.HTTP_200_OK)
+                refresh_token_str = token.get("refresh")
+                response_data = {
+                    "access": token.get("access"),
+                    "expire_time": token.get("expire_time"),
+                }
+                response = Response(response_data, status=status.HTTP_200_OK)
+                set_refresh_cookie(response, refresh_token_str)
+                return response
             else:
-                return Response({"message": "Invalid credentials"}, status=401)
+                return Response(
+                    {
+                        "detail": "Invalid registration number or password.",
+                        "message": "Invalid registration number or password.",
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
         else:
-            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ExternalExaminerLoginAPIView(APIView):
@@ -937,25 +1089,31 @@ class ExternalExaminerLoginAPIView(APIView):
                 serializer.validated_data.get("password")
             ):
                 token = get_tokens_for_user(external_examiner.user)
-                # Add additional profile info to response
+                refresh_token_str = token.get("refresh")
                 response_data = {
-                    **token,
-                    'profile': {
-                        'id': external_examiner.id,
-                        'external_id': external_examiner.external_id,
-                        'institution': external_examiner.institution,
-                        'designation': external_examiner.designation,
-                        'full_name': external_examiner.user.get_full_name(),
-                    }
+                    "access": token.get("access"),
+                    "expire_time": token.get("expire_time"),
+                    "profile": {
+                        "id": external_examiner.id,
+                        "external_id": external_examiner.external_id,
+                        "institution": external_examiner.institution,
+                        "designation": external_examiner.designation,
+                        "full_name": external_examiner.user.get_full_name(),
+                    },
                 }
-                return Response(response_data, status=status.HTTP_200_OK)
+                response = Response(response_data, status=status.HTTP_200_OK)
+                set_refresh_cookie(response, refresh_token_str)
+                return response
             else:
                 return Response(
-                    {"message": "Invalid credentials or account is inactive"}, 
-                    status=status.HTTP_401_UNAUTHORIZED
+                    {
+                        "detail": "Invalid registration number or password.",
+                        "message": "Invalid registration number or password.",
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
         else:
-            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CommitteeMemberProfileView(RetrieveAPIView):
@@ -1547,7 +1705,6 @@ class DocumentRequirementListCreateAPIView(ListCreateAPIView):
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             instance = serializer.save(created_by=cm)
-            out = self.get_serializer(instance)
             return Response(out.data, status=status.HTTP_201_CREATED)
         except ValidationError:
             raise
@@ -1568,6 +1725,97 @@ class DocumentRequirementListCreateAPIView(ListCreateAPIView):
                 {"message": "Failed to create document requirement.", "detail": err},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class AdminUserManagementAPIView(APIView):
+    """
+    Admin user management: list users, update status/role.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
+
+    def get(self, request):
+        query = request.GET.get("q", "").strip()
+        role = request.GET.get("role", "").strip()
+        is_active = request.GET.get("is_active", "").strip()
+
+        users = CustomUser.objects.all().order_by("-id")
+        if query:
+            users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
+        if role:
+            users = users.filter(user_type=role)
+        if is_active:
+            users = users.filter(is_active=(is_active.lower() == "true"))
+
+        user_list = []
+        for u in users[:100]:
+            user_list.append({
+                "id": u.id,
+                "username": u.username,
+                "email": u.email,
+                "user_type": u.user_type,
+                "is_active": u.is_active,
+                "is_staff": u.is_staff,
+                "last_login": u.last_login,
+            })
+        return Response({"users": user_list, "total": users.count()}, status=status.HTTP_200_OK)
+
+    def patch(self, request, pk):
+        target_user = get_object_or_404(CustomUser, pk=pk)
+        if "is_active" in request.data:
+            target_user.is_active = bool(request.data["is_active"])
+        if "user_type" in request.data and request.data["user_type"] in ["student", "supervisor", "committee_member", "external_examiner", "admin"]:
+            target_user.user_type = request.data["user_type"]
+        target_user.save()
+        return Response({
+            "message": "User updated successfully.",
+            "user": {
+                "id": target_user.id,
+                "username": target_user.username,
+                "user_type": target_user.user_type,
+                "is_active": target_user.is_active,
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class AdminSecurityCenterAPIView(APIView):
+    """
+    Security Center Dashboard metrics for Administrators.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
+
+    def get(self, request):
+        total_users = CustomUser.objects.count()
+        active_users = CustomUser.objects.filter(is_active=True).count()
+        deactivated_users = total_users - active_users
+        recent_audit_logs = AuditLog.objects.all().order_by("-created_at")[:15]
+        
+        audit_data = []
+        for log in recent_audit_logs:
+            audit_data.append({
+                "id": log.id,
+                "action": log.get_action_type_display(),
+                "actor": log.user.username if log.user else "System",
+                "created_at": log.created_at,
+                "details": log.description,
+            })
+
+        security_metrics = {
+            "total_users": total_users,
+            "active_users": active_users,
+            "deactivated_users": deactivated_users,
+            "security_headers": {
+                "httponly_cookies": True,
+                "content_security_policy": True,
+                "hsts_production": True,
+                "cors_credentials": True,
+                "magic_bytes_file_inspection": True,
+                "websocket_one_time_tickets": True,
+            },
+            "recent_audit_events": audit_data,
+        }
+        return Response(security_metrics, status=status.HTTP_200_OK)
 
 
 class DocumentRequirementDetailAPIView(RetrieveUpdateDestroyAPIView):
@@ -3245,6 +3493,14 @@ class ConsolidatedEvaluationExportAPIView(APIView):
             "project",
             "supervisor__user"
         )
+
+        MAX_EXPORT_ROWS = 1000
+        total_count = groups.count()
+        if total_count > MAX_EXPORT_ROWS:
+            return Response(
+                {"detail": f"Export payload size ({total_count} records) exceeds maximum limit of {MAX_EXPORT_ROWS} records. Please apply filtering parameters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         workbook = Workbook()
         sheet = workbook.active

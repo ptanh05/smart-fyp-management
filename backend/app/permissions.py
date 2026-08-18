@@ -65,6 +65,22 @@ class IsCommitteeMember(BasePermission):
         return hasattr(request.user, 'user_type') and request.user.user_type == 'committee_member'
 
 
+class IsAdminUserRole(BasePermission):
+    """
+    Permission class that allows access only to staff, superuser, or admin role users.
+    """
+    message = "You must be an Administrator to access this resource."
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        return (
+            request.user.is_staff
+            or request.user.is_superuser
+            or (hasattr(request.user, 'user_type') and request.user.user_type == 'admin')
+        )
+
+
 class IsStudentOrSupervisor(BasePermission):
     """
     Permission class that allows access to both students and supervisors.

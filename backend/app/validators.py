@@ -319,3 +319,127 @@ def model_validate_no_html(value: str):
             "Content contains potentially dangerous elements. "
             "Please remove any HTML or JavaScript code."
         )
+
+
+def validate_uploaded_file(file_obj):
+    """
+    Validate uploaded files for:
+    - Maximum file size (25MB)
+    - Safe file extension (pdf, doc, docx, ppt, pptx, zip, rar, xls, xlsx, txt)
+    - Path safety / double extension checks
+    - Content-based magic bytes & binary signature inspection
+    """
+    if not file_obj:
+        return file_obj
+
+    # 1. File Size Check (25 MB max)
+    MAX_SIZE = 25 * 1024 * 1024
+    if file_obj.size > MAX_SIZE:
+        raise serializers.ValidationError("File size exceeds maximum limit of 25MB.")
+
+    # 2. Extension Check
+    ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".zip", ".rar", ".xls", ".xlsx", ".txt"}
+    import os
+    ext = os.path.splitext(file_obj.name)[1].lower()
+    
+    if ext not in ALLOWED_EXTENSIONS:
+        raise serializers.ValidationError(
+            f"File extension '{ext}' is not allowed. Allowed types: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        )
+
+    # 3. Path traversal / Double extension check
+    base_name = os.path.basename(file_obj.name)
+    if ".." in base_name or "/" in base_name or "\\" in base_name:
+        raise serializers.ValidationError("Invalid file name.")
+
+    # 4. Read header bytes for Magic Byte Inspection
+    try:
+        if hasattr(file_obj, "seek"):
+            file_obj.seek(0)
+        header = file_obj.read(2048) if hasattr(file_obj, "read") else b""
+        if hasattr(file_obj, "seek"):
+            file_obj.seek(0)
+    except Exception:
+        raise serializers.ValidationError("Unable to read file content.")
+
+    if not header:
+        if ext != ".txt":
+            raise serializers.ValidationError("File content is empty.")
+        return file_obj
+
+    # Explicitly block known executable / binary payload signatures regardless of extension
+    BLOCKED_MAGIC_SIGNATURES = [
+        b"MZ",                     # Windows PE Executable / DLL
+        b"\x7fELF",                # Linux ELF Executable
+        b"\xca\xfe\xba\xbe",        # Mach-O / Java Class File
+        b"\xfe\xed\xfa\xce",        # Mach-O 32-bit
+        b"\xfe\xed\xfa\xcf",        # Mach-O 64-bit
+    ]
+    for sig in BLOCKED_MAGIC_SIGNATURES:
+        if header.startswith(sig):
+            raise serializers.ValidationError("Executable or malicious file binary content detected.")
+
+    # Magic byte validation per extension
+    if ext == ".pdf":
+        if not header.startswith(b"%PDF-"):
+            raise serializers.ValidationError("Invalid PDF file header. File content does not match .pdf format.")
+
+    elif ext in [".zip", ".docx", ".xlsx", ".pptx"]:
+        # ZIP archive signature (PK\x03\x04 or PK\x05\x06 or PK\x07\x08)
+        if not (header.startswith(b"PK\x03\x04") or header.startswith(b"PK\x05\x06") or header.startswith(b"PK\x07\x08")):
+            raise serializers.ValidationError(f"Invalid file header for '{ext}'. File content is not a valid ZIP-compressed document.")
+
+        if ext == ".zip":
+            import zipfile
+            try:
+                if hasattr(file_obj, "seek"):
+                    file_obj.seek(0)
+                if zipfile.is_zipfile(file_obj):
+                    file_obj.seek(0)
+                    with zipfile.ZipFile(file_obj) as zf:
+                        total_uncompressed = 0
+                        max_uncompressed_limit = 200 * 1024 * 1024  # 200 MB
+                        for info in zf.infolist():
+                            if ".." in info.filename or info.filename.startswith("/") or info.filename.startswith("\\"):
+                                raise serializers.ValidationError("Archive contains unsafe file path entry.")
+                            total_uncompressed += info.file_size
+                            if total_uncompressed > max_uncompressed_limit:
+                                raise serializers.ValidationError("Decompressed archive size exceeds maximum safety limit (Zip Bomb detected).")
+                if hasattr(file_obj, "seek"):
+                    file_obj.seek(0)
+            except serializers.ValidationError:
+                raise
+            except Exception:
+                pass
+
+    elif ext in [".doc", ".xls", ".ppt"]:
+        # OLE Compound File signature: \xd0\xcf\11\xe0\xa1\xb1\x1a\xe1
+        OLE_HEADER = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+        if not header.startswith(OLE_HEADER):
+            raise serializers.ValidationError(f"Invalid binary header for '{ext}'. File content does not match Microsoft Office legacy format.")
+
+    elif ext == ".rar":
+        # RAR signature: Rar!\x1a\x07 (v4 or v5)
+        if not header.startswith(b"Rar!\x1a\x07"):
+            raise serializers.ValidationError("Invalid RAR file header. File content does not match .rar format.")
+
+    elif ext == ".txt":
+        # Check text file for binary null bytes or non-text control characters
+        if b"\x00" in header:
+            raise serializers.ValidationError("Binary content detected in text file.")
+        
+        # Check UTF-8 / text decodability
+        try:
+            sample_text = header.decode("utf-8")
+        except UnicodeDecodeError:
+            try:
+                sample_text = header.decode("latin-1")
+            except Exception:
+                raise serializers.ValidationError("Invalid text encoding.")
+        
+        # Reject if text contains high ratio of non-printable control characters
+        non_printable = sum(1 for char in sample_text if ord(char) < 32 and char not in "\n\r\t\f")
+        if len(sample_text) > 0 and (non_printable / len(sample_text)) > 0.05:
+            raise serializers.ValidationError("Binary content detected in text file.")
+
+    return file_obj
