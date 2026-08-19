@@ -39,7 +39,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.message_history = []
         
         # Check if user is authenticated
-        if isinstance(self.user, AnonymousUser) or not self.user.is_authenticated:
+        if not self.user or isinstance(self.user, AnonymousUser) or not getattr(self.user, "is_authenticated", False):
             await self.close(code=4001)  # Unauthorized
             return
         
@@ -68,7 +68,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "type": "connection_established",
             "message": "Connected to chat",
             "group_id": self.group_id,
-            "user_type": self.user.user_type,
+            "user_type": getattr(self.user, "user_type", ""),
         }))
         
         # Notify others that user joined
@@ -76,10 +76,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             {
                 "type": "user_join",
-                "username": self.user.username,
-                "user_type": self.user.user_type,
+                "username": getattr(self.user, "username", ""),
+                "user_type": getattr(self.user, "user_type", ""),
             }
         )
+
+    async def disconnect(self, code):
+        """Handle WebSocket disconnect."""
+        # Leave room group
+        if hasattr(self, "room_group_name"):
+            await self.channel_layer.group_discard(
+                self.room_group_name,
+                self.channel_name
+            )
+            
+            # Notify others that user left if authenticated
+            if hasattr(self, "user") and self.user and getattr(self.user, "is_authenticated", False):
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "user_leave",
+                        "username": getattr(self.user, "username", ""),
+                        "user_type": getattr(self.user, "user_type", ""),
+                    }
+                )
 
     async def check_rate_limit(self):
         """Frame-level rate limit: max 10 messages per 5 seconds."""
@@ -91,8 +111,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.message_history.append(now)
         return True
 
-    async def receive(self, text_data):
+    async def receive(self, text_data=None, bytes_data=None):
         """Handle incoming WebSocket messages."""
+        if not text_data:
+            return
+
         if not await self.check_rate_limit():
             await self.send(text_data=json.dumps({
                 "type": "error",
@@ -172,12 +195,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Broadcast typing indicator to other users in the group."""
         is_typing = data.get("is_typing", False)
         
+        username = getattr(self.user, "username", "") if self.user else ""
+        user_type = getattr(self.user, "user_type", "") if self.user else ""
+        
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 "type": "typing_indicator",
-                "username": self.user.username,
-                "user_type": self.user.user_type,
+                "username": username,
+                "user_type": user_type,
                 "is_typing": is_typing,
             }
         )
@@ -199,7 +225,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def typing_indicator(self, event):
         """Send typing indicator to WebSocket."""
         # Don't send typing indicator to the user who is typing
-        if event["username"] != self.user.username:
+        current_username = getattr(self.user, "username", None) if self.user else None
+        if event.get("username") != current_username:
             await self.send(text_data=json.dumps({
                 "type": "typing",
                 "username": event["username"],
@@ -209,7 +236,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     async def user_join(self, event):
         """Send user join notification to WebSocket."""
-        if event["username"] != self.user.username:
+        current_username = getattr(self.user, "username", None) if self.user else None
+        if event.get("username") != current_username:
             await self.send(text_data=json.dumps({
                 "type": "user_join",
                 "username": event["username"],
@@ -218,7 +246,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     async def user_leave(self, event):
         """Send user leave notification to WebSocket."""
-        if event["username"] != self.user.username:
+        current_username = getattr(self.user, "username", None) if self.user else None
+        if event.get("username") != current_username:
             await self.send(text_data=json.dumps({
                 "type": "user_leave",
                 "username": event["username"],
@@ -230,11 +259,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def is_group_member(self):
         """Check if the current user is a member of the chat group."""
+        if not self.user or not getattr(self.user, "is_authenticated", False):
+            return False
+
+        user_type = getattr(self.user, "user_type", None)
+        if not user_type:
+            return False
+
         try:
             group = SupervisorOfStudentGroup.objects.get(id=self.group_id)
             
             # Check if user is a student in the group
-            if self.user.user_type == "student":
+            if user_type == "student":
                 try:
                     student = Student.objects.get(user=self.user)
                     return (
@@ -245,7 +281,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     return False
             
             # Check if user is the supervisor of the group
-            elif self.user.user_type == "supervisor":
+            elif user_type == "supervisor":
                 try:
                     supervisor = Supervisor.objects.get(user=self.user)
                     return group.supervisor == supervisor
@@ -259,20 +295,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, message):
         """Save a chat message to the database."""
+        if not self.user or not getattr(self.user, "is_authenticated", False):
+            return None
+
+        user_type = getattr(self.user, "user_type", None)
+        if not user_type:
+            return None
+
         try:
             group = SupervisorOfStudentGroup.objects.get(id=self.group_id)
             
             student = None
             supervisor = None
             sent_by = None
-            sender_username = self.user.username
+            sender_username = getattr(self.user, "username", "")
             sender_id = None
             
-            if self.user.user_type == "student":
+            if user_type == "student":
                 student = Student.objects.get(user=self.user)
                 sent_by = "student"
                 sender_id = student.id
-            elif self.user.user_type == "supervisor":
+            elif user_type == "supervisor":
                 supervisor = Supervisor.objects.get(user=self.user)
                 sent_by = "supervisor"
                 sender_id = supervisor.id

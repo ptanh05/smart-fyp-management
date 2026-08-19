@@ -1024,6 +1024,8 @@ class ExternalExaminer(models.Model):
     @property
     def assigned_groups_count(self):
         """Count of student groups assigned to this external."""
+        if not self.pk or not hasattr(self, 'external_groups'):
+            return 0
         return self.external_groups.aggregate(
             total=models.Count('assignments')
         )['total'] or 0
@@ -1076,6 +1078,8 @@ class ExternalGroup(models.Model):
     @property
     def assigned_count(self):
         """Number of student groups currently assigned."""
+        if not self.pk or not hasattr(self, 'assignments'):
+            return 0
         if hasattr(self, '_state') and 'assignments' in getattr(self._state, 'prefetch_cache', {}):
             return len(self.assignments.all())
         return self.assignments.count()
