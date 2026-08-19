@@ -28,6 +28,9 @@ from django.shortcuts import get_object_or_404
 
 from django.db.models import Q, Max
 from django.db import OperationalError
+import logging
+import secrets
+from django.core.cache import cache
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.utils import timezone
@@ -460,7 +463,10 @@ class StudentsListView(ListAPIView):
     def get_queryset(self):
         for_request = self.request.GET.get("for_request")
         search = self.request.GET.get("search")
-        student = Student.objects.get(user=self.request.user)
+        try:
+            student = Student.objects.get(user=self.request.user)
+        except Student.DoesNotExist:
+            return Student.objects.none()
         queryset = (
             super()
             .get_queryset()
@@ -471,16 +477,13 @@ class StudentsListView(ListAPIView):
             )
         )
         if for_request == "true":
-            queryset = queryset.exclude(
-                id__in=student.send_request.filter(status="accepted").values_list(
-                    "student_2", flat=True
-                )
-            )
-            queryset = queryset.exclude(
-                id__in=student.receive_request.filter(status="accepted").values_list(
-                    "student_1", flat=True
-                )
-            )
+            accepted_student_2_ids = Group.objects.filter(
+                student_1=student, status="accepted"
+            ).values_list("student_2", flat=True)
+            accepted_student_1_ids = Group.objects.filter(
+                student_2=student, status="accepted"
+            ).values_list("student_1", flat=True)
+            queryset = queryset.exclude(id__in=accepted_student_2_ids).exclude(id__in=accepted_student_1_ids)
         
         # Search by name or registration number
         if search:
@@ -541,8 +544,10 @@ class GroupRequestView(CreateAPIView, UpdateAPIView, ListAPIView):
             student_1 = Student.objects.get(user=request.user)
             
             # Check if student_1 already has an accepted group
-            if student_1.send_request.filter(status="accepted").exists() or \
-               student_1.receive_request.filter(status="accepted").exists():
+            has_accepted_group = Group.objects.filter(
+                Q(student_1=student_1, status="accepted") | Q(student_2=student_1, status="accepted")
+            ).exists()
+            if has_accepted_group:
                 return Response(
                     {"message": "You already have an accepted group. Cannot send more requests."},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -558,8 +563,9 @@ class GroupRequestView(CreateAPIView, UpdateAPIView, ListAPIView):
                 student_2 = serializer.validated_data.get("student_2")
                 
                 # Check if student_2 already has an accepted group
-                if student_2.receive_request.filter(status="accepted").exists() or \
-                   student_2.send_request.filter(status="accepted").exists():
+                if student_2 and Group.objects.filter(
+                    Q(student_1=student_2, status="accepted") | Q(student_2=student_2, status="accepted")
+                ).exists():
                     return Response(
                         {"message": "The selected student already has an accepted group"},
                         status=status.HTTP_400_BAD_REQUEST,
@@ -582,9 +588,14 @@ class GroupRequestView(CreateAPIView, UpdateAPIView, ListAPIView):
 
     def update(self, request, *args, **kwargs):
         try:
-            grouo_id = request.GET.get("pk")
-            group = Group.objects.get(id=grouo_id)
-            if group.student_1.user == request.user:
+            group_id = request.GET.get("pk")
+            if not group_id:
+                return Response(
+                    {"message": "Group mate request id not found"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            group = Group.objects.get(id=group_id)
+            if group.student_1 and group.student_1.user == request.user:
                 serializer = GroupCategorySerializer(
                     instance=group, data=request.data, partial=True
                 )
@@ -594,26 +605,20 @@ class GroupRequestView(CreateAPIView, UpdateAPIView, ListAPIView):
                 )
                 request_status = request.data.get("status")
                 if request_status == "accepted":
-                    student_1_receive_status = group.student_1.receive_request.filter(
-                        status="accepted"
-                    ).exists()
-                    student_1_send_status = group.student_1.send_request.filter(
-                        status="accepted"
-                    ).exists()
-                    if student_1_receive_status or student_1_send_status:
+                    student_1_has_group = group.student_1 and Group.objects.filter(
+                        Q(student_1=group.student_1, status="accepted") | Q(student_2=group.student_1, status="accepted")
+                    ).exclude(id=group.id).exists()
+                    if student_1_has_group:
                         return Response(
                             {
                                 "message": "You are too late to accept group mate request"
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                    student_2_receive_status = group.student_2.receive_request.filter(
-                        status="accepted"
-                    ).exists()
-                    student_2_send_status = group.student_2.send_request.filter(
-                        status="accepted"
-                    ).exists()
-                    if student_2_receive_status or student_2_send_status:
+                    student_2_has_group = group.student_2 and Group.objects.filter(
+                        Q(student_1=group.student_2, status="accepted") | Q(student_2=group.student_2, status="accepted")
+                    ).exclude(id=group.id).exists()
+                    if student_2_has_group:
                         return Response(
                             {"message": "someone already choose you as group mate"},
                             status=status.HTTP_400_BAD_REQUEST,
@@ -635,9 +640,9 @@ class GroupRequestView(CreateAPIView, UpdateAPIView, ListAPIView):
                         | Q(student_2=group.student_1),
                         status="pending",
                     ).update(status="canceled")
-                return Response(serializer.data, status.HTTP_200_OK)
+                return Response(serializer.data, status=status.HTTP_200_OK)
             else:
-                return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Group.DoesNotExist:
             return Response(
                 {"message": "Group mate request not found"},
@@ -840,10 +845,14 @@ class SendSupervisorRequestAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
             )
             serializer = SupervisorOfStudentGroupSerializer(supervisor_request)
             return Response(serializer.data, status=201)
+        except Student.DoesNotExist:
+            return Response({"message": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
         except Group.DoesNotExist:
-            return Response({"message": "Group mate not found"}, status=404)
+            return Response({"message": "Group mate not found"}, status=status.HTTP_404_NOT_FOUND)
         except Supervisor.DoesNotExist:
-            return Response({"message": "Supervisor not found"}, status=404)
+            return Response({"message": "Supervisor not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Project.DoesNotExist:
+            return Response({"message": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
 
     def update(self, request, *args, **kwargs):
         response_student = None
@@ -858,16 +867,16 @@ class SendSupervisorRequestAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
                     return Response(
                         {"message": "Supervisor request id not found"}, status=400
                     )
-                group = Group.objects.get(
+                group = Group.objects.filter(
                     Q(student_1__user=self.request.user)
                     | Q(student_2__user=self.request.user),
                     status="accepted",
-                )
+                ).first()
                 if not group:
                     return Response({"message": "Group mate not found"}, status=404)
-                if group.student_1.user == self.request.user:
+                if group.student_1 and group.student_1.user == self.request.user:
                     response_student = group.student_2
-                elif group.student_2.user == self.request.user:
+                elif group.student_2 and group.student_2.user == self.request.user:
                     response_student = group.student_1
                 else:
                     return Response(
@@ -1170,11 +1179,21 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
             )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        student = Student.objects.get(user=self.request.user)
-        group = SupervisorOfStudentGroup.objects.get(
-            Q(group__student_1=student) | Q(group__student_2=student),
-            status="accepted",
-        )
+        try:
+            student = Student.objects.get(user=self.request.user)
+            group = SupervisorOfStudentGroup.objects.get(
+                Q(group__student_1=student) | Q(group__student_2=student),
+                status="accepted",
+            )
+        except Student.DoesNotExist:
+            return Response(
+                {"message": "Student not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except SupervisorOfStudentGroup.DoesNotExist:
+            return Response(
+                {"message": "Group or supervisor request not found or not accepted"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         # Block submission after deadline: get latest deadline for this document type (and student's semester)
         requirements = DocumentRequirement.objects.filter(
             document_type=document_type
@@ -1204,17 +1223,17 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
                 instance=document, data=request.data, partial=True
             )
             if not serializer.is_valid():
-                return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             if (
                 document.uploaded_by == student
                 and serializer.validated_data.get("status") == "accepted_by_student"
             ):
                 return Response(
-                    {"message": "You cannot update this document"}, status=400
+                    {"message": "You cannot update this document"}, status=status.HTTP_400_BAD_REQUEST
                 )
             if serializer.validated_data.get("status") == "accepted":
                 return Response(
-                    {"message": "You cannot update this document"}, status=400
+                    {"message": "You cannot update this document"}, status=status.HTTP_400_BAD_REQUEST
                 )
             new_status = serializer.validated_data.get("status")
             serializer.save()
@@ -1227,9 +1246,9 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
             return Response(
                 {"message": "Document not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        except Group.DoesNotExist:
+        except (Group.DoesNotExist, SupervisorOfStudentGroup.DoesNotExist):
             return Response(
-                {"message": "Group mate not found"}, status=status.HTTP_404_NOT_FOUND
+                {"message": "Group mate or supervisor request not found"}, status=status.HTTP_404_NOT_FOUND
             )
         except Student.DoesNotExist:
             try:
@@ -1659,7 +1678,13 @@ class CommitteeMemberTemplatesAPIView(CreateAPIView, ListAPIView):
             )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        committee_member = CommitteeMember.objects.get(user=self.request.user)
+        try:
+            committee_member = CommitteeMember.objects.get(user=self.request.user)
+        except CommitteeMember.DoesNotExist:
+            return Response(
+                {"message": "Committee member profile not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         serializer.save(uploaded_by=committee_member, template_type=template_type)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -1926,13 +1951,24 @@ class ExportReportAPIView(APIView):
     permission_classes = [IsAuthenticated, IsSupervisor]
 
     def get(self, request, *args, **kwargs):
-        supervisor = Supervisor.objects.get(user=request.user)
+        try:
+            supervisor = Supervisor.objects.get(user=request.user)
+        except Supervisor.DoesNotExist:
+            return Response(
+                {"message": "Supervisor profile not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        supervisor_groups = supervisor.group_request.filter(status="accepted")
+        supervisor_groups = SupervisorOfStudentGroup.objects.filter(
+            supervisor=supervisor, status="accepted"
+        )
 
         workbook = Workbook()
         sheet = workbook.active
-        sheet.title = "Project Reports"
+        if sheet is None:
+            sheet = workbook.create_sheet(title="Project Reports")
+        else:
+            sheet.title = "Project Reports"
 
         # UTC Official Header
         sheet.append(["BỘ GIÁO DỤC VÀ ĐÀO TẠO - TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI (UTC)"])
@@ -1959,15 +1995,17 @@ class ExportReportAPIView(APIView):
         sheet.append(headers)
 
         for group in supervisor_groups:
-            documents = group.documents.filter(status="accepted")
+            documents = Document.objects.filter(group=group, status="accepted")
+            student_1 = getattr(group.group, "student_1", None)
+            student_2 = getattr(group.group, "student_2", None)
             row = [
                 group.id,
-                group.group.student_1.user.username,
-                group.group.student_1.user.email,
-                group.group.student_1.registration_no,
-                group.group.student_2.user.username,
-                group.group.student_2.user.email,
-                group.group.student_2.registration_no,
+                student_1.user.username if student_1 and student_1.user else "N/A",
+                student_1.user.email if student_1 and student_1.user else "N/A",
+                student_1.registration_no if student_1 else "N/A",
+                student_2.user.username if student_2 and student_2.user else "N/A",
+                student_2.user.email if student_2 and student_2.user else "N/A",
+                student_2.registration_no if student_2 else "N/A",
                 group.project.project_name if group.project else "N/A",
                 ",".join(
                     documents.filter(document_type="scope_document").values_list(
@@ -2749,7 +2787,8 @@ class AuditLogListAPIView(ListAPIView):
         queryset = AuditLog.objects.all()
 
         # Filter based on user type
-        if user.user_type == 'supervisor':
+        user_type = getattr(user, 'user_type', None)
+        if user_type == 'supervisor':
             try:
                 supervisor = Supervisor.objects.get(user=user)
                 # Get groups supervised by this supervisor
@@ -2760,7 +2799,7 @@ class AuditLogListAPIView(ListAPIView):
             except Supervisor.DoesNotExist:
                 return AuditLog.objects.none()
         
-        elif user.user_type == 'committee_member':
+        elif user_type == 'committee_member':
             try:
                 committee_member = CommitteeMember.objects.get(user=user)
                 panel = committee_member.panel
@@ -2840,7 +2879,8 @@ class AuditLogStatsAPIView(APIView):
         user = request.user
         
         # Build base queryset based on user type (same logic as list view)
-        if user.user_type == 'supervisor':
+        user_type = getattr(user, 'user_type', None)
+        if user_type == 'supervisor':
             try:
                 supervisor = Supervisor.objects.get(user=user)
                 supervisor_groups = SupervisorOfStudentGroup.objects.filter(
@@ -2850,7 +2890,7 @@ class AuditLogStatsAPIView(APIView):
             except Supervisor.DoesNotExist:
                 queryset = AuditLog.objects.none()
         
-        elif user.user_type == 'committee_member':
+        elif user_type == 'committee_member':
             try:
                 committee_member = CommitteeMember.objects.get(user=user)
                 panel = committee_member.panel
@@ -2961,7 +3001,9 @@ class ExternalExaminerDashboardAPIView(APIView):
             )
         
         # Get external groups
-        external_groups = external.external_groups.select_related('external_examiner__user').prefetch_related('assignments')
+        external_groups = ExternalGroup.objects.filter(
+            external_examiner=external
+        ).select_related('external_examiner__user').prefetch_related('assignments')
         
         # Statistics
         total_groups = ExternalGroupAssignment.objects.filter(
@@ -3028,7 +3070,7 @@ class ExternalGroupListCreateAPIView(ListCreateAPIView):
         queryset = ExternalGroup.objects.select_related('external_examiner__user').prefetch_related('assignments')
         
         # External examiner sees only their groups
-        if self.request.user.user_type == 'external_examiner':
+        if getattr(self.request.user, 'user_type', None) == 'external_examiner':
             try:
                 external = ExternalExaminer.objects.get(user=self.request.user)
                 queryset = queryset.filter(external_examiner=external)
@@ -3252,7 +3294,7 @@ class ExternalEvaluationDetailAPIView(RetrieveUpdateAPIView):
         queryset = ExternalEvaluation.objects.all()
         
         # External examiner can only access their evaluations
-        if self.request.user.user_type == 'external_examiner':
+        if getattr(self.request.user, 'user_type', None) == 'external_examiner':
             try:
                 external = ExternalExaminer.objects.get(user=self.request.user)
                 queryset = queryset.filter(
@@ -3351,10 +3393,11 @@ class StudentExternalEvaluationAPIView(RetrieveAPIView):
             raise NotFound("Group not assigned to external examiner yet.")
         
         # Get evaluation
-        try:
-            return assignment.evaluation
-        except ExternalEvaluation.DoesNotExist:
+        evaluation = ExternalEvaluation.objects.filter(assignment=assignment).first()
+        if not evaluation:
             raise NotFound("External evaluation not completed yet.")
+        
+        return evaluation
 
 
 # ==================== Evaluation Schedule Views ====================
@@ -3504,7 +3547,10 @@ class ConsolidatedEvaluationExportAPIView(APIView):
 
         workbook = Workbook()
         sheet = workbook.active
-        sheet.title = "Consolidated Grades"
+        if sheet is None:
+            sheet = workbook.create_sheet(title="Consolidated Grades")
+        else:
+            sheet.title = "Consolidated Grades"
 
         # UTC Official Header
         sheet.append(["BỘ GIÁO DỤC VÀ ĐÀO TẠO - TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI (UTC)"])
