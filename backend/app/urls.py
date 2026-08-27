@@ -1,4 +1,18 @@
 from django.urls import path
+from .views_utc import (
+    StudentSurveyAPIView,
+    StudentGraduationProjectAPIView,
+    StudentOutlineSubmissionAPIView,
+    StudentWeeklyReportAPIView,
+    SupervisorGraduationProjectsAPIView,
+    SupervisorOutlineReviewAPIView,
+    SupervisorWeeklyFeedbackAPIView,
+    SupervisorDefenseEvaluationAPIView,
+    ReviewerAssignedProjectsAPIView,
+    ReviewerSubmitEvaluationAPIView,
+    CouncilLiveDefenseSessionAPIView,
+    CouncilSubmitScoreAPIView
+)
 from .views import (
     GroupRequestView,
     StudentLoginView,
@@ -438,4 +452,23 @@ urlpatterns = [
         EvaluationScheduleDetailAPIView.as_view(),
         name="evaluation-schedule-detail",
     ),
+
+    # =========================================================================
+    # UTC FACULTY OF IT GRADUATION THESIS WORKFLOW ENDPOINTS
+    # =========================================================================
+    path("student/survey/", StudentSurveyAPIView.as_view(), name="utc-student-survey"),
+    path("student/graduation-project/", StudentGraduationProjectAPIView.as_view(), name="utc-student-graduation-project"),
+    path("student/outline/submit/", StudentOutlineSubmissionAPIView.as_view(), name="utc-student-outline-submit"),
+    path("student/weekly-reports/", StudentWeeklyReportAPIView.as_view(), name="utc-student-weekly-reports"),
+
+    path("supervisor/graduation-projects/", SupervisorGraduationProjectsAPIView.as_view(), name="utc-supervisor-graduation-projects"),
+    path("supervisor/outline/review/", SupervisorOutlineReviewAPIView.as_view(), name="utc-supervisor-outline-review"),
+    path("supervisor/weekly-feedback/", SupervisorWeeklyFeedbackAPIView.as_view(), name="utc-supervisor-weekly-feedback"),
+    path("supervisor/defense-evaluation/", SupervisorDefenseEvaluationAPIView.as_view(), name="utc-supervisor-defense-evaluation"),
+
+    path("reviewer/assigned-projects/", ReviewerAssignedProjectsAPIView.as_view(), name="utc-reviewer-assigned-projects"),
+    path("reviewer/submit-evaluation/", ReviewerSubmitEvaluationAPIView.as_view(), name="utc-reviewer-submit-evaluation"),
+
+    path("council/live-session/", CouncilLiveDefenseSessionAPIView.as_view(), name="utc-council-live-session"),
+    path("council/submit-score/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-submit-score"),
 ]

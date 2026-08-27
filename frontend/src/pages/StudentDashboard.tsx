@@ -18,6 +18,7 @@ import StudentTemplatesView from '../components/StudentTemplatesView';
 import CommitteeOfferedProjects from '../components/CommitteeOfferedProjects';
 import UTCFypTimeline from '../components/UTCFypTimeline';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
+import { UTCStudentGraduationView } from '../components/UTCStudentGraduationView';
 import { SkeletonProfile, SkeletonCardGrid } from '../components/SkeletonLoader';
 import './Dashboard.css';
 import '../components/SkeletonLoader.css';
@@ -260,6 +261,13 @@ const StudentDashboard: React.FC = () => {
 
         <div className="tabs">
           <button
+            className={`tab ${activeTab === 'utc_graduation' ? 'active' : ''}`}
+            onClick={() => setActiveTab('utc_graduation')}
+            style={{ fontWeight: 'bold', background: activeTab === 'utc_graduation' ? '#003366' : undefined, color: activeTab === 'utc_graduation' ? '#fff' : undefined }}
+          >
+            🎓 Đồ Án Tốt Nghiệp UTC (Khảo sát, Báo cáo & Điểm)
+          </button>
+          <button
             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
@@ -318,6 +326,8 @@ const StudentDashboard: React.FC = () => {
         </div>
 
         <div className="tab-content">
+          {activeTab === 'utc_graduation' && <UTCStudentGraduationView />}
+
           {activeTab === 'overview' && (
             <>
               {/* UTC FYP Progress Timeline */}

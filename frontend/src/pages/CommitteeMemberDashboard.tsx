@@ -13,6 +13,7 @@ import AuditLogViewer from '../components/AuditLogViewer';
 import ExternalManagement from '../components/ExternalManagement';
 import DocumentRequirementsManager from '../components/DocumentRequirementsManager';
 import UTCFacultyAnalytics from '../components/UTCFacultyAnalytics';
+import { UTCCouncilLiveDefenseView } from '../components/UTCCouncilLiveDefenseView';
 import { SkeletonProfile, SkeletonCardGrid, SkeletonEvaluationGrid } from '../components/SkeletonLoader';
 import './Dashboard.css';
 import '../components/EvaluationForm.css';
@@ -102,6 +103,13 @@ const CommitteeMemberDashboard: React.FC = () => {
 
         <div className="tabs">
           <button
+            className={`tab ${activeTab === 'utc_live_defense' ? 'active' : ''}`}
+            onClick={() => setActiveTab('utc_live_defense')}
+            style={{ fontWeight: 'bold', background: activeTab === 'utc_live_defense' ? '#003366' : undefined, color: activeTab === 'utc_live_defense' ? '#fff' : undefined }}
+          >
+            🏛️ Phiên Bảo Vệ Trực Tiếp & Chấm Điểm UTC
+          </button>
+          <button
             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
@@ -152,6 +160,8 @@ const CommitteeMemberDashboard: React.FC = () => {
         </div>
 
         <div className="tab-content">
+          {activeTab === 'utc_live_defense' && <UTCCouncilLiveDefenseView />}
+
           {activeTab === 'overview' && (
             <>
               <div className="card">
