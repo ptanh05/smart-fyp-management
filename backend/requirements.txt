@@ -15,4 +15,6 @@ psycopg2-binary>=2.9.9
 daphne>=4.0.0
 channels>=4.0.0
 channels-redis>=4.1.0
+whitenoise>=6.6.0
+
 
