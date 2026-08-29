@@ -1,5 +1,4 @@
-from django.test import TestCase
-from rest_framework.test import APIClient
+from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 
 from app.models import (
@@ -20,8 +19,11 @@ from app.models import (
     FinalGradeSummary
 )
 
-class AuditSecurityAndStateTransitionsTests(TestCase):
+class AuditSecurityAndStateTransitionsTests(APITestCase):
+    client: APIClient
+
     def setUp(self):
+        super().setUp()
         self.client = APIClient()
 
         # Batch & Policy
@@ -88,7 +90,7 @@ class AuditSecurityAndStateTransitionsTests(TestCase):
         # Student A views own project
         res_own = self.client.get("/app/student/graduation-project/")
         self.assertEqual(res_own.status_code, status.HTTP_200_OK)
-        self.assertEqual(res_own.data["project"]["id"], self.proj_a.id)
+        self.assertEqual(res_own.json()["project"]["id"], self.proj_a.id)
 
     def test_supervisor_cannot_modify_other_supervisor_student(self):
         """Supervisor 1 cannot approve outline or submit score for Student of Supervisor 2"""

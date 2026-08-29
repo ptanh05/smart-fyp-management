@@ -1,7 +1,6 @@
 import io
-from django.test import TestCase
+from rest_framework.test import APITestCase, APIClient
 from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
 from rest_framework import status
 
 from app.models import (
@@ -23,8 +22,11 @@ from app.models import (
     CourseClass
 )
 
-class UTCGraduationSystemTests(TestCase):
+class UTCGraduationSystemTests(APITestCase):
+    client: APIClient
+
     def setUp(self):
+        super().setUp()
         self.client = APIClient()
 
         # 1. Create Academic Batch & Policy
@@ -217,7 +219,8 @@ class UTCGraduationSystemTests(TestCase):
 
         proj.refresh_from_db()
         self.assertEqual(proj.status, "OUTLINE_APPROVED")
-        self.assertEqual(proj.outline_review.verdict, "APPROVED")
+        outline_review = OutlineReview.objects.get(project=proj)
+        self.assertEqual(outline_review.verdict, "APPROVED")
 
     def test_weekly_progress_reports_and_supervisor_feedback(self):
         """Test Weekly progress report submission (Week 1 to 15) and rating"""
@@ -320,5 +323,6 @@ class UTCGraduationSystemTests(TestCase):
         # Final grade check: 8.5*0.4 + 8.0*0.2 + 9.0*0.4 = 3.4 + 1.6 + 3.6 = 8.6 -> A, Giỏi
         proj.refresh_from_db()
         self.assertEqual(proj.status, "PASSED")
-        self.assertEqual(proj.final_grade_summary.final_score_10, 8.6)
-        self.assertEqual(proj.final_grade_summary.final_letter_grade, "A")
+        summary = FinalGradeSummary.objects.get(project=proj)
+        self.assertEqual(summary.final_score_10, 8.6)
+        self.assertEqual(summary.final_letter_grade, "A")

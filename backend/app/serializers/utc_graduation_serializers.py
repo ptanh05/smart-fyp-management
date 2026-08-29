@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from app.models import (
+from ..models import (
     CustomUser,
     Student,
     Supervisor,

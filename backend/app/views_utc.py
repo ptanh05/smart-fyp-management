@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
-from app.models import (
+from .models import (
     CustomUser,
     Student,
     Supervisor,
@@ -28,7 +28,7 @@ from app.models import (
     AcademicBatch,
     AuditLog
 )
-from app.serializers.utc_graduation_serializers import (
+from .serializers.utc_graduation_serializers import (
     ProjectTopicAreaSerializer,
     SupervisorBriefSerializer,
     InternshipInfoSerializer,
@@ -77,9 +77,9 @@ class StudentSurveyAPIView(APIView):
                 "course_class": student.course_class.class_name if student.course_class else ""
             },
             "batch": {
-                "id": batch.id if batch else None,
-                "batch_code": batch.batch_code if batch else "",
-                "batch_name": batch.batch_name if batch else ""
+                "id": getattr(batch, "id", None) if batch else None,
+                "batch_code": getattr(batch, "batch_code", "") if batch else "",
+                "batch_name": getattr(batch, "batch_name", "") if batch else ""
             },
             "topic_areas": ProjectTopicAreaSerializer(topic_areas, many=True).data,
             "supervisors": SupervisorBriefSerializer(supervisors, many=True).data,
@@ -350,8 +350,9 @@ class SupervisorOutlineReviewAPIView(APIView):
                 project.status = "FAILED"
             project.save()
 
+        verdict_display = getattr(review, "get_verdict_display", lambda: verdict)()
         return Response({
-            "message": f"Đã cập nhật kết quả duyệt đề cương: {review.get_verdict_display()}",
+            "message": f"Đã cập nhật kết quả duyệt đề cương: {verdict_display}",
             "project": GraduationProjectDetailSerializer(project).data
         }, status=status.HTTP_200_OK)
 
@@ -511,24 +512,27 @@ class CouncilLiveDefenseSessionAPIView(APIView):
         ).order_by("student__user__last_name")
 
         # Get scores submitted by this member
-        member_scores = {s.project_id: s for s in CouncilLiveScore.objects.filter(member=council_member)}
+        member_scores = {getattr(s, "project_id", getattr(s.project, "id", None)): s for s in CouncilLiveScore.objects.filter(member=council_member)}
 
         projects_data = []
         for p in projects:
-            p_data = GraduationProjectDetailSerializer(p).data
-            my_score = member_scores.get(p.id)
+            p_data = dict(GraduationProjectDetailSerializer(p).data)
+            my_score = member_scores.get(getattr(p, "id", None))
             p_data["my_score"] = CouncilLiveScoreSerializer(my_score).data if my_score else None
             projects_data.append(p_data)
 
+        role_display = getattr(council_member, "get_role_display", lambda: council_member.role)()
+        session_time_display = getattr(council, "get_session_time_display", lambda: council.session_time)()
+
         return Response({
             "council": {
-                "id": council.id,
+                "id": getattr(council, "id", None),
                 "council_number": council.council_number,
                 "council_name": council.council_name,
                 "session_date": council.session_date,
-                "session_time": council.get_session_time_display(),
+                "session_time": session_time_display,
                 "defense_room": council.defense_room,
-                "my_role": council_member.get_role_display()
+                "my_role": role_display
             },
             "projects": projects_data
         }, status=status.HTTP_200_OK)
@@ -552,7 +556,7 @@ class CouncilSubmitScoreAPIView(APIView):
 
         # Strict checks: Supervisor cannot grade their own student in council
         project = get_object_or_404(GraduationProject, id=project_id, council=council_member.council)
-        if council_member.supervisor and project.supervisor_id == council_member.supervisor_id:
+        if council_member.supervisor and project.supervisor == council_member.supervisor:
             return Response({"detail": "Vi phạm quy chế: Giảng viên hướng dẫn không được chấm điểm Hội đồng cho sinh viên của mình."}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
