@@ -20,7 +20,7 @@ from app.models import (
 )
 
 class AuditSecurityAndStateTransitionsTests(APITestCase):
-    client: APIClient
+    client: APIClient  # type: ignore[assignment]
 
     def setUp(self):
         super().setUp()

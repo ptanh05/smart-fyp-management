@@ -23,7 +23,7 @@ from app.models import (
 )
 
 class UTCGraduationSystemTests(APITestCase):
-    client: APIClient
+    client: APIClient  # type: ignore[assignment]
 
     def setUp(self):
         super().setUp()
