@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.contrib.auth import get_user_model
 import sys
 import unicodedata
 import re
@@ -16,7 +15,8 @@ from app.models import (
 )
 
 try:
-    sys.stdout.reconfigure(encoding='utf-8')
+    if hasattr(sys.stdout, 'reconfigure'):
+        getattr(sys.stdout, 'reconfigure')(encoding='utf-8')
 except Exception:
     pass
 

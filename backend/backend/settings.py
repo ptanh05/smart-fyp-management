@@ -41,7 +41,7 @@ SECRET_KEY = env("SECRET_KEY", default="django-insecure-%96y_=59*y7d#^5sn7)p6^@x
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
-raw_allowed_hosts = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "0.0.0.0"])
+raw_allowed_hosts = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "0.0.0.0"]) or []
 ALLOWED_HOSTS: List[str] = [h.replace("https://", "").replace("http://", "").rstrip("/") for h in raw_allowed_hosts if h]
 
 # Automatically support Render and localhost hostnames
@@ -236,10 +236,10 @@ if not DEBUG:
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)
-raw_cors = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"])
+raw_cors = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"]) or []
 CORS_ALLOWED_ORIGINS = [origin.rstrip("/").strip() for origin in raw_cors if origin.strip()]
 
-raw_csrf = env.list("CSRF_TRUSTED_ORIGINS", default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"])
+raw_csrf = env.list("CSRF_TRUSTED_ORIGINS", default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"]) or []
 CSRF_TRUSTED_ORIGINS = [origin.rstrip("/").strip() for origin in raw_csrf if origin.strip()]
 CSRF_TRUSTED_ORIGINS.extend([
     "https://*.vercel.app",
