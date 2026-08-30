@@ -1,22 +1,13 @@
 from rest_framework import serializers
 from ..models import (
-    CustomUser,
-    Student,
     Supervisor,
-    SupervisorQuota,
     ProjectTopicArea,
     InternshipInfo,
     GraduationProject,
-    OutlineReviewGroup,
     OutlineReview,
     WeeklyProgressReport,
-    DefenseCouncil,
-    CouncilMember,
     CouncilLiveScore,
-    EvaluationPolicy,
     FinalGradeSummary,
-    AcademicBatch,
-    CourseClass
 )
 
 class ProjectTopicAreaSerializer(serializers.ModelSerializer):
@@ -67,12 +58,12 @@ class InternshipInfoSerializer(serializers.ModelSerializer):
         prefix = f"{obj.preferred_supervisor.academic_title} " if obj.preferred_supervisor.academic_title else ""
         return f"{prefix}{obj.preferred_supervisor.user.get_full_name()}".strip()
 
-    def validate(self, data):
-        is_interning = data.get("is_interning", False)
-        company_name = data.get("company_name", "")
+    def validate(self, attrs):
+        is_interning = attrs.get("is_interning", False)
+        company_name = attrs.get("company_name", "")
         if is_interning and not company_name:
             raise serializers.ValidationError({"company_name": "Vui lòng nhập tên công ty / doanh nghiệp đang thực tập."})
-        return data
+        return attrs
 
 
 class OutlineReviewSerializer(serializers.ModelSerializer):
@@ -150,12 +141,12 @@ class CouncilLiveScoreSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["total_score", "created_at"]
 
-    def validate(self, data):
+    def validate(self, attrs):
         # Validate that individual component scores do not exceed maximum bounds
-        p = float(data.get("score_presentation", 0.0))
-        c = float(data.get("score_content", 0.0))
-        q = float(data.get("score_qa", 0.0))
-        d = float(data.get("score_demo", 0.0))
+        p = float(attrs.get("score_presentation", 0.0))
+        c = float(attrs.get("score_content", 0.0))
+        q = float(attrs.get("score_qa", 0.0))
+        d = float(attrs.get("score_demo", 0.0))
 
         if p < 0 or p > 3.0:
             raise serializers.ValidationError({"score_presentation": "Điểm thuyết trình tối đa 3.0 điểm."})
@@ -166,7 +157,7 @@ class CouncilLiveScoreSerializer(serializers.ModelSerializer):
         if d < 0 or d > 2.0:
             raise serializers.ValidationError({"score_demo": "Điểm sản phẩm demo tối đa 2.0 điểm."})
 
-        return data
+        return attrs
 
 
 class FinalGradeSummarySerializer(serializers.ModelSerializer):
