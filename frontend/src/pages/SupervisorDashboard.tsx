@@ -15,6 +15,7 @@ import SupervisorAnalytics from '../components/SupervisorAnalytics';
 import AuditLogViewer from '../components/AuditLogViewer';
 import UTCFypTimeline from '../components/UTCFypTimeline';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
+import { UTCSupervisorGraduationView } from '../components/UTCSupervisorGraduationView';
 import { SkeletonProfile, SkeletonEvaluationGrid } from '../components/SkeletonLoader';
 import './Dashboard.css';
 import '../components/EvaluationForm.css';
@@ -206,6 +207,13 @@ const SupervisorDashboard: React.FC = () => {
 
         <div className="tabs">
           <button
+            className={`tab ${activeTab === 'utc_graduation' ? 'active' : ''}`}
+            onClick={() => setActiveTab('utc_graduation')}
+            style={{ fontWeight: 'bold', background: activeTab === 'utc_graduation' ? '#003366' : undefined, color: activeTab === 'utc_graduation' ? '#fff' : undefined }}
+          >
+            🎓 Quản lý ĐATN UTC (Duyệt Đề cương, Báo cáo & Chấm Điểm)
+          </button>
+          <button
             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
@@ -250,6 +258,8 @@ const SupervisorDashboard: React.FC = () => {
         </div>
 
         <div className="tab-content">
+          {activeTab === 'utc_graduation' && <UTCSupervisorGraduationView />}
+
           {activeTab === 'overview' && (
             <>
               <UTCFypTimeline currentStep={3} />

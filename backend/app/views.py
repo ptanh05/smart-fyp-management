@@ -553,12 +553,9 @@ class GroupRequestView(CreateAPIView, UpdateAPIView, ListAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             
-            serializer = GroupRequestSerializer(
-                data={
-                    **request.data,
-                    "student_1": student_1.id,
-                }
-            )
+            req_data = dict(request.data) if isinstance(request.data, dict) else {}
+            req_data["student_1"] = student_1.id
+            serializer = GroupRequestSerializer(data=req_data)
             if serializer.is_valid():
                 student_2 = serializer.validated_data.get("student_2")
                 

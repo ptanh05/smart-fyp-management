@@ -23,7 +23,7 @@ class ImportableExportableAdmin(admin.ModelAdmin):
     You can override functions as necessary for model-specific logic
     """
 
-    import_form: forms.Form = XlsxImportForm
+    import_form: type[forms.Form] = XlsxImportForm
     import_related_fields: set[str] = set()
     import_multiple_value_splitter: str = "|||"
     export_fields: set[str] = set()

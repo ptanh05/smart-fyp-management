@@ -7,6 +7,11 @@
 *.env
 **/.env
 **/.env.*
+!.env.example
+!**/.env.example
+!example.env
+!**/example.env
+
 
 # ==========================================
 # Python & Django (Backend)
@@ -56,6 +61,10 @@ backend/db.sqlite3
 # Django Media & User Uploaded Documents
 backend/documents/*
 !backend/documents/.gitkeep
+backend/outlines/*
+!backend/outlines/.gitkeep
+backend/staticfiles/
+
 
 # Testing & Coverage (Python)
 .cache

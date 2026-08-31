@@ -31,20 +31,23 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
 
   // Get WebSocket URL using one-time ticket
   const getWebSocketUrl = useCallback(async () => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = import.meta.env.VITE_WS_HOST || window.location.hostname;
+    const defaultPort = import.meta.env.DEV ? ':8000' : (window.location.port ? `:${window.location.port}` : '');
+    const portStr = import.meta.env.VITE_WS_PORT ? `:${import.meta.env.VITE_WS_PORT}` : defaultPort;
+    const baseWsUrl = import.meta.env.VITE_WS_URL
+      ? (import.meta.env.VITE_WS_URL.endsWith('/') ? import.meta.env.VITE_WS_URL : `${import.meta.env.VITE_WS_URL}/`) + `chat/${groupId}/`
+      : `${protocol}//${host}${portStr}/ws/chat/${groupId}/`;
+
     try {
       const { ticket } = await apiService.getWebSocketTicket(groupId);
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = import.meta.env.VITE_WS_HOST || window.location.hostname;
-      const port = import.meta.env.VITE_WS_PORT || '8000';
-      return `${protocol}//${host}:${port}/ws/chat/${groupId}/?ticket=${ticket}`;
+      return `${baseWsUrl}?ticket=${ticket}`;
     } catch (err) {
       console.error('Failed to obtain WebSocket ticket:', err);
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = import.meta.env.VITE_WS_HOST || window.location.hostname;
-      const port = import.meta.env.VITE_WS_PORT || '8000';
-      return `${protocol}//${host}:${port}/ws/chat/${groupId}/`;
+      return baseWsUrl;
     }
   }, [groupId]);
+
 
   // Check if message was sent by current user
   const isMyMessage = (message: ChatMessage): boolean => {

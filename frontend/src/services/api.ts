@@ -35,7 +35,8 @@ import type {
   EvaluationScheduleCreate,
 } from '../types';
 
-const API_BASE_URL = '/app';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/app';
+
 
 class ApiService {
   private api: AxiosInstance;

@@ -9,6 +9,7 @@ This module provides validators for:
 
 import re
 import html
+from typing import Any
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
@@ -120,7 +121,7 @@ def contains_dangerous_content(text: str) -> bool:
 # DRF Serializer Validators
 # =============================================================================
 
-def validate_no_html(value: str) -> str:
+def validate_no_html(value: str) -> Any:
     """
     Validator that strips HTML tags and checks for dangerous content.
     Use this in serializer field validators.
@@ -141,7 +142,7 @@ def validate_no_html(value: str) -> str:
     return cleaned
 
 
-def validate_chat_message(value: str) -> str:
+def validate_chat_message(value: str) -> Any:
     """
     Validate and sanitize chat messages.
     """
@@ -165,7 +166,7 @@ def validate_chat_message(value: str) -> str:
     return value.strip()
 
 
-def validate_comment(value: str) -> str:
+def validate_comment(value: str) -> Any:
     """
     Validate and sanitize comments.
     """
@@ -189,7 +190,7 @@ def validate_comment(value: str) -> str:
     return value.strip()
 
 
-def validate_project_name(value: str) -> str:
+def validate_project_name(value: str) -> Any:
     """
     Validate and sanitize project names.
     """
@@ -208,7 +209,7 @@ def validate_project_name(value: str) -> str:
     return value.strip()
 
 
-def validate_project_description(value: str) -> str:
+def validate_project_description(value: str) -> Any:
     """
     Validate and sanitize project descriptions.
     """
@@ -228,7 +229,7 @@ def validate_project_description(value: str) -> str:
     return value.strip()
 
 
-def validate_functionalities(value: str) -> str:
+def validate_functionalities(value: str) -> Any:
     """
     Validate and sanitize project functionalities.
     """
@@ -248,7 +249,7 @@ def validate_functionalities(value: str) -> str:
     return value.strip()
 
 
-def validate_evaluation_comment(value: str) -> str:
+def validate_evaluation_comment(value: str) -> Any:
     """
     Validate and sanitize evaluation comments (optional field).
     """
@@ -268,7 +269,7 @@ def validate_evaluation_comment(value: str) -> str:
     return value.strip()
 
 
-def validate_title(value: str) -> str:
+def validate_title(value: str) -> Any:
     """
     Validate and sanitize document/template titles.
     """

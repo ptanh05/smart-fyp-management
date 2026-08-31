@@ -283,7 +283,7 @@ class GroupRequestSerializer(serializers.ModelSerializer):
             "student_2_details",
             "project_category_details",
         ]
-        read_only = ["comment_count", "status"]
+        read_only_fields = ["comment_count", "status"]
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -965,13 +965,13 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             raise serializers.ValidationError("Code must contain only digits.")
         return value
 
-    def validate(self, data):
+    def validate(self, attrs):
         """Validate that passwords match."""
-        if data["new_password"] != data["confirm_password"]:
+        if attrs["new_password"] != attrs["confirm_password"]:
             raise serializers.ValidationError({
                 "confirm_password": "Passwords do not match."
             })
-        return data
+        return attrs
 
 
 # ==================== Notification Serializers ====================
@@ -1218,9 +1218,9 @@ class ExternalGroupAssignmentCreateSerializer(serializers.ModelSerializer):
         model = ExternalGroupAssignment
         fields = ['external_group', 'supervisor_group', 'slot_number', 'slot_time']
     
-    def validate(self, data):
-        external_group = data.get('external_group')
-        supervisor_group = data.get('supervisor_group')
+    def validate(self, attrs):
+        external_group = attrs.get('external_group')
+        supervisor_group = attrs.get('supervisor_group')
         
         # Check if external group is full
         if external_group.is_full:
@@ -1242,7 +1242,7 @@ class ExternalGroupAssignmentCreateSerializer(serializers.ModelSerializer):
                 'supervisor_group': 'Only groups with accepted supervisor status can be assigned.'
             })
         
-        return data
+        return attrs
 
 
 class ExternalGroupDetailSerializer(serializers.ModelSerializer):
@@ -1390,7 +1390,7 @@ class EvaluationScheduleSerializer(serializers.ModelSerializer):
     
     def get_panel_name(self, obj):
         if obj.panel:
-            return obj.panel.panel_name
+            return getattr(obj.panel, "name", None) or getattr(obj.panel, "panel_name", None)
         return None
 
 
@@ -1404,11 +1404,11 @@ class EvaluationScheduleCreateSerializer(serializers.ModelSerializer):
             'external_group', 'panel', 'notes'
         ]
     
-    def validate(self, data):
+    def validate(self, attrs):
         # Ensure end_time is after start_time
-        if data.get('start_time') and data.get('end_time'):
-            if data['end_time'] <= data['start_time']:
+        if attrs.get('start_time') and attrs.get('end_time'):
+            if attrs['end_time'] <= attrs['start_time']:
                 raise serializers.ValidationError({
                     'end_time': 'End time must be after start time.'
                 })
-        return data
+        return attrs
