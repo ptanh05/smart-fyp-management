@@ -665,7 +665,7 @@ class DocumentRequirementSerializer(serializers.ModelSerializer):
             return value
         try:
             if timezone.is_naive(value):
-                value = timezone.make_aware(value, timezone.utc)
+                value = timezone.make_aware(value)
         except (ValueError, TypeError):
             pass
         return value
