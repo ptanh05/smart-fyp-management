@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import './ChangePasswordModal.css';
 
@@ -14,6 +14,15 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const oldPasswordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        oldPasswordRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
 
   // Password strength calculation
   const getPasswordStrength = (password: string): { strength: number; label: string; color: string } => {
@@ -122,6 +131,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
               <input
                 type="password"
                 id="oldPassword"
+                ref={oldPasswordRef}
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="Enter your current password"

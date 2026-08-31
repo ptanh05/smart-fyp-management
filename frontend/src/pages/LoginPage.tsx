@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import './LoginPage.css';
+import utcLogo from '../asset/images/utc_logo.webp';
 
 const LoginPage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -112,7 +113,13 @@ const LoginPage: React.FC = () => {
       login(response.access, response.refresh, userType);
       navigate(`/${userType}/dashboard`);
     } catch (err: any) {
-      setError(err.response?.data?.message || t('login.loginFailed', 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản.'));
+      if (err.response?.status === 429) {
+        const detail = err.response?.data?.detail || '';
+        const seconds = detail.match(/\d+/)?.[0] || '60';
+        setError(t('login.throttled', `Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau ${seconds} giây.`));
+      } else {
+        setError(err.response?.data?.message || err.response?.data?.detail || t('login.loginFailed', 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản.'));
+      }
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
     } finally {
@@ -130,7 +137,7 @@ const LoginPage: React.FC = () => {
       <header className="utc-portal-header">
         <div className="utc-brand-container">
           <div className="utc-logo-badge">
-            <span className="utc-logo-icon">🎓</span>
+            <img src={utcLogo} alt="UTC Logo" className="utc-logo-icon" style={{ backgroundColor: '#fff', padding: '2px', objectFit: 'contain' }} />
             <div className="utc-logo-text">
               <span className="utc-school-name">{t('portal.schoolName', 'TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI')}</span>
               <span className="utc-school-name-sub">{t('portal.schoolSub', 'UNIVERSITY OF TRANSPORT AND COMMUNICATIONS')}</span>
@@ -152,7 +159,7 @@ const LoginPage: React.FC = () => {
         {/* Left Side Welcome Info Card */}
         <section className="utc-info-card">
           <div className="utc-info-header">
-            <div className="utc-icon-circle blue">🎓</div>
+            <img src={utcLogo} alt="UTC" className="utc-icon-circle blue" style={{ padding: '6px', objectFit: 'contain' }} />
             <div className="utc-info-header-text">
               <h2>{t('portal.welcomeTitle', 'CHÀO MỪNG ĐẾN VỚI HỆ THỐNG SMART FYP UTC')}</h2>
               <p>{t('portal.welcomeDesc', 'Trường Đại học Giao thông Vận tải — nơi đào tạo nguồn nhân lực chất lượng cao trong lĩnh vực Giao thông Vận tải, Kinh tế, Kỹ thuật và Công nghệ.')}</p>
@@ -229,13 +236,6 @@ const LoginPage: React.FC = () => {
               onClick={() => handleUserTypeChange('committee_member')}
             >
               {t('roles.committee_member', 'Hội đồng')}
-            </button>
-            <button
-              type="button"
-              className={`utc-role-tab ${userType === 'external_examiner' ? 'active' : ''}`}
-              onClick={() => handleUserTypeChange('external_examiner')}
-            >
-              {t('roles.external_examiner', 'Phản biện')}
             </button>
           </div>
 
