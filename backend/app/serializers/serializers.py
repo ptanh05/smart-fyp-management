@@ -283,7 +283,7 @@ class GroupRequestSerializer(serializers.ModelSerializer):
             "student_2_details",
             "project_category_details",
         ]
-        read_only = ["comment_count", "status"]
+        read_only_fields = ["comment_count", "status"]
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -1390,7 +1390,7 @@ class EvaluationScheduleSerializer(serializers.ModelSerializer):
     
     def get_panel_name(self, obj):
         if obj.panel:
-            return obj.panel.panel_name
+            return getattr(obj.panel, "name", None) or getattr(obj.panel, "panel_name", None)
         return None
 
 
