@@ -1,3 +1,4 @@
+<!-- Redeploy trigger: 2026-09-01T12:23 -->
 # FYP Management System
 
 A comprehensive web-based platform for managing Final Year Projects at COMSATS University Islamabad, Vehari Campus.
