@@ -58,6 +58,11 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
       return;
     }
 
+    if (passwordStrength.strength === 1) {
+      setError('Password is too weak. Please include uppercase, lowercase, and numbers.');
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       setError('New passwords do not match');
       return;
@@ -167,7 +172,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
                   </span>
                 </div>
               )}
-              <small className="form-hint">Minimum 8 characters</small>
+              <small className="form-hint">Min 8 characters, include uppercase, lowercase & numbers</small>
             </div>
 
             <div className="form-group">

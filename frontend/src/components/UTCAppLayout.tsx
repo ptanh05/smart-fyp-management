@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import utcLogo from '../asset/images/utc_logo.webp';
 import type { Student, Supervisor, CommitteeMember } from '../types';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
@@ -98,7 +99,9 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
       {/* 1. Left Sidebar Navigation */}
       <aside className="utc-sidebar">
         <div className="utc-sidebar-logo">
-          <span className="utc-seal">🎓</span>
+          <span className="utc-seal">
+            <img src={utcLogo} alt="UTC Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} />
+          </span>
           <div className="utc-logo-text-group">
             <span className="utc-school-title">TRƯỜNG ĐẠI HỌC</span>
             <span className="utc-school-title-sub">GIAO THÔNG VẬN TẢI</span>
@@ -118,7 +121,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             className={`utc-nav-item ${expandedMenu === 'academic' ? 'expanded' : ''}`}
             onClick={() => setExpandedMenu(expandedMenu === 'academic' ? null : 'academic')}
           >
-            <span className="utc-nav-icon">🎓</span>
+            <span className="utc-nav-icon">📚</span>
             <span className="utc-nav-label">Góc học tập & Đồ án</span>
             <span className="utc-arrow">{expandedMenu === 'academic' ? '▾' : '▸'}</span>
           </div>
@@ -261,7 +264,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             </div>
           </div>
           <div className="utc-hero-badge">
-            <span>🎓</span>
+            <img src={utcLogo} alt="UTC Logo" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
           </div>
         </section>
 
