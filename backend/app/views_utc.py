@@ -201,6 +201,15 @@ class StudentOutlineSubmissionAPIView(APIView):
         if not topic_title_vi:
             return Response({"topic_title_vi": ["Vui lòng nhập tên đề tài tiếng Việt."]}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Check for duplicated topic names
+        from .models import SupervisorOfStudentGroup
+        is_duplicated = (
+            GraduationProject.objects.filter(topic_title_vi__iexact=topic_title_vi, status="PASSED").exclude(id=project.id).exists() or
+            SupervisorOfStudentGroup.objects.filter(project__project_name__iexact=topic_title_vi, status="accepted").exists()
+        )
+        if is_duplicated:
+            return Response({"topic_title_vi": ["Tên đề tài đã trùng lặp với đề tài đã được nghiệm thu từ các năm trước."]}, status=status.HTTP_400_BAD_REQUEST)
+
         # File validation
         if outline_file:
             if not outline_file.name.lower().endswith(".pdf"):

@@ -223,6 +223,7 @@ class ApiService {
   // Projects
   async getProjects(options?: {
     categoryId?: number;
+    supervisorId?: number;
     search?: string;
     /** Admin-set, category-wise projects (offered to students) */
     offered?: boolean;
@@ -230,6 +231,7 @@ class ApiService {
   }): Promise<Project[]> {
     const params: Record<string, string | number | boolean> = {};
     if (options?.categoryId) params.category_id = options.categoryId;
+    if (options?.supervisorId) params.supervisor_id = options.supervisorId;
     if (options?.search) params.search = options.search;
     if (options?.offered === true) params.offered = true;
     if (options?.mineOnly === true) params.mine_only = true;

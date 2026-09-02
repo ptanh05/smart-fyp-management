@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
-import type { Project, ProjectCategory } from '../types';
+import type { Project, ProjectCategory, Supervisor } from '../types';
 import './CommitteeOfferedProjects.css';
 
 interface CommitteeOfferedProjectsProps {
@@ -15,25 +15,33 @@ const CommitteeOfferedProjects: React.FC<CommitteeOfferedProjectsProps> = ({
   onSelectProject,
 }) => {
   const [categoryId, setCategoryId] = useState<number | ''>('');
+  const [supervisorId, setSupervisorId] = useState<number | ''>('');
   const [projects, setProjects] = useState<Project[]>([]);
+  const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (categoryId) {
+    // Load supervisors once
+    apiService.getSupervisors().then(res => setSupervisors(res.results)).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (categoryId || supervisorId) {
       loadProjects();
     } else {
       setProjects([]);
     }
-  }, [categoryId]);
+  }, [categoryId, supervisorId]);
 
   const loadProjects = async () => {
-    if (!categoryId) return;
+    if (!categoryId && !supervisorId) return;
     try {
       setLoading(true);
       const data = await apiService.getProjects({
         offered: true,
-        categoryId: Number(categoryId),
+        categoryId: categoryId ? Number(categoryId) : undefined,
+        supervisorId: supervisorId ? Number(supervisorId) : undefined,
       });
       setProjects(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -52,22 +60,39 @@ const CommitteeOfferedProjects: React.FC<CommitteeOfferedProjectsProps> = ({
       <p className="committee-offered-description">
         Choose a category to see projects set by admin. Select one to use when requesting a supervisor.
       </p>
-      <div className="form-group">
-        <label>Category</label>
-        <select
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value === '' ? '' : Number(e.target.value))}
-          aria-label="Category"
-        >
-          <option value="">Select category...</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.category_name}
-            </option>
-          ))}
-        </select>
+      <div className="filters-container" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
+          <label>Category</label>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value === '' ? '' : Number(e.target.value))}
+            aria-label="Category"
+          >
+            <option value="">All Categories...</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.category_name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
+          <label>Supervisor</label>
+          <select
+            value={supervisorId}
+            onChange={(e) => setSupervisorId(e.target.value === '' ? '' : Number(e.target.value))}
+            aria-label="Supervisor"
+          >
+            <option value="">All Supervisors...</option>
+            {supervisors.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.user.first_name} {s.user.last_name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
-      {categoryId && (
+      {(categoryId || supervisorId) && (
         <>
           {loading ? (
             <div className="empty-state">Loading...</div>

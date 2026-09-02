@@ -722,6 +722,14 @@ class ProjectAPIVIEW(ListAPIView, CreateAPIView):
         if category_id:
             queryset = queryset.filter(project_category_id=category_id)
 
+        supervisor_id = self.request.GET.get("supervisor_id")
+        if supervisor_id:
+            try:
+                supervisor = Supervisor.objects.get(id=supervisor_id)
+                queryset = queryset.filter(user=supervisor.user)
+            except Supervisor.DoesNotExist:
+                queryset = queryset.none()
+
         if offered:
             queryset = queryset.filter(user__isnull=True)
         elif mine_only:
@@ -810,12 +818,41 @@ class SendSupervisorRequestAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
         data = request.data
         project_data = data.get("project")
         if type(project_data) is dict:
+            project_name = project_data.get("project_name", "").strip()
+            # Check for duplicate project name
+            from .models import GraduationProject
+            if SupervisorOfStudentGroup.objects.filter(
+                project__project_name__iexact=project_name,
+                status="accepted"
+            ).exists() or GraduationProject.objects.filter(
+                topic_title_vi__iexact=project_name,
+                status="PASSED"
+            ).exists():
+                return Response(
+                    {"message": "Đề tài với tên này đã trùng lặp với đề tài đã được nghiệm thu từ các năm trước hoặc đã có nhóm khác được duyệt."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             project_serializer = ProjectSerializer(data=project_data)
             if not project_serializer.is_valid():
                 return Response(project_serializer.errors, status=HTTP_400_BAD_REQUEST)
             project_serializer.save()
             project_data = project_serializer.data.get("id")
             data.update({"project": project_data})
+        else:
+            try:
+                project_id = int(project_data)
+                # Check if this project is already accepted by another group
+                if SupervisorOfStudentGroup.objects.filter(
+                    project_id=project_id, status="accepted"
+                ).exists():
+                    return Response(
+                        {"message": "Đề tài này đã có nhóm khác đăng ký và được duyệt!"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except (ValueError, TypeError):
+                pass
+
         serializer = SupervisorofStudentGroupSerializer(data=data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
