@@ -265,7 +265,7 @@ const StudentDashboard: React.FC = () => {
             onClick={() => setActiveTab('utc_graduation')}
             style={{ fontWeight: 'bold', background: activeTab === 'utc_graduation' ? '#003366' : undefined, color: activeTab === 'utc_graduation' ? '#fff' : undefined }}
           >
-            🎓 Đồ Án Tốt Nghiệp UTC (Khảo sát, Báo cáo & Điểm)
+            📚 Đồ Án Tốt Nghiệp UTC (Khảo sát, Báo cáo & Điểm)
           </button>
           <button
             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
@@ -348,7 +348,7 @@ const StudentDashboard: React.FC = () => {
                       gap: '6px',
                     }}
                   >
-                    🎓 {t('dashboard.printUTCSheet', 'In Biên Bản / Phiếu Chấm UTC')}
+                    📑 {t('dashboard.printUTCSheet', 'In Biên Bản / Phiếu Chấm UTC')}
                   </button>
                 </div>
                 <div className="profile-info">

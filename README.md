@@ -881,6 +881,9 @@ python manage.py seed_database  # Optional: Add test data
 daphne backend.asgi:application
 ```
 
+> **⚠️ QUAN TRỌNG KHI LÀM VIỆC NHÓM (Team Workflow):**
+> Mỗi khi bạn `git pull` code mới từ nhánh chung về máy, nếu có ai đó thêm các trường dữ liệu mới vào model (ví dụ: thêm cột `phone_number`), bạn **BẮT BUỘC** phải chạy lại lệnh `python manage.py migrate` ở backend để cập nhật database local. Nếu không sẽ gặp lỗi 500 (`no such column`).
+
 ### Frontend Setup
 
 ```bash
