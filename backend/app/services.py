@@ -270,6 +270,67 @@ class NotificationService:
                 related_supervisor_group=supervisor_group,
                 action_url="/student/dashboard?tab=evaluations",
             )
+
+    @staticmethod
+    def notify_external_evaluation_completed(assignment, evaluation, external_examiner):
+        """Notify students, supervisor, and committee panel members when an external evaluation is submitted."""
+        supervisor_group = assignment.supervisor_group
+        group = supervisor_group.group
+        external_name = external_examiner.user.get_full_name() or external_examiner.user.username
+        grade_info = f"{evaluation.total_marks}/100 ({evaluation.grade})"
+
+        notifications = []
+
+        # 1. Notify students
+        for student in [group.student_1, group.student_2]:
+            if student:
+                notif = NotificationService.create_notification(
+                    user=student.user,
+                    notification_type="evaluation_completed",
+                    title="External Evaluation Completed",
+                    message=f"Chuyên gia ngoài {external_name} đã nộp phiếu đánh giá cho nhóm của bạn. Điểm: {grade_info}.",
+                    related_group=group,
+                    related_supervisor_group=supervisor_group,
+                    action_url="/student/dashboard?tab=evaluations",
+                    send_email=True,
+                )
+                if notif:
+                    notifications.append(notif)
+
+        group_label = (hasattr(group, "project") and group.project and group.project.project_name) or str(group.student_1)
+
+        # 2. Notify supervisor
+        if supervisor_group.supervisor:
+            notif = NotificationService.create_notification(
+                user=supervisor_group.supervisor.user,
+                notification_type="evaluation_completed",
+                title="External Evaluation Completed",
+                message=f"Chuyên gia ngoài {external_name} đã nộp phiếu đánh giá cho nhóm {group_label}. Điểm: {grade_info}.",
+                related_group=group,
+                related_supervisor_group=supervisor_group,
+                action_url="/supervisor/dashboard?tab=evaluations",
+                send_email=True,
+            )
+            if notif:
+                notifications.append(notif)
+
+        # 3. Notify committee panel members if project has panel
+        if hasattr(group, "project") and group.project and group.project.panel:
+            for cm in group.project.panel.members.select_related("user").all():
+                notif = NotificationService.create_notification(
+                    user=cm.user,
+                    notification_type="evaluation_completed",
+                    title="External Evaluation Completed",
+                    message=f"Chuyên gia ngoài {external_name} đã hoàn tất phiếu đánh giá cho nhóm {group_label}. Điểm: {grade_info}.",
+                    related_group=group,
+                    related_supervisor_group=supervisor_group,
+                    action_url="/committee/dashboard?tab=evaluations",
+                    send_email=False,
+                )
+                if notif:
+                    notifications.append(notif)
+
+        return notifications
     
     @staticmethod
     def notify_new_comment(commenter, group, supervisor_group=None, comment_preview=""):

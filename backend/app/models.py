@@ -1922,6 +1922,14 @@ class DefenseCouncil(models.Model):
     session_date = models.DateField(null=True, blank=True)
     session_time = models.CharField(max_length=50, choices=SESSION_CHOICES, default="MORNING")
     defense_room = models.CharField(max_length=100, blank=True, null=True)
+    current_defending_project = models.ForeignKey(
+        "GraduationProject",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="active_defense_councils",
+        help_text="Đề tài / Sinh viên đang trên bục bảo vệ trực tiếp"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1967,9 +1975,15 @@ class GraduationProject(models.Model):
         ("OUTLINE_APPROVED", "Đề cương đã duyệt"),
         ("IN_PROGRESS", "Đang thực hiện đồ án"),
         ("DEFENSE_READY", "Đủ điều kiện bảo vệ"),
+        ("DEFENDING", "Đang bảo vệ"),
         ("PASSED", "Bảo vệ thành công - Đạt"),
         ("FAILED", "Không đạt"),
         ("DEFERRED", "Bảo lưu đồ án"),
+    )
+    DEFENSE_STATUS_CHOICES = (
+        ("WAITING", "Chờ bảo vệ"),
+        ("DEFENDING", "Đang bảo vệ"),
+        ("DEFENDED", "Đã bảo vệ"),
     )
     student = models.OneToOneField(
         Student, on_delete=models.CASCADE, related_name="graduation_project"
@@ -1986,6 +2000,7 @@ class GraduationProject(models.Model):
     topic_title_vi = models.CharField(max_length=500)
     topic_title_en = models.CharField(max_length=500, blank=True, null=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="ALLOCATED")
+    defense_status = models.CharField(max_length=50, choices=DEFENSE_STATUS_CHOICES, default="WAITING")
     
     # Reviewer and Council
     reviewer = models.ForeignKey(
@@ -2086,6 +2101,72 @@ class WeeklyProgressReport(models.Model):
 
     def __str__(self):
         return f"{self.project.student.registration_no} - Tuần {self.week_number} ({self.get_supervisor_rating_display()})"
+
+
+class SupervisionMeetingLog(models.Model):
+    """Nhật ký các buổi họp / làm việc định kỳ giữa Giảng viên hướng dẫn và Sinh viên"""
+    MEETING_TYPE_CHOICES = (
+        ("OFFLINE", "Gặp trực tiếp"),
+        ("ONLINE", "Trực tuyến (Meet/Zoom)"),
+    )
+    project = models.ForeignKey(
+        GraduationProject, on_delete=models.CASCADE, related_name="meeting_logs"
+    )
+    meeting_date = models.DateField()
+    meeting_time = models.CharField(max_length=100, blank=True, default="09:00 - 10:30")
+    meeting_type = models.CharField(max_length=50, choices=MEETING_TYPE_CHOICES, default="OFFLINE")
+    location_or_link = models.CharField(max_length=255, blank=True, null=True)
+    content_discussed = models.TextField(help_text="Nội dung đã trao đổi, tiến độ công việc")
+    supervisor_notes = models.TextField(blank=True, null=True, help_text="Nhận xét / Góp ý của GVHD")
+    next_meeting_plan = models.TextField(blank=True, null=True, help_text="Kế hoạch và mục tiêu cho buổi gặp tiếp theo")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-meeting_date", "-created_at"]
+
+    def __str__(self):
+        return f"Nhật ký HD: {self.project.student.registration_no} - {self.meeting_date} ({self.get_meeting_type_display()})"
+
+
+class SupervisionTask(models.Model):
+    """Nhiệm vụ / Công việc được GVHD giao cho Sinh viên theo dõi trên Task Board"""
+    PRIORITY_CHOICES = (
+        ("LOW", "Thấp"),
+        ("MEDIUM", "Trung bình"),
+        ("HIGH", "Cao"),
+        ("URGENT", "Khẩn cấp"),
+    )
+    STATUS_CHOICES = (
+        ("TODO", "Cần làm"),
+        ("IN_PROGRESS", "Đang thực hiện"),
+        ("COMPLETED", "Đã hoàn thành"),
+    )
+    project = models.ForeignKey(
+        GraduationProject, on_delete=models.CASCADE, related_name="tasks"
+    )
+    meeting_log = models.ForeignKey(
+        SupervisionMeetingLog, on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks"
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    assigned_by = models.ForeignKey(
+        Supervisor, on_delete=models.CASCADE, related_name="assigned_tasks"
+    )
+    due_date = models.DateField(null=True, blank=True)
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default="MEDIUM")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="TODO")
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    student_notes = models.TextField(blank=True, null=True, help_text="Ghi chú, link commit hoặc báo cáo kết quả của SV")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["is_completed", "due_date", "-created_at"]
+
+    def __str__(self):
+        return f"Task: {self.title} -> {self.project.student.registration_no} [{self.get_status_display()}]"
 
 
 class CouncilLiveScore(models.Model):
