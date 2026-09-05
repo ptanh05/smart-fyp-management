@@ -17,7 +17,7 @@ from app.models import (
     CustomUser, Student, Supervisor, CommitteeMember, ExternalExaminer,
     Group, Project, ProjectCategories, SupervisorOfStudentGroup,
     ExternalGroup, ExternalGroupAssignment, ExternalEvaluation,
-    CommitteeMemberPanel
+    CommitteeMemberPanel, Notification
 )
 
 
@@ -400,7 +400,91 @@ class ExternalExaminerAPITests(APITestCase):
         }
         response = self.client.post('/api/external/evaluations/create/', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-    
+        
+        # Verify notifications created for students and supervisor
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.student1.user,
+                notification_type='evaluation_completed'
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.student2.user,
+                notification_type='evaluation_completed'
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.supervisor.user,
+                notification_type='evaluation_completed'
+            ).exists()
+        )
+
+    def test_notification_sent_when_external_evaluation_created(self):
+        """Test that automatic notification is fired to students and supervisor upon external evaluation submission."""
+        Notification.objects.all().delete()
+        
+        ext_group = ExternalGroup.objects.create(
+            name='Notification Test External Group',
+            external_examiner=self.external,
+            semester='Spring 2026',
+            created_by=self.committee_user
+        )
+        assignment = ExternalGroupAssignment.objects.create(
+            external_group=ext_group,
+            supervisor_group=self.supervisor_group,
+            assigned_by=self.committee_user
+        )
+        
+        self.client.force_authenticate(user=self.external_user)
+        data = {
+            'assignment': assignment.id,
+            'project_completion': 'excellent',
+            'code_quality': 'excellent',
+            'functionality': 'excellent',
+            'understanding_of_technology': 'excellent',
+            'problem_solving': 'excellent',
+            'innovation': 'excellent',
+            'presentation_clarity': 'excellent',
+            'communication': 'excellent',
+            'time_management': 'excellent',
+            'documentation_completeness': 'excellent',
+            'documentation_quality': 'excellent',
+            'qa_response': 'excellent',
+            'overall_comment': 'Outstanding work by the group',
+            'is_pass': True
+        }
+        response = self.client.post('/api/external/evaluations/create/', data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Check student 1 notification
+        s1_notif = Notification.objects.filter(
+            user=self.student1.user,
+            notification_type='evaluation_completed'
+        ).first()
+        self.assertIsNotNone(s1_notif)
+        self.assertEqual(s1_notif.title, 'External Evaluation Completed')
+        self.assertIn('Chuyên gia ngoài', s1_notif.message)
+        self.assertFalse(s1_notif.is_read)
+        
+        # Check student 2 notification
+        s2_notif = Notification.objects.filter(
+            user=self.student2.user,
+            notification_type='evaluation_completed'
+        ).first()
+        self.assertIsNotNone(s2_notif)
+        self.assertIn('Chuyên gia ngoài', s2_notif.message)
+        
+        # Check supervisor notification
+        sup_notif = Notification.objects.filter(
+            user=self.supervisor.user,
+            notification_type='evaluation_completed'
+        ).first()
+        self.assertIsNotNone(sup_notif)
+        self.assertIn('Chuyên gia ngoài', sup_notif.message)
+        self.assertEqual(sup_notif.action_url, '/supervisor/dashboard?tab=evaluations')
+
     def test_create_evaluation_unauthenticated(self):
         """Test creating evaluation without authentication."""
         ext_group = ExternalGroup.objects.create(

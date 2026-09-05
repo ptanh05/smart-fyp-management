@@ -3354,16 +3354,12 @@ class ExternalEvaluationDetailAPIView(RetrieveUpdateAPIView):
         evaluation.assignment.supervisor_group.external_evaluation_status = 'evaluated'
         evaluation.assignment.supervisor_group.save()
         
-        # Notify students
-        group = evaluation.assignment.supervisor_group.group
-        for student in [group.student_1, group.student_2]:
-            if student:
-                Notification.objects.create(
-                    user=student.user,
-                    notification_type='evaluation',
-                    title='External Evaluation Completed',
-                    message=f'Your external evaluation has been completed. Grade: {evaluation.grade}'
-                )
+        # Notify students, supervisor, and panel
+        NotificationService.notify_external_evaluation_completed(
+            assignment=evaluation.assignment,
+            evaluation=evaluation,
+            external_examiner=evaluation.assignment.external_group.external_examiner
+        )
 
 
 class ExternalEvaluationCreateAPIView(CreateAPIView):
@@ -3393,6 +3389,13 @@ class ExternalEvaluationCreateAPIView(CreateAPIView):
         
         assignment.supervisor_group.external_evaluation_status = 'evaluated'
         assignment.supervisor_group.save()
+
+        # Send notifications automatically when External submits evaluation
+        NotificationService.notify_external_evaluation_completed(
+            assignment=assignment,
+            evaluation=evaluation,
+            external_examiner=external
+        )
 
 
 class StudentExternalEvaluationAPIView(RetrieveAPIView):

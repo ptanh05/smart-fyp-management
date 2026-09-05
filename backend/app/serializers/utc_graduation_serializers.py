@@ -6,6 +6,8 @@ from ..models import (
     GraduationProject,
     OutlineReview,
     WeeklyProgressReport,
+    SupervisionMeetingLog,
+    SupervisionTask,
     CouncilLiveScore,
     FinalGradeSummary,
 )
@@ -118,6 +120,59 @@ class WeeklyProgressReportSerializer(serializers.ModelSerializer):
         return value
 
 
+class SupervisionMeetingLogSerializer(serializers.ModelSerializer):
+    meeting_type_display = serializers.CharField(source="get_meeting_type_display", read_only=True)
+    supervisor_name = serializers.CharField(source="project.supervisor.user.get_full_name", read_only=True)
+
+    class Meta:
+        model = SupervisionMeetingLog
+        fields = [
+            "id",
+            "project",
+            "meeting_date",
+            "meeting_time",
+            "meeting_type",
+            "meeting_type_display",
+            "location_or_link",
+            "content_discussed",
+            "supervisor_notes",
+            "next_meeting_plan",
+            "supervisor_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class SupervisionTaskSerializer(serializers.ModelSerializer):
+    priority_display = serializers.CharField(source="get_priority_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    assigned_by_name = serializers.CharField(source="assigned_by.user.get_full_name", read_only=True)
+
+    class Meta:
+        model = SupervisionTask
+        fields = [
+            "id",
+            "project",
+            "meeting_log",
+            "title",
+            "description",
+            "assigned_by",
+            "assigned_by_name",
+            "due_date",
+            "priority",
+            "priority_display",
+            "status",
+            "status_display",
+            "is_completed",
+            "completed_at",
+            "student_notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["assigned_by", "completed_at", "created_at", "updated_at"]
+
+
 class CouncilLiveScoreSerializer(serializers.ModelSerializer):
     member_name = serializers.CharField(source="member.user.get_full_name", read_only=True)
     member_role = serializers.CharField(source="member.get_role_display", read_only=True)
@@ -193,6 +248,11 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
     session_time = serializers.CharField(source="council.get_session_time_display", read_only=True, default="")
     topic_category_name = serializers.CharField(source="topic_category.name", read_only=True, default="")
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+    defense_status_display = serializers.CharField(source="get_defense_status_display", read_only=True)
+    is_currently_defending = serializers.SerializerMethodField()
+    task_stats = serializers.SerializerMethodField()
+    tasks = SupervisionTaskSerializer(many=True, read_only=True)
+    meeting_logs = SupervisionMeetingLogSerializer(many=True, read_only=True)
     outline_review = OutlineReviewSerializer(read_only=True)
     weekly_reports = WeeklyProgressReportSerializer(many=True, read_only=True)
     final_grade = FinalGradeSummarySerializer(source="final_grade_summary", read_only=True)
@@ -221,14 +281,40 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
             "topic_title_en",
             "status",
             "status_display",
+            "defense_status",
+            "defense_status_display",
+            "is_currently_defending",
             "supervisor_score",
             "supervisor_feedback",
             "is_eligible_for_defense",
             "reviewer_score",
             "reviewer_feedback",
+            "task_stats",
+            "tasks",
+            "meeting_logs",
             "outline_review",
             "weekly_reports",
             "final_grade",
             "created_at",
             "updated_at"
         ]
+
+    def get_is_currently_defending(self, obj):
+        if obj.council and obj.council.current_defending_project_id == obj.id:
+            return True
+        return obj.defense_status == "DEFENDING" or obj.status == "DEFENDING"
+
+    def get_task_stats(self, obj):
+        tasks = obj.tasks.all()
+        total = tasks.count()
+        completed = tasks.filter(is_completed=True).count()
+        in_progress = tasks.filter(status="IN_PROGRESS", is_completed=False).count()
+        todo = tasks.filter(status="TODO", is_completed=False).count()
+        rate = round((completed / total * 100), 1) if total > 0 else 0
+        return {
+            "total": total,
+            "completed": completed,
+            "in_progress": in_progress,
+            "todo": todo,
+            "completion_rate": rate
+        }

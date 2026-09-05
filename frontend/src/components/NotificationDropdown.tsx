@@ -164,6 +164,10 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
       case 'evaluation_completed':
         if (userType === 'student') {
           targetUrl = '/student/dashboard';
+        } else if (userType === 'supervisor') {
+          targetUrl = '/supervisor/dashboard';
+        } else if (userType === 'committee_member') {
+          targetUrl = '/committee_member/dashboard';
         }
         break;
       default:
