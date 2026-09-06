@@ -462,3 +462,96 @@ class UTCGraduationSystemTests(APITestCase):
         # Cả 3 thành viên (Chair, Sec, Member) chưa nộp -> được nhắc nhở
         self.assertEqual(res_remind.data["pending_count"], 3)
         self.assertEqual(len(res_remind.data["reminded_members"]), 3)
+
+    def test_council_conflict_of_interest_detection_and_assignment(self):
+        """Test phát hiện xung đột lợi ích (COI) khi phân công HĐ và đề tài"""
+        council = DefenseCouncil.objects.create(
+            batch=self.batch, council_number=1, council_name="Hội đồng 01 - CNTT", defense_room="P301-A9"
+        )
+        CouncilMember.objects.create(council=council, user=self.sup1_user, supervisor=self.sup1, role="CHAIR")
+        CouncilMember.objects.create(council=council, user=self.sup2_user, supervisor=self.sup2, role="MEMBER")
+
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            reviewer=self.sup2,
+            batch=self.batch,
+            topic_title_vi="Nghiên cứu kiến trúc Microservices và AI Gateway",
+            status="DEFENSE_READY"
+        )
+
+        # 1. Phân công đồ án vào hội đồng có GVHD -> Phải trả về 400 và báo xung đột lợi ích
+        self.client.force_authenticate(user=self.sup1_user)
+        res_assign_fail = self.client.post("/app/council/assign-project/", {
+            "project_id": proj.id,
+            "council_id": council.id,
+            "force": False
+        }, format="json")
+        self.assertEqual(res_assign_fail.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(res_assign_fail.data["has_conflict"])
+        self.assertGreaterEqual(res_assign_fail.data["conflicts_count"], 1)
+        conflict_types = [c["conflict_type"] for c in res_assign_fail.data["conflicts"]]
+        self.assertIn("SUPERVISOR", conflict_types)
+
+        # 2. Phân công cưỡng chế với force=True -> Cho phép thành công
+        res_assign_force = self.client.post("/app/council/assign-project/", {
+            "project_id": proj.id,
+            "council_id": council.id,
+            "force": True
+        }, format="json")
+        self.assertEqual(res_assign_force.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_assign_force.data["success"])
+        proj.refresh_from_db()
+        self.assertEqual(proj.council, council)
+
+        # 3. Kiểm tra API query xung đột toàn hội đồng: /app/council/conflicts/
+        res_conflicts = self.client.get(f"/app/council/conflicts/?council_id={council.id}")
+        self.assertEqual(res_conflicts.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_conflicts.data["has_conflict"])
+        self.assertGreaterEqual(res_conflicts.data["total_conflicts"], 1)
+
+        # 4. Hủy phân công đề tài khỏi hội đồng
+        res_unassign = self.client.post("/app/council/assign-project/", {
+            "project_id": proj.id,
+            "council_id": None
+        }, format="json")
+        self.assertEqual(res_unassign.status_code, status.HTTP_200_OK)
+        proj.refresh_from_db()
+        self.assertIsNone(proj.council)
+
+    def test_global_search_api(self):
+        """Test thanh tìm kiếm toàn cục (Global Search) tức thời"""
+        GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            reviewer=self.sup2,
+            batch=self.batch,
+            topic_title_vi="Hệ thống quản lý chấm điểm ĐATN UTC",
+            status="DEFENSE_READY"
+        )
+        self.client.force_authenticate(user=self.student_user)
+
+        # 1. Tìm kiếm rỗng hoặc dưới 2 ký tự -> Trả về mảng rỗng
+        res_empty = self.client.get("/app/global-search/?q=a")
+        self.assertEqual(res_empty.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_empty.data["total_results"], 0)
+
+        # 2. Tìm kiếm theo tên đề tài
+        res_search_proj = self.client.get("/app/global-search/?q=chấm điểm")
+        self.assertEqual(res_search_proj.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(res_search_proj.data["total_results"], 1)
+        found_project = any(item["type"] == "project" and "chấm điểm" in item["title"].lower() for item in res_search_proj.data["results"])
+        self.assertTrue(found_project)
+
+        # 3. Tìm kiếm theo tên hoặc mã sinh viên
+        res_search_sv = self.client.get(f"/app/global-search/?q={self.student.registration_no}")
+        self.assertEqual(res_search_sv.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(res_search_sv.data["total_results"], 1)
+        found_sv = any(item["type"] == "student" for item in res_search_sv.data["results"])
+        self.assertTrue(found_sv)
+
+        # 4. Lọc danh mục type=faculty
+        res_search_faculty = self.client.get(f"/app/global-search/?q={self.sup1_user.last_name}&type=faculty")
+        self.assertEqual(res_search_faculty.status_code, status.HTTP_200_OK)
+        for item in res_search_faculty.data["results"]:
+            self.assertEqual(item["type"], "faculty")

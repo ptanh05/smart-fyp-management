@@ -29,9 +29,12 @@ from .models import (
     FinalGradeSummary,
     AcademicBatch,
     AuditLog,
-    Notification
+    Notification,
+    Project,
+    Document,
+    DocumentRequirement
 )
-from .services import NotificationService
+from .services import NotificationService, CouncilConflictService
 from .serializers.utc_graduation_serializers import (
     ProjectTopicAreaSerializer,
     SupervisorBriefSerializer,
@@ -858,6 +861,10 @@ class CouncilLiveDefenseSessionAPIView(APIView):
                     "total_score": m_score.total_score if m_score else None,
                 })
 
+            p_conflicts = CouncilConflictService.check_project_assignment(council, p)
+            p_data["conflicts"] = p_conflicts
+            p_data["has_conflict"] = len(p_conflicts) > 0
+
             p_data["scoring_summary"] = {
                 "total_eligible_members": eligible_count,
                 "submitted_count": submitted_count,
@@ -869,6 +876,7 @@ class CouncilLiveDefenseSessionAPIView(APIView):
 
         role_display = getattr(council_member, "get_role_display", lambda: council_member.role)()
         session_time_display = getattr(council, "get_session_time_display", lambda: council.session_time)()
+        council_conflict_info = CouncilConflictService.check_council_conflicts(council_id=council.id)
 
         return Response({
             "council": {
@@ -881,6 +889,9 @@ class CouncilLiveDefenseSessionAPIView(APIView):
                 "my_role": role_display,
                 "my_role_code": council_member.role,
                 "current_defending_project_id": council.current_defending_project_id,
+                "has_conflict": council_conflict_info.get("has_conflict", False),
+                "total_conflicts": council_conflict_info.get("total_conflicts", 0),
+                "conflicts": council_conflict_info.get("conflicts", []),
             },
             "members": [
                 {
@@ -1126,3 +1137,358 @@ class CouncilSecretaryRemindScoringAPIView(APIView):
             "already_submitted_count": len(submitted_member_ids),
             "pending_count": len(pending_members)
         }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# COUNCIL CONFLICT OF INTEREST & ASSIGNMENT MANAGEMENT
+# ==============================================================================
+
+class CouncilConflictCheckAPIView(APIView):
+    """
+    API kiểm tra xung đột lợi ích (Conflict of Interest) trong phân công hội đồng bảo vệ.
+    Hỗ trợ kiểm tra toàn bộ hội đồng trong đợt hoặc một hội đồng cụ thể.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        council_id = request.query_params.get("council_id")
+        batch_id = request.query_params.get("batch_id")
+
+        if council_id:
+            try:
+                council_id = int(council_id)
+            except ValueError:
+                return Response({"detail": "council_id phải là số nguyên."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if batch_id:
+            try:
+                batch_id = int(batch_id)
+            except ValueError:
+                return Response({"detail": "batch_id phải là số nguyên."}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = CouncilConflictService.check_council_conflicts(council_id=council_id, batch_id=batch_id)
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class CouncilAssignProjectAPIView(APIView):
+    """
+    API phân công đề tài vào hội đồng bảo vệ có kiểm tra cảnh báo xung đột lợi ích.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        project_id = request.data.get("project_id")
+        council_id = request.data.get("council_id")
+        force = request.data.get("force", False)
+        if isinstance(force, str):
+            force = force.lower() in ("true", "1")
+        else:
+            force = bool(force)
+
+        if not project_id:
+            return Response({"detail": "project_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+        project = get_object_or_404(
+            GraduationProject.objects.select_related("student__user", "supervisor__user", "reviewer__user"),
+            id=project_id
+        )
+
+        # Unassign if council_id is None or 0
+        if council_id is None or council_id == "" or council_id == 0:
+            old_council_name = project.council.council_name if project.council else "Không"
+            project.council = None
+            project.save(update_fields=["council"])
+
+            AuditLog.objects.create(
+                user=request.user,
+                action_type="status_change",
+                description=f"Hủy phân công đề tài {project.student.registration_no} khỏi hội đồng {old_council_name}."
+            )
+            return Response({
+                "success": True,
+                "message": f"Đã hủy phân công đề tài khỏi hội đồng.",
+                "project_id": project.id,
+                "council_id": None
+            }, status=status.HTTP_200_OK)
+
+        council = get_object_or_404(DefenseCouncil, id=council_id)
+        conflicts = CouncilConflictService.check_project_assignment(council, project)
+
+        if conflicts and not force:
+            return Response({
+                "success": False,
+                "has_conflict": True,
+                "conflicts_count": len(conflicts),
+                "conflicts": conflicts,
+                "message": f"Phát hiện {len(conflicts)} cảnh báo xung đột lợi ích (Conflict of Interest) với các thành viên trong {council.council_name}."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        project.council = council
+        project.save(update_fields=["council"])
+
+        AuditLog.objects.create(
+            user=request.user,
+            action_type="status_change",
+            description=f"Phân công đề tài {project.student.registration_no} vào {council.council_name}." +
+                        (" (Xác nhận cưỡng chế dù có xung đột lợi ích)" if conflicts else "")
+        )
+
+        return Response({
+            "success": True,
+            "message": f"Đã phân công đề tài của sinh viên {project.student.user.get_full_name()} vào {council.council_name}.",
+            "project_id": project.id,
+            "council_id": council.id,
+            "council_name": council.council_name,
+            "has_conflict": len(conflicts) > 0,
+            "conflicts": conflicts
+        }, status=status.HTTP_200_OK)
+
+
+class CouncilAssignMemberAPIView(APIView):
+    """
+    API thêm hoặc cập nhật thành viên vào hội đồng bảo vệ có kiểm tra cảnh báo xung đột lợi ích.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        council_id = request.data.get("council_id")
+        user_id = request.data.get("user_id")
+        role = request.data.get("role", "MEMBER")
+        force = request.data.get("force", False)
+        if isinstance(force, str):
+            force = force.lower() in ("true", "1")
+        else:
+            force = bool(force)
+
+        if not council_id or not user_id:
+            return Response({"detail": "council_id và user_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+        council = get_object_or_404(DefenseCouncil, id=council_id)
+        user = get_object_or_404(CustomUser, id=user_id)
+        supervisor = Supervisor.objects.filter(user=user).first()
+
+        conflicts = CouncilConflictService.check_member_assignment(council, user, supervisor)
+
+        if conflicts and not force:
+            return Response({
+                "success": False,
+                "has_conflict": True,
+                "conflicts_count": len(conflicts),
+                "conflicts": conflicts,
+                "message": f"Phát hiện {len(conflicts)} cảnh báo xung đột lợi ích (Conflict of Interest) giữa giảng viên và các đề tài trong {council.council_name}."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        member, created = CouncilMember.objects.update_or_create(
+            council=council,
+            user=user,
+            defaults={
+                "role": role,
+                "supervisor": supervisor
+            }
+        )
+
+        AuditLog.objects.create(
+            user=request.user,
+            action_type="status_change",
+            description=f"{'Thêm' if created else 'Cập nhật'} ủy viên {user.get_full_name()} ({member.get_role_display()}) vào {council.council_name}." +
+                        (" (Xác nhận cưỡng chế dù có xung đột lợi ích)" if conflicts else "")
+        )
+
+        return Response({
+            "success": True,
+            "message": f"Đã phân công Thầy/Cô {user.get_full_name()} vào {council.council_name} ({member.get_role_display()}).",
+            "member_id": member.id,
+            "council_id": council.id,
+            "role": member.role,
+            "role_display": member.get_role_display(),
+            "has_conflict": len(conflicts) > 0,
+            "conflicts": conflicts
+        }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# GLOBAL SEARCH API
+# ==============================================================================
+
+class GlobalSearchAPIView(APIView):
+    """
+    Thanh tìm kiếm toàn cục (Global Search) ở Top Header.
+    Tìm kiếm tức thời đa đối tượng: Đề tài, Sinh viên, Giảng viên, Hội đồng, Biểu mẫu.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q
+
+        q = request.query_params.get("q", "").strip()
+        search_type = request.query_params.get("type", "all").lower()
+
+        if not q or len(q) < 2:
+            return Response({
+                "query": q,
+                "total_results": 0,
+                "results": [],
+                "categories": {
+                    "projects": 0,
+                    "faculty": 0,
+                    "students": 0,
+                    "councils": 0,
+                    "documents": 0
+                }
+            }, status=status.HTTP_200_OK)
+
+        results = []
+
+        # 1. Projects (GraduationProject & Project)
+        if search_type in ["all", "projects"]:
+            # Graduation Projects (UTC)
+            grad_projects = GraduationProject.objects.filter(
+                Q(topic_title_vi__icontains=q) |
+                Q(topic_title_en__icontains=q) |
+                Q(student__registration_no__icontains=q) |
+                Q(student__user__first_name__icontains=q) |
+                Q(student__user__last_name__icontains=q) |
+                Q(supervisor__user__first_name__icontains=q) |
+                Q(supervisor__user__last_name__icontains=q)
+            ).select_related("student__user", "supervisor__user", "council")[:8]
+
+            for p in grad_projects:
+                s_name = p.student.user.get_full_name() or p.student.user.username
+                results.append({
+                    "id": f"grad_project_{p.id}",
+                    "item_id": p.id,
+                    "type": "project",
+                    "type_label": "Đồ án Tốt nghiệp",
+                    "icon": "🎓",
+                    "title": p.topic_title_vi or p.topic_title_en,
+                    "subtitle": f"SV: {s_name} ({p.student.registration_no}) • Lớp: {p.student.course_class or 'K62'}",
+                    "extra_info": f"HĐ: {p.council.council_name if p.council else 'Chưa gán'} • Trạng thái: {p.get_status_display()}",
+                    "action_url": f"/student/dashboard?tab=overview",
+                })
+
+            # Standard FYP Projects
+            fyp_projects = Project.objects.filter(
+                Q(project_name__icontains=q) |
+                Q(project_description__icontains=q) |
+                Q(language__icontains=q)
+            ).select_related("project_category")[:5]
+
+            for p in fyp_projects:
+                results.append({
+                    "id": f"fyp_project_{p.id}",
+                    "item_id": p.id,
+                    "type": "project",
+                    "type_label": "Đề tài FYP",
+                    "icon": "📁",
+                    "title": p.project_name,
+                    "subtitle": f"Ngôn ngữ: {p.language or 'N/A'} • Danh mục: {p.project_category.category_name if p.project_category else 'N/A'}",
+                    "extra_info": p.project_description[:80] + "..." if p.project_description and len(p.project_description) > 80 else p.project_description,
+                    "action_url": f"/student/dashboard?tab=project",
+                })
+
+        # 2. Faculty / Supervisors
+        if search_type in ["all", "faculty"]:
+            supervisors = Supervisor.objects.filter(
+                Q(user__first_name__icontains=q) |
+                Q(user__last_name__icontains=q) |
+                Q(user__username__icontains=q) |
+                Q(user__email__icontains=q) |
+                Q(supervisor_id__icontains=q) |
+                Q(department_name__icontains=q)
+            ).select_related("user")[:6]
+
+            for s in supervisors:
+                name = s.user.get_full_name() or s.user.username
+                results.append({
+                    "id": f"supervisor_{s.id}",
+                    "item_id": s.id,
+                    "type": "faculty",
+                    "type_label": "Giảng viên",
+                    "icon": "👨‍🏫",
+                    "title": f"{s.academic_title or 'ThS/TS'}. {name}",
+                    "subtitle": f"Bộ môn: {s.department_name or 'CNTT'} • Email: {s.user.email or 'N/A'}",
+                    "extra_info": f"Mã GV: {s.supervisor_id}",
+                    "action_url": f"/supervisor/dashboard",
+                })
+
+        # 3. Students
+        if search_type in ["all", "students"]:
+            students = Student.objects.filter(
+                Q(user__first_name__icontains=q) |
+                Q(user__last_name__icontains=q) |
+                Q(user__username__icontains=q) |
+                Q(user__email__icontains=q) |
+                Q(registration_no__icontains=q) |
+                Q(department__icontains=q)
+            ).select_related("user")[:6]
+
+            for st in students:
+                name = st.user.get_full_name() or st.user.username
+                results.append({
+                    "id": f"student_{st.id}",
+                    "item_id": st.id,
+                    "type": "student",
+                    "type_label": "Sinh viên",
+                    "icon": "👨‍🎓",
+                    "title": name,
+                    "subtitle": f"MSSV: {st.registration_no} • Khoa: {st.department or 'CNTT'}",
+                    "extra_info": f"Email: {st.user.email or 'N/A'}",
+                    "action_url": f"/student/dashboard",
+                })
+
+        # 4. Councils & Panels
+        if search_type in ["all", "councils"]:
+            councils = DefenseCouncil.objects.filter(
+                Q(council_name__icontains=q) |
+                Q(defense_room__icontains=q)
+            ).select_related("batch")[:6]
+
+            for c in councils:
+                results.append({
+                    "id": f"council_{c.id}",
+                    "item_id": c.id,
+                    "type": "council",
+                    "type_label": "Hội đồng Bảo vệ",
+                    "icon": "🏛️",
+                    "title": f"{c.council_name} (HĐ #{c.council_number})",
+                    "subtitle": f"Phòng: {c.defense_room or 'TBA'} • Ngày: {c.session_date or 'TBA'} ({c.session_time})",
+                    "extra_info": f"Đợt: {c.batch.batch_code if c.batch else 'Kỳ hiện tại'}",
+                    "action_url": f"/committee_member/dashboard?tab=utc_live_defense",
+                })
+
+        # 5. Documents & Templates
+        if search_type in ["all", "documents"]:
+            doc_reqs = DocumentRequirement.objects.filter(
+                Q(title__icontains=q) |
+                Q(document_type__icontains=q)
+            )[:5]
+
+            for d in doc_reqs:
+                results.append({
+                    "id": f"doc_{d.id}",
+                    "item_id": d.id,
+                    "type": "document",
+                    "type_label": "Biểu mẫu / Tài liệu",
+                    "icon": "📄",
+                    "title": d.title,
+                    "subtitle": f"Loại: {d.get_document_type_display()} • Hạn nộp: {d.deadline.strftime('%d/%m/%Y %H:%M') if d.deadline else 'Không có'}",
+                    "extra_info": f"Học kỳ: {d.semester}",
+                    "action_url": f"/student/dashboard?tab=documents",
+                })
+
+        # Tally counts by category
+        categories_count = {
+            "projects": sum(1 for r in results if r["type"] == "project"),
+            "faculty": sum(1 for r in results if r["type"] == "faculty"),
+            "students": sum(1 for r in results if r["type"] == "student"),
+            "councils": sum(1 for r in results if r["type"] == "council"),
+            "documents": sum(1 for r in results if r["type"] == "document"),
+        }
+
+        return Response({
+            "query": q,
+            "total_results": len(results),
+            "categories": categories_count,
+            "results": results
+        }, status=status.HTTP_200_OK)
+

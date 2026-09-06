@@ -19,6 +19,10 @@ from .views_utc import (
     CouncilSubmitScoreAPIView,
     CouncilChairSetDefenseStatusAPIView,
     CouncilSecretaryRemindScoringAPIView,
+    CouncilConflictCheckAPIView,
+    CouncilAssignProjectAPIView,
+    CouncilAssignMemberAPIView,
+    GlobalSearchAPIView,
 )
 from .views import (
     GroupRequestView,
@@ -486,4 +490,9 @@ urlpatterns = [
     path("council/submit-score/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-submit-score"),
     path("council/chair/set-defense-status/", CouncilChairSetDefenseStatusAPIView.as_view(), name="utc-council-chair-defense-status"),
     path("council/remind-scoring/", CouncilSecretaryRemindScoringAPIView.as_view(), name="utc-council-remind-scoring"),
+    path("council/conflicts/", CouncilConflictCheckAPIView.as_view(), name="utc-council-conflicts"),
+    path("council/assign-project/", CouncilAssignProjectAPIView.as_view(), name="utc-council-assign-project"),
+    path("council/assign-member/", CouncilAssignMemberAPIView.as_view(), name="utc-council-assign-member"),
+
+    path("global-search/", GlobalSearchAPIView.as_view(), name="global-search"),
 ]
