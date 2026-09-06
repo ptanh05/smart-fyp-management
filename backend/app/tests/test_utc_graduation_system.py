@@ -326,3 +326,139 @@ class UTCGraduationSystemTests(APITestCase):
         summary = FinalGradeSummary.objects.get(project=proj)
         self.assertEqual(summary.final_score_10, 8.6)
         self.assertEqual(summary.final_letter_grade, "A")
+
+    def test_supervision_meeting_log_and_tasks(self):
+        """Test module Supervision Meeting Log và Task Board tương tác"""
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_title_vi="Hệ thống quản lý đồ án tốt nghiệp UTC",
+            status="IN_PROGRESS"
+        )
+
+        # 1. GVHD tạo nhật ký hướng dẫn
+        self.client.force_authenticate(user=self.sup1_user)
+        res_log = self.client.post("/app/supervisor/supervision-logs/", {
+            "project_id": proj.id,
+            "meeting_date": "2026-09-10",
+            "meeting_time": "09:00 - 10:30",
+            "meeting_type": "ONLINE",
+            "location_or_link": "https://meet.google.com/abc-xyz",
+            "content_discussed": "Rà soát kiến trúc cơ sở dữ liệu và API",
+            "supervisor_notes": "Cần hoàn thiện module xác thực và bảng điểm",
+            "next_meeting_plan": "Báo cáo demo phiên bản thử nghiệm"
+        })
+        self.assertEqual(res_log.status_code, status.HTTP_201_CREATED)
+        meeting_log_id = res_log.data["log"]["id"]
+
+        # 2. GVHD giao 2 nhiệm vụ cho sinh viên
+        res_task1 = self.client.post("/app/supervisor/tasks/", {
+            "project_id": proj.id,
+            "meeting_log_id": meeting_log_id,
+            "title": "Thiết kế CSDL cho Module Council",
+            "description": "Bao gồm bảng CouncilMember và CouncilLiveScore",
+            "due_date": "2026-09-15",
+            "priority": "HIGH"
+        })
+        self.assertEqual(res_task1.status_code, status.HTTP_201_CREATED)
+        task1_id = res_task1.data["task"]["id"]
+
+        res_task2 = self.client.post("/app/supervisor/tasks/", {
+            "project_id": proj.id,
+            "title": "Viết Unit Tests cho API chấm điểm",
+            "priority": "MEDIUM"
+        })
+        self.assertEqual(res_task2.status_code, status.HTTP_201_CREATED)
+        task2_id = res_task2.data["task"]["id"]
+
+        # 3. Sinh viên xem nhật ký hướng dẫn
+        self.client.force_authenticate(user=self.student_user)
+        res_sv_logs = self.client.get("/app/student/supervision-logs/")
+        self.assertEqual(res_sv_logs.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_sv_logs.data), 1)
+        self.assertEqual(res_sv_logs.data[0]["content_discussed"], "Rà soát kiến trúc cơ sở dữ liệu và API")
+
+        # 4. Sinh viên xem danh sách Task Board & thống kê tiến độ
+        res_sv_tasks = self.client.get("/app/student/tasks/")
+        self.assertEqual(res_sv_tasks.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_sv_tasks.data["stats"]["total"], 2)
+        self.assertEqual(res_sv_tasks.data["stats"]["completed"], 0)
+        self.assertEqual(res_sv_tasks.data["stats"]["completion_rate"], 0.0)
+
+        # 5. Sinh viên đánh dấu hoàn thành nhiệm vụ 1 (Mark Task as Completed)
+        res_complete = self.client.patch(f"/app/student/tasks/{task1_id}/complete/", {
+            "is_completed": True,
+            "student_notes": "Đã tạo migration và push lên nhánh feature/council-db"
+        })
+        self.assertEqual(res_complete.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_complete.data["task"]["is_completed"])
+        self.assertEqual(res_complete.data["task"]["status"], "COMPLETED")
+        self.assertIsNotNone(res_complete.data["task"]["completed_at"])
+        self.assertEqual(res_complete.data["stats"]["completed"], 1)
+        self.assertEqual(res_complete.data["stats"]["completion_rate"], 50.0)
+
+    def test_chair_set_defense_status_and_secretary_remind_scoring(self):
+        """Test Chủ tịch điều hành Live Session & Thư ký nhắc nhở nộp điểm"""
+        # Tạo thêm tài khoản Chủ tịch (CHAIR) và Thư ký (SECRETARY)
+        chair_user = CustomUser.objects.create_user(
+            username="gv_chair", email="chair@utc.edu.vn", password="password123",
+            first_name="Chủ tịch", last_name="PGS. TS.", user_type="supervisor"
+        )
+        chair_sup = Supervisor.objects.create(user=chair_user, supervisor_id="GV_CHAIR")
+
+        sec_user = CustomUser.objects.create_user(
+            username="gv_sec", email="sec@utc.edu.vn", password="password123",
+            first_name="Thư ký", last_name="ThS.", user_type="supervisor"
+        )
+        sec_sup = Supervisor.objects.create(user=sec_user, supervisor_id="GV_SEC")
+
+        council = DefenseCouncil.objects.create(
+            batch=self.batch, council_number=10, council_name="Hội đồng 10 - Bảo vệ thử nghiệm", defense_room="P502-A9"
+        )
+
+        CouncilMember.objects.create(council=council, user=chair_user, supervisor=chair_sup, role="CHAIR")
+        CouncilMember.objects.create(council=council, user=sec_user, supervisor=sec_sup, role="SECRETARY")
+        CouncilMember.objects.create(council=council, user=self.sup2_user, supervisor=self.sup2, role="MEMBER")
+
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1, # sup1 không thuộc hội đồng này -> cả 3 thành viên trên đều được chấm
+            reviewer=self.sup2,
+            council=council,
+            batch=self.batch,
+            topic_title_vi="Đồ án bảo vệ trực tiếp",
+            status="DEFENSE_READY"
+        )
+
+        # 1. Chủ tịch chuyển trạng thái sang "Đang bảo vệ" (DEFENDING / In Progress)
+        self.client.force_authenticate(user=chair_user)
+        res_defense = self.client.post("/app/council/chair/set-defense-status/", {
+            "project_id": proj.id,
+            "defense_status": "DEFENDING"
+        })
+        self.assertEqual(res_defense.status_code, status.HTTP_200_OK)
+        proj.refresh_from_db()
+        council.refresh_from_db()
+        self.assertEqual(proj.status, "DEFENDING")
+        self.assertEqual(proj.defense_status, "DEFENDING")
+        self.assertEqual(council.current_defending_project_id, proj.id)
+
+        # 2. Thành viên thông thường không có quyền chuyển trạng thái buổi bảo vệ
+        self.client.force_authenticate(user=self.sup2_user)
+        res_denied = self.client.post("/app/council/chair/set-defense-status/", {
+            "project_id": proj.id,
+            "defense_status": "DEFENDED"
+        })
+        self.assertEqual(res_denied.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 3. Thư ký gửi nhắc nhở nộp điểm cho các thành viên chưa nộp điểm
+        self.client.force_authenticate(user=sec_user)
+        res_remind = self.client.post("/app/council/remind-scoring/", {
+            "project_id": proj.id
+        })
+        self.assertEqual(res_remind.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_remind.data["success"])
+        # Cả 3 thành viên (Chair, Sec, Member) chưa nộp -> được nhắc nhở
+        self.assertEqual(res_remind.data["pending_count"], 3)
+        self.assertEqual(len(res_remind.data["reminded_members"]), 3)

@@ -33,6 +33,33 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [revScore, setRevScore] = useState('');
   const [revFeedback, setRevFeedback] = useState('');
 
+  // Supervision Meeting Logs & Tasks Modal State
+  const [showSupervisionModal, setShowSupervisionModal] = useState(false);
+  const [supervisionProject, setSupervisionProject] = useState<any>(null);
+  const [supervisionLogs, setSupervisionLogs] = useState<any[]>([]);
+  const [supervisionTasks, setSupervisionTasks] = useState<any[]>([]);
+  const [supervisionSubTab, setSupervisionSubTab] = useState<'logs' | 'tasks'>('tasks');
+  const [loadingSupervision, setLoadingSupervision] = useState(false);
+
+  // New Log Form State
+  const [meetingDate, setMeetingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [meetingTime, setMeetingTime] = useState('09:00 - 10:30');
+  const [meetingType, setMeetingType] = useState<'OFFLINE' | 'ONLINE'>('OFFLINE');
+  const [locationOrLink, setLocationOrLink] = useState('');
+  const [contentDiscussed, setContentDiscussed] = useState('');
+  const [supervisorNotes, setSupervisorNotes] = useState('');
+  const [nextMeetingPlan, setNextMeetingPlan] = useState('');
+  const [savingLog, setSavingLog] = useState(false);
+  const [showAddLogForm, setShowAddLogForm] = useState(false);
+
+  // New Task Form State
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDesc, setTaskDesc] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState('');
+  const [taskPriority, setTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
+  const [savingTask, setSavingTask] = useState(false);
+  const [showAddTaskForm, setShowAddTaskForm] = useState(false);
+
   const getHeaders = () => {
     const token = localStorage.getItem('access_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -57,6 +84,99 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleOpenSupervision = async (project: any) => {
+    setSupervisionProject(project);
+    setShowSupervisionModal(true);
+    setLoadingSupervision(true);
+    setShowAddLogForm(false);
+    setShowAddTaskForm(false);
+    try {
+      const [logsRes, tasksRes] = await Promise.all([
+        axios.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${project.id}`, { headers: getHeaders() }).catch(() => null),
+        axios.get(`${API_BASE}/supervisor/tasks/?project_id=${project.id}`, { headers: getHeaders() }).catch(() => null),
+      ]);
+      if (logsRes?.data) setSupervisionLogs(logsRes.data);
+      if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingSupervision(false);
+    }
+  };
+
+  const handleCreateMeetingLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supervisionProject || !contentDiscussed) return;
+    try {
+      setSavingLog(true);
+      const res = await axios.post(
+        `${API_BASE}/supervisor/supervision-logs/`,
+        {
+          project_id: supervisionProject.id,
+          meeting_date: meetingDate,
+          meeting_time: meetingTime,
+          meeting_type: meetingType,
+          location_or_link: locationOrLink,
+          content_discussed: contentDiscussed,
+          supervisor_notes: supervisorNotes,
+          next_meeting_plan: nextMeetingPlan,
+        },
+        { headers: getHeaders() }
+      );
+      alert(res.data?.message || 'Đã lưu nhật ký hướng dẫn thành công!');
+      setContentDiscussed('');
+      setSupervisorNotes('');
+      setNextMeetingPlan('');
+      setShowAddLogForm(false);
+      const logsRes = await axios.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
+      if (logsRes?.data) setSupervisionLogs(logsRes.data);
+    } catch (err: any) {
+      alert('Lỗi lưu nhật ký: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setSavingLog(false);
+    }
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supervisionProject || !taskTitle) return;
+    try {
+      setSavingTask(true);
+      const res = await axios.post(
+        `${API_BASE}/supervisor/tasks/`,
+        {
+          project_id: supervisionProject.id,
+          title: taskTitle,
+          description: taskDesc,
+          due_date: taskDueDate || null,
+          priority: taskPriority,
+        },
+        { headers: getHeaders() }
+      );
+      alert(res.data?.message || 'Đã giao nhiệm vụ cho sinh viên!');
+      setTaskTitle('');
+      setTaskDesc('');
+      setTaskDueDate('');
+      setShowAddTaskForm(false);
+      const tasksRes = await axios.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
+      if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
+    } catch (err: any) {
+      alert('Lỗi giao việc: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: number) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) return;
+    try {
+      await axios.delete(`${API_BASE}/supervisor/tasks/${taskId}/`, { headers: getHeaders() });
+      setSupervisionTasks(supervisionTasks.filter((t) => t.id !== taskId));
+    } catch (err: any) {
+      alert('Lỗi xóa nhiệm vụ: ' + (err.response?.data?.detail || err.message));
+    }
+  };
 
   const handleReviewOutline = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,6 +310,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                     <th className="p-3">Tên đề tài đồ án</th>
                     <th className="p-3">Điện thoại / Email</th>
                     <th className="p-3">Trạng thái</th>
+                    <th className="p-3 text-right">Hướng dẫn & Nhiệm vụ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800 text-slate-300">
@@ -207,6 +328,15 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                         <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs">
                           {p.status_display || p.status}
                         </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => handleOpenSupervision(p)}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition inline-flex items-center gap-1.5"
+                        >
+                          <span>📋</span>
+                          <span>Nhật ký & Giao việc</span>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -603,6 +733,375 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Quản lý Nhật ký & Giao việc cho SV */}
+      {showSupervisionModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-blue-400">
+                    {supervisionProject?.student_reg_no}
+                  </span>
+                  <span className="text-base font-bold text-slate-100">
+                    {supervisionProject?.student_name}
+                  </span>
+                  <span className="text-xs text-slate-400">({supervisionProject?.student_class})</span>
+                </div>
+                <h4 className="text-xs font-medium text-slate-300 mt-1">
+                  <b>Đề tài:</b> {supervisionProject?.topic_title_vi}
+                </h4>
+              </div>
+
+              <button
+                onClick={() => setShowSupervisionModal(false)}
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Sub Tabs */}
+            <div className="flex gap-2 border-b border-slate-800 pb-2">
+              <button
+                onClick={() => setSupervisionSubTab('tasks')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                  supervisionSubTab === 'tasks'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <span>📌</span>
+                <span>Nhiệm vụ & Giao việc ({supervisionTasks.length})</span>
+              </button>
+              <button
+                onClick={() => setSupervisionSubTab('logs')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                  supervisionSubTab === 'logs'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <span>🗓️</span>
+                <span>Nhật ký họp định kỳ ({supervisionLogs.length})</span>
+              </button>
+            </div>
+
+            {/* Content: Tasks Sub-Tab */}
+            {supervisionSubTab === 'tasks' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h5 className="text-sm font-bold text-slate-200">Danh sách công việc giao cho sinh viên</h5>
+                    <p className="text-xs text-slate-400">
+                      Sinh viên sẽ nhận được thông báo và theo dõi hạn nộp trên Task Board cá nhân.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAddTaskForm(!showAddTaskForm)}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                  >
+                    <span>{showAddTaskForm ? '✕ Đóng form' : '+ Giao việc mới'}</span>
+                  </button>
+                </div>
+
+                {/* Add Task Form */}
+                {showAddTaskForm && (
+                  <form onSubmit={handleCreateTask} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <h6 className="text-xs font-bold text-blue-400 uppercase">Thêm nhiệm vụ mới</h6>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Tên nhiệm vụ / công việc *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ví dụ: Hoàn thành thiết kế giao diện Figma cho phân hệ sinh viên"
+                        value={taskTitle}
+                        onChange={(e) => setTaskTitle(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-300 mb-1">Mức độ ưu tiên</label>
+                        <select
+                          value={taskPriority}
+                          onChange={(e) => setTaskPriority(e.target.value as any)}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        >
+                          <option value="LOW">Thấp</option>
+                          <option value="MEDIUM">Trung bình</option>
+                          <option value="HIGH">Cao</option>
+                          <option value="URGENT">Khẩn cấp</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-300 mb-1">Hạn nộp (Deadline)</label>
+                        <input
+                          type="date"
+                          value={taskDueDate}
+                          onChange={(e) => setTaskDueDate(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        >
+                        </input>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Mô tả chi tiết / Hướng dẫn</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Ghi chú cụ thể các tiêu chuẩn, link tài liệu tham khảo..."
+                        value={taskDesc}
+                        onChange={(e) => setTaskDesc(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddTaskForm(false)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingTask}
+                        className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow disabled:opacity-50"
+                      >
+                        {savingTask ? 'Đang lưu...' : 'Giao việc ngay'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Tasks List */}
+                {loadingSupervision ? (
+                  <div className="py-8 text-center text-slate-400 text-xs">Đang tải danh sách nhiệm vụ...</div>
+                ) : supervisionTasks.length === 0 ? (
+                  <div className="p-6 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
+                    Chưa có nhiệm vụ nào được giao cho sinh viên này. Bấm nút <b>"+ Giao việc mới"</b> ở trên để giao bài.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {supervisionTasks.map((t) => (
+                      <div
+                        key={t.id}
+                        className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-3 hover:border-slate-700 transition"
+                      >
+                        <div className="space-y-1 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`text-xs font-semibold ${t.is_completed ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                              {t.title}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                              t.priority === 'URGENT' ? 'bg-rose-500/10 text-rose-400' :
+                              t.priority === 'HIGH' ? 'bg-amber-500/10 text-amber-400' :
+                              'bg-blue-500/10 text-blue-400'
+                            }`}>
+                              {t.priority_display || t.priority}
+                            </span>
+                            {t.is_completed ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+                                ✅ Đã hoàn thành
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                                ⏳ Chưa xong
+                              </span>
+                            )}
+                          </div>
+                          {t.description && <p className="text-xs text-slate-400">{t.description}</p>}
+                          <div className="text-[11px] text-slate-400 flex items-center gap-3 pt-0.5">
+                            {t.due_date && <span>Hạn: <b>{t.due_date}</b></span>}
+                            {t.completed_at && (
+                              <span className="text-emerald-400">
+                                Hoàn thành lúc: {new Date(t.completed_at).toLocaleDateString('vi-VN')}
+                              </span>
+                            )}
+                          </div>
+                          {t.student_notes && (
+                            <div className="mt-1 p-2 rounded bg-blue-950/20 border border-blue-500/20 text-[11px] text-blue-200">
+                              <span className="font-semibold text-blue-400">📝 Ghi chú từ SV:</span> {t.student_notes}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteTask(t.id)}
+                          className="px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs transition"
+                          title="Xóa nhiệm vụ"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Content: Meeting Logs Sub-Tab */}
+            {supervisionSubTab === 'logs' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h5 className="text-sm font-bold text-slate-200">Biên bản / Nhật ký các buổi làm việc</h5>
+                    <p className="text-xs text-slate-400">
+                      Ghi nhận định kỳ nội dung trao đổi, tiến độ và nhận xét của GVHD.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAddLogForm(!showAddLogForm)}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                  >
+                    <span>{showAddLogForm ? '✕ Đóng form' : '+ Thêm nhật ký'}</span>
+                  </button>
+                </div>
+
+                {/* Add Meeting Log Form */}
+                {showAddLogForm && (
+                  <form onSubmit={handleCreateMeetingLog} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <h6 className="text-xs font-bold text-emerald-400 uppercase">Ghi nhận buổi làm việc mới</h6>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-300 mb-1">Ngày làm việc *</label>
+                        <input
+                          type="date"
+                          required
+                          value={meetingDate}
+                          onChange={(e) => setMeetingDate(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-300 mb-1">Thời gian</label>
+                        <input
+                          type="text"
+                          value={meetingTime}
+                          onChange={(e) => setMeetingTime(e.target.value)}
+                          placeholder="VD: 09:00 - 10:30"
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-300 mb-1">Hình thức</label>
+                        <select
+                          value={meetingType}
+                          onChange={(e) => setMeetingType(e.target.value as any)}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        >
+                          <option value="OFFLINE">Gặp trực tiếp</option>
+                          <option value="ONLINE">Trực tuyến (Meet/Zoom)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Địa điểm / Link Meet</label>
+                      <input
+                        type="text"
+                        placeholder="VD: Văn phòng bộ môn P405 hoặc https://meet.google.com/..."
+                        value={locationOrLink}
+                        onChange={(e) => setLocationOrLink(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Nội dung đã trao đổi / Tiến độ *</label>
+                      <textarea
+                        rows={3}
+                        required
+                        placeholder="Tóm tắt nội dung sinh viên báo cáo, vấn đề thảo luận..."
+                        value={contentDiscussed}
+                        onChange={(e) => setContentDiscussed(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Góp ý & Nhận xét của GVHD</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Đánh giá kết quả tuần qua, yêu cầu cần bổ sung chỉnh sửa..."
+                        value={supervisorNotes}
+                        onChange={(e) => setSupervisorNotes(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Kế hoạch kỳ họp tiếp theo</label>
+                      <input
+                        type="text"
+                        placeholder="VD: Báo cáo kết quả kiểm thử và hoàn thiện báo cáo bản nháp"
+                        value={nextMeetingPlan}
+                        onChange={(e) => setNextMeetingPlan(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddLogForm(false)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingLog}
+                        className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow disabled:opacity-50"
+                      >
+                        {savingLog ? 'Đang lưu...' : 'Lưu nhật ký'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Logs List */}
+                {loadingSupervision ? (
+                  <div className="py-8 text-center text-slate-400 text-xs">Đang tải nhật ký...</div>
+                ) : supervisionLogs.length === 0 ? (
+                  <div className="p-6 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
+                    Chưa có nhật ký buổi họp nào được lưu. Bấm <b>"+ Thêm nhật ký"</b> để tạo buổi đầu tiên.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {supervisionLogs.map((log, idx) => (
+                      <div key={log.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-slate-200">
+                            #{supervisionLogs.length - idx} - Ngày {log.meeting_date} ({log.meeting_time})
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            {log.meeting_type_display || log.meeting_type}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-300 bg-slate-900/50 p-2.5 rounded border border-slate-800/80">
+                          <span className="font-semibold text-slate-400">Nội dung:</span> {log.content_discussed}
+                        </div>
+                        {log.supervisor_notes && (
+                          <div className="text-xs text-emerald-300 bg-emerald-950/20 p-2 rounded border border-emerald-500/20">
+                            <span className="font-semibold">Nhận xét GV:</span> {log.supervisor_notes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
