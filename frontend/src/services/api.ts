@@ -35,6 +35,8 @@ import type {
   EvaluationScheduleCreate,
 } from '../types';
 
+import { triggerGlobalToast } from '../contexts/ToastContext';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/app';
 
 
@@ -62,10 +64,15 @@ class ApiService {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor to handle token refresh via HttpOnly Cookie
+    // Response interceptor to handle token refresh via HttpOnly Cookie and network errors
     this.api.interceptors.response.use(
       (response) => response,
       async (error) => {
+        // Check for network connectivity failure
+        if (!navigator.onLine || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+          triggerGlobalToast('Mất kết nối Internet, vui lòng kiểm tra đường truyền', 'warning', 6000);
+        }
+
         const originalRequest = error.config;
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
@@ -329,11 +336,19 @@ class ApiService {
     return Array.isArray(response.data) ? response.data : [];
   }
 
-  async uploadDocument(documentType: string, data: FormData): Promise<Document> {
+  async uploadDocument(
+    documentType: string,
+    data: FormData,
+    onProgress?: (progressEvent: any) => void,
+    signal?: AbortSignal
+  ): Promise<Document> {
     const response = await this.api.post<Document>(`/proposal-document/${documentType}/`, data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 120000, // 2 minutes timeout for large 20MB files
+      onUploadProgress: onProgress,
+      signal: signal,
     });
     return response.data;
   }
@@ -573,11 +588,19 @@ class ApiService {
     return [];
   }
 
-  async uploadTemplate(templateType: string, data: FormData): Promise<any> {
+  async uploadTemplate(
+    templateType: string,
+    data: FormData,
+    onProgress?: (progressEvent: any) => void,
+    signal?: AbortSignal
+  ): Promise<any> {
     const response = await this.api.post(`/srs_template/${templateType}/`, data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 120000,
+      onUploadProgress: onProgress,
+      signal: signal,
     });
     return response.data;
   }

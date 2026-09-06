@@ -323,3 +323,9 @@ else:
             "BACKEND": "channels.layers.InMemoryChannelLayer"
         }
     }
+
+# Large file upload settings (support 20MB+ PDFs up to 50MB without timeout or memory error)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
+

@@ -42,6 +42,20 @@ const CommitteeMemberDashboard: React.FC = () => {
     }
   }, [activeTab]);
 
+  // Auto-sync when internet reconnects without page reload
+  useEffect(() => {
+    const handleOnlineSync = () => {
+      loadData();
+      if (activeTab === 'groups' || activeTab === 'evaluations' || activeTab === 'documents') {
+        loadPanelGroups();
+      }
+    };
+    window.addEventListener('app:online-sync', handleOnlineSync);
+    return () => {
+      window.removeEventListener('app:online-sync', handleOnlineSync);
+    };
+  }, [activeTab]);
+
   const loadData = async () => {
     try {
       setLoading(true);
