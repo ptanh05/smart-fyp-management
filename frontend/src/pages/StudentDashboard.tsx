@@ -46,6 +46,7 @@ const StudentDashboard: React.FC = () => {
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showSupervisorModal, setShowSupervisorModal] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
+  const [selectedSemester, setSelectedSemester] = useState('');
   const [externalEvaluation, setExternalEvaluation] = useState<ExternalEvaluation | null>(null);
   const [externalLoading, setExternalLoading] = useState(false);
   const [selectedProjectForSupervisor, setSelectedProjectForSupervisor] = useState<Project | null>(null);
@@ -525,25 +526,64 @@ const StudentDashboard: React.FC = () => {
                   Create your own project idea, or choose an offered project (admin-set, category-wise) below. Then select one for supervisor request.
                 </p>
                 <SearchFilter
-                  searchPlaceholder="Search your projects by name, description, or language..."
+                  searchPlaceholder="Tìm kiếm đề tài theo tên, mô tả, công nghệ..."
                   onSearch={handleProjectSearch}
                   debounceDelay={400}
+                  syncWithUrl={true}
+                  filters={[
+                    {
+                      name: 'semester',
+                      label: 'Học kỳ',
+                      options: [
+                        { value: '', label: 'Tất cả học kỳ' },
+                        { value: '1', label: 'Kỳ 1' },
+                        { value: '2', label: 'Kỳ 2' },
+                        { value: '3', label: 'Kỳ 3' },
+                        { value: '6', label: 'Kỳ 6' },
+                        { value: '7', label: 'Kỳ 7' },
+                        { value: '8', label: 'Kỳ 8' },
+                      ],
+                    },
+                  ]}
+                  onFilterChange={(filterName, value) => {
+                    if (filterName === 'semester') {
+                      setSelectedSemester(value);
+                    }
+                  }}
                 />
                 {projectsLoading ? (
                   <SkeletonCardGrid count={2} />
                 ) : (
                   <div className="fade-in">
-                    {projects.length === 0 && projectSearch ? (
-                      <div className="empty-state">
-                        <p>No projects found matching "{projectSearch}"</p>
-                      </div>
-                    ) : (
-                      <ProjectsList
-                        projects={projects}
-                        selectedProjectId={selectedProjectForSupervisor?.id ?? null}
-                        onSelectForSupervisor={(p) => setSelectedProjectForSupervisor(p)}
-                      />
-                    )}
+                    {(() => {
+                      const displayedProjects = projects.filter(p => {
+                        if (selectedSemester) {
+                          const pSem = (p as any).semester;
+                          if (pSem && String(pSem).replace('semester_', '') !== selectedSemester) {
+                            return false;
+                          }
+                        }
+                        return true;
+                      });
+
+                      if (displayedProjects.length === 0 && (projectSearch || selectedSemester)) {
+                        return (
+                          <div className="empty-state">
+                            <p>
+                              Không tìm thấy đề tài nào khớp với {projectSearch && `từ khóa "${projectSearch}"`} {selectedSemester && `(Học kỳ: Kỳ ${selectedSemester})`}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <ProjectsList
+                          projects={displayedProjects}
+                          selectedProjectId={selectedProjectForSupervisor?.id ?? null}
+                          onSelectForSupervisor={(p) => setSelectedProjectForSupervisor(p)}
+                        />
+                      );
+                    })()}
                   </div>
                 )}
               </div>

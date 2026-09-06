@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
+import ActionIconButton from './ActionIconButton';
 import './StudentTemplatesView.css';
 
 interface Template {
@@ -155,13 +156,13 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
                   <td>{formatLabel(t.semester)}</td>
                   <td>{new Date(t.uploaded_at).toLocaleDateString()}</td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
+                    <ActionIconButton
+                      action="download"
+                      tooltip="Tải về biểu mẫu chuẩn (Template) cho đồ án"
                       onClick={() => downloadTemplate(t.uploaded_file, t.title)}
-                    >
-                      Download
-                    </button>
+                      label="Tải về"
+                      variant="primary"
+                    />
                   </td>
                 </tr>
               ))}

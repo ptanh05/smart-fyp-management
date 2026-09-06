@@ -3,6 +3,7 @@ import { apiService } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import type { Document, DocumentRequirement } from '../types';
 import CopyButton from './CopyButton';
+import ActionIconButton from './ActionIconButton';
 import './DocumentsList.css';
 
 interface DocumentsListProps {
@@ -127,25 +128,14 @@ const DocumentRow: React.FC<DocumentRowProps> = ({
       <td className="date-cell">{formatDate(document.uploaded_at)}</td>
       <td>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-          <button
-            className="btn btn-primary btn-sm"
+          <ActionIconButton
+            action="download"
+            tooltip="Tải về tệp tin tài liệu này về máy tính"
             onClick={handleDownload}
             disabled={downloading || !document.uploaded_file}
-            title={document.uploaded_file ? 'Download document' : 'No file available'}
-            style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            {downloading ? (
-              <>
-                <span className="spinner-small"></span>
-                Downloading...
-              </>
-            ) : (
-              <>
-                <span>⬇️</span>
-                Download
-              </>
-            )}
-          </button>
+            label={downloading ? 'Đang tải...' : 'Tải về'}
+            variant="primary"
+          />
           {document.uploaded_file && (
             <CopyButton
               text={document.uploaded_file.startsWith('http') ? document.uploaded_file : `${window.location.origin}${document.uploaded_file}`}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import type { ProjectCategory, Student } from '../types';
+import DebouncedSubmitButton from './DebouncedSubmitButton';
 import './Modal.css';
 
 interface GroupRequestModalProps {
@@ -22,6 +23,7 @@ const GroupRequestModal: React.FC<GroupRequestModalProps> = ({
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     loadStudents();
@@ -58,6 +60,7 @@ const GroupRequestModal: React.FC<GroupRequestModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (inFlightRef.current || loading) return;
     setError('');
     
     if (!selectedStudent || !selectedCategory) {
@@ -65,6 +68,7 @@ const GroupRequestModal: React.FC<GroupRequestModalProps> = ({
       return;
     }
 
+    inFlightRef.current = true;
     setLoading(true);
     try {
       await onSubmit(selectedStudent, selectedCategory);
@@ -72,7 +76,9 @@ const GroupRequestModal: React.FC<GroupRequestModalProps> = ({
     } catch (error: any) {
       console.error('Failed to create group request:', error);
       setError(error.response?.data?.message || error.message || 'Failed to send group request');
+    } finally {
       setLoading(false);
+      inFlightRef.current = false;
     }
   };
 
@@ -156,9 +162,9 @@ const GroupRequestModal: React.FC<GroupRequestModalProps> = ({
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={loading || loadingStudents}>
-              {loading ? 'Sending...' : 'Send Request'}
-            </button>
+            <DebouncedSubmitButton loading={loading} loadingText="Đang gửi..." disabled={loadingStudents}>
+              Gửi yêu cầu (Send Request)
+            </DebouncedSubmitButton>
           </div>
         </form>
       </div>

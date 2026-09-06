@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import type { DocumentRequirement, DocumentTypeValue } from '../types';
+import ActionIconButton from './ActionIconButton';
 import './DocumentRequirementsManager.css';
 
 const DOCUMENT_TYPES: { value: DocumentTypeValue; label: string }[] = [
@@ -311,10 +312,10 @@ const DocumentRequirementsManager: React.FC = () => {
                           </button>
                         </>
                       ) : (
-                        <>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <ActionIconButton
+                            action="edit"
+                            tooltip="Chỉnh sửa thông tin yêu cầu tài liệu"
                             onClick={() => {
                               setEditingId(r.id);
                               setEditForm({
@@ -323,18 +324,18 @@ const DocumentRequirementsManager: React.FC = () => {
                                 semester: r.semester,
                               });
                             }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-danger btn-sm"
+                            label="Sửa"
+                            variant="secondary"
+                          />
+                          <ActionIconButton
+                            action="delete"
+                            tooltip="Xóa yêu cầu tài liệu này khỏi hệ thống"
                             onClick={() => handleDelete(r.id)}
                             disabled={submitting}
-                          >
-                            Delete
-                          </button>
-                        </>
+                            label="Xóa"
+                            variant="danger"
+                          />
+                        </div>
                       )}
                     </td>
                   </tr>
