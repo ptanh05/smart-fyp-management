@@ -13,6 +13,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
   const navigate = useNavigate();
   const { userType } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [filterTab, setFilterTab] = useState<'all' | 'grades'>('all');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,30 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
   const [currentPage, setCurrentPage] = useState(1);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const isGradeNotification = (n: Notification): boolean => {
+    const gradeTypes: NotificationType[] = [
+      'evaluation_completed',
+      'external_evaluation',
+      'external_schedule',
+    ];
+    if (gradeTypes.includes(n.notification_type)) return true;
+
+    const lowerTitle = (n.title || '').toLowerCase();
+    const lowerMsg = (n.message || '').toLowerCase();
+    const keywords = [
+      'điểm',
+      'bảo vệ',
+      'hội đồng',
+      'đánh giá',
+      'score',
+      'grade',
+      'defense',
+      'nhắc nhở nộp điểm',
+      'phiếu đánh giá',
+    ];
+    return keywords.some((kw) => lowerTitle.includes(kw) || lowerMsg.includes(kw));
+  };
 
   // Fetch unread count
   const fetchUnreadCount = useCallback(async () => {
@@ -310,24 +335,55 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
         <div className="notification-dropdown">
           {/* Header */}
           <div className="notification-header">
-            <h3 className="notification-header-title">Notifications</h3>
+            <h3 className="notification-header-title">Thông báo</h3>
             {unreadCount > 0 && (
               <button onClick={handleMarkAllAsRead} className="notification-mark-all-btn">
-                Mark all as read
+                Đánh dấu đã đọc
               </button>
             )}
           </div>
 
-          {/* Notifications List */}
-          <div className="notification-list">
-            {notifications.length === 0 && !loading ? (
-              <div className="notification-empty-state">
-                <span className="notification-empty-icon">🔔</span>
-                <p>No notifications yet</p>
-              </div>
-            ) : (
+          {/* Filter Tabs */}
+          {(() => {
+            const gradeCount = notifications.filter(isGradeNotification).length;
+            const filteredNotifications = filterTab === 'grades'
+              ? notifications.filter(isGradeNotification)
+              : notifications;
+
+            return (
               <>
-                {notifications.map((notification) => (
+                <div className="notification-tabs">
+                  <button
+                    type="button"
+                    className={`notif-tab-btn ${filterTab === 'all' ? 'active' : ''}`}
+                    onClick={() => setFilterTab('all')}
+                  >
+                    Tất cả ({notifications.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`notif-tab-btn ${filterTab === 'grades' ? 'active' : ''}`}
+                    onClick={() => setFilterTab('grades')}
+                  >
+                    📊 Điểm số
+                    {gradeCount > 0 && <span className="notif-tab-badge">{gradeCount}</span>}
+                  </button>
+                </div>
+
+                {/* Notifications List */}
+                <div className="notification-list">
+                  {filteredNotifications.length === 0 && !loading ? (
+                    <div className="notification-empty-state">
+                      <span className="notification-empty-icon">{filterTab === 'grades' ? '📊' : '🔔'}</span>
+                      <p>
+                        {filterTab === 'grades'
+                          ? 'Không có thông báo nào về điểm số và bảo vệ.'
+                          : 'Chưa có thông báo nào'}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {filteredNotifications.map((notification) => (
                   <div
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
@@ -380,9 +436,12 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
               <div className="notification-loading-state">Loading notifications...</div>
             )}
           </div>
-        </div>
-      )}
-    </div>
+        </>
+      );
+    })()}
+  </div>
+)}
+</div>
   );
 };
 

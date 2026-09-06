@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 import type { Document, DocumentRequirement } from '../types';
+import CopyButton from './CopyButton';
 import './DocumentsList.css';
 
 interface DocumentsListProps {
@@ -144,6 +146,14 @@ const DocumentRow: React.FC<DocumentRowProps> = ({
               </>
             )}
           </button>
+          {document.uploaded_file && (
+            <CopyButton
+              text={document.uploaded_file.startsWith('http') ? document.uploaded_file : `${window.location.origin}${document.uploaded_file}`}
+              label="Copy link"
+              title="Sao chép link nộp bài / tải file"
+              tooltipText="Đã sao chép link nộp bài vào bộ nhớ tạm"
+            />
+          )}
           {canSubmitToCommittee && (
             <button
               className="btn btn-secondary btn-sm"
@@ -177,10 +187,14 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx'];
 
 const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
+  const { showToast } = useToast();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [documentType, setDocumentType] = useState<string>('scope_document');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStats, setUploadStats] = useState<{ loaded: number; total: number } | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [requirements, setRequirements] = useState<DocumentRequirement[]>([]);
@@ -267,9 +281,19 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
     }
   };
 
+  const handleCancelUpload = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setUploading(false);
+    setUploadProgress(0);
+    setUploadStats(null);
+    showToast('Đã hủy tải lên tập tin.', 'info');
+  };
+
   const handleSubmit = async () => {
     if (!selectedFile) {
-      setFileError('Please select a file to upload');
+      setFileError('Vui lòng chọn tập tin cần tải lên');
       return;
     }
 
@@ -277,11 +301,30 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
     formData.append('title', selectedFile.name);
     formData.append('uploaded_file', selectedFile);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setUploadProgress(0);
+    setUploadStats(null);
+    setUploading(true);
+    setFileError(null);
+
     try {
-      setUploading(true);
-      await apiService.uploadDocument(documentType, formData);
-      alert('Document uploaded successfully!');
+      await apiService.uploadDocument(
+        documentType,
+        formData,
+        (progressEvent) => {
+          const total = progressEvent.total || selectedFile.size || 1;
+          const loaded = progressEvent.loaded;
+          const percent = Math.min(100, Math.max(0, Math.round((loaded * 100) / total)));
+          setUploadProgress(percent);
+          setUploadStats({ loaded, total });
+        },
+        controller.signal
+      );
+      showToast('Tải lên tài liệu thành công!', 'success');
       setSelectedFile(null);
+      setUploadProgress(0);
+      setUploadStats(null);
       // Reset file input
       const fileInput = document.getElementById('document-file-input') as HTMLInputElement;
       if (fileInput) {
@@ -289,27 +332,33 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
       }
       await loadDocuments();
     } catch (error: any) {
-      console.error('Failed to upload document:', error);
-      // Extract error message from response
-      const errorData = error.response?.data;
-      let errorMessage = 'Failed to upload document. Please try again.';
-      
-      if (errorData) {
-        if (errorData.uploaded_file) {
-          // Field-specific error from serializer validation
-          errorMessage = Array.isArray(errorData.uploaded_file) 
-            ? errorData.uploaded_file.join(' ') 
-            : errorData.uploaded_file;
-        } else if (errorData.message) {
-          errorMessage = errorData.message;
-        } else if (errorData.detail) {
-          errorMessage = errorData.detail;
+      if (error.name === 'CanceledError' || error.message === 'canceled' || controller.signal.aborted) {
+        showToast('Đã hủy tải lên tập tin.', 'info');
+        setFileError('Quá trình tải lên đã bị hủy.');
+      } else {
+        console.error('Failed to upload document:', error);
+        // Extract error message from response
+        const errorData = error.response?.data;
+        let errorMessage = 'Không thể tải lên tài liệu. Vui lòng thử lại.';
+        
+        if (errorData) {
+          if (errorData.uploaded_file) {
+            errorMessage = Array.isArray(errorData.uploaded_file) 
+              ? errorData.uploaded_file.join(' ') 
+              : errorData.uploaded_file;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.detail) {
+            errorMessage = errorData.detail;
+          }
         }
+        
+        showToast(errorMessage, 'error');
+        setFileError(errorMessage);
       }
-      
-      setFileError(errorMessage);
     } finally {
       setUploading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -344,6 +393,24 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
 
   return (
     <div className="card documents-container">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', padding: '10px 14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>👥 <strong>Mã nhóm:</strong></span>
+          <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#003366', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px' }}>#{groupId}</span>
+          <CopyButton text={String(groupId)} label="Copy mã nhóm" tooltipText="Đã sao chép mã nhóm vào bộ nhớ tạm" />
+        </div>
+        {documents.length > 0 && documents[0].uploaded_file && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>📄 <strong>Link nộp bài gần nhất:</strong></span>
+            <CopyButton
+              text={documents[0].uploaded_file.startsWith('http') ? documents[0].uploaded_file : `${window.location.origin}${documents[0].uploaded_file}`}
+              label="Copy link nộp bài"
+              tooltipText="Đã sao chép link nộp bài vào bộ nhớ tạm"
+            />
+          </div>
+        )}
+      </div>
+
       <h2>Documents</h2>
 
       {/* Requirements & deadlines (committee-set) */}
@@ -438,24 +505,53 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
           </div>
         )}
 
+        {/* Upload Progress Bar & Cancel Button */}
+        {uploading && (
+          <div className="upload-progress-card">
+            <div className="upload-progress-header">
+              <div className="progress-label">
+                <span className="spinner-small"></span>
+                <span>Đang tải lên: <strong>{selectedFile?.name}</strong></span>
+              </div>
+              <span className="progress-percentage">{uploadProgress}%</span>
+            </div>
+
+            <div className="upload-progress-bar-wrap">
+              <div
+                className="upload-progress-bar-fill"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+
+            <div className="upload-progress-footer">
+              <span className="upload-stats-text">
+                {uploadStats
+                  ? `${(uploadStats.loaded / (1024 * 1024)).toFixed(1)} MB / ${(uploadStats.total / (1024 * 1024)).toFixed(1)} MB (${uploadProgress}%)`
+                  : `${uploadProgress}% hoàn thành`}
+              </span>
+              <button
+                type="button"
+                className="btn-cancel-upload"
+                onClick={handleCancelUpload}
+                title="Hủy quá trình tải lên"
+              >
+                ✕ Hủy (Cancel)
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Submit Button */}
-        <button 
-          className="btn btn-primary submit-btn"
-          onClick={handleSubmit}
-          disabled={!selectedFile || uploading || deadlinePassed}
-        >
-          {uploading ? (
-            <>
-              <span className="spinner-small"></span>
-              Uploading...
-            </>
-          ) : (
-            <>
-              <span>📤</span>
-              Upload Document
-            </>
-          )}
-        </button>
+        {!uploading && (
+          <button 
+            className="btn btn-primary submit-btn"
+            onClick={handleSubmit}
+            disabled={!selectedFile || deadlinePassed}
+          >
+            <span>📤</span>
+            Tải lên tài liệu
+          </button>
+        )}
       </div>
 
       {/* Divider */}

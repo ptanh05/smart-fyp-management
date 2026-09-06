@@ -20,6 +20,7 @@ import UTCFypTimeline from '../components/UTCFypTimeline';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { UTCStudentGraduationView } from '../components/UTCStudentGraduationView';
 import { SkeletonProfile, SkeletonCardGrid } from '../components/SkeletonLoader';
+import CopyButton from '../components/CopyButton';
 import './Dashboard.css';
 import '../components/SkeletonLoader.css';
 import '../components/CommentsSection.css';
@@ -86,6 +87,21 @@ const StudentDashboard: React.FC = () => {
       loadExternalEvaluation();
     }
   }, [activeTab, profile?.semester]);
+
+  // Auto-sync when internet reconnects without reloading the page
+  useEffect(() => {
+    const handleOnlineSync = () => {
+      loadData();
+      if (activeTab === 'project') loadProjects();
+      if (activeTab === 'groups') loadGroupRequests();
+      if (activeTab === 'supervisor' || activeTab === 'documents' || activeTab === 'chat') loadSupervisorRequests();
+    };
+
+    window.addEventListener('app:online-sync', handleOnlineSync);
+    return () => {
+      window.removeEventListener('app:online-sync', handleOnlineSync);
+    };
+  }, [activeTab]);
 
   const loadData = async () => {
     try {
@@ -352,11 +368,26 @@ const StudentDashboard: React.FC = () => {
                   </button>
                 </div>
                 <div className="profile-info">
-                  <p><strong>{t('profile.regNo', 'Mã Số Sinh Viên')}:</strong> {profile?.registration_no}</p>
+                  <p>
+                    <strong>{t('profile.regNo', 'Mã Số Sinh Viên')}:</strong> {profile?.registration_no}{' '}
+                    {profile?.registration_no && (
+                      <CopyButton text={profile.registration_no} title="Sao chép MSSV" tooltipText="Đã sao chép MSSV" />
+                    )}
+                  </p>
                   <p><strong>{t('profile.department', 'Khoa / Ngành Đào Tạo')}:</strong> {profile?.department || 'N/A'}</p>
                   <p><strong>{t('profile.semester', 'Học Kỳ Hiện Tại')}:</strong> {profile?.semester || 'N/A'}</p>
                   <p><strong>{t('profile.batch', 'Khóa Học')}:</strong> {profile?.batch_no || 'N/A'}</p>
-                  <p><strong>{t('profile.groupStatus', 'Trạng Thái Nhóm')}:</strong> {profile?.groupmate_id ? t('profile.inGroup', 'Đã Có Nhóm') : t('profile.noGroup', 'Chưa Có Nhóm')}</p>
+                  <p>
+                    <strong>{t('profile.groupStatus', 'Trạng Thái Nhóm')}:</strong>{' '}
+                    {profile?.groupmate_id ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span>{t('profile.inGroup', 'Đã Có Nhóm')} (#{profile.groupmate_id})</span>
+                        <CopyButton text={String(profile.groupmate_id)} label="Copy mã nhóm" tooltipText="Đã sao chép mã nhóm vào bộ nhớ tạm" />
+                      </span>
+                    ) : (
+                      t('profile.noGroup', 'Chưa Có Nhóm')
+                    )}
+                  </p>
                 </div>
               </div>
 
@@ -370,7 +401,15 @@ const StudentDashboard: React.FC = () => {
                       <h2>📋 Panel Assignment</h2>
                       <div className="profile-info">
                         <p><strong>Panel:</strong> {panel.name || `Panel #${panel.id}`}</p>
-                        <p><strong>Project:</strong> {acceptedGroup.project.project_name}</p>
+                        <p>
+                          <strong>Project:</strong> {acceptedGroup.project.project_name}{' '}
+                          <span style={{ color: '#64748b', fontSize: '0.9em', fontWeight: 600 }}>(Mã: PRJ-{acceptedGroup.project.id})</span>{' '}
+                          <CopyButton
+                            text={`PRJ-${acceptedGroup.project.id}`}
+                            label="Copy mã đề tài"
+                            tooltipText="Đã sao chép mã đề tài vào bộ nhớ tạm"
+                          />
+                        </p>
                         <p><strong>Supervisor:</strong> {acceptedGroup.supervisor.user.first_name || acceptedGroup.supervisor.user.username} {acceptedGroup.supervisor.user.last_name || ''}</p>
                       </div>
                       {panel.members && panel.members.length > 0 && (
@@ -880,7 +919,13 @@ const ProjectsList: React.FC<{
         const isSelected = selectedProjectId === project.id;
         return (
           <div key={project.id} className="card" style={{ marginBottom: '20px' }}>
-            <h3 style={{ marginBottom: '10px', color: '#333' }}>{project.project_name}</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+              <h3 style={{ marginBottom: '10px', color: '#333' }}>{project.project_name}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>PRJ-{project.id}</span>
+                <CopyButton text={`PRJ-${project.id}`} label="Copy mã" tooltipText="Đã sao chép mã đề tài vào bộ nhớ tạm" />
+              </div>
+            </div>
             <p style={{ marginBottom: '10px', color: '#666' }}>{project.project_description}</p>
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
               <p><strong>Language:</strong> {project.language}</p>
