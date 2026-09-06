@@ -1,12 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import './SearchFilter.css';
 
-interface FilterOption {
+export interface FilterOption {
   value: string;
   label: string;
 }
 
-interface SearchFilterProps {
+export interface FilterConfig {
+  name: string;
+  label: string;
+  options: FilterOption[];
+  value?: string;
+}
+
+export interface SearchFilterProps {
   /**
    * Placeholder text for the search input
    */
@@ -22,12 +30,7 @@ interface SearchFilterProps {
   /**
    * Filter configurations
    */
-  filters?: {
-    name: string;
-    label: string;
-    options: FilterOption[];
-    value?: string;
-  }[];
+  filters?: FilterConfig[];
   /**
    * Callback when any filter changes
    */
@@ -40,6 +43,14 @@ interface SearchFilterProps {
    * Initial search value
    */
   initialSearchValue?: string;
+  /**
+   * Automatically synchronize filter & search state with URL Query Params (e.g. ?semester=2&search=AI)
+   */
+  syncWithUrl?: boolean;
+  /**
+   * Query parameter name for search (default: 'search')
+   */
+  searchParamKey?: string;
 }
 
 const SearchFilter: React.FC<SearchFilterProps> = ({
@@ -50,16 +61,94 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
   onFilterChange,
   showSearch = true,
   initialSearchValue = '',
+  syncWithUrl = true,
+  searchParamKey = 'search',
 }) => {
-  const [searchValue, setSearchValue] = useState(initialSearchValue);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Initialize values from URL query params if syncWithUrl is enabled
+  const getInitialSearch = () => {
+    if (syncWithUrl) {
+      const urlVal = searchParams.get(searchParamKey);
+      if (urlVal !== null) return urlVal;
+    }
+    return initialSearchValue;
+  };
+
+  const [searchValue, setSearchValue] = useState<string>(getInitialSearch);
+  const [filterValues, setFilterValues] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    filters.forEach((f) => {
+      if (syncWithUrl) {
+        const urlVal = searchParams.get(f.name);
+        init[f.name] = urlVal !== null ? urlVal : (f.value || '');
+      } else {
+        init[f.name] = f.value || '';
+      }
+    });
+    return init;
+  });
+
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFirstRender = useRef(true);
+  const isFirstMount = useRef(true);
+
+  // Sync external filters prop into internal state if changed
+  useEffect(() => {
+    setFilterValues((prev) => {
+      const next = { ...prev };
+      filters.forEach((f) => {
+        if (syncWithUrl) {
+          const urlVal = searchParams.get(f.name);
+          next[f.name] = urlVal !== null ? urlVal : (f.value !== undefined ? f.value : next[f.name] || '');
+        } else if (f.value !== undefined) {
+          next[f.name] = f.value;
+        }
+      });
+      return next;
+    });
+  }, [filters, searchParams, syncWithUrl]);
+
+  // Initial trigger from URL query params on mount
+  useEffect(() => {
+    if (syncWithUrl && isFirstMount.current) {
+      const urlSearch = searchParams.get(searchParamKey);
+      if (urlSearch) {
+        onSearch?.(urlSearch);
+      }
+
+      filters.forEach((f) => {
+        const urlVal = searchParams.get(f.name);
+        if (urlVal) {
+          onFilterChange?.(f.name, urlVal);
+        }
+      });
+    }
+  }, []);
+
+  // Update URL Query Params helper
+  const updateUrlParams = useCallback(
+    (key: string, val: string) => {
+      if (!syncWithUrl) return;
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (val && val.trim()) {
+            next.set(key, val.trim());
+          } else {
+            next.delete(key);
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams, syncWithUrl]
+  );
 
   // Debounced search effect
   useEffect(() => {
-    // Skip the first render to avoid triggering search on mount
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
       return;
     }
 
@@ -69,6 +158,7 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
 
     debounceTimerRef.current = setTimeout(() => {
       onSearch?.(searchValue);
+      updateUrlParams(searchParamKey, searchValue);
     }, debounceDelay);
 
     return () => {
@@ -76,28 +166,31 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [searchValue, debounceDelay, onSearch]);
+  }, [searchValue, debounceDelay, onSearch, searchParamKey, updateUrlParams]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchValue(e.target.value);
   };
 
   const handleFilterChange = (filterName: string, value: string) => {
+    setFilterValues((prev) => ({ ...prev, [filterName]: value }));
+    updateUrlParams(filterName, value);
     onFilterChange?.(filterName, value);
   };
 
   const handleClearSearch = () => {
     setSearchValue('');
+    updateUrlParams(searchParamKey, '');
     onSearch?.('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      // Trigger immediate search on Enter
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
       onSearch?.(searchValue);
+      updateUrlParams(searchParamKey, searchValue);
     }
   };
 
@@ -118,7 +211,7 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
             <button
               className="search-clear-btn"
               onClick={handleClearSearch}
-              title="Clear search"
+              title="Xóa tìm kiếm"
             >
               ×
             </button>
@@ -133,7 +226,7 @@ const SearchFilter: React.FC<SearchFilterProps> = ({
               <label className="filter-label">{filter.label}:</label>
               <select
                 className="filter-select"
-                value={filter.value || ''}
+                value={filterValues[filter.name] ?? filter.value ?? ''}
                 onChange={(e) => handleFilterChange(filter.name, e.target.value)}
               >
                 {filter.options.map((option) => (

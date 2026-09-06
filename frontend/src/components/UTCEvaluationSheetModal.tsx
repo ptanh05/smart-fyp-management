@@ -51,9 +51,9 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
             <button
               className="btn-utc-print"
               onClick={handlePrint}
-              title="In hoặc Xuất PDF Biên bản"
+              title="In phiếu điểm / Biên bản đánh giá ĐATN UTC"
             >
-              🖨️ In Biên Bản / Xuất PDF
+              🖨️ In phiếu điểm
             </button>
             <button
               className="btn-utc-close"
