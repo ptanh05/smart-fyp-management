@@ -890,6 +890,38 @@ class ApiService {
     link.remove();
   }
 
+  // Global Search & Council Management
+  async globalSearch(q: string, type = 'all'): Promise<any> {
+    const response = await this.api.get('/global-search/', {
+      params: { q, type }
+    });
+    return response.data;
+  }
+
+  async getCouncilConflicts(params?: { council_id?: number; batch_id?: number }): Promise<any> {
+    const response = await this.api.get('/council/conflicts/', { params });
+    return response.data;
+  }
+
+  async assignProjectToCouncil(projectId: number, councilId: number | null, force = false): Promise<any> {
+    const response = await this.api.post('/council/assign-project/', {
+      project_id: projectId,
+      council_id: councilId,
+      force
+    });
+    return response.data;
+  }
+
+  async assignMemberToCouncil(councilId: number, userId: number, role = 'MEMBER', force = false): Promise<any> {
+    const response = await this.api.post('/council/assign-member/', {
+      council_id: councilId,
+      user_id: userId,
+      role,
+      force
+    });
+    return response.data;
+  }
+
   // Utility
   async logout(): Promise<void> {
     try {
