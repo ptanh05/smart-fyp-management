@@ -1,8 +1,9 @@
-"""
-Notification service for creating and managing notifications.
-"""
+import threading
+import logging
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from .models import (
     Notification,
     NotificationPreference,
@@ -13,6 +14,8 @@ from .models import (
     SupervisorOfStudentGroup,
     Document,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationService:
@@ -84,22 +87,91 @@ class NotificationService:
         return notification
     
     @staticmethod
+    def send_utc_html_email(
+        recipient_email,
+        recipient_name,
+        subject,
+        title,
+        intro_text,
+        details=None,
+        badge_text=None,
+        additional_notes=None,
+        cta_text=None,
+        cta_url=None,
+        async_send=True
+    ):
+        """
+        Send a beautifully styled UTC-branded HTML email.
+        Uses background threading by default to ensure API requests respond instantaneously (<50ms)
+        without being blocked by SMTP network socket roundtrips.
+        """
+        if not recipient_email:
+            return False
+
+        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+        if cta_url and not cta_url.startswith("http"):
+            cta_url = f"{frontend_url.rstrip('/')}/{cta_url.lstrip('/')}"
+        elif not cta_url:
+            cta_url = frontend_url
+
+        context = {
+            "subject": subject,
+            "title": title,
+            "recipient_name": recipient_name,
+            "intro_text": intro_text,
+            "badge_text": badge_text,
+            "details": details or [],
+            "additional_notes": additional_notes,
+            "cta_text": cta_text or "👉 Truy Cập Hệ Thống Đồ Án",
+            "cta_url": cta_url,
+        }
+
+        try:
+            html_content = render_to_string("emails/utc_notification_email.html", context)
+            text_content = strip_tags(html_content)
+        except Exception as e:
+            logger.warning(f"Failed to render UTC HTML email template: {e}")
+            text_content = f"{title}\n\nKính gửi {recipient_name},\n{intro_text}\n\nTruy cập hệ thống: {cta_url}"
+            html_content = None
+
+        def _send():
+            try:
+                msg = EmailMultiAlternatives(
+                    subject=f"[UTC FYP] {subject}",
+                    body=text_content,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[recipient_email]
+                )
+                if html_content:
+                    msg.attach_alternative(html_content, "text/html")
+                msg.send(fail_silently=True)
+                logger.info(f"UTC Email sent successfully to {recipient_email}: {subject}")
+            except Exception as exc:
+                logger.warning(f"Error sending UTC email to {recipient_email}: {exc}")
+
+        if async_send:
+            threading.Thread(target=_send, daemon=True).start()
+            return True
+        else:
+            _send()
+            return True
+
+    @staticmethod
     def send_email_notification(user, subject, message):
-        """Send an email notification to a user."""
+        """Send an email notification to a user using UTC branded template."""
         if not user.email:
             return False
         
-        try:
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=True,
-            )
-            return True
-        except Exception:
-            return False
+        recipient_name = user.get_full_name() or user.username
+        return NotificationService.send_utc_html_email(
+            recipient_email=user.email,
+            recipient_name=recipient_name,
+            subject=subject,
+            title=subject,
+            intro_text=message,
+            badge_text="Thông báo hệ thống",
+            async_send=True
+        )
     
     @staticmethod
     def get_unread_count(user):
@@ -174,6 +246,8 @@ class NotificationService:
         
         # Notify both students in the group
         for student in [group.student_1, group.student_2]:
+            if not student:
+                continue
             NotificationService.create_notification(
                 user=student.user,
                 notification_type=notification_type,
@@ -182,6 +256,129 @@ class NotificationService:
                 related_supervisor_group=supervisor_group,
                 action_url="/student/dashboard?tab=chat",
             )
+            if accepted and student.user.email:
+                NotificationService.send_utc_html_email(
+                    recipient_email=student.user.email,
+                    recipient_name=student.user.get_full_name() or student.user.username,
+                    subject="Thông báo phân công Giảng viên hướng dẫn đồ án tốt nghiệp",
+                    title="Phân Công Giảng Viên Hướng Dẫn",
+                    intro_text=f"Chúc mừng bạn! Yêu cầu hướng dẫn đồ án tốt nghiệp của nhóm bạn đã được Thầy/Cô {supervisor.user.get_full_name() or supervisor.user.username} chấp thuận.",
+                    badge_text="Phân công hướng dẫn",
+                    details=[
+                        {"label": "Giảng viên hướng dẫn", "value": supervisor.user.get_full_name() or supervisor.user.username},
+                        {"label": "Email Giảng viên", "value": supervisor.user.email or "Đang cập nhật"},
+                        {"label": "Mã nhóm", "value": str(group.id)},
+                        {"label": "Đề tài", "value": getattr(group.project, "project_name", "Chưa cập nhật") if hasattr(group, "project") and group.project else "Đồ án tốt nghiệp"},
+                    ],
+                    cta_text="👉 Vào Phòng Chat & Trao Đổi Ngay",
+                    cta_url="/student/dashboard?tab=chat"
+                )
+
+        if accepted and supervisor.user.email:
+            st_names = [s.user.get_full_name() or s.user.username for s in [group.student_1, group.student_2] if s]
+            NotificationService.send_utc_html_email(
+                recipient_email=supervisor.user.email,
+                recipient_name=supervisor.user.get_full_name() or supervisor.user.username,
+                subject="Xác nhận hướng dẫn nhóm đồ án tốt nghiệp mới",
+                title="Xác Nhận Hướng Dẫn Nhóm Đồ Án",
+                intro_text="Thầy/Cô đã chấp thuận hướng dẫn nhóm sinh viên thực hiện đồ án tốt nghiệp.",
+                badge_text="Nhóm hướng dẫn mới",
+                details=[
+                    {"label": "Sinh viên thực hiện", "value": ", ".join(st_names)},
+                    {"label": "Mã nhóm", "value": str(group.id)},
+                    {"label": "Đề tài", "value": getattr(group.project, "project_name", "Chưa cập nhật") if hasattr(group, "project") and group.project else "Đồ án tốt nghiệp"},
+                ],
+                cta_text="👉 Xem Danh Sách Nhóm Hướng Dẫn",
+                cta_url="/supervisor/dashboard?tab=groups"
+            )
+
+    @staticmethod
+    def notify_defense_scheduled_emails(council):
+        """
+        Send detailed UTC-branded HTML email notifications when a defense session is scheduled
+        to all students in the council, their supervisors, and all council members.
+        """
+        from .models import GraduationProject, CouncilMember
+
+        session_date_str = str(council.session_date) if council.session_date else "Đang cập nhật"
+        session_time_str = getattr(council, "get_session_time_display", lambda: council.session_time)()
+        room_str = council.defense_room or "Đang cập nhật"
+        council_title = f"Hội đồng bảo vệ số {council.council_number}" if council.council_number else (council.council_name or "Hội đồng bảo vệ tốt nghiệp")
+
+        projects = list(GraduationProject.objects.filter(council=council).select_related("student__user", "supervisor__user"))
+        members = list(CouncilMember.objects.filter(council=council).select_related("user"))
+
+        member_names = [f"{m.user.get_full_name() or m.user.username} ({m.get_role_display()})" for m in members]
+
+        # 1. Notify Students
+        for proj in projects:
+            student = proj.student
+            if student and student.user and student.user.email:
+                NotificationService.send_utc_html_email(
+                    recipient_email=student.user.email,
+                    recipient_name=student.user.get_full_name() or student.user.username,
+                    subject=f"Thông báo lịch bảo vệ đồ án tốt nghiệp chính thức - {council_title}",
+                    title="Lịch Bảo Vệ Đồ Án Tốt Nghiệp Chính Thức",
+                    intro_text="Hội đồng Khoa Công nghệ Thông tin thông báo lịch bảo vệ đồ án tốt nghiệp chính thức của bạn như sau:",
+                    badge_text="Lịch bảo vệ chính thức",
+                    details=[
+                        {"label": "Đề tài", "value": proj.topic_title_vi or proj.topic_title_en or "Đồ án tốt nghiệp"},
+                        {"label": "Hội đồng", "value": council_title},
+                        {"label": "Ngày bảo vệ", "value": session_date_str},
+                        {"label": "Buổi bảo vệ", "value": session_time_str},
+                        {"label": "Phòng bảo vệ", "value": room_str},
+                        {"label": "GVHD", "value": proj.supervisor.user.get_full_name() if proj.supervisor else "Chưa cập nhật"},
+                        {"label": "Thành viên HĐ", "value": "; ".join(member_names) if member_names else "Đang cập nhật"},
+                    ],
+                    additional_notes="Lưu ý: Sinh viên có mặt trước giờ bảo vệ 15 phút, trang phục lịch sự, chuẩn bị slide thuyết trình và bản in báo cáo đầy đủ chữ ký.",
+                    cta_text="👉 Xem Chi Tiết Trên Hệ Thống",
+                    cta_url="/student/dashboard"
+                )
+
+        # 2. Notify Supervisors
+        supervisors_notified = set()
+        for proj in projects:
+            sup = proj.supervisor
+            if sup and sup.user and sup.user.email and sup.user.id not in supervisors_notified:
+                supervisors_notified.add(sup.user.id)
+                NotificationService.send_utc_html_email(
+                    recipient_email=sup.user.email,
+                    recipient_name=sup.user.get_full_name() or sup.user.username,
+                    subject=f"Lịch bảo vệ đồ án của sinh viên hướng dẫn - {council_title}",
+                    title="Lịch Bảo Vệ Đồ Án Của Sinh Viên Hướng Dẫn",
+                    intro_text=f"Khoa thông báo lịch bảo vệ đồ án tốt nghiệp của sinh viên do Thầy/Cô hướng dẫn tại {council_title}:",
+                    badge_text="Lịch bảo vệ sinh viên",
+                    details=[
+                        {"label": "Hội đồng", "value": council_title},
+                        {"label": "Ngày bảo vệ", "value": session_date_str},
+                        {"label": "Buổi bảo vệ", "value": session_time_str},
+                        {"label": "Phòng bảo vệ", "value": room_str},
+                    ],
+                    cta_text="👉 Xem Danh Sách Đồ Án Hướng Dẫn",
+                    cta_url="/supervisor/dashboard"
+                )
+
+        # 3. Notify Council Members
+        for m in members:
+            if m.user and m.user.email:
+                NotificationService.send_utc_html_email(
+                    recipient_email=m.user.email,
+                    recipient_name=m.user.get_full_name() or m.user.username,
+                    subject=f"Lịch làm việc {council_title} - Khóa luận tốt nghiệp",
+                    title=f"Lịch Làm Việc {council_title}",
+                    intro_text=f"Kính mời Thầy/Cô tham dự điều hành và đánh giá phiên bảo vệ khóa luận tốt nghiệp với vai trò {m.get_role_display()}:",
+                    badge_text=m.get_role_display(),
+                    details=[
+                        {"label": "Hội đồng", "value": council_title},
+                        {"label": "Vai trò của Thầy/Cô", "value": m.get_role_display()},
+                        {"label": "Ngày làm việc", "value": session_date_str},
+                        {"label": "Thời gian", "value": session_time_str},
+                        {"label": "Phòng bảo vệ", "value": room_str},
+                        {"label": "Số lượng đồ án", "value": f"{len(projects)} đề tài"},
+                    ],
+                    cta_text="👉 Vào Phòng Hội Đồng Trực Tiếp",
+                    cta_url="/committee/dashboard?tab=council"
+                )
     
     @staticmethod
     def notify_new_chat_message(sender_user, supervisor_group, message_preview):

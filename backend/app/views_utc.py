@@ -41,9 +41,11 @@ from .serializers.utc_graduation_serializers import (
     SupervisionMeetingLogSerializer,
     SupervisionTaskSerializer,
     CouncilLiveScoreSerializer,
+    GraduationProjectDetailSerializer,
     FinalGradeSummarySerializer,
-    GraduationProjectDetailSerializer
 )
+from .validators import validate_uploaded_file
+from .concurrency import retry_on_db_lock
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +192,7 @@ class StudentOutlineSubmissionAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
+    @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def post(self, request):
         user = request.user
         student = getattr(user, "student_profile", None)
@@ -216,21 +219,25 @@ class StudentOutlineSubmissionAPIView(APIView):
         if is_duplicated:
             return Response({"topic_title_vi": ["Tên đề tài đã trùng lặp với đề tài đã được nghiệm thu từ các năm trước."]}, status=status.HTTP_400_BAD_REQUEST)
 
-        # File validation
+        # File validation with binary magic checks
         if outline_file:
-            if not outline_file.name.lower().endswith(".pdf"):
-                return Response({"outline_file": ["Đề cương phải là file định dạng PDF."]}, status=status.HTTP_400_BAD_REQUEST)
-            if outline_file.size > 25 * 1024 * 1024:
-                return Response({"outline_file": ["Kích thước file không được vượt quá 25MB."]}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                validate_uploaded_file(outline_file, allowed_extensions=[".pdf"], max_size_bytes=25 * 1024 * 1024)
+            except Exception as e:
+                err_msg = getattr(e, "detail", str(e))
+                if isinstance(err_msg, list):
+                    err_msg = err_msg[0]
+                return Response({"outline_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
+            project = GraduationProject.objects.select_for_update().get(id=project.id)
             project.topic_title_vi = topic_title_vi
             if topic_title_en:
                 project.topic_title_en = topic_title_en
             project.status = "OUTLINE_PENDING"
             project.save()
 
-            review, _ = OutlineReview.objects.get_or_create(project=project)
+            review, _ = OutlineReview.objects.select_for_update().get_or_create(project=project)
             if outline_file:
                 review.outline_file = outline_file
             review.verdict = "PENDING"
@@ -263,6 +270,7 @@ class StudentWeeklyReportAPIView(APIView):
         reports = WeeklyProgressReport.objects.filter(project=project).order_by("week_number")
         return Response(WeeklyProgressReportSerializer(reports, many=True).data, status=status.HTTP_200_OK)
 
+    @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def post(self, request):
         user = request.user
         student = getattr(user, "student_profile", None)
@@ -289,18 +297,35 @@ class StudentWeeklyReportAPIView(APIView):
         if not summary_content:
             return Response({"summary_content": ["Vui lòng nhập nội dung tóm tắt kết quả công việc trong tuần."]}, status=status.HTTP_400_BAD_REQUEST)
 
-        report, _ = WeeklyProgressReport.objects.update_or_create(
-            project=project,
-            week_number=week_num,
-            defaults={
-                "summary_content": summary_content,
-                "planned_tasks": planned_tasks,
-                "git_commit_link": git_commit_link,
-            }
-        )
+        # File validation with binary magic checks
         if attached_file:
-            report.attached_file = attached_file
-            report.save(update_fields=["attached_file"])
+            try:
+                validate_uploaded_file(
+                    attached_file,
+                    allowed_extensions=[".pdf", ".zip", ".rar", ".docx", ".xlsx", ".pptx"],
+                    max_size_bytes=25 * 1024 * 1024
+                )
+            except Exception as e:
+                err_msg = getattr(e, "detail", str(e))
+                if isinstance(err_msg, list):
+                    err_msg = err_msg[0]
+                return Response({"attached_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            project = GraduationProject.objects.select_for_update().get(id=project.id)
+            report, _ = WeeklyProgressReport.objects.select_for_update().update_or_create(
+                project=project,
+                week_number=week_num,
+                defaults={
+                    "summary_content": summary_content,
+                    "planned_tasks": planned_tasks,
+                    "git_commit_link": git_commit_link,
+                    "submitted_at": timezone.now(),
+                }
+            )
+            if attached_file:
+                report.attached_file = attached_file
+                report.save(update_fields=["attached_file", "submitted_at"])
 
         return Response({
             "message": f"Nộp báo cáo tuần {week_num} thành công!",
@@ -898,6 +923,7 @@ class CouncilLiveDefenseSessionAPIView(APIView):
 class CouncilSubmitScoreAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def post(self, request):
         user = request.user
         council_member = CouncilMember.objects.filter(user=user).first()
@@ -917,6 +943,7 @@ class CouncilSubmitScoreAPIView(APIView):
             return Response({"detail": "Vi phạm quy chế: Giảng viên hướng dẫn không được chấm điểm Hội đồng cho sinh viên của mình."}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
+            project = GraduationProject.objects.select_for_update().get(id=project_id, council=council_member.council)
             live_score, _ = CouncilLiveScore.objects.update_or_create(
                 project=project,
                 member=council_member,
@@ -938,7 +965,7 @@ class CouncilSubmitScoreAPIView(APIView):
                 avg_council = 0.0
 
             # Update FinalGradeSummary
-            summary, _ = FinalGradeSummary.objects.get_or_create(project=project)
+            summary, _ = FinalGradeSummary.objects.select_for_update().get_or_create(project=project)
             summary.supervisor_score = project.supervisor_score
             summary.reviewer_score = project.reviewer_score
             summary.council_avg_score = avg_council
@@ -1126,3 +1153,46 @@ class CouncilSecretaryRemindScoringAPIView(APIView):
             "already_submitted_count": len(submitted_member_ids),
             "pending_count": len(pending_members)
         }, status=status.HTTP_200_OK)
+
+
+class CouncilScheduleDefenseAPIView(APIView):
+    """
+    API for Committee / Admin to schedule defense session for a council.
+    Updates session_date, session_time, defense_room, and dispatches UTC HTML email
+    notifications to students, supervisors, and council members.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, council_id):
+        user = request.user
+        if not (user.is_staff or getattr(user, "user_type", None) in ["admin", "committee"]):
+            return Response({"detail": "Chỉ Ban chủ nhiệm hoặc Admin mới có quyền xếp lịch bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
+
+        council = get_object_or_404(DefenseCouncil, id=council_id)
+        session_date = request.data.get("session_date")
+        session_time = request.data.get("session_time")
+        defense_room = request.data.get("defense_room", "").strip()
+
+        if session_date:
+            council.session_date = session_date
+        if session_time:
+            council.session_time = session_time
+        if defense_room:
+            council.defense_room = defense_room
+
+        council.save()
+
+        # Send UTC branded email notifications to all parties (students, supervisors, members)
+        NotificationService.notify_defense_scheduled_emails(council)
+
+        return Response({
+            "message": f"Xếp lịch bảo vệ thành công cho Hội đồng số {council.council_number} và đã kích hoạt email thông báo nhận diện UTC!",
+            "council": {
+                "id": council.id,
+                "council_number": council.council_number,
+                "session_date": str(council.session_date),
+                "session_time": council.session_time,
+                "defense_room": council.defense_room,
+            }
+        }, status=status.HTTP_200_OK)
+

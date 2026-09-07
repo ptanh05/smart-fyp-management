@@ -36,7 +36,12 @@ from .models import (
     EvaluationSchedule,
     Notification,
     DocumentRequirement,
+    SystemBugReport,
+    DefenseCouncil,
+    CouncilMember,
+    GraduationProject,
 )
+from .services import NotificationService
 from project_lib.admin import ImportableExportableAdmin, Workbook, RecordImportError
 
 
@@ -1478,3 +1483,62 @@ class EvaluationScheduleAdmin(admin.ModelAdmin):
     def mark_postponed(self, request, queryset):
         count = queryset.update(status='postponed')
         self.message_user(request, f'{count} schedules marked as postponed.')
+
+
+# ==================== Bug Report & UTC Council Admin ====================
+
+
+@admin.register(SystemBugReport)
+class SystemBugReportAdmin(admin.ModelAdmin):
+    list_display = ['id', 'title', 'user', 'status', 'page_url', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['title', 'description', 'user__username', 'page_url']
+    readonly_fields = ['created_at', 'updated_at', 'screenshot_preview']
+    list_editable = ['status']
+    ordering = ['-created_at']
+
+    def screenshot_preview(self, obj):
+        if obj.screenshot:
+            return format_html(
+                '<a href="{0}" target="_blank"><img src="{0}" style="max-height: 200px; max-width: 400px; border-radius: 6px; border: 1px solid #ccc;"/></a>',
+                obj.screenshot.url
+            )
+        return "Không có ảnh đính kèm"
+    screenshot_preview.short_description = "Ảnh chụp màn hình"
+
+
+class CouncilMemberInline(admin.TabularInline):
+    model = CouncilMember
+    extra = 1
+    fields = ['user', 'supervisor', 'role']
+
+
+@admin.register(DefenseCouncil)
+class DefenseCouncilAdmin(admin.ModelAdmin):
+    list_display = ['council_number', 'council_name', 'batch', 'session_date', 'session_time', 'defense_room']
+    list_filter = ['batch', 'session_date', 'session_time']
+    search_fields = ['council_name', 'defense_room']
+    inlines = [CouncilMemberInline]
+    actions = ['send_defense_schedule_email_action']
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.session_date:
+            try:
+                NotificationService.notify_defense_scheduled_emails(obj)
+            except Exception:
+                pass
+
+    @admin.action(description='Gửi email thông báo lịch bảo vệ UTC cho Hội đồng này')
+    def send_defense_schedule_email_action(self, request, queryset):
+        for council in queryset:
+            NotificationService.notify_defense_scheduled_emails(council)
+        self.message_user(request, f'Đã kích hoạt gửi email thông báo lịch bảo vệ cho {queryset.count()} hội đồng.')
+
+
+@admin.register(CouncilMember)
+class CouncilMemberAdmin(admin.ModelAdmin):
+    list_display = ['council', 'user', 'role']
+    list_filter = ['council__batch', 'role']
+    search_fields = ['user__username', 'user__first_name', 'user__last_name']
+
