@@ -59,6 +59,7 @@ backend/.venv/
 backend/db.sqlite3
 
 # Django Media & User Uploaded Documents
+backend/media/
 backend/documents/*
 !backend/documents/.gitkeep
 backend/outlines/*

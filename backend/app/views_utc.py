@@ -1205,6 +1205,9 @@ class CouncilScheduleDefenseAPIView(APIView):
                 "session_time": council.session_time,
                 "defense_room": council.defense_room,
             }
+        }, status=status.HTTP_200_OK)
+
+
 # ==============================================================================
 # COUNCIL CONFLICT OF INTEREST & ASSIGNMENT MANAGEMENT
 # ==============================================================================

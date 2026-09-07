@@ -1548,31 +1548,11 @@ class AcademicBatchAdmin(admin.ModelAdmin):
 class CouncilMemberInline(admin.TabularInline):
     model = CouncilMember
     extra = 1
-    fields = ['user', 'supervisor', 'role']
     fields = ["user", "role", "supervisor", "external_institution"]
 
 
 @admin.register(DefenseCouncil)
 class DefenseCouncilAdmin(admin.ModelAdmin):
-    list_display = ['council_number', 'council_name', 'batch', 'session_date', 'session_time', 'defense_room']
-    list_filter = ['batch', 'session_date', 'session_time']
-    search_fields = ['council_name', 'defense_room']
-    inlines = [CouncilMemberInline]
-    actions = ['send_defense_schedule_email_action']
-
-    def save_model(self, request, obj, form, change):
-        super().save_model(request, obj, form, change)
-        if obj.session_date:
-            try:
-                NotificationService.notify_defense_scheduled_emails(obj)
-            except Exception:
-                pass
-
-    @admin.action(description='Gửi email thông báo lịch bảo vệ UTC cho Hội đồng này')
-    def send_defense_schedule_email_action(self, request, queryset):
-        for council in queryset:
-            NotificationService.notify_defense_scheduled_emails(council)
-        self.message_user(request, f'Đã kích hoạt gửi email thông báo lịch bảo vệ cho {queryset.count()} hội đồng.')
     list_display = [
         "council_number",
         "council_name",
@@ -1587,7 +1567,21 @@ class DefenseCouncilAdmin(admin.ModelAdmin):
     list_filter = ["batch", "session_date", "session_time"]
     search_fields = ["council_name", "defense_room"]
     inlines = [CouncilMemberInline]
-    actions = ["check_conflicts_action"]
+    actions = ["check_conflicts_action", "send_defense_schedule_email_action"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.session_date:
+            try:
+                NotificationService.notify_defense_scheduled_emails(obj)
+            except Exception:
+                pass
+
+    @admin.action(description='Gửi email thông báo lịch bảo vệ UTC cho Hội đồng này')
+    def send_defense_schedule_email_action(self, request, queryset):
+        for council in queryset:
+            NotificationService.notify_defense_scheduled_emails(council)
+        self.message_user(request, f'Đã kích hoạt gửi email thông báo lịch bảo vệ cho {queryset.count()} hội đồng.')
 
     def get_members_count(self, obj):
         return obj.members.count()
@@ -1639,9 +1633,6 @@ class DefenseCouncilAdmin(admin.ModelAdmin):
 
 @admin.register(CouncilMember)
 class CouncilMemberAdmin(admin.ModelAdmin):
-    list_display = ['council', 'user', 'role']
-    list_filter = ['council__batch', 'role']
-    search_fields = ['user__username', 'user__first_name', 'user__last_name']
     list_display = ["council", "user", "role", "supervisor", "external_institution"]
     list_filter = ["council__batch", "council", "role"]
     search_fields = ["user__first_name", "user__last_name", "user__username", "council__council_name"]

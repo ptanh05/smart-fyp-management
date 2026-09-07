@@ -931,6 +931,10 @@ class ApiService {
   async submitBugReport(formData: FormData): Promise<{ message: string; report: any }> {
     const response = await this.api.post<{ message: string; report: any }>('/bug-reports/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
   // Global Search & Council Management
   async globalSearch(q: string, type = 'all'): Promise<any> {
     const response = await this.api.get('/global-search/', {
