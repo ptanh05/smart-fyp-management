@@ -155,7 +155,7 @@ else:
                 "ENGINE": "django.db.backends.sqlite3",
                 "NAME": BASE_DIR / "db.sqlite3",
                 "OPTIONS": {
-                    "timeout": 20,  # Wait up to 20 seconds for database lock to clear
+                    "timeout": 30,  # Wait up to 30 seconds for database lock to clear under high concurrency
                 },
             }
         }
@@ -200,6 +200,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 
 
 # Default primary key field type

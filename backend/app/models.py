@@ -2303,3 +2303,33 @@ class FinalGradeSummary(models.Model):
     def __str__(self):
         return f"Điểm tổng kết: {self.project.student} -> {self.final_score_10}đ ({self.final_letter_grade})"
 
+
+class SystemBugReport(models.Model):
+    """Báo cáo lỗi và phản hồi hệ thống từ người dùng (kèm ảnh chụp màn hình)"""
+    STATUS_CHOICES = (
+        ("PENDING", "Đang chờ xử lý"),
+        ("IN_PROGRESS", "Đang xử lý"),
+        ("RESOLVED", "Đã giải quyết"),
+        ("CLOSED", "Đã đóng"),
+    )
+    user = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="bug_reports"
+    )
+    title = models.CharField(max_length=255, blank=True, default="Báo lỗi hệ thống")
+    description = models.TextField(help_text="Mô tả chi tiết lỗi gặp phải")
+    page_url = models.CharField(max_length=500, blank=True, default="")
+    screenshot = models.FileField(upload_to="bug_reports/", null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    admin_notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Báo cáo lỗi"
+        verbose_name_plural = "Danh sách báo cáo lỗi"
+
+    def __str__(self):
+        username = self.user.username if self.user else "Khách"
+        return f"BugReport #{self.id} từ {username} ({self.get_status_display()})"
+

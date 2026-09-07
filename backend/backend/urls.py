@@ -1,7 +1,11 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
-from .project_views import DocumentDownloadView, SRSTemplateDownloadView
+from app.views_media import (
+    DocumentSecureDownloadView,
+    TemplateSecureDownloadView,
+    SecureMediaDownloadView,
+)
 
 def health_check(request):
     return JsonResponse({"status": "ok", "service": "Smart FYP Management API"})
@@ -13,12 +17,17 @@ urlpatterns = [
     path("api/", include("app.urls")),
     path(
         "documents/<str:filename>/",
-        DocumentDownloadView.as_view(),
+        DocumentSecureDownloadView.as_view(),
         name="document-download",
     ),
     path(
         "doc_templates/<str:filename>/",
-        SRSTemplateDownloadView.as_view(),
+        TemplateSecureDownloadView.as_view(),
         name="template-download",
+    ),
+    path(
+        "media/<path:file_path>",
+        SecureMediaDownloadView.as_view(),
+        name="media-download",
     ),
 ]

@@ -425,6 +425,20 @@ class ApiService {
     await this.api.delete(`/proposal-document/${documentType}/${documentId}/`);
   }
 
+  /** Get a short-lived Signed URL for downloading or opening a file in browser */
+  async getSignedMediaUrl(filePath: string): Promise<string> {
+    try {
+      const response = await this.api.get<{ signed_url: string }>(`/media/get-signed-url/`, {
+        params: { file_path: filePath.replace(/^\//, '') },
+      });
+      const signedUrl = response.data.signed_url;
+      return signedUrl.startsWith('http') ? signedUrl : `${window.location.origin}${signedUrl}`;
+    } catch (error) {
+      console.error('Failed to get signed media URL:', error);
+      return filePath;
+    }
+  }
+
   // Document requirements (committee-defined deadlines; students see and submit against these)
   async getDocumentRequirements(semester?: string): Promise<DocumentRequirement[]> {
     const params: Record<string, string | number> = { page_size: 200 };
@@ -913,6 +927,10 @@ class ApiService {
     link.remove();
   }
 
+  // Bug Report / User Feedback
+  async submitBugReport(formData: FormData): Promise<{ message: string; report: any }> {
+    const response = await this.api.post<{ message: string; report: any }>('/bug-reports/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
   // Global Search & Council Management
   async globalSearch(q: string, type = 'all'): Promise<any> {
     const response = await this.api.get('/global-search/', {

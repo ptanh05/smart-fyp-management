@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
+import BugReportModal from './BugReportModal';
 import GlobalSearchBar from './GlobalSearchBar';
 import './Navbar.css';
 
@@ -16,6 +17,7 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const { t, i18n } = useTranslation();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showBugReport, setShowBugReport] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { toggleTheme, isDark } = useTheme();
   const navigate = useNavigate();
@@ -146,6 +148,14 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               {isDark ? '☀️' : '🌙'}
             </button>
             <button
+              className="btn btn-outline btn-bug-report"
+              onClick={() => setShowBugReport(true)}
+              title="Báo lỗi hệ thống / Gửi phản hồi kèm ảnh"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', borderColor: '#f59e0b', color: isDark ? '#fbbf24' : '#b45309' }}
+            >
+              <span>🐞</span> Báo lỗi
+            </button>
+            <button
               className="btn btn-outline"
               onClick={() => setShowChangePassword(true)}
               title={t('nav.changePassword', 'Đổi Mật Khẩu')}
@@ -186,6 +196,15 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             <button
               className="mobile-menu-item mobile-menu-button"
               onClick={() => {
+                setShowBugReport(true);
+                setMobileMenuOpen(false);
+              }}
+            >
+              🐞 Báo lỗi hệ thống
+            </button>
+            <button
+              className="mobile-menu-item mobile-menu-button"
+              onClick={() => {
                 setShowChangePassword(true);
                 setMobileMenuOpen(false);
               }}
@@ -214,6 +233,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
       <ChangePasswordModal
         isOpen={showChangePassword}
         onClose={() => setShowChangePassword(false)}
+      />
+
+      <BugReportModal
+        isOpen={showBugReport}
+        onClose={() => setShowBugReport(false)}
       />
     </>
   );
