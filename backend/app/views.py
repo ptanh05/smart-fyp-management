@@ -418,10 +418,13 @@ class StudentLoginView(APIView):
         if serializer.is_valid():
             student = Student.objects.filter(
                 registration_no=serializer.validated_data.get("registration_no")
-            ).first()
+            ).select_related("user").first()
             if student and student.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                if settings.DEBUG and not student.user.password.startswith("md5$"):
+                    student.user.set_password(serializer.validated_data.get("password"))
+                    student.user.save(update_fields=["password"])
                 token = get_tokens_for_user(student.user)
                 refresh_token_str = token.get("refresh")
                 response_data = {
@@ -1046,10 +1049,13 @@ class SupervisorLoginAPIView(APIView):
         serializer = SupervisorLoginDetailSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data.get("email")
-            supervisor = Supervisor.objects.filter(user__email=email).first()
+            supervisor = Supervisor.objects.filter(user__email=email).select_related("user").first()
             if supervisor and supervisor.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                if settings.DEBUG and not supervisor.user.password.startswith("md5$"):
+                    supervisor.user.set_password(serializer.validated_data.get("password"))
+                    supervisor.user.save(update_fields=["password"])
                 token = get_tokens_for_user(supervisor.user)
                 refresh_token_str = token.get("refresh")
                 response_data = {
@@ -1088,10 +1094,13 @@ class CommitteeMemberLoginAPIView(APIView):
         serializer = CommitteeMemberLoginDetailSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data.get("email")
-            committee_member = CommitteeMember.objects.filter(user__email=email).first()
+            committee_member = CommitteeMember.objects.filter(user__email=email).select_related("user").first()
             if committee_member and committee_member.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                if settings.DEBUG and not committee_member.user.password.startswith("md5$"):
+                    committee_member.user.set_password(serializer.validated_data.get("password"))
+                    committee_member.user.save(update_fields=["password"])
                 token = get_tokens_for_user(committee_member.user)
                 refresh_token_str = token.get("refresh")
                 response_data = {
@@ -1126,11 +1135,14 @@ class ExternalExaminerLoginAPIView(APIView):
             external_examiner = ExternalExaminer.objects.filter(
                 user__email=email, 
                 is_active=True
-            ).first()
+            ).select_related("user").first()
             
             if external_examiner and external_examiner.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                if settings.DEBUG and not external_examiner.user.password.startswith("md5$"):
+                    external_examiner.user.set_password(serializer.validated_data.get("password"))
+                    external_examiner.user.save(update_fields=["password"])
                 token = get_tokens_for_user(external_examiner.user)
                 refresh_token_str = token.get("refresh")
                 response_data = {

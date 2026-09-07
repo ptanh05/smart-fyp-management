@@ -42,6 +42,20 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/app';
 
 class ApiService {
   private api: AxiosInstance;
+  private pendingRequests = new Map<string, Promise<any>>();
+
+  private deduplicateRequest<T>(key: string, fetcher: () => Promise<T>, ttlMs = 2500): Promise<T> {
+    if (this.pendingRequests.has(key)) {
+      return this.pendingRequests.get(key) as Promise<T>;
+    }
+    const promise = fetcher().finally(() => {
+      setTimeout(() => {
+        this.pendingRequests.delete(key);
+      }, ttlMs);
+    });
+    this.pendingRequests.set(key, promise);
+    return promise;
+  }
 
   constructor() {
     this.api = axios.create({
@@ -129,8 +143,10 @@ class ApiService {
 
   // Student Profile
   async getStudentProfile(): Promise<Student> {
-    const response = await this.api.get<Student>('/student/profile/');
-    return response.data;
+    return this.deduplicateRequest('student-profile', async () => {
+      const response = await this.api.get<Student>('/student/profile/');
+      return response.data;
+    });
   }
 
   // WebSocket Ticket
@@ -141,19 +157,24 @@ class ApiService {
 
   // Supervisor Profile
   async getSupervisorProfile(): Promise<Supervisor> {
-    const response = await this.api.get<Supervisor>('/supervisor/profile/');
-    return response.data;
+    return this.deduplicateRequest('supervisor-profile', async () => {
+      const response = await this.api.get<Supervisor>('/supervisor/profile/');
+      return response.data;
+    });
   }
 
   async updateSupervisorProfile(data: Partial<Supervisor>): Promise<Supervisor> {
+    this.pendingRequests.delete('supervisor-profile');
     const response = await this.api.patch<Supervisor>('/supervisor/profile/', data);
     return response.data;
   }
 
   // Committee Member Profile
   async getCommitteeMemberProfile(): Promise<CommitteeMember> {
-    const response = await this.api.get<CommitteeMember>('/committee_member/profile/');
-    return response.data;
+    return this.deduplicateRequest('committee-profile', async () => {
+      const response = await this.api.get<CommitteeMember>('/committee_member/profile/');
+      return response.data;
+    });
   }
 
   // Committee Member Groups (for evaluation)
@@ -177,8 +198,10 @@ class ApiService {
 
   // Project Categories
   async getProjectCategories(): Promise<{ results: ProjectCategory[] }> {
-    const response = await this.api.get<{ results: ProjectCategory[] }>('/project/categories/');
-    return response.data;
+    return this.deduplicateRequest('project-categories', async () => {
+      const response = await this.api.get<{ results: ProjectCategory[] }>('/project/categories/');
+      return response.data;
+    }, 10000);
   }
 
   // Groups
