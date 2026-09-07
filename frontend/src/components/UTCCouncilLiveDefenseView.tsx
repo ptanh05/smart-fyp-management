@@ -250,6 +250,33 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
         </div>
       </div>
 
+      {/* COUNCIL CONFLICT OF INTEREST ALERT BANNER */}
+      {councilData?.has_conflict && (
+        <div className="bg-red-950/30 border border-red-500/40 rounded-xl p-4 shadow-lg flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-red-400 font-bold text-sm">
+            <span className="text-base">⚠️</span>
+            <span>CẢNH BÁO XUNG ĐỘT LỢI ÍCH (Conflict of Interest)</span>
+            <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-xs px-2 py-0.5 rounded-full font-mono">
+              {councilData.total_conflicts} vi phạm
+            </span>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Hội đồng này có thành viên đồng thời là Giảng viên hướng dẫn hoặc Phản biện của sinh viên trong hội đồng.
+            Theo quy chế đào tạo UTC, thành viên có xung đột lợi ích <strong>không được phép chấm điểm Hội đồng</strong> cho đề tài đó.
+          </p>
+          <div className="mt-1 space-y-1.5">
+            {councilData.conflicts?.map((c: any, i: number) => (
+              <div key={i} className="text-xs text-red-300 bg-red-900/20 border border-red-500/20 rounded px-3 py-1.5 flex items-center justify-between">
+                <span>• {c.message}</span>
+                <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 rounded bg-red-950 text-red-400 border border-red-800">
+                  {c.conflict_type}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* LIVE DEFENSE EXECUTIVE DASHBOARD BANNER */}
       {currentDefendingProject ? (
         <div className="bg-gradient-to-r from-red-950/40 via-slate-900 to-slate-900 border-2 border-red-500/50 rounded-2xl p-6 shadow-2xl space-y-4">
@@ -435,6 +462,15 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                           ⏳ Chờ bảo vệ
                         </span>
                       )}
+
+                      {p.has_conflict && (
+                        <span
+                          className="px-2 py-0.5 rounded text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/40 flex items-center gap-1"
+                          title={p.conflicts?.map((c: any) => c.message).join('\n')}
+                        >
+                          ⚠️ Xung đột ({p.conflicts?.length})
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-xs text-slate-200 font-medium">{p.topic_title_vi}</p>
@@ -448,6 +484,16 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                         </span>
                       )}
                     </div>
+
+                    {p.has_conflict && p.conflicts && p.conflicts.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {p.conflicts.map((c: any, ci: number) => (
+                          <span key={ci} className="text-[11px] bg-red-500/10 text-red-300 border border-red-500/20 rounded px-2 py-0.5">
+                            ⚠️ {c.message}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions & Status Breakdown */}
@@ -529,16 +575,28 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     )}
 
                     {/* Grade Button */}
-                    <button
-                      onClick={() => handleOpenScoreModal(p)}
-                      className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
-                        hasMyScore
-                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
-                      }`}
-                    >
-                      {hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm'}
-                    </button>
+                    {p.scoring_summary?.members_breakdown?.some(
+                      (m: any) => m.role_code === councilData.my_role_code && m.is_supervisor
+                    ) ? (
+                      <button
+                        disabled
+                        className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-red-950/40 text-red-400 border border-red-500/30 cursor-not-allowed opacity-80"
+                        title="Bạn là Giảng viên hướng dẫn của SV này nên không được chấm điểm Hội đồng theo quy chế."
+                      >
+                        🚫 GVHD (Không chấm HĐ)
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenScoreModal(p)}
+                        className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
+                          hasMyScore
+                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
+                        }`}
+                      >
+                        {hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm'}
+                      </button>
+                    )}
                   </div>
                 </div>
 

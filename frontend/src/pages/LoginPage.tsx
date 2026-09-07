@@ -242,44 +242,48 @@ const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="utc-login-form" noValidate>
             {userType === 'student' ? (
               <div className={`utc-input-group ${touched.registrationNo && fieldErrors.registrationNo ? 'has-error' : ''} ${touched.registrationNo && !fieldErrors.registrationNo && registrationNo ? 'is-valid' : ''}`}>
-                <span className="utc-input-icon">👤</span>
-                <input
-                  type="text"
-                  value={registrationNo}
-                  onChange={(e) => {
-                    setRegistrationNo(e.target.value);
-                    if (touched.registrationNo) {
-                      setFieldErrors(validateFields(userType, e.target.value, email, password));
-                    }
-                  }}
-                  onBlur={() => handleBlur('registrationNo')}
-                  placeholder={t('login.usernamePlaceholder', 'Nhập mã sinh viên UTC (Ví dụ: 201200101 hoặc svdemo)')}
-                />
-                {touched.registrationNo && !fieldErrors.registrationNo && registrationNo && (
-                  <span className="utc-valid-icon">✓</span>
-                )}
+                <div className="utc-input-wrapper">
+                  <span className="utc-input-icon">👤</span>
+                  <input
+                    type="text"
+                    value={registrationNo}
+                    onChange={(e) => {
+                      setRegistrationNo(e.target.value);
+                      if (touched.registrationNo) {
+                        setFieldErrors(validateFields(userType, e.target.value, email, password));
+                      }
+                    }}
+                    onBlur={() => handleBlur('registrationNo')}
+                    placeholder={t('login.usernamePlaceholder', 'Nhập mã sinh viên UTC (Ví dụ: 201200101 hoặc svdemo)')}
+                  />
+                  {touched.registrationNo && !fieldErrors.registrationNo && registrationNo && (
+                    <span className="utc-valid-icon">✓</span>
+                  )}
+                </div>
                 {touched.registrationNo && fieldErrors.registrationNo && (
                   <div className="utc-field-error">{fieldErrors.registrationNo}</div>
                 )}
               </div>
             ) : (
               <div className={`utc-input-group ${touched.email && fieldErrors.email ? 'has-error' : ''} ${touched.email && !fieldErrors.email && email ? 'is-valid' : ''}`}>
-                <span className="utc-input-icon">✉️</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (touched.email) {
-                      setFieldErrors(validateFields(userType, registrationNo, e.target.value, password));
-                    }
-                  }}
-                  onBlur={() => handleBlur('email')}
-                  placeholder={t('login.emailPlaceholder', 'Nhập email UTC (Ví dụ: gvdemo@utc.edu.vn)')}
-                />
-                {touched.email && !fieldErrors.email && email && (
-                  <span className="utc-valid-icon">✓</span>
-                )}
+                <div className="utc-input-wrapper">
+                  <span className="utc-input-icon">✉️</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (touched.email) {
+                        setFieldErrors(validateFields(userType, registrationNo, e.target.value, password));
+                      }
+                    }}
+                    onBlur={() => handleBlur('email')}
+                    placeholder={t('login.emailPlaceholder', 'Nhập email UTC (Ví dụ: gvdemo@utc.edu.vn)')}
+                  />
+                  {touched.email && !fieldErrors.email && email && (
+                    <span className="utc-valid-icon">✓</span>
+                  )}
+                </div>
                 {touched.email && fieldErrors.email && (
                   <div className="utc-field-error">{fieldErrors.email}</div>
                 )}
@@ -287,28 +291,30 @@ const LoginPage: React.FC = () => {
             )}
 
             <div className={`utc-input-group ${touched.password && fieldErrors.password ? 'has-error' : ''} ${touched.password && !fieldErrors.password && password ? 'is-valid' : ''}`}>
-              <span className="utc-input-icon">🔒</span>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (touched.password) {
-                    setFieldErrors(validateFields(userType, registrationNo, email, e.target.value));
-                  }
-                }}
-                onBlur={() => handleBlur('password')}
-                placeholder={t('login.passwordPlaceholder', 'Nhập mật khẩu của bạn')}
-              />
-              <button
-                type="button"
-                className="utc-toggle-password-btn"
-                onClick={() => setShowPassword(!showPassword)}
-                title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              >
-                {showPassword ? '👁️' : '🙈'}
-              </button>
+              <div className="utc-input-wrapper">
+                <span className="utc-input-icon">🔒</span>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (touched.password) {
+                      setFieldErrors(validateFields(userType, registrationNo, email, e.target.value));
+                    }
+                  }}
+                  onBlur={() => handleBlur('password')}
+                  placeholder={t('login.passwordPlaceholder', 'Nhập mật khẩu của bạn')}
+                />
+                <button
+                  type="button"
+                  className="utc-toggle-password-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                  title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showPassword ? '👁️' : '🙈'}
+                </button>
+              </div>
               {touched.password && fieldErrors.password && (
                 <div className="utc-field-error">{fieldErrors.password}</div>
               )}

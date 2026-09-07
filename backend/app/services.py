@@ -800,3 +800,160 @@ class AuditService:
             if hasattr(evaluation_instance, field):
                 old_data[field] = getattr(evaluation_instance, field)
         return old_data
+
+
+class CouncilConflictService:
+    """Service to detect and manage Conflict of Interest (COI) in defense council assignments."""
+
+    @staticmethod
+    def check_council_conflicts(council_id=None, batch_id=None):
+        """
+        Check for Conflict of Interest across councils.
+        A conflict occurs when:
+        1. A council member is the supervisor (GVHD) of an assigned project.
+        2. A council member is the reviewer (GVPB) of an assigned project.
+        """
+        from .models import DefenseCouncil, GraduationProject, CouncilMember
+
+        councils_qs = DefenseCouncil.objects.all().select_related("batch")
+        if council_id:
+            councils_qs = councils_qs.filter(id=council_id)
+        elif batch_id:
+            councils_qs = councils_qs.filter(batch_id=batch_id)
+
+        all_conflicts = []
+        councils_summary = []
+
+        for council in councils_qs:
+            members = list(council.members.select_related("user", "supervisor").all())
+            projects = list(council.projects.select_related("student__user", "supervisor__user", "reviewer__user").all())
+
+            council_conflicts = []
+
+            for member in members:
+                member_name = member.user.get_full_name() or member.user.username
+                member_role_display = member.get_role_display()
+
+                for project in projects:
+                    student_name = project.student.user.get_full_name() or project.student.user.username
+                    student_reg = project.student.registration_no
+
+                    # 1. Check if member is supervisor
+                    is_supervisor = False
+                    if member.supervisor_id and project.supervisor_id and member.supervisor_id == project.supervisor_id:
+                        is_supervisor = True
+                    elif member.user_id and project.supervisor and project.supervisor.user_id == member.user_id:
+                        is_supervisor = True
+
+                    if is_supervisor:
+                        conflict_item = {
+                            "council_id": council.id,
+                            "council_name": council.council_name,
+                            "council_number": council.council_number,
+                            "member_id": member.id,
+                            "member_user_id": member.user_id,
+                            "member_name": member_name,
+                            "member_role": member_role_display,
+                            "project_id": project.id,
+                            "project_title": project.topic_title_vi or project.topic_title_en,
+                            "student_name": student_name,
+                            "student_reg_no": student_reg,
+                            "conflict_type": "SUPERVISOR",
+                            "severity": "HIGH",
+                            "message": f"Thành viên {member_name} ({member_role_display}) là Giảng viên hướng dẫn của sinh viên {student_name} ({student_reg}) trong cùng {council.council_name}."
+                        }
+                        council_conflicts.append(conflict_item)
+                        all_conflicts.append(conflict_item)
+
+                    # 2. Check if member is reviewer
+                    is_reviewer = False
+                    if member.supervisor_id and project.reviewer_id and member.supervisor_id == project.reviewer_id:
+                        is_reviewer = True
+                    elif member.user_id and project.reviewer and project.reviewer.user_id == member.user_id:
+                        is_reviewer = True
+
+                    if is_reviewer:
+                        conflict_item = {
+                            "council_id": council.id,
+                            "council_name": council.council_name,
+                            "council_number": council.council_number,
+                            "member_id": member.id,
+                            "member_user_id": member.user_id,
+                            "member_name": member_name,
+                            "member_role": member_role_display,
+                            "project_id": project.id,
+                            "project_title": project.topic_title_vi or project.topic_title_en,
+                            "student_name": student_name,
+                            "student_reg_no": student_reg,
+                            "conflict_type": "REVIEWER",
+                            "severity": "MEDIUM",
+                            "message": f"Thành viên {member_name} ({member_role_display}) là Giảng viên phản biện của sinh viên {student_name} ({student_reg}) trong cùng {council.council_name}."
+                        }
+                        council_conflicts.append(conflict_item)
+                        all_conflicts.append(conflict_item)
+
+            councils_summary.append({
+                "council_id": council.id,
+                "council_name": council.council_name,
+                "council_number": council.council_number,
+                "total_members": len(members),
+                "total_projects": len(projects),
+                "has_conflict": len(council_conflicts) > 0,
+                "conflicts_count": len(council_conflicts),
+                "conflicts": council_conflicts,
+            })
+
+        return {
+            "has_conflict": len(all_conflicts) > 0,
+            "total_conflicts": len(all_conflicts),
+            "conflicts": all_conflicts,
+            "councils_summary": councils_summary
+        }
+
+    @staticmethod
+    def check_project_assignment(council, project):
+        """Check potential conflict if a project is assigned to a council."""
+        members = council.members.select_related("user", "supervisor").all()
+        conflicts = []
+        for m in members:
+            m_name = m.user.get_full_name() or m.user.username
+            if (m.supervisor_id and m.supervisor_id == project.supervisor_id) or (project.supervisor and m.user_id == project.supervisor.user_id):
+                conflicts.append({
+                    "conflict_type": "SUPERVISOR",
+                    "member_name": m_name,
+                    "message": f"Thành viên hội đồng {m_name} ({m.get_role_display()}) là GVHD của sinh viên {project.student.user.get_full_name()}."
+                })
+            if (m.supervisor_id and m.supervisor_id == project.reviewer_id) or (project.reviewer and m.user_id == project.reviewer.user_id):
+                conflicts.append({
+                    "conflict_type": "REVIEWER",
+                    "member_name": m_name,
+                    "message": f"Thành viên hội đồng {m_name} ({m.get_role_display()}) là GVPB của sinh viên {project.student.user.get_full_name()}."
+                })
+        return conflicts
+
+    @staticmethod
+    def check_member_assignment(council, user, supervisor=None):
+        """Check potential conflict if a user/supervisor is added to a council."""
+        projects = council.projects.select_related("student__user", "supervisor__user", "reviewer__user").all()
+        conflicts = []
+        user_id = getattr(user, "id", None)
+        sup_id = getattr(supervisor, "id", None) if supervisor else None
+
+        for p in projects:
+            s_name = p.student.user.get_full_name()
+            if (sup_id and p.supervisor_id == sup_id) or (p.supervisor and p.supervisor.user_id == user_id):
+                conflicts.append({
+                    "conflict_type": "SUPERVISOR",
+                    "project_id": p.id,
+                    "student_name": s_name,
+                    "message": f"Giảng viên này là GVHD của đề tài sinh viên {s_name} ({p.student.registration_no}) đang trong hội đồng."
+                })
+            if (sup_id and p.reviewer_id == sup_id) or (p.reviewer and p.reviewer.user_id == user_id):
+                conflicts.append({
+                    "conflict_type": "REVIEWER",
+                    "project_id": p.id,
+                    "student_name": s_name,
+                    "message": f"Giảng viên này là GVPB của đề tài sinh viên {s_name} ({p.student.registration_no}) đang trong hội đồng."
+                })
+        return conflicts
+

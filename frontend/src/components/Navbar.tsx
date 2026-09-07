@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
 import BugReportModal from './BugReportModal';
+import GlobalSearchBar from './GlobalSearchBar';
 import './Navbar.css';
 
 interface NavbarProps {
@@ -106,6 +107,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             <span className="navbar-brand-short">UTC FYP</span>
           </div>
 
+          {/* Global Search Bar (Desktop) */}
+          <div className="navbar-search-wrapper navbar-desktop">
+            <GlobalSearchBar />
+          </div>
+
           {/* Mobile hamburger button */}
           <button
             className="navbar-toggle"
@@ -173,6 +179,9 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               </div>
             </div>
             <div className="mobile-menu-divider"></div>
+            <div className="mobile-menu-item mobile-search-container" style={{ padding: '6px 12px' }}>
+              <GlobalSearchBar placeholder="Tìm kiếm nhanh... (Ctrl+K)" />
+            </div>
             <div className="mobile-menu-item">
               <NotificationDropdown onNavigate={handleNotificationNavigate} />
             </div>
