@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from .project_views import (
+    DocumentDownloadView,
+    SRSTemplateDownloadView,
+    ChatAttachmentDownloadView,
 from app.views_media import (
     DocumentSecureDownloadView,
     TemplateSecureDownloadView,
@@ -21,11 +25,29 @@ urlpatterns = [
         name="document-download",
     ),
     path(
+        "media/documents/<str:filename>/",
+        DocumentDownloadView.as_view(),
+        name="media-document-download",
+    ),
+    path(
         "doc_templates/<str:filename>/",
         TemplateSecureDownloadView.as_view(),
         name="template-download",
     ),
     path(
+        "media/doc_templates/<str:filename>/",
+        SRSTemplateDownloadView.as_view(),
+        name="media-template-download",
+    ),
+    path(
+        "chat_attachments/<str:filename>/",
+        ChatAttachmentDownloadView.as_view(),
+        name="chat-attachment-download",
+    ),
+    path(
+        "media/chat_attachments/<str:filename>/",
+        ChatAttachmentDownloadView.as_view(),
+        name="media-chat-attachment-download",
         "media/<path:file_path>",
         SecureMediaDownloadView.as_view(),
         name="media-download",

@@ -506,6 +506,226 @@
   text-align: right;
 }
 
+/* Chat Attachment Button & Selected Attachment Bar */
+.chat-attachment-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  font-size: 18px;
+  padding: 0 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.chat-attachment-btn:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  border-color: var(--primary-color);
+}
+
+.chat-attachment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-selected-attachment-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.chat-selected-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.chat-selected-icon {
+  font-size: 26px;
+}
+
+.chat-selected-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-selected-name {
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.chat-selected-size {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.chat-selected-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.chat-selected-remove-btn:hover {
+  color: #dc3545;
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Chat Bubble Attachment Styles */
+.chat-bubble-attachment {
+  margin-bottom: 6px;
+  max-width: 100%;
+}
+
+.chat-attachment-image-wrap {
+  max-width: 260px;
+  max-height: 220px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  margin-bottom: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.chat-attachment-image-wrap:hover {
+  transform: scale(1.02);
+}
+
+.chat-attachment-img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+}
+
+.chat-attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  min-width: 220px;
+  max-width: 320px;
+  margin-bottom: 4px;
+}
+
+.chat-bubble.sent .chat-attachment-card {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.chat-attachment-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.chat-attachment-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-attachment-filename {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+}
+
+.chat-attachment-size {
+  font-size: 11px;
+  opacity: 0.8;
+  color: inherit;
+}
+
+.chat-attachment-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-attachment-action {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s, transform 0.1s;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.btn-attachment-action:hover {
+  transform: translateY(-1px);
+}
+
+.btn-attachment-preview {
+  background: #007bff;
+  color: white;
+}
+
+.btn-attachment-preview:hover {
+  background: #0056b3;
+}
+
+.btn-attachment-download {
+  background: #28a745;
+  color: white;
+}
+
+.btn-attachment-download:hover {
+  background: #218838;
+}
+
+.chat-bubble.sent .btn-attachment-preview {
+  background: #ffffff;
+  color: #007bff;
+}
+
+.chat-bubble.sent .btn-attachment-preview:hover {
+  background: #f0f0f0;
+}
+
+.chat-bubble.sent .btn-attachment-download {
+  background: #ffffff;
+  color: #28a745;
+}
+
+.chat-bubble.sent .btn-attachment-download:hover {
+  background: #f0f0f0;
+}
+
 /* Mobile adjustments for chat inline elements */
 @media (max-width: 768px) {
   .chat-room-card {
