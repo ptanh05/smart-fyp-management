@@ -102,7 +102,7 @@ const StudentDashboard: React.FC = () => {
         apiService.getProjectCategories(),
       ]);
       setProfile(profileData);
-      setProjectCategories(categoriesData.results || []);
+      setProjectCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData as any).results || []);
 
       if (profileData.groupmate_id) {
         const supervisorRequestsData = await apiService.getSupervisorRequests();

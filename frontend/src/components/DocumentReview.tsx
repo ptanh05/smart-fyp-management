@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
-import type { Document, SupervisorOfStudentGroup } from '../types';
+import type { Document, DocumentComment, SupervisorOfStudentGroup } from '../types';
 import DocumentViewerModal from './DocumentViewerModal';
 import './DocumentReview.css';
 
@@ -35,6 +35,93 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [downloading, setDownloading] = useState<number | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string; type: string } | null>(null);
+
+  // Bulk Download state
+  const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+
+  // Document Comments state
+  const [comments, setComments] = useState<DocumentComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentSection, setCommentSection] = useState('general');
+  const [commentText, setCommentText] = useState('');
+  const [savingComment, setSavingComment] = useState(false);
+
+  const handleToggleGroup = (groupId: number) => {
+    setSelectedGroupIds(prev =>
+      prev.includes(groupId) ? prev.filter(id => id !== groupId) : [...prev, groupId]
+    );
+  };
+
+  const handleSelectAllGroups = () => {
+    if (selectedGroupIds.length === groups.length) {
+      setSelectedGroupIds([]);
+    } else {
+      setSelectedGroupIds(groups.map(g => g.id));
+    }
+  };
+
+  const handleBulkDownload = async () => {
+    if (selectedGroupIds.length === 0) {
+      alert('Vui lòng chọn ít nhất một nhóm để tải tài liệu.');
+      return;
+    }
+    try {
+      setBulkDownloading(true);
+      const blob = await apiService.bulkDownloadSupervisorDocuments(selectedGroupIds);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cac_nhom_tai_lieu_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Bulk download error:', err);
+      alert('Lỗi tải hàng loạt tài liệu: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setBulkDownloading(false);
+    }
+  };
+
+  const loadComments = async (docId: number) => {
+    try {
+      setLoadingComments(true);
+      const data = await apiService.getDocumentComments(docId);
+      setComments(data || []);
+    } catch (err) {
+      console.error('Failed to load document comments:', err);
+      setComments([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleOpenDocDetails = (doc: Document) => {
+    setSelectedDocument(doc);
+    loadComments(doc.id);
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDocument || !commentText.trim()) return;
+    try {
+      setSavingComment(true);
+      const newComment = await apiService.addDocumentComment(selectedDocument.id, {
+        section: commentSection,
+        comment: commentText.trim(),
+      });
+      setComments(prev => [newComment, ...prev]);
+      setCommentText('');
+      alert('Bình luận đã được lưu và gửi thông báo cho sinh viên!');
+    } catch (err: any) {
+      console.error('Save comment error:', err);
+      alert('Lỗi lưu nhận xét: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setSavingComment(false);
+    }
+  };
 
   useEffect(() => {
     loadDocuments();
@@ -165,6 +252,95 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
         )}
       </div>
 
+      {/* Bulk Download Section */}
+      {groups.length > 0 && (
+        <div
+          style={{
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '10px',
+            padding: '16px',
+            marginBottom: '20px',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '12px',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <div>
+              <h4 style={{ margin: 0, fontSize: '0.98rem', color: '#1e293b' }}>
+                📦 Tải Xuống Hàng Loạt Tài Liệu (Bulk Download)
+              </h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                Chọn các nhóm sinh viên để nén và tải toàn bộ tài liệu về máy dưới dạng tệp .zip
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleSelectAllGroups}
+              >
+                {selectedGroupIds.length === groups.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleBulkDownload}
+                disabled={bulkDownloading || selectedGroupIds.length === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0284c7' }}
+              >
+                {bulkDownloading ? 'Đang nén file zip...' : `⬇️ Tải xuống tất cả (.zip) (${selectedGroupIds.length})`}
+              </button>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '10px',
+              maxHeight: '120px',
+              overflowY: 'auto',
+              padding: '4px 0',
+            }}
+          >
+            {groups.map((group) => (
+              <label
+                key={group.id}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backgroundColor: selectedGroupIds.includes(group.id) ? '#e0f2fe' : 'white',
+                  border: selectedGroupIds.includes(group.id) ? '1px solid #38bdf8' : '1px solid #cbd5e1',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedGroupIds.includes(group.id)}
+                  onChange={() => handleToggleGroup(group.id)}
+                />
+                <span>
+                  <b>Nhóm #{group.id}</b>: {group.project?.project_name || 'N/A'}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="document-filters">
         <div className="filter-group">
@@ -265,7 +441,7 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
 
                 <button
                   className="btn btn-primary btn-sm"
-                  onClick={() => setSelectedDocument(doc)}
+                  onClick={() => handleOpenDocDetails(doc)}
                 >
                   👁️ View Details
                 </button>
@@ -369,6 +545,168 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
                   </div>
                 </>
               )}
+
+              {/* Detailed Comments Section */}
+              <div
+                style={{
+                  marginTop: '20px',
+                  paddingTop: '16px',
+                  borderTop: '1px solid #e2e8f0',
+                }}
+              >
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#1e293b' }}>
+                  💬 Bình Luận & Nhận Xét Chi Tiết ({comments.length})
+                </h4>
+
+                {/* Comment Input Form */}
+                <form
+                  onSubmit={handleAddComment}
+                  style={{
+                    marginBottom: '16px',
+                    backgroundColor: '#f8fafc',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <div style={{ marginBottom: '8px' }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: '#475569',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Mục nhận xét:
+                    </label>
+                    <select
+                      value={commentSection}
+                      onChange={(e) => setCommentSection(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.85rem',
+                        backgroundColor: 'white',
+                      }}
+                    >
+                      <option value="general">Nhận xét chung toàn bộ tài liệu</option>
+                      <option value="chapter1">Chương 1: Đặt vấn đề & Giới thiệu</option>
+                      <option value="chapter2">Chương 2: Phân tích kiến trúc hệ thống</option>
+                      <option value="chapter3">Chương 3: Thiết kế & Cài đặt</option>
+                      <option value="chapter4">Chương 4: Thử nghiệm & Đánh giá</option>
+                      <option value="format">Định dạng, Bố cục & Trình bày văn bản</option>
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: '8px' }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: '#475569',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Nội dung nhận xét:
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      placeholder="Nhập nhận xét chi tiết vào mục này để sinh viên hoàn thiện..."
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.85rem',
+                        boxSizing: 'border-box',
+                        fontFamily: 'inherit',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="submit"
+                      className="btn btn-primary btn-sm"
+                      disabled={savingComment || !commentText.trim()}
+                    >
+                      {savingComment ? 'Đang lưu...' : '💾 Lưu nhận xét'}
+                    </button>
+                  </div>
+                </form>
+
+                {/* List of Comments */}
+                <div
+                  style={{
+                    maxHeight: '220px',
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  {loadingComments ? (
+                    <p style={{ fontSize: '0.85rem', color: '#64748b' }}>Đang tải bình luận...</p>
+                  ) : comments.length === 0 ? (
+                    <p style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                      Chưa có nhận xét nào cho tài liệu này. Thầy/Cô có thể để lại nhận xét ở trên.
+                    </p>
+                  ) : (
+                    comments.map((cmt) => (
+                      <div
+                        key={cmt.id}
+                        style={{
+                          backgroundColor: '#f1f5f9',
+                          borderRadius: '8px',
+                          padding: '10px 12px',
+                          borderLeft: '3px solid #3b82f6',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          <span style={{ fontWeight: 600, fontSize: '0.82rem', color: '#1e293b' }}>
+                            {cmt.author_name} ({cmt.author_role === 'supervisor' ? 'Giảng viên' : 'Sinh viên'})
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                            {new Date(cmt.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: '#e2e8f0',
+                            color: '#475569',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          📌 {cmt.section_display || cmt.section}
+                        </span>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#334155', whiteSpace: 'pre-line' }}>
+                          {cmt.comment}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="modal-footer">

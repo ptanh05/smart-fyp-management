@@ -23,6 +23,10 @@ from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
 from django.http import HttpResponse
 from openpyxl import Workbook
+import io
+import zipfile
+import csv
+import os
 
 from django.shortcuts import get_object_or_404
 
@@ -43,6 +47,7 @@ from .permissions import (
     IsCommitteeMember,
     IsStudentOrSupervisor,
     IsStudentOrSupervisorOrCommitteeMember,
+    IsSupervisorOrCommitteeMember,
     IsDocumentOwner,
     IsGroupMember,
     IsGroupMemberForChat,
@@ -72,6 +77,7 @@ from .models import (
     Project,
     SupervisorOfStudentGroup,
     Document,
+    DocumentComment,
     ScopeDocumentEvaluationCriteria,
     CommitteeMemberPanel,
     CommitteeMemberTemplates,
@@ -114,6 +120,7 @@ from app.serializers.serializers import (
     DocumentSerializer,
     DocumentStatusUpdateSerializer,
     SupervisorDocumentSerializer,
+    DocumentCommentSerializer,
     ScopeDocumentEvaluationCriteriaSerializer,
     PanelSerializer,
     CommitteeMemberTemplatesSerializer,
@@ -719,6 +726,9 @@ class ProjectAPIVIEW(ListAPIView, CreateAPIView):
     queryset = Project.objects.all()
     pagination_class = BasePagination
 
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
     def get_queryset(self):
         queryset = super().get_queryset()
         category_id = self.request.GET.get("category_id")
@@ -815,7 +825,23 @@ class SendSupervisorRequestAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
             # For supervisors, show all requests (pending, accepted, etc.)
             # Students can filter by 'requested' parameter, but supervisors see all their requests
             queryset = super().get_queryset().filter(supervisor=supervisor)
-            # If no specific status filter, show all statuses
+            semester = self.request.GET.get("semester")
+            if semester:
+                queryset = queryset.filter(
+                    Q(group__student_1__semester=semester) | Q(group__student_2__semester=semester)
+                )
+            search = self.request.GET.get("search")
+            if search:
+                queryset = queryset.filter(
+                    Q(project__project_name__icontains=search) |
+                    Q(group__student_1__user__username__icontains=search) |
+                    Q(group__student_2__user__username__icontains=search) |
+                    Q(group__student_1__registration_no__icontains=search) |
+                    Q(group__student_2__registration_no__icontains=search)
+                )
+            req_status = self.request.GET.get("status")
+            if req_status:
+                queryset = queryset.filter(status=req_status)
             return queryset
         except Supervisor.DoesNotExist:
             pass
@@ -1744,11 +1770,48 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
             return SupervisorOfStudentGroup.objects.none()
 
 
-class ProjectDetailAPiView(RetrieveAPIView):
+class ProjectDetailAPiView(RetrieveUpdateDestroyAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsStudentOrSupervisorOrCommitteeMember]
     serializer_class = ProjectSerializer
     queryset = Project.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        project = self.get_object()
+        if project.user != request.user and not request.user.is_staff:
+            return Response(
+                {"message": "Bạn không có quyền chỉnh sửa đề tài này."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if project.groups.filter(status__in=["pending", "accepted"]).exists():
+            return Response(
+                {"message": "Đề tài đã có nhóm sinh viên đăng ký hoặc nhận, không thể chỉnh sửa thông tin."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        project = self.get_object()
+        if project.user != request.user and not request.user.is_staff:
+            return Response(
+                {"message": "Bạn không có quyền xóa đề tài này."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if project.groups.filter(status__in=["pending", "accepted"]).exists():
+            return Response(
+                {"message": "Đề tài đã có nhóm sinh viên đăng ký hoặc nhận, không thể xóa."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if project.panel is not None:
+            return Response(
+                {"message": "Không thể xóa đề tài đã được phân công vào hội đồng."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        project.delete()
+        return Response(
+            {"message": "Đã xóa đề tài gợi ý thành công."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class SupervisorStudentDetailAPIView(RetrieveAPIView):
@@ -3832,6 +3895,180 @@ class ConsolidatedEvaluationExportAPIView(APIView):
         return response
 
 
+class DocumentCommentListCreateAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsStudentOrSupervisorOrCommitteeMember]
+
+    def get(self, request, document_id):
+        document = get_object_or_404(Document, id=document_id)
+        comments = document.comments.select_related("author").order_by("-created_at")
+        serializer = DocumentCommentSerializer(comments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, document_id):
+        document = get_object_or_404(Document, id=document_id)
+        section = request.data.get("section", "general")
+        comment_text = request.data.get("comment", "").strip()
+        if not comment_text:
+            return Response(
+                {"message": "Nội dung nhận xét không được để trống."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        comment_obj = DocumentComment.objects.create(
+            document=document,
+            author=request.user,
+            section=section,
+            comment=comment_text,
+        )
+        NotificationService.notify_document_comment(comment_obj)
+        serializer = DocumentCommentSerializer(comment_obj)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class SupervisorDocumentsBulkDownloadAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsSupervisorOrCommitteeMember]
+
+    def post(self, request):
+        user = request.user
+        group_ids = request.data.get("group_ids", [])
+        if not group_ids:
+            return Response(
+                {"message": "Vui lòng chọn ít nhất một nhóm để tải tài liệu."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if getattr(user, "user_type", None) == "supervisor":
+            try:
+                supervisor = Supervisor.objects.get(user=user)
+                groups = SupervisorOfStudentGroup.objects.filter(
+                    id__in=group_ids, supervisor=supervisor
+                )
+            except Supervisor.DoesNotExist:
+                return Response({"message": "Không tìm thấy hồ sơ giảng viên."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            groups = SupervisorOfStudentGroup.objects.filter(id__in=group_ids)
+
+        documents = Document.objects.filter(group__in=groups).select_related("group__project")
+        if not documents.exists():
+            return Response(
+                {"message": "Không tìm thấy tài liệu nào trong các nhóm đã chọn."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            added_paths = set()
+            for doc in documents:
+                if not doc.uploaded_file:
+                    continue
+                try:
+                    proj_name = doc.group.project.project_name if doc.group.project else "Project"
+                    safe_proj = "".join(c for c in proj_name if c.isalnum() or c in (" ", "_", "-")).strip()
+                    group_folder = f"Nhom_{doc.group.id}_{safe_proj}"
+                    
+                    file_name = doc.uploaded_file.name.split("/")[-1]
+                    doc_path = f"{group_folder}/{doc.document_type}_{file_name}"
+                    
+                    counter = 1
+                    base_path, ext = os.path.splitext(doc_path)
+                    while doc_path in added_paths:
+                        doc_path = f"{base_path}_{counter}{ext}"
+                        counter += 1
+                    added_paths.add(doc_path)
+
+                    doc.uploaded_file.seek(0)
+                    zip_file.writestr(doc_path, doc.uploaded_file.read())
+                except Exception as e:
+                    logging.warning(f"Error adding doc {doc.id} to zip: {e}")
+
+        zip_buffer.seek(0)
+        date_str = timezone.now().strftime("%Y%m%d_%H%M")
+        response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="Tai_lieu_Do_an_Cac_Nhom_{date_str}.zip"'
+        return response
+
+
+class AuditLogExportAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsSupervisorOrCommitteeMember]
+
+    def get(self, request):
+        user = request.user
+        queryset = AuditLog.objects.all()
+
+        if user.user_type == "supervisor":
+            try:
+                supervisor = Supervisor.objects.get(user=user)
+                sup_groups = SupervisorOfStudentGroup.objects.filter(supervisor=supervisor).values_list("id", flat=True)
+                queryset = queryset.filter(supervisor_group__in=sup_groups)
+            except Supervisor.DoesNotExist:
+                queryset = AuditLog.objects.none()
+        elif user.user_type == "committee_member":
+            try:
+                committee_member = CommitteeMember.objects.get(user=user)
+                panel_projects = Project.objects.filter(panel=committee_member.panel)
+                panel_groups = SupervisorOfStudentGroup.objects.filter(project__in=panel_projects).values_list("id", flat=True)
+                queryset = queryset.filter(supervisor_group__in=panel_groups)
+            except CommitteeMember.DoesNotExist:
+                queryset = AuditLog.objects.none()
+
+        evaluation_type = request.GET.get("evaluation_type")
+        from_date = request.GET.get("from_date")
+        to_date = request.GET.get("to_date")
+        group_id = request.GET.get("group")
+
+        if evaluation_type:
+            queryset = queryset.filter(evaluation_type=evaluation_type)
+        if from_date:
+            queryset = queryset.filter(created_at__date__gte=from_date)
+        if to_date:
+            queryset = queryset.filter(created_at__date__lte=to_date)
+        if group_id:
+            queryset = queryset.filter(supervisor_group_id=group_id)
+
+        queryset = queryset.select_related("user", "supervisor_group__project").order_by("-created_at")
+
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        date_str = timezone.now().strftime("%Y%m%d_%H%M")
+        response["Content-Disposition"] = f'attachment; filename="audit_logs_{date_str}.csv"'
+        response.write("\ufeff")  # UTF-8 BOM for Microsoft Excel
+
+        writer = csv.writer(response)
+        writer.writerow([
+            "ID",
+            "Thời gian",
+            "Người thực hiện",
+            "Loại tài khoản",
+            "Hành động",
+            "Loại đánh giá",
+            "Mô tả",
+            "Mã nhóm",
+            "Tên đề tài",
+            "Dữ liệu cũ",
+            "Dữ liệu mới",
+            "Địa chỉ IP",
+        ])
+
+        for log in queryset:
+            proj_name = log.supervisor_group.project.project_name if log.supervisor_group and log.supervisor_group.project else "N/A"
+            author_display = log.user.get_full_name() or log.user.username if log.user else "Hệ thống"
+            writer.writerow([
+                log.id,
+                log.created_at.strftime("%Y-%m-%d %H:%M:%S") if log.created_at else "N/A",
+                author_display,
+                log.user.user_type if log.user else "N/A",
+                log.action_type or "N/A",
+                log.evaluation_type or "N/A",
+                log.description or "N/A",
+                f"Nhóm #{log.supervisor_group_id}" if log.supervisor_group_id else "N/A",
+                proj_name,
+                str(log.old_value or ""),
+                str(log.new_value or ""),
+                log.ip_address or "N/A",
+            ])
+
+        return response
 # ==================== Bug Report / Feedback Views ====================
 
 

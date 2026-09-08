@@ -370,6 +370,7 @@ class ScopeDocumentEvaluationCriteria(models.Model):
     plagiarism_report = models.BooleanField(null=True, blank=True)
     comments = models.TextField(blank=True, null=True)
     evaluation_status = models.BooleanField(blank=True, null=True)
+    is_draft = models.BooleanField(default=False)
 
     def __str__(self):
         return f"scope_document_{self.id}"
@@ -408,6 +409,7 @@ class SRSEvaluationSupervisor(models.Model):
         max_length=15, choices=STATUS_CHOICES, default="pending"
     )
     comment = models.CharField(max_length=255, null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
 
     @staticmethod
     def percentages_dict() -> dict:
@@ -561,6 +563,7 @@ class SDDEvaluationSupervisor(models.Model):
         max_length=15, choices=STATUS_CHOICES, default="pending"
     )
     comment = models.CharField(max_length=255, null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
 
     @staticmethod
     def percentages_dict() -> dict:
@@ -695,6 +698,7 @@ class Evaluation3Supervisor(models.Model):
     )
 
     comment = models.CharField(max_length=255, null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
 
     @staticmethod
     def percentages_dict() -> dict:
@@ -805,6 +809,7 @@ class Evaluation4Supervisor(models.Model):
     )
 
     comment = models.CharField(max_length=255, null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
 
     @staticmethod
     def percentages_dict() -> dict:
@@ -1598,6 +1603,26 @@ class Document(models.Model):
     )
 
 
+class DocumentComment(models.Model):
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name="comments"
+    )
+    author = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name="document_comments"
+    )
+    section = models.CharField(
+        max_length=100, default="general", help_text="Mục nhận xét (general, format, content, requirements,...)"
+    )
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.author.username} on {self.document.title} ({self.section}): {self.comment[:30]}"
+
+
 class CommitteeMemberTemplates(models.Model):
     TEMPLATE_TYPE_CHOICES = (
         ("scope_documents_template", "Scope Document Template"),
@@ -2027,6 +2052,10 @@ class DefenseCouncil(models.Model):
     session_date = models.DateField(null=True, blank=True)
     session_time = models.CharField(max_length=50, choices=SESSION_CHOICES, default="MORNING")
     defense_room = models.CharField(max_length=100, blank=True, null=True)
+    is_locked = models.BooleanField(default=False, help_text="Khóa điểm hội đồng")
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(
+        CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name="locked_councils"
     current_defending_project = models.ForeignKey(
         "GraduationProject",
         on_delete=models.SET_NULL,
@@ -2119,10 +2148,22 @@ class GraduationProject(models.Model):
     supervisor_score = models.FloatField(null=True, blank=True)
     supervisor_feedback = models.TextField(blank=True, null=True)
     is_eligible_for_defense = models.BooleanField(default=False)
+    supervisor_score_is_draft = models.BooleanField(default=False)
     
     # Reviewer Evaluation
     reviewer_score = models.FloatField(null=True, blank=True)
     reviewer_feedback = models.TextField(blank=True, null=True)
+    reviewer_verdict = models.CharField(
+        max_length=50,
+        choices=(
+            ("APPROVED", "Cho phép bảo vệ"),
+            ("CONDITIONAL", "Bảo vệ có điều kiện"),
+            ("REJECTED", "Không cho phép bảo vệ"),
+        ),
+        default="APPROVED",
+        blank=True,
+        null=True,
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

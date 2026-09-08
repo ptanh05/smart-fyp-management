@@ -12,6 +12,7 @@ import type {
   Project,
   SupervisorOfStudentGroup,
   Document,
+  DocumentComment,
   DocumentRequirement,
   DocumentTypeValue,
   ChatMessage,
@@ -252,6 +253,15 @@ class ApiService {
     return response.data;
   }
 
+  // Categories
+  async getProjectCategories(): Promise<ProjectCategory[]> {
+    const response = await this.api.get<ProjectCategory[] | { results: ProjectCategory[] }>('/project/categories/');
+    if (Array.isArray(response.data)) {
+      return response.data;
+    } else if (response.data && response.data.results) {
+      return response.data.results;
+    }
+    return [];
   // ==========================================
   // Student Capstone Group Management (15 Features)
   // ==========================================
@@ -387,8 +397,13 @@ class ApiService {
     return response.data;
   }
 
+  async updateProject(id: number, data: Partial<Project>): Promise<Project> {
+    const response = await this.api.patch<Project>(`/project/${id}/`, data);
+    return response.data;
+  }
+
   async deleteProject(id: number): Promise<void> {
-    await this.api.delete(`/projects/list/${id}/`);
+    await this.api.delete(`/project/${id}/`);
   }
 
   // Supervisors
@@ -608,6 +623,23 @@ class ApiService {
     // Legacy non-paginated response
     const docs = Array.isArray(response.data) ? response.data : [];
     return { results: docs, count: docs.length, next: null, previous: null };
+  }
+
+  async bulkDownloadSupervisorDocuments(groupIds: number[]): Promise<Blob> {
+    const response = await this.api.post('/supervisor/documents/bulk-download/', { group_ids: groupIds }, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  async getDocumentComments(documentId: number): Promise<DocumentComment[]> {
+    const response = await this.api.get<DocumentComment[]>(`/documents/${documentId}/comments/`);
+    return response.data;
+  }
+
+  async addDocumentComment(documentId: number, data: { section?: string; comment: string }): Promise<DocumentComment> {
+    const response = await this.api.post<DocumentComment>(`/documents/${documentId}/comments/`, data);
+    return response.data;
   }
 
   // Evaluations
@@ -858,6 +890,22 @@ class ApiService {
 
   async getAuditLogStats(): Promise<AuditLogStats> {
     const response = await this.api.get<AuditLogStats>('/audit-logs/stats/');
+    return response.data;
+  }
+
+  async exportAuditLogs(params?: Record<string, unknown>): Promise<Blob> {
+    const response = await this.api.get('/audit-logs/export/', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  async toggleCouncilLock(councilId: number, isLocked: boolean): Promise<any> {
+    const response = await this.api.post('/council/toggle-lock/', {
+      council_id: councilId,
+      is_locked: isLocked,
+    });
     return response.data;
   }
 

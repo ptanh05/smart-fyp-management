@@ -32,6 +32,7 @@ from .views_utc import (
     ReviewerSubmitEvaluationAPIView,
     CouncilLiveDefenseSessionAPIView,
     CouncilSubmitScoreAPIView,
+    CouncilToggleLockAPIView,
     CouncilChairSetDefenseStatusAPIView,
     CouncilSecretaryRemindScoringAPIView,
     CouncilScheduleDefenseAPIView,
@@ -106,6 +107,9 @@ from .views import (
     AuditLogListAPIView,
     AuditLogGroupAPIView,
     AuditLogStatsAPIView,
+    AuditLogExportAPIView,
+    DocumentCommentListCreateAPIView,
+    SupervisorDocumentsBulkDownloadAPIView,
     # External Examiner views
     ExternalExaminerLoginAPIView,
     ExternalExaminerProfileAPIView,
@@ -331,6 +335,16 @@ urlpatterns = [
         SupervisorDocumentsAPIView.as_view(),
         name="supervisor-documents",
     ),
+    path(
+        "supervisor/documents/bulk-download/",
+        SupervisorDocumentsBulkDownloadAPIView.as_view(),
+        name="supervisor-documents-bulk-download",
+    ),
+    path(
+        "documents/<int:document_id>/comments/",
+        DocumentCommentListCreateAPIView.as_view(),
+        name="document-comments",
+    ),
     # Notification endpoints
     path(
         "notifications/",
@@ -388,6 +402,11 @@ urlpatterns = [
         "audit-logs/stats/",
         AuditLogStatsAPIView.as_view(),
         name="audit-logs-stats",
+    ),
+    path(
+        "audit-logs/export/",
+        AuditLogExportAPIView.as_view(),
+        name="audit-logs-export",
     ),
     
     # ==================== External Examiner URLs ====================
@@ -515,6 +534,7 @@ urlpatterns = [
 
     path("council/live-session/", CouncilLiveDefenseSessionAPIView.as_view(), name="utc-council-live-session"),
     path("council/submit-score/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-submit-score"),
+    path("council/toggle-lock/", CouncilToggleLockAPIView.as_view(), name="utc-council-toggle-lock"),
 
     # =========================================================================
     # STUDENT CAPSTONE GROUP MANAGEMENT ENDPOINTS (15 FEATURES)

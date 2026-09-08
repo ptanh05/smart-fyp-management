@@ -247,6 +247,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalMarks, setTotalMarks] = useState(0);
+  const [isDraft, setIsDraft] = useState(false);
 
   useEffect(() => {
     loadEvaluation();
@@ -275,6 +276,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
       });
       setFormData(initialData);
       setComment(data.comment || data.comments || '');
+      setIsDraft(!!data.is_draft);
     } catch (err: any) {
       console.error('Failed to load evaluation:', err);
       setError(err.response?.data?.message || 'Failed to load evaluation data');
@@ -293,7 +295,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
+  const handleSave = async (draftMode: boolean = false) => {
     try {
       setSaving(true);
       setError(null);
@@ -302,10 +304,15 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
         ...formData,
         comment: comment,
         comments: comment, // Some models use 'comments' instead of 'comment'
+        is_draft: draftMode,
       };
       
       await evaluationType.updateEvaluation(groupId, dataToSave);
-      alert('Evaluation saved successfully!');
+      if (draftMode) {
+        alert('Đã lưu nháp phiếu chấm điểm thành công! Sinh viên chưa thể xem điểm này cho đến khi bạn hoàn thành & lưu.');
+      } else {
+        alert('Đã hoàn thành và lưu phiếu chấm điểm chính thức thành công!');
+      }
       onSaved?.();
       onClose();
     } catch (err: any) {
@@ -330,7 +337,24 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
     <div className="evaluation-form-modal">
       <div className="evaluation-form-content">
         <div className="evaluation-form-header">
-          <h2>{evaluationType.name}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2>{evaluationType.name}</h2>
+            {isDraft && (
+              <span
+                style={{
+                  backgroundColor: '#fef3c7',
+                  color: '#92400e',
+                  border: '1px solid #fde68a',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                }}
+              >
+                📝 Bản nháp (Draft)
+              </span>
+            )}
+          </div>
           <button className="close-btn" onClick={onClose}>&times;</button>
         </div>
 
@@ -393,13 +417,29 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
           </div>
         </div>
 
-        <div className="evaluation-form-footer">
+        <div className="evaluation-form-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
-            Cancel
+            Hủy / Đóng
           </button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Evaluation'}
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              style={{ backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d', fontWeight: 600 }}
+            >
+              {saving ? 'Đang lưu...' : '💾 Lưu nháp (Save Draft)'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => handleSave(false)}
+              disabled={saving}
+            >
+              {saving ? 'Đang lưu...' : '✓ Hoàn thành & Lưu'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
