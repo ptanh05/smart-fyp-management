@@ -383,6 +383,18 @@ class ApiService {
     }
   }
 
+  async fetchDocumentBlob(fileUrl: string): Promise<Blob> {
+    const url = fileUrl.startsWith('http') ? fileUrl : `${window.location.origin}${fileUrl}`;
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(url + (url.includes('?') ? '&preview=1' : '?preview=1'), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load document: ${response.status} ${response.statusText}`);
+    }
+    return await response.blob();
+  }
+
   async deleteDocument(documentType: string, documentId: number): Promise<void> {
     await this.api.delete(`/proposal-document/${documentType}/${documentId}/`);
   }
@@ -404,6 +416,7 @@ class ApiService {
     document_type: DocumentTypeValue;
     title: string;
     deadline: string;
+    allow_late_submission?: boolean;
     semester?: string | null;
   }): Promise<DocumentRequirement> {
     const response = await this.api.post<DocumentRequirement>('/document-requirements/', data);
@@ -417,7 +430,7 @@ class ApiService {
 
   async updateDocumentRequirement(
     id: number,
-    data: Partial<Pick<DocumentRequirement, 'title' | 'deadline' | 'semester'>>
+    data: Partial<Pick<DocumentRequirement, 'title' | 'deadline' | 'semester' | 'allow_late_submission'>>
   ): Promise<DocumentRequirement> {
     const response = await this.api.patch<DocumentRequirement>(`/document-requirements/${id}/`, data);
     return response.data;
@@ -553,6 +566,15 @@ class ApiService {
 
   async sendChatMessage(data: { group: number; message: string }): Promise<ChatMessage> {
     const response = await this.api.post<ChatMessage>('/chatroom/', data);
+    return response.data;
+  }
+
+  async sendChatMessageWithAttachment(formData: FormData): Promise<ChatMessage> {
+    const response = await this.api.post<ChatMessage>('/chatroom/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 

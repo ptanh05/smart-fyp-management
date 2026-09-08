@@ -26,10 +26,16 @@ const DocumentRequirementsManager: React.FC = () => {
     document_type: 'srs_document' as DocumentTypeValue,
     title: '',
     deadline: '',
+    allow_late_submission: false,
     semester: '' as string | null,
   });
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<{ title: string; deadline: string; semester: string | null } | null>(null);
+  const [editForm, setEditForm] = useState<{
+    title: string;
+    deadline: string;
+    semester: string | null;
+    allow_late_submission: boolean;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,9 +73,10 @@ const DocumentRequirementsManager: React.FC = () => {
         document_type: form.document_type,
         title: form.title.trim(),
         deadline: form.deadline,
+        allow_late_submission: form.allow_late_submission,
         semester: form.semester || null,
       });
-      setForm({ document_type: 'srs_document', title: '', deadline: '', semester: null });
+      setForm({ document_type: 'srs_document', title: '', deadline: '', allow_late_submission: false, semester: null });
       await load();
     } catch (err: any) {
       const data = err.response?.data;
@@ -90,6 +97,7 @@ const DocumentRequirementsManager: React.FC = () => {
         title: editForm.title.trim(),
         deadline: editForm.deadline,
         semester: editForm.semester || null,
+        allow_late_submission: editForm.allow_late_submission,
       });
       setEditingId(null);
       setEditForm(null);
@@ -204,6 +212,18 @@ const DocumentRequirementsManager: React.FC = () => {
               <option value="semester_8">Semester 8</option>
             </select>
           </div>
+          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '24px' }}>
+            <input
+              type="checkbox"
+              id="allow_late_create"
+              checked={form.allow_late_submission}
+              onChange={(e) => setForm((f) => ({ ...f, allow_late_submission: e.target.checked }))}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+            <label htmlFor="allow_late_create" style={{ margin: 0, cursor: 'pointer', fontWeight: 500 }}>
+              Cho phép nộp muộn (Late)
+            </label>
+          </div>
         </div>
         <button type="submit" className="btn btn-primary" disabled={submitting}>
           {submitting ? 'Adding...' : 'Add requirement'}
@@ -231,6 +251,7 @@ const DocumentRequirementsManager: React.FC = () => {
                   <th>Title</th>
                   <th>Deadline</th>
                   <th>Semester</th>
+                  <th>Nộp muộn</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -290,6 +311,30 @@ const DocumentRequirementsManager: React.FC = () => {
                     </td>
                     <td>
                       {editingId === r.id && editForm ? (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={editForm.allow_late_submission}
+                            onChange={(e) =>
+                              setEditForm((f) =>
+                                f ? { ...f, allow_late_submission: e.target.checked } : f
+                              )
+                            }
+                          />
+                          Cho phép
+                        </label>
+                      ) : r.allow_late_submission ? (
+                        <span className="badge badge-warning" style={{ backgroundColor: '#f59e0b', color: 'white' }}>
+                          Cho phép nộp muộn
+                        </span>
+                      ) : (
+                        <span className="badge badge-secondary" style={{ backgroundColor: '#64748b', color: 'white' }}>
+                          Khóa nộp muộn
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {editingId === r.id && editForm ? (
                         <>
                           <button
                             type="button"
@@ -321,6 +366,7 @@ const DocumentRequirementsManager: React.FC = () => {
                                 title: r.title,
                                 deadline: r.deadline.slice(0, 16),
                                 semester: r.semester,
+                                allow_late_submission: !!r.allow_late_submission,
                               });
                             }}
                           >

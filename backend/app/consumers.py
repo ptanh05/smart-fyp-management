@@ -183,6 +183,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "sender_username": saved_message["sender_username"],
                     "sender_id": saved_message["sender_id"],
                     "created_at": saved_message["created_at"],
+                    "attachment": saved_message.get("attachment"),
+                    "attachment_name": saved_message.get("attachment_name"),
+                    "attachment_type": saved_message.get("attachment_type"),
+                    "attachment_size": saved_message.get("attachment_size"),
                 }
             )
         else:
@@ -214,12 +218,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Send chat message to WebSocket."""
         await self.send(text_data=json.dumps({
             "type": "chat_message",
-            "message": event["message"],
+            "message": event.get("message", ""),
             "message_id": event["message_id"],
             "sent_by": event["sent_by"],
             "sender_username": event["sender_username"],
             "sender_id": event["sender_id"],
             "created_at": event["created_at"],
+            "attachment": event.get("attachment"),
+            "attachment_name": event.get("attachment_name"),
+            "attachment_type": event.get("attachment_type"),
+            "attachment_size": event.get("attachment_size"),
         }))
     
     async def typing_indicator(self, event):
@@ -331,6 +339,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return {
                 "id": chat_message.id,
                 "message": chat_message.message,
+                "attachment": chat_message.attachment.url if chat_message.attachment else None,
+                "attachment_name": chat_message.attachment_name,
+                "attachment_type": chat_message.attachment_type,
+                "attachment_size": chat_message.attachment_size,
                 "sent_by": chat_message.sent_by,
                 "sender_username": sender_username,
                 "sender_id": sender_id,

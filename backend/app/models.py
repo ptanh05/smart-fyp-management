@@ -1505,6 +1505,10 @@ class Document(models.Model):
     # Committee sees only documents with submitted_to_committee=True; all phases stay between student and supervisor.
     submitted_to_committee = models.BooleanField(default=False)
     submitted_to_committee_at = models.DateTimeField(null=True, blank=True)
+    is_late = models.BooleanField(default=False, help_text="Đánh dấu bài nộp muộn sau deadline")
+    late_duration = models.CharField(
+        max_length=100, blank=True, null=True, help_text="Thời gian nộp muộn (ví dụ: Trễ 2 giờ 15 phút)"
+    )
 
 
 class CommitteeMemberTemplates(models.Model):
@@ -1552,6 +1556,10 @@ class DocumentRequirement(models.Model):
     document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPE_CHOICES)
     title = models.CharField(max_length=200, help_text="Short label, e.g. 'SRS Submission - Phase 1'")
     deadline = models.DateTimeField(help_text="Upload deadline for this document type")
+    allow_late_submission = models.BooleanField(
+        default=False,
+        help_text="Cho phép sinh viên nộp sau deadline (nếu bật: nộp được và gắn nhãn Late; nếu tắt: khóa nộp)",
+    )
     semester = models.CharField(
         max_length=20,
         choices=SEMESTER_CHOICES,
@@ -1598,7 +1606,11 @@ class ChatRoom(models.Model):
         blank=True,
         related_name="supervisor_messages",
     )
-    message = models.TextField()
+    message = models.TextField(blank=True, default="")
+    attachment = models.FileField(upload_to="chat_attachments/", blank=True, null=True)
+    attachment_name = models.CharField(max_length=255, blank=True, null=True)
+    attachment_type = models.CharField(max_length=100, blank=True, null=True)
+    attachment_size = models.PositiveIntegerField(blank=True, null=True)
     sent_by = models.CharField(max_length=20, choices=MESSAGE_BY_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
 

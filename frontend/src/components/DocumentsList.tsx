@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import type { Document, DocumentRequirement } from '../types';
+import DocumentViewerModal from './DocumentViewerModal';
 import './DocumentsList.css';
 
 interface DocumentsListProps {
   groupId: number;
 }
 
-// Document Row Component with download, and "Submit to committee" when accepted
+// Document Row Component with download, preview, and "Submit to committee" when accepted
 interface DocumentRowProps {
   document: Document;
   documentType: string;
   deadlinePassed: boolean;
+  allowLateSubmission: boolean;
   onSubmittedToCommittee: (docId: number | null) => void;
+  onPreviewDocument: (doc: Document) => void;
   submittingDocId: number | null;
 }
 
@@ -20,14 +23,16 @@ const DocumentRow: React.FC<DocumentRowProps> = ({
   document,
   documentType,
   deadlinePassed,
+  allowLateSubmission,
   onSubmittedToCommittee,
+  onPreviewDocument,
   submittingDocId,
 }) => {
   const [downloading, setDownloading] = useState(false);
   const canSubmitToCommittee =
     document.status === 'accepted' &&
     !document.submitted_to_committee &&
-    !deadlinePassed;
+    (!deadlinePassed || allowLateSubmission);
   const isSubmitting = submittingDocId === document.id;
 
   const handleSubmitToCommittee = async () => {
@@ -115,6 +120,11 @@ const DocumentRow: React.FC<DocumentRowProps> = ({
           <span className={`badge ${getStatusBadgeClass(document.status)}`}>
             {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
           </span>
+          {document.is_late && (
+            <span className="badge badge-late" title={document.late_duration || 'Nộp muộn'}>
+              🔴 Nộp muộn (Late){document.late_duration ? ` • ${document.late_duration}` : ''}
+            </span>
+          )}
           {document.submitted_to_committee && (
             <span className="badge badge-success" title="Visible to committee">
               Submitted to committee
@@ -125,6 +135,17 @@ const DocumentRow: React.FC<DocumentRowProps> = ({
       <td className="date-cell">{formatDate(document.uploaded_at)}</td>
       <td>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+          {document.uploaded_file && (
+            <button
+              className="btn btn-outline-info btn-sm"
+              onClick={() => onPreviewDocument(document)}
+              title="Xem trước tài liệu trực tiếp trên trình duyệt"
+              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+            >
+              <span>👁️</span>
+              Xem trước
+            </button>
+          )}
           <button
             className="btn btn-primary btn-sm"
             onClick={handleDownload}
@@ -186,6 +207,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
   const [requirements, setRequirements] = useState<DocumentRequirement[]>([]);
   const [requirementsLoading, setRequirementsLoading] = useState(false);
   const [submittingDocId, setSubmittingDocId] = useState<number | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string; type: string } | null>(null);
 
   useEffect(() => {
     loadDocuments();
@@ -341,6 +363,8 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
     : null;
   const deadlinePassed =
     latestDeadlineForType !== null && new Date() > latestDeadlineForType;
+  const allowLateSubmission = requirementsForType.some((r) => !!r.allow_late_submission);
+  const isSubmissionBlocked = deadlinePassed && !allowLateSubmission;
 
   return (
     <div className="card documents-container">
@@ -360,6 +384,15 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
                 <span className="dr-type">{r.document_type_display}</span>
                 <span className="dr-title">{r.title}</span>
                 <span className="dr-deadline">Due: {formatDeadline(r.deadline)}</span>
+                {r.allow_late_submission ? (
+                  <span className="badge badge-warning" style={{ backgroundColor: '#f59e0b', color: 'white', marginLeft: '8px' }}>
+                    Cho phép nộp muộn
+                  </span>
+                ) : (
+                  <span className="badge badge-secondary" style={{ backgroundColor: '#64748b', color: 'white', marginLeft: '8px' }}>
+                    Khóa nộp muộn
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -372,9 +405,51 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
       <div className="upload-section">
         <h3>Upload New Document</h3>
 
-        {deadlinePassed && (
-          <div className="alert alert-warning" role="alert">
-            Submission deadline has passed for this document type. You cannot submit new documents.
+        {/* Banner for Late Submission blocked */}
+        {isSubmissionBlocked && (
+          <div
+            className="alert alert-danger"
+            style={{
+              backgroundColor: '#fee2e2',
+              borderColor: '#f87171',
+              color: '#b91c1c',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            role="alert"
+          >
+            <span style={{ fontSize: '1.2rem' }}>⛔</span>
+            <div>
+              <strong>Đã hết hạn nộp:</strong> Hệ thống đã khóa tính năng nộp bài cho loại tài liệu này vì đã quá hạn deadline.
+            </div>
+          </div>
+        )}
+
+        {/* Banner for Late Submission allowed */}
+        {deadlinePassed && allowLateSubmission && (
+          <div
+            className="alert alert-warning"
+            style={{
+              backgroundColor: '#fef3c7',
+              borderColor: '#fcd34d',
+              color: '#b45309',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            role="alert"
+          >
+            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+            <div>
+              <strong>Nộp bài quá hạn (Cho phép nộp muộn):</strong> Đã quá hạn deadline nhưng hệ thống cho phép nộp muộn. Sau khi nộp, tài liệu sẽ được đánh dấu nhãn đỏ <strong>"Nộp muộn (Late)"</strong> kèm thời gian trễ.
+            </div>
           </div>
         )}
 
@@ -401,7 +476,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
             type="file" 
             onChange={handleFileSelect}
             accept=".pdf,.doc,.docx,.ppt,.pptx"
-            disabled={uploading || deadlinePassed}
+            disabled={uploading || isSubmissionBlocked}
             className="file-input"
           />
           <small className="help-text">
@@ -421,7 +496,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
               <button 
                 className="btn btn-danger btn-sm clear-file-btn"
                 onClick={handleClearFile}
-                disabled={uploading || deadlinePassed}
+                disabled={uploading || isSubmissionBlocked}
                 title="Remove selected file"
               >
                 ✕
@@ -442,12 +517,22 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
         <button 
           className="btn btn-primary submit-btn"
           onClick={handleSubmit}
-          disabled={!selectedFile || uploading || deadlinePassed}
+          disabled={!selectedFile || uploading || isSubmissionBlocked}
         >
           {uploading ? (
             <>
               <span className="spinner-small"></span>
-              Uploading...
+              {deadlinePassed && allowLateSubmission ? 'Đang nộp bài muộn...' : 'Uploading...'}
+            </>
+          ) : isSubmissionBlocked ? (
+            <>
+              <span>⛔</span>
+              Đã hết hạn nộp
+            </>
+          ) : deadlinePassed && allowLateSubmission ? (
+            <>
+              <span>📤</span>
+              Nộp bài (Nộp muộn)
             </>
           ) : (
             <>
@@ -504,9 +589,17 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
                     document={doc}
                     documentType={documentType}
                     deadlinePassed={deadlinePassed}
+                    allowLateSubmission={allowLateSubmission}
                     onSubmittedToCommittee={(docId) => {
                       setSubmittingDocId(docId ?? null);
                       if (docId === null) loadDocuments();
+                    }}
+                    onPreviewDocument={(docToPreview) => {
+                      setPreviewDoc({
+                        url: docToPreview.uploaded_file,
+                        title: docToPreview.title,
+                        type: docToPreview.document_type,
+                      });
                     }}
                     submittingDocId={submittingDocId}
                   />
@@ -523,6 +616,17 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
           </div>
         )}
       </div>
+
+      {/* Document Viewer Modal for reading document directly in browser */}
+      {previewDoc && (
+        <DocumentViewerModal
+          isOpen={!!previewDoc}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc.title}
+          documentUrl={previewDoc.url}
+          documentType={previewDoc.type}
+        />
+      )}
     </div>
   );
 };

@@ -1,5 +1,6 @@
-from django.http import FileResponse, Http404
 import os
+import mimetypes
+from django.http import FileResponse, Http404
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -21,8 +22,13 @@ class DocumentDownloadView(APIView):
             raise Http404("File not found.")
 
         if os.path.exists(file_path) and os.path.isfile(file_path):
+            is_inline = request.GET.get("inline") == "1" or request.GET.get("preview") == "1"
+            content_type, _ = mimetypes.guess_type(safe_filename)
             return FileResponse(
-                open(file_path, "rb"), as_attachment=True, filename=safe_filename
+                open(file_path, "rb"),
+                as_attachment=not is_inline,
+                filename=safe_filename,
+                content_type=content_type or "application/octet-stream",
             )
         else:
             raise Http404("File not found.")
@@ -41,8 +47,38 @@ class SRSTemplateDownloadView(APIView):
             raise Http404("File not found.")
 
         if os.path.exists(file_path) and os.path.isfile(file_path):
+            is_inline = request.GET.get("inline") == "1" or request.GET.get("preview") == "1"
+            content_type, _ = mimetypes.guess_type(safe_filename)
             return FileResponse(
-                open(file_path, "rb"), as_attachment=True, filename=safe_filename
+                open(file_path, "rb"),
+                as_attachment=not is_inline,
+                filename=safe_filename,
+                content_type=content_type or "application/octet-stream",
+            )
+        else:
+            raise Http404("File not found.")
+
+
+class ChatAttachmentDownloadView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, filename):
+        safe_filename = os.path.basename(filename)
+        file_path = os.path.join(settings.MEDIA_ROOT, "chat_attachments", safe_filename)
+
+        media_chat_dir = os.path.abspath(os.path.join(settings.MEDIA_ROOT, "chat_attachments"))
+        if not os.path.abspath(file_path).startswith(media_chat_dir):
+            raise Http404("File not found.")
+
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            is_inline = request.GET.get("inline") == "1" or request.GET.get("preview") == "1"
+            content_type, _ = mimetypes.guess_type(safe_filename)
+            return FileResponse(
+                open(file_path, "rb"),
+                as_attachment=not is_inline,
+                filename=safe_filename,
+                content_type=content_type or "application/octet-stream",
             )
         else:
             raise Http404("File not found.")

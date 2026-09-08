@@ -534,6 +534,8 @@ class DocumentSerializer(serializers.ModelSerializer):
             "uploaded_by",
             "submitted_to_committee",
             "submitted_to_committee_at",
+            "is_late",
+            "late_duration",
         ]
         read_only_fields = [
             "uploaded_at",
@@ -543,6 +545,8 @@ class DocumentSerializer(serializers.ModelSerializer):
             "project_name",
             "submitted_to_committee",
             "submitted_to_committee_at",
+            "is_late",
+            "late_duration",
         ]
 
 
@@ -686,6 +690,7 @@ class DocumentRequirementSerializer(serializers.ModelSerializer):
             "document_type_display",
             "title",
             "deadline",
+            "allow_late_submission",
             "semester",
             "created_at",
             "updated_at",
@@ -917,14 +922,60 @@ class Evaluation4CommitteeMemberSerializer(serializers.ModelSerializer):
 
 
 class ChatRoomSerializer(serializers.ModelSerializer):
+    MAX_ATTACHMENT_SIZE_MB = 25
+    MAX_ATTACHMENT_SIZE_BYTES = MAX_ATTACHMENT_SIZE_MB * 1024 * 1024
+    ALLOWED_ATTACHMENT_EXTENSIONS = [
+        "jpg", "jpeg", "png", "gif", "webp", "svg",
+        "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "zip", "rar"
+    ]
+
     student = StudentProfileSerializer(read_only=True)
     supervisor = SupervisorProfileSerializer(read_only=True)
     message = serializers.CharField(
         max_length=MAX_CHAT_MESSAGE_LENGTH,
-        validators=[validate_chat_message],
+        required=False,
+        allow_blank=True,
+        default="",
         help_text=f"Chat message (max {MAX_CHAT_MESSAGE_LENGTH} characters)"
     )
-    
+    attachment = serializers.FileField(required=False, allow_null=True)
+    attachment_name = serializers.CharField(required=False, allow_null=True, allow_blank=True, max_length=255)
+    attachment_type = serializers.CharField(required=False, allow_null=True, allow_blank=True, max_length=100)
+    attachment_size = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate_message(self, value):
+        if value:
+            from app.validators import validate_no_html
+            value = validate_no_html(value)
+            if len(value) > MAX_CHAT_MESSAGE_LENGTH:
+                raise serializers.ValidationError(
+                    f"Message is too long. Maximum {MAX_CHAT_MESSAGE_LENGTH} characters allowed."
+                )
+            return value.strip()
+        return ""
+
+    def validate_attachment(self, value):
+        if not value:
+            return None
+        if value.size > self.MAX_ATTACHMENT_SIZE_BYTES:
+            raise serializers.ValidationError(
+                f"Attachment size exceeds maximum allowed size of {self.MAX_ATTACHMENT_SIZE_MB}MB."
+            )
+        file_name = value.name.lower()
+        file_extension = file_name.split(".")[-1] if "." in file_name else ""
+        if file_extension not in self.ALLOWED_ATTACHMENT_EXTENSIONS:
+            raise serializers.ValidationError(
+                f"Invalid file type '.{file_extension}'. Allowed types: {', '.join(self.ALLOWED_ATTACHMENT_EXTENSIONS).upper()}"
+            )
+        return value
+
+    def validate(self, attrs):
+        message = (attrs.get("message") or "").strip()
+        attachment = attrs.get("attachment")
+        if not message and not attachment:
+            raise serializers.ValidationError("Either a message or an attachment must be provided.")
+        return attrs
+
     class Meta:
         model = ChatRoom
         fields = [
@@ -933,10 +984,25 @@ class ChatRoomSerializer(serializers.ModelSerializer):
             "student",
             "supervisor",
             "message",
+            "attachment",
+            "attachment_name",
+            "attachment_type",
+            "attachment_size",
             "sent_by",
             "created_at",
         ]
         read_only_fields = ["id", "created_at", "sent_by", "student", "supervisor"]
+
+    def create(self, validated_data):
+        attachment = validated_data.get("attachment")
+        if attachment:
+            if not validated_data.get("attachment_name"):
+                validated_data["attachment_name"] = attachment.name
+            if not validated_data.get("attachment_size"):
+                validated_data["attachment_size"] = attachment.size
+            if not validated_data.get("attachment_type"):
+                validated_data["attachment_type"] = getattr(attachment, "content_type", None) or ""
+        return super().create(validated_data)
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

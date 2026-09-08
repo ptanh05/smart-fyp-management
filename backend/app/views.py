@@ -1169,6 +1169,26 @@ class CommitteeMemberProfileView(RetrieveAPIView):
         return get_object_or_404(self.get_queryset(), user=self.request.user)
 
 
+def format_late_duration(delta):
+    total_seconds = max(0, int(delta.total_seconds()))
+    if total_seconds < 60:
+        return f"{total_seconds} giây"
+    minutes = total_seconds // 60
+    if minutes < 60:
+        return f"{minutes} phút"
+    hours = minutes // 60
+    remaining_minutes = minutes % 60
+    if hours < 24:
+        if remaining_minutes > 0:
+            return f"{hours} giờ {remaining_minutes} phút"
+        return f"{hours} giờ"
+    days = hours // 24
+    remaining_hours = hours % 24
+    if remaining_hours > 0:
+        return f"{days} ngày {remaining_hours} giờ"
+    return f"{days} ngày"
+
+
 class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
     permission_classes = [IsAuthenticated, IsStudentOrSupervisorOrCommitteeMember]
     authentication_classes = [JWTAuthentication]
@@ -1228,18 +1248,37 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
                 {"message": "Group or supervisor request not found or not accepted"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        # Block submission after deadline: get latest deadline for this document type (and student's semester)
+        # Check deadline and late submission policy
         requirements = DocumentRequirement.objects.filter(
             document_type=document_type
-        ).filter(Q(semester__isnull=True) | Q(semester=student.semester))
-        latest_deadline = requirements.aggregate(Max("deadline"))["deadline__max"]
-        if latest_deadline is not None and timezone.now() > latest_deadline:
-            return Response(
-                {"message": "Submission deadline has passed for this document type."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        ).filter(Q(semester__isnull=True) | Q(semester=student.semester)).order_by("-deadline")
+        
+        is_late = False
+        late_duration = None
+
+        if requirements.exists():
+            latest_req = requirements.first()
+            latest_deadline = latest_req.deadline
+            if latest_deadline is not None and timezone.now() > latest_deadline:
+                allow_late = any(r.allow_late_submission for r in requirements)
+                if not allow_late:
+                    return Response(
+                        {
+                            "message": "Đã hết hạn nộp bài. Hệ thống đã khóa tính năng nộp muộn.",
+                            "error": "Đã hết hạn nộp bài. Hệ thống đã khóa tính năng nộp muộn.",
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                is_late = True
+                delta = timezone.now() - latest_deadline
+                late_duration = f"Trễ {format_late_duration(delta)}"
+
         document = serializer.save(
-            uploaded_by=student, group=group, document_type=document_type
+            uploaded_by=student,
+            group=group,
+            document_type=document_type,
+            is_late=is_late,
+            late_duration=late_duration,
         )
         NotificationService.notify_document_uploaded(document, group)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -1964,15 +2003,57 @@ class ChatRoomAPIView(CreateAPIView, ListAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        attachment = serializer.validated_data.get("attachment")
+        attachment_name = None
+        attachment_type = None
+        attachment_size = None
+        if attachment:
+            attachment_name = attachment.name
+            attachment_size = attachment.size
+            attachment_type = getattr(attachment, "content_type", None) or ""
+
+        message_text = serializer.validated_data.get("message", "")
+
         message = ChatRoom.objects.create(
             group=group,
             student=student,
             supervisor=supervisor,
-            message=serializer.validated_data["message"],
+            message=message_text,
+            attachment=attachment,
+            attachment_name=attachment_name,
+            attachment_type=attachment_type,
+            attachment_size=attachment_size,
             sent_by=sent_by,
         )
+
+        # Real-time WebSocket broadcast via channels
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f"chat_{group.id}",
+                    {
+                        "type": "chat_message",
+                        "message": message.message,
+                        "message_id": message.id,
+                        "sent_by": message.sent_by,
+                        "sender_username": request.user.username,
+                        "sender_id": (student.id if student else supervisor.id) if (student or supervisor) else None,
+                        "created_at": message.created_at.isoformat(),
+                        "attachment": message.attachment.url if message.attachment else None,
+                        "attachment_name": message.attachment_name,
+                        "attachment_type": message.attachment_type,
+                        "attachment_size": message.attachment_size,
+                    },
+                )
+        except Exception:
+            pass
+
         NotificationService.notify_new_chat_message(
-            request.user, group, serializer.validated_data["message"]
+            request.user, group, message.message or (f"[Đính kèm: {message.attachment_name}]" if message.attachment_name else "")
         )
 
         return Response(
@@ -2244,16 +2325,28 @@ class DocumentSubmitToCommitteeAPIView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        # Deadline: must submit before committee requirement deadline
+        # Deadline: check committee requirement deadline and late policy
         requirements = DocumentRequirement.objects.filter(
             document_type=document_type
-        ).filter(Q(semester__isnull=True) | Q(semester=student.semester))
-        latest_deadline = requirements.aggregate(Max("deadline"))["deadline__max"]
-        if latest_deadline is not None and timezone.now() > latest_deadline:
-            return Response(
-                {"message": "Submission deadline has passed for this document type."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        ).filter(Q(semester__isnull=True) | Q(semester=student.semester)).order_by("-deadline")
+        
+        if requirements.exists():
+            latest_req = requirements.first()
+            latest_deadline = latest_req.deadline
+            if latest_deadline is not None and timezone.now() > latest_deadline:
+                allow_late = any(r.allow_late_submission for r in requirements)
+                if not allow_late:
+                    return Response(
+                        {
+                            "message": "Đã hết hạn nộp bài lên hội đồng. Hệ thống đã khóa tính năng nộp muộn.",
+                            "error": "Đã hết hạn nộp bài lên hội đồng. Hệ thống đã khóa tính năng nộp muộn.",
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                document.is_late = True
+                delta = timezone.now() - latest_deadline
+                document.late_duration = f"Trễ {format_late_duration(delta)}"
+
         # Unset any other document of same (group, document_type) as submitted
         Document.objects.filter(
             group=group, document_type=document_type
@@ -2262,7 +2355,7 @@ class DocumentSubmitToCommitteeAPIView(APIView):
         )
         document.submitted_to_committee = True
         document.submitted_to_committee_at = timezone.now()
-        document.save(update_fields=["submitted_to_committee", "submitted_to_committee_at"])
+        document.save(update_fields=["submitted_to_committee", "submitted_to_committee_at", "is_late", "late_duration"])
         serializer = DocumentSerializer(document)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

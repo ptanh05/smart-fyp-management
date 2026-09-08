@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { ChatMessage } from '../types';
+import DocumentViewerModal from './DocumentViewerModal';
 import './ChatRoom.css';
 
 interface ChatRoomProps {
@@ -20,6 +21,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
   const [totalCount, setTotalCount] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [selectedAttachment, setSelectedAttachment] = useState<File | null>(null);
+  const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string; type: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, userType } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -28,6 +33,16 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
   const maxReconnectAttempts = 3;
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (selectedAttachment && selectedAttachment.type.startsWith('image/')) {
+      const url = URL.createObjectURL(selectedAttachment);
+      setAttachmentPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setAttachmentPreviewUrl(null);
+    }
+  }, [selectedAttachment]);
 
   // Get WebSocket URL using one-time ticket
   const getWebSocketUrl = useCallback(async () => {
@@ -154,6 +169,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
         const newMsg: ChatMessage = {
           id: data.message_id,
           message: data.message,
+          attachment: data.attachment,
+          attachment_name: data.attachment_name,
+          attachment_type: data.attachment_type,
+          attachment_size: data.attachment_size,
           sent_by: data.sent_by,
           created_at: data.created_at,
           group: groupId,
@@ -212,10 +231,64 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
     stopPolling();
   }, [stopPolling]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check size limit: 25MB
+    const MAX_SIZE = 25 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      alert(`Dung lượng file (${(file.size / (1024 * 1024)).toFixed(1)}MB) vượt quá giới hạn cho phép (25MB).`);
+      e.target.value = '';
+      return;
+    }
+    setSelectedAttachment(file);
+  };
+
+  const handleRemoveAttachment = () => {
+    setSelectedAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDownloadAttachment = async (fileUrl: string, fileName: string) => {
+    try {
+      await apiService.downloadDocument(fileUrl, fileName);
+    } catch (err) {
+      console.error('Download attachment failed:', err);
+      alert('Không thể tải file đính kèm.');
+    }
+  };
+
+  const formatFileSize = (bytes?: number | null): string => {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  };
+
+  const isImageAttachment = (msg: ChatMessage) => {
+    if (msg.attachment_type?.startsWith('image/')) return true;
+    const name = (msg.attachment_name || msg.attachment || '').toLowerCase();
+    return /\.(jpg|jpeg|png|gif|webp|svg)($|\?)/i.test(name);
+  };
+
+  const isPdfAttachment = (msg: ChatMessage) => {
+    if (msg.attachment_type?.includes('pdf')) return true;
+    const name = (msg.attachment_name || msg.attachment || '').toLowerCase();
+    return /\.pdf($|\?)/i.test(name);
+  };
+
+  const getAttachmentUrl = (url: string) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return url;
+  };
+
   // Send message via WebSocket or API
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() && !selectedAttachment) return;
 
     setLoading(true);
     
@@ -223,20 +296,41 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
     sendTypingIndicator(false);
     
     try {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
+      if (selectedAttachment) {
+        // Send multipart form data with attachment
+        const formData = new FormData();
+        formData.append('group', String(groupId));
+        if (newMessage.trim()) {
+          formData.append('message', newMessage.trim());
+        }
+        formData.append('attachment', selectedAttachment);
+
+        const createdMsg = await apiService.sendChatMessageWithAttachment(formData);
+        setNewMessage('');
+        handleRemoveAttachment();
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === createdMsg.id)) return prev;
+          return [...prev, createdMsg];
+        });
+        scrollToBottom();
+      } else if (wsRef.current?.readyState === WebSocket.OPEN) {
         // Send via WebSocket
         wsRef.current.send(JSON.stringify({
           type: 'chat_message',
           message: newMessage.trim(),
         }));
         setNewMessage('');
+        scrollToBottom();
       } else {
         // Fallback to REST API
-        await apiService.sendChatMessage({ group: groupId, message: newMessage });
+        const createdMsg = await apiService.sendChatMessage({ group: groupId, message: newMessage });
         setNewMessage('');
-        await loadMessages();
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === createdMsg.id)) return prev;
+          return [...prev, createdMsg];
+        });
+        scrollToBottom();
       }
-      scrollToBottom();
     } catch (error: any) {
       console.error('Failed to send message:', error);
       alert(error.response?.data?.message || 'Failed to send message. Please try again.');
@@ -438,7 +532,79 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
                     {senderName}
                     {isSupervisor && ' (Supervisor)'}
                   </div>
-                  <div className="chat-bubble-content">{message.message}</div>
+
+                  {/* Attachment in chat bubble */}
+                  {message.attachment && (
+                    <div className="chat-bubble-attachment">
+                      {isImageAttachment(message) ? (
+                        <div className="chat-attachment-image-wrap">
+                          <img
+                            src={getAttachmentUrl(message.attachment)}
+                            alt={message.attachment_name || 'Hình ảnh'}
+                            className="chat-attachment-img"
+                            onClick={() =>
+                              setPreviewDoc({
+                                url: getAttachmentUrl(message.attachment!),
+                                title: message.attachment_name || 'Hình ảnh',
+                                type: 'image',
+                              })
+                            }
+                            title="Nhấp để xem trước hình ảnh"
+                          />
+                        </div>
+                      ) : (
+                        <div className="chat-attachment-card">
+                          <span className="chat-attachment-icon">
+                            {isPdfAttachment(message) ? '📕' : '📄'}
+                          </span>
+                          <div className="chat-attachment-info">
+                            <span className="chat-attachment-filename" title={message.attachment_name || 'Tài liệu'}>
+                              {message.attachment_name || 'Tài liệu đính kèm'}
+                            </span>
+                            {message.attachment_size ? (
+                              <span className="chat-attachment-size">
+                                {formatFileSize(message.attachment_size)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="chat-attachment-actions">
+                            {isPdfAttachment(message) && (
+                              <button
+                                type="button"
+                                className="btn-attachment-action btn-attachment-preview"
+                                onClick={() =>
+                                  setPreviewDoc({
+                                    url: getAttachmentUrl(message.attachment!),
+                                    title: message.attachment_name || 'Tài liệu',
+                                    type: 'document',
+                                  })
+                                }
+                                title="Xem trước tài liệu PDF trực tiếp"
+                              >
+                                👁️ Xem
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="btn-attachment-action btn-attachment-download"
+                              onClick={() =>
+                                handleDownloadAttachment(
+                                  getAttachmentUrl(message.attachment!),
+                                  message.attachment_name || 'attachment'
+                                )
+                              }
+                              title="Tải file về máy"
+                            >
+                              ⬇️ Tải
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {message.message && <div className="chat-bubble-content">{message.message}</div>}
+
                   <div className="chat-bubble-time">
                     {new Date(message.created_at).toLocaleTimeString()}
                   </div>
@@ -461,24 +627,82 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
         <div ref={messagesEndRef} />
       </div>
       
-      <form onSubmit={sendMessage}>
+      <form onSubmit={sendMessage} className="chat-form">
+        {/* Selected file preview before sending */}
+        {selectedAttachment && (
+          <div className="chat-selected-attachment-bar">
+            {attachmentPreviewUrl ? (
+              <img src={attachmentPreviewUrl} alt="Preview" className="chat-selected-thumb" />
+            ) : (
+              <span className="chat-selected-icon">📄</span>
+            )}
+            <div className="chat-selected-details">
+              <span className="chat-selected-name" title={selectedAttachment.name}>
+                {selectedAttachment.name}
+              </span>
+              <span className="chat-selected-size">
+                {formatFileSize(selectedAttachment.size)}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="chat-selected-remove-btn"
+              onClick={handleRemoveAttachment}
+              title="Hủy file đính kèm"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div className="chat-input-area">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar"
+            style={{ display: 'none' }}
+          />
+          <button
+            type="button"
+            className="chat-attachment-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="Đính kèm file (ảnh hoặc tài liệu)"
+            disabled={loading}
+          >
+            📎
+          </button>
           <input
             type="text"
             value={newMessage}
             onChange={handleInputChange}
-            placeholder="Type a message..."
+            placeholder={selectedAttachment ? 'Thêm chú thích (tùy chọn)...' : 'Nhập tin nhắn...'}
             maxLength={2000}
             className="chat-text-input"
           />
-          <button type="submit" className="btn btn-primary" disabled={loading || !newMessage.trim()}>
-            {loading ? 'Sending...' : 'Send'}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={loading || (!newMessage.trim() && !selectedAttachment)}
+          >
+            {loading ? 'Đang gửi...' : 'Gửi'}
           </button>
         </div>
         <div className="chat-char-count">
           {newMessage.length}/2000
         </div>
       </form>
+
+      {/* Modal preview PDF or image for chat attachments */}
+      {previewDoc && (
+        <DocumentViewerModal
+          isOpen={!!previewDoc}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc.title}
+          documentUrl={previewDoc.url}
+          documentType={previewDoc.type}
+        />
+      )}
     </div>
   );
 };
