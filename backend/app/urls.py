@@ -1,4 +1,19 @@
 from django.urls import path
+from .views_group_management import (
+    RecruitingGroupsAPIView,
+    CreateStudentGroupAPIView,
+    MyStudentGroupAPIView,
+    RequestToJoinGroupAPIView,
+    MySentJoinRequestsAPIView,
+    ApproveJoinRequestAPIView,
+    RejectJoinRequestAPIView,
+    KickGroupMemberAPIView,
+    LeaveGroupAPIView,
+    DisbandGroupAPIView,
+    TransferLeadershipAPIView,
+    UpdateTopicProposalAPIView,
+    SupervisorTopicReviewAPIView,
+)
 from .views_utc import (
     StudentSurveyAPIView,
     StudentGraduationProjectAPIView,
@@ -500,6 +515,23 @@ urlpatterns = [
 
     path("council/live-session/", CouncilLiveDefenseSessionAPIView.as_view(), name="utc-council-live-session"),
     path("council/submit-score/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-submit-score"),
+
+    # =========================================================================
+    # STUDENT CAPSTONE GROUP MANAGEMENT ENDPOINTS (15 FEATURES)
+    # =========================================================================
+    path("student-groups/recruiting/", RecruitingGroupsAPIView.as_view(), name="student-groups-recruiting"),
+    path("student-groups/create/", CreateStudentGroupAPIView.as_view(), name="student-groups-create"),
+    path("student-groups/my-group/", MyStudentGroupAPIView.as_view(), name="student-groups-my-group"),
+    path("student-groups/<int:group_id>/join-request/", RequestToJoinGroupAPIView.as_view(), name="student-groups-join-request"),
+    path("student-groups/my-join-requests/", MySentJoinRequestsAPIView.as_view(), name="student-groups-my-join-requests"),
+    path("student-groups/join-requests/<int:request_id>/approve/", ApproveJoinRequestAPIView.as_view(), name="student-groups-join-approve"),
+    path("student-groups/join-requests/<int:request_id>/reject/", RejectJoinRequestAPIView.as_view(), name="student-groups-join-reject"),
+    path("student-groups/kick-member/", KickGroupMemberAPIView.as_view(), name="student-groups-kick-member"),
+    path("student-groups/leave/", LeaveGroupAPIView.as_view(), name="student-groups-leave"),
+    path("student-groups/disband/", DisbandGroupAPIView.as_view(), name="student-groups-disband"),
+    path("student-groups/transfer-leadership/", TransferLeadershipAPIView.as_view(), name="student-groups-transfer-leadership"),
+    path("student-groups/update-topic/", UpdateTopicProposalAPIView.as_view(), name="student-groups-update-topic"),
+    path("student-groups/<int:group_id>/topic-review/", SupervisorTopicReviewAPIView.as_view(), name="student-groups-topic-review"),
     path("council/chair/set-defense-status/", CouncilChairSetDefenseStatusAPIView.as_view(), name="utc-council-chair-defense-status"),
     path("council/remind-scoring/", CouncilSecretaryRemindScoringAPIView.as_view(), name="utc-council-remind-scoring"),
     path("council/<int:council_id>/schedule/", CouncilScheduleDefenseAPIView.as_view(), name="utc-council-schedule-defense"),

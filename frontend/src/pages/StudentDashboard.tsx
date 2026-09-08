@@ -2,10 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
-import type { Student, Group, Project, ProjectCategory, SupervisorOfStudentGroup, ExternalEvaluation } from '../types';
+import type { Student, Project, ProjectCategory, SupervisorOfStudentGroup, ExternalEvaluation } from '../types';
 import Navbar from '../components/Navbar';
 import UTCAppLayout from '../components/UTCAppLayout';
-import GroupRequestModal from '../components/GroupRequestModal';
 import ProjectModal from '../components/ProjectModal';
 import SupervisorRequestModal from '../components/SupervisorRequestModal';
 import DocumentsList from '../components/DocumentsList';
@@ -19,6 +18,7 @@ import CommitteeOfferedProjects from '../components/CommitteeOfferedProjects';
 import UTCFypTimeline from '../components/UTCFypTimeline';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { UTCStudentGraduationView } from '../components/UTCStudentGraduationView';
+import { StudentGroupManagement } from '../components/StudentGroupManagement';
 import { SkeletonProfile, SkeletonCardGrid } from '../components/SkeletonLoader';
 import CopyButton from '../components/CopyButton';
 import './Dashboard.css';
@@ -35,14 +35,11 @@ const StudentDashboard: React.FC = () => {
   const student = user as Student;
   const [activeTab, setActiveTab] = useState('overview');
   const [profile, setProfile] = useState<Student | null>(null);
-  const [sentRequests, setSentRequests] = useState<Group[]>([]);
-  const [receivedRequests, setReceivedRequests] = useState<Group[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectCategories, setProjectCategories] = useState<ProjectCategory[]>([]);
   const [supervisorRequests, setSupervisorRequests] = useState<SupervisorOfStudentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectsLoading, setProjectsLoading] = useState(false);
-  const [showGroupModal, setShowGroupModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showSupervisorModal, setShowSupervisorModal] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
@@ -65,13 +62,6 @@ const StudentDashboard: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'project' && profile?.groupmate_id) {
       loadProjects();
-    }
-  }, [activeTab, profile?.groupmate_id]);
-
-  // Reload group requests when groups tab is clicked
-  useEffect(() => {
-    if (activeTab === 'groups' && !profile?.groupmate_id) {
-      loadGroupRequests();
     }
   }, [activeTab, profile?.groupmate_id]);
 
@@ -119,29 +109,11 @@ const StudentDashboard: React.FC = () => {
         setSupervisorRequests(supervisorRequestsData.results || []);
         // Load projects separately
         await loadProjects();
-      } else {
-        // Load group requests even if student doesn't have a group yet
-        await loadGroupRequests();
       }
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadGroupRequests = async () => {
-    try {
-      const [sentData, receivedData] = await Promise.all([
-        apiService.getGroupRequests({ requested: 'to' }),
-        apiService.getGroupRequests({ requested: 'from' }),
-      ]);
-      setSentRequests(sentData || []);
-      setReceivedRequests(receivedData || []);
-    } catch (error) {
-      console.error('Failed to load group requests:', error);
-      setSentRequests([]);
-      setReceivedRequests([]);
     }
   };
 
@@ -178,62 +150,6 @@ const StudentDashboard: React.FC = () => {
       setExternalEvaluation(null);
     } finally {
       setExternalLoading(false);
-    }
-  };
-
-  const handleGroupRequest = async (studentId: number, categoryId: number) => {
-    try {
-      await apiService.createGroupRequest({ 
-        student_2: studentId, 
-        project_category: categoryId 
-      });
-      await loadGroupRequests(); // Reload group requests
-      setShowGroupModal(false);
-      // Show success message (you can add a toast notification here)
-      alert('Group request sent successfully!');
-    } catch (error: any) {
-      console.error('Failed to create group request:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.non_field_errors?.[0] ||
-                          error.message || 
-                          'Failed to send group request';
-      alert(`Error: ${errorMessage}`);
-      throw error; // Re-throw to let modal handle it
-    }
-  };
-
-  const handleAcceptGroupRequest = async (groupId: number) => {
-    try {
-      await apiService.updateGroupRequest(groupId, { status: 'accepted' });
-      await loadGroupRequests(); // Reload group requests
-      await loadData(); // Reload full data to update profile
-    } catch (error) {
-      console.error('Failed to accept group request:', error);
-      alert('Failed to accept group request. Please try again.');
-    }
-  };
-
-  const handleRejectGroupRequest = async (groupId: number) => {
-    try {
-      await apiService.updateGroupRequest(groupId, { status: 'rejected' });
-      await loadGroupRequests(); // Reload group requests
-    } catch (error) {
-      console.error('Failed to reject group request:', error);
-      alert('Failed to reject group request. Please try again.');
-    }
-  };
-
-  const handleCancelGroupRequest = async (groupId: number) => {
-    const confirmed = window.confirm('Are you sure you want to cancel this group request? This action cannot be undone.');
-    if (!confirmed) return;
-
-    try {
-      await apiService.updateGroupRequest(groupId, { status: 'canceled' });
-      await loadGroupRequests(); // Reload group requests
-      alert('Group request canceled successfully.');
-    } catch (error) {
-      console.error('Failed to cancel group request:', error);
-      alert('Failed to cancel group request. Please try again.');
     }
   };
 
@@ -290,14 +206,12 @@ const StudentDashboard: React.FC = () => {
           >
             {t('nav.overview', 'Tổng Quan')}
           </button>
-          {!profile?.groupmate_id && (
-            <button
-              className={`tab ${activeTab === 'groups' ? 'active' : ''}`}
-              onClick={() => setActiveTab('groups')}
-            >
-              {t('nav.groups', 'Nhóm Đồ Án')}
-            </button>
-          )}
+          <button
+            className={`tab ${activeTab === 'groups' ? 'active' : ''}`}
+            onClick={() => setActiveTab('groups')}
+          >
+            👥 {t('nav.groups', 'Nhóm Đồ Án')}
+          </button>
           {profile?.groupmate_id && (
             <>
               <button
@@ -446,71 +360,11 @@ const StudentDashboard: React.FC = () => {
             </>
           )}
 
-          {activeTab === 'groups' && !profile?.groupmate_id && (
-            <div>
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h2>Group Requests</h2>
-                  <button className="btn btn-primary" onClick={() => setShowGroupModal(true)}>
-                    Send Group Request
-                  </button>
-                </div>
-                
-                <div style={{ marginBottom: '30px' }}>
-                  <h3 style={{ marginBottom: '15px', color: '#333' }}>Received Requests</h3>
-                  {receivedRequests.length === 0 ? (
-                    <div className="empty-state">No received requests</div>
-                  ) : (
-                    <GroupRequestsList
-                      requests={receivedRequests}
-                      onAccept={handleAcceptGroupRequest}
-                      onReject={handleRejectGroupRequest}
-                      showActions={true}
-                    />
-                  )}
-                </div>
-
-                <div>
-                  <h3 style={{ marginBottom: '15px', color: '#333' }}>Sent Requests</h3>
-                  {sentRequests.length === 0 ? (
-                    <div className="empty-state">No sent requests</div>
-                  ) : (
-                    <GroupRequestsList
-                      requests={sentRequests}
-                      onAccept={handleAcceptGroupRequest}
-                      onReject={handleRejectGroupRequest}
-                      onCancel={handleCancelGroupRequest}
-                      showActions={false}
-                      showCancel={true}
-                    />
-                  )}
-                </div>
-
-                {/* Group Formation Comments */}
-                {(receivedRequests.some(r => r.status === 'pending') || sentRequests.some(r => r.status === 'pending')) && (
-                  <div style={{ marginTop: '30px' }}>
-                    <h3 style={{ marginBottom: '15px', color: '#333' }}>Group Formation Discussion</h3>
-                    {(() => {
-                      // Show comments for the most recent pending group
-                      const pendingGroup = receivedRequests.find(r => r.status === 'pending') 
-                        || sentRequests.find(r => r.status === 'pending');
-                      if (pendingGroup) {
-                        return (
-                          <CommentsSection
-                            commentType="group"
-                            groupId={pendingGroup.id}
-                            currentUser={profile ? { id: profile.id, user_type: 'student' } : undefined}
-                            autoRefresh={true}
-                            refreshInterval={30000}
-                          />
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                )}
-              </div>
-            </div>
+          {activeTab === 'groups' && (
+            <StudentGroupManagement
+              currentStudent={profile}
+              onProfileRefresh={loadData}
+            />
           )}
 
           {activeTab === 'project' && profile?.groupmate_id && (
@@ -823,14 +677,6 @@ const StudentDashboard: React.FC = () => {
         </div>
       </div>
 
-      {showGroupModal && (
-        <GroupRequestModal
-          onClose={() => setShowGroupModal(false)}
-          onSubmit={handleGroupRequest}
-          projectCategories={projectCategories}
-        />
-      )}
-
       {showProjectModal && (
         <ProjectModal
           onClose={() => setShowProjectModal(false)}
@@ -868,74 +714,6 @@ const StudentDashboard: React.FC = () => {
         }}
       />
     </UTCAppLayout>
-  );
-};
-
-const GroupRequestsList: React.FC<{
-  requests: Group[];
-  onAccept: (id: number) => void;
-  onReject: (id: number) => void;
-  onCancel?: (id: number) => void;
-  showActions?: boolean;
-  showCancel?: boolean;
-}> = ({ requests, onAccept, onReject, onCancel, showActions = true, showCancel = false }) => {
-  if (requests.length === 0) {
-    return null; // Let parent handle empty state
-  }
-
-  const hasActionColumn = showActions || showCancel;
-
-  return (
-    <table className="table">
-      <thead>
-        <tr>
-          <th>Student</th>
-          <th>Category</th>
-          <th>Status</th>
-          {hasActionColumn && <th>Actions</th>}
-        </tr>
-      </thead>
-      <tbody>
-        {requests.map((req) => (
-          <tr key={req.id}>
-            <td>
-              {req.student_1_details?.user.username || req.student_2_details?.user.username}
-              {req.student_1_details && req.student_2_details && (
-                <span style={{ color: '#666', fontSize: '12px', marginLeft: '8px' }}>
-                  ({req.student_1_details.user.username} & {req.student_2_details.user.username})
-                </span>
-              )}
-            </td>
-            <td>{req.project_category_details?.category_name || 'N/A'}</td>
-            <td>
-              <span className={`badge badge-${req.status === 'accepted' ? 'success' : req.status === 'rejected' ? 'danger' : req.status === 'canceled' ? 'danger' : 'pending'}`}>
-                {req.status}
-              </span>
-            </td>
-            {hasActionColumn && (
-              <td>
-                {showActions && req.status === 'pending' && (
-                  <>
-                    <button className="btn btn-success btn-sm" onClick={() => onAccept(req.id)}>
-                      Accept
-                    </button>
-                    <button className="btn btn-danger btn-sm" onClick={() => onReject(req.id)}>
-                      Reject
-                    </button>
-                  </>
-                )}
-                {showCancel && req.status === 'pending' && onCancel && (
-                  <button className="btn btn-danger btn-sm" onClick={() => onCancel(req.id)}>
-                    Cancel
-                  </button>
-                )}
-                {req.status !== 'pending' && <span style={{ color: '#666' }}>-</span>}
-              </td>
-            )}
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 };
 

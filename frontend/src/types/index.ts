@@ -51,6 +51,8 @@ export interface Student {
   batch_no: string;
   group_id?: number;
   groupmate_id?: number;
+  has_group?: boolean;
+  my_group_name?: string;
 }
 
 export interface Supervisor {
@@ -85,6 +87,50 @@ export interface ProjectCategory {
   id: number;
   category_name: string;
   supervisor?: Supervisor[];
+}
+
+export interface GroupMemberInfo {
+  id: number;
+  student: Student;
+  role: 'LEADER' | 'MEMBER';
+  role_display: string;
+  joined_at: string;
+}
+
+export interface GroupJoinRequestInfo {
+  id: number;
+  group: number;
+  group_name?: string;
+  student: Student;
+  message?: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED';
+  status_display: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export type TopicStatus = 'NOT_REGISTERED' | 'PENDING_REVIEW' | 'REVISION_REQUESTED' | 'APPROVED' | 'REJECTED';
+
+export interface ProjectGroup {
+  id: number;
+  group_name: string;
+  academic_batch?: number | null;
+  academic_batch_name?: string;
+  leader: Student;
+  max_members: number;
+  current_members_count: number;
+  is_recruiting: boolean;
+  is_full: boolean;
+  tentative_topic?: string;
+  tentative_description?: string;
+  topic_status: TopicStatus;
+  topic_status_display: string;
+  topic_revision_notes?: string;
+  members: GroupMemberInfo[];
+  join_requests?: GroupJoinRequestInfo[];
+  my_join_request?: GroupJoinRequestInfo | null;
+  is_my_group?: boolean;
+  my_role?: 'LEADER' | 'MEMBER' | null;
 }
 
 export interface Group {

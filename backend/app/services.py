@@ -223,6 +223,121 @@ class NotificationService:
             related_group=group,
             action_url="/student/dashboard?tab=group",
         )
+
+    @staticmethod
+    def notify_group_join_request(student, group):
+        """Notify leader about a student requesting to join the group."""
+        leader = group.leader or group.student_1
+        if leader:
+            student_name = student.user.get_full_name() or student.user.username
+            NotificationService.create_notification(
+                user=leader.user,
+                notification_type="group_join_request",
+                title="Yêu cầu xin gia nhập nhóm mới",
+                message=f"Sinh viên {student_name} ({student.registration_no}) đã gửi yêu cầu xin gia nhập nhóm {group.group_name or f'#{group.id}'}.",
+                related_group=group,
+                action_url="/student/dashboard?tab=groups",
+            )
+
+    @staticmethod
+    def notify_group_join_response(join_request, accepted=True):
+        """Notify applicant whether their join request was accepted or rejected."""
+        student = join_request.student
+        group = join_request.group
+        group_title = group.group_name or f"Nhóm #{group.id}"
+        if accepted:
+            NotificationService.create_notification(
+                user=student.user,
+                notification_type="group_request_accepted",
+                title="Yêu cầu gia nhập nhóm được chấp nhận",
+                message=f"Chúc mừng! Bạn đã được duyệt tham gia nhóm {group_title}.",
+                related_group=group,
+                action_url="/student/dashboard?tab=groups",
+            )
+        else:
+            NotificationService.create_notification(
+                user=student.user,
+                notification_type="group_request_rejected",
+                title="Yêu cầu gia nhập nhóm bị từ chối",
+                message=f"Yêu cầu xin gia nhập nhóm {group_title} của bạn đã bị từ chối.",
+                related_group=group,
+                action_url="/student/dashboard?tab=groups",
+            )
+
+    @staticmethod
+    def notify_group_member_kicked(target_student, group):
+        """Notify a student that they were removed from the group."""
+        group_title = group.group_name or f"Nhóm #{group.id}"
+        NotificationService.create_notification(
+            user=target_student.user,
+            notification_type="group_kicked",
+            title="Bạn đã bị xóa khỏi nhóm đồ án",
+            message=f"Trưởng nhóm đã xóa bạn khỏi nhóm {group_title}. Bạn đã trở về trạng thái chưa có nhóm.",
+            action_url="/student/dashboard?tab=groups",
+        )
+
+    @staticmethod
+    def notify_group_member_left(student, group):
+        """Notify the leader that a member left the group."""
+        leader = group.leader or group.student_1
+        if leader and leader != student:
+            student_name = student.user.get_full_name() or student.user.username
+            NotificationService.create_notification(
+                user=leader.user,
+                notification_type="group_leave",
+                title="Thành viên đã rời nhóm",
+                message=f"Thành viên {student_name} ({student.registration_no}) đã tự rời khỏi nhóm {group.group_name or f'#{group.id}'}.",
+                related_group=group,
+                action_url="/student/dashboard?tab=groups",
+            )
+
+    @staticmethod
+    def notify_group_disbanded(member_user, group_name):
+        """Notify member that the group was disbanded."""
+        NotificationService.create_notification(
+            user=member_user,
+            notification_type="group_disbanded",
+            title="Nhóm đồ án đã bị giải tán",
+            message=f"Nhóm {group_name} đã được giải tán bởi trưởng nhóm. Bạn hiện ở trạng thái tự do.",
+            action_url="/student/dashboard?tab=groups",
+        )
+
+    @staticmethod
+    def notify_leadership_transferred(old_leader, new_leader, group):
+        """Notify members about leadership transfer."""
+        group_title = group.group_name or f"Nhóm #{group.id}"
+        new_leader_name = new_leader.user.get_full_name() or new_leader.user.username
+        # Notify new leader
+        NotificationService.create_notification(
+            user=new_leader.user,
+            notification_type="group_leadership_transferred",
+            title="Bạn đã trở thành Trưởng nhóm",
+            message=f"Bạn đã được chuyển quyền Trưởng nhóm {group_title}.",
+            related_group=group,
+            action_url="/student/dashboard?tab=groups",
+        )
+        # Notify old leader
+        NotificationService.create_notification(
+            user=old_leader.user,
+            notification_type="group_leadership_transferred",
+            title="Chuyển quyền Trưởng nhóm thành công",
+            message=f"Bạn đã chuyển quyền Trưởng nhóm {group_title} cho {new_leader_name}.",
+            related_group=group,
+            action_url="/student/dashboard?tab=groups",
+        )
+
+    @staticmethod
+    def notify_topic_revision_resubmitted(group, supervisor):
+        """Notify supervisor that student group updated and resubmitted proposal."""
+        group_title = group.group_name or f"Nhóm #{group.id}"
+        NotificationService.create_notification(
+            user=supervisor.user,
+            notification_type="topic_revision_resubmitted",
+            title="Đề xuất đề tài đã được cập nhật chỉnh sửa",
+            message=f"Nhóm {group_title} đã cập nhật lại nội dung đề tài theo yêu cầu chỉnh sửa và đang chờ duyệt lại.",
+            related_group=group,
+            action_url="/supervisor/dashboard",
+        )
     
     @staticmethod
     def notify_supervisor_request(student, supervisor, supervisor_group):
