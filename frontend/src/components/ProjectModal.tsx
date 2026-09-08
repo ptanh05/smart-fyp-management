@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { apiService } from '../services/api';
 import type { ProjectCategory } from '../types';
+import DebouncedSubmitButton from './DebouncedSubmitButton';
 import './Modal.css';
 
 interface ProjectModalProps {
@@ -18,9 +19,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ onClose, projectCategories,
     project_category: '',
   });
   const [loading, setLoading] = useState(false);
+  const inFlightRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (inFlightRef.current || loading) return;
+    inFlightRef.current = true;
     setLoading(true);
     try {
       await apiService.createProject({
@@ -33,6 +37,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ onClose, projectCategories,
       console.error('Failed to create project:', error);
     } finally {
       setLoading(false);
+      inFlightRef.current = false;
     }
   };
 
@@ -99,9 +104,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ onClose, projectCategories,
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              Create
-            </button>
+            <DebouncedSubmitButton loading={loading} loadingText="Đang tạo...">
+              Tạo đề tài (Create)
+            </DebouncedSubmitButton>
           </div>
         </form>
       </div>

@@ -14,7 +14,9 @@ import ExternalManagement from '../components/ExternalManagement';
 import DocumentRequirementsManager from '../components/DocumentRequirementsManager';
 import UTCFacultyAnalytics from '../components/UTCFacultyAnalytics';
 import { UTCCouncilLiveDefenseView } from '../components/UTCCouncilLiveDefenseView';
+import CouncilConflictManager from '../components/CouncilConflictManager';
 import { SkeletonProfile, SkeletonCardGrid, SkeletonEvaluationGrid } from '../components/SkeletonLoader';
+import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import './Dashboard.css';
 import '../components/EvaluationForm.css';
 import '../components/SkeletonLoader.css';
@@ -31,6 +33,7 @@ const CommitteeMemberDashboard: React.FC = () => {
   const [panelGroups, setPanelGroups] = useState<SupervisorOfStudentGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<SupervisorOfStudentGroup | null>(null);
   const [groupsLoading, setGroupsLoading] = useState(false);
+  const [showUTCSheet, setShowUTCSheet] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -40,6 +43,20 @@ const CommitteeMemberDashboard: React.FC = () => {
     if (activeTab === 'groups' || activeTab === 'evaluations' || activeTab === 'documents') {
       loadPanelGroups();
     }
+  }, [activeTab]);
+
+  // Auto-sync when internet reconnects without page reload
+  useEffect(() => {
+    const handleOnlineSync = () => {
+      loadData();
+      if (activeTab === 'groups' || activeTab === 'evaluations' || activeTab === 'documents') {
+        loadPanelGroups();
+      }
+    };
+    window.addEventListener('app:online-sync', handleOnlineSync);
+    return () => {
+      window.removeEventListener('app:online-sync', handleOnlineSync);
+    };
   }, [activeTab]);
 
   const loadData = async () => {
@@ -157,10 +174,18 @@ const CommitteeMemberDashboard: React.FC = () => {
           >
             {t('nav.externalManagement', 'Hội Đồng & Chấm Phản Biện')}
           </button>
+          <button
+            className={`tab ${activeTab === 'council_conflicts' ? 'active' : ''}`}
+            onClick={() => setActiveTab('council_conflicts')}
+            style={{ fontWeight: '600', color: activeTab === 'council_conflicts' ? '#fff' : '#b91c1c', backgroundColor: activeTab === 'council_conflicts' ? '#b91c1c' : '#fee2e2' }}
+          >
+            ⚖️ Xung Đột Lợi Ích (COI)
+          </button>
         </div>
 
         <div className="tab-content">
           {activeTab === 'utc_live_defense' && <UTCCouncilLiveDefenseView />}
+          {activeTab === 'council_conflicts' && <CouncilConflictManager />}
 
           {activeTab === 'overview' && (
             <>
@@ -314,12 +339,22 @@ const CommitteeMemberDashboard: React.FC = () => {
                           <strong> Students:</strong> {selectedGroup.group?.student_1_details?.user?.username || 'N/A'} & {selectedGroup.group?.student_2_details?.user?.username || 'N/A'}
                         </p>
                       </div>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setActiveTab('groups')}
-                      >
-                        Change Group
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => setShowUTCSheet(true)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#003366', color: '#003366' }}
+                          title="Mở và in phiếu điểm đánh giá UTC"
+                        >
+                          🖨️ In phiếu điểm
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setActiveTab('groups')}
+                        >
+                          Change Group
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <CommitteeEvaluationsList groupId={selectedGroup.id} />
@@ -379,6 +414,26 @@ const CommitteeMemberDashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      {selectedGroup && (
+        <UTCEvaluationSheetModal
+          isOpen={showUTCSheet}
+          onClose={() => setShowUTCSheet(false)}
+          groupData={{
+            groupId: selectedGroup.id,
+            projectTitle: selectedGroup.project?.project_name || 'Đồ án tốt nghiệp UTC',
+            facultyDepartment: 'Khoa Công nghệ Thông tin - UTC',
+            student1Name: selectedGroup.group?.student_1_details?.user?.username || 'Sinh viên 1',
+            student1RegNo: selectedGroup.group?.student_1_details?.registration_no || 'N/A',
+            student2Name: selectedGroup.group?.student_2_details?.user?.username,
+            student2RegNo: selectedGroup.group?.student_2_details?.registration_no,
+            supervisorName: selectedGroup.supervisor?.user?.first_name 
+              ? `${selectedGroup.supervisor.user.first_name} ${selectedGroup.supervisor.user.last_name}`
+              : selectedGroup.supervisor?.user?.username || 'GVHD',
+            committeeName: profile?.committee_id || 'Hội đồng Bảo vệ UTC',
+          }}
+        />
+      )}
     </UTCAppLayout>
   );
 };

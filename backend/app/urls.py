@@ -4,15 +4,27 @@ from .views_utc import (
     StudentGraduationProjectAPIView,
     StudentOutlineSubmissionAPIView,
     StudentWeeklyReportAPIView,
+    StudentSupervisionLogsAPIView,
+    StudentTasksAPIView,
+    StudentMarkTaskCompletedAPIView,
     SupervisorGraduationProjectsAPIView,
     SupervisorOutlineReviewAPIView,
     SupervisorWeeklyFeedbackAPIView,
     SupervisorDefenseEvaluationAPIView,
+    SupervisorSupervisionLogsAPIView,
+    SupervisorTasksAPIView,
     ReviewerAssignedProjectsAPIView,
     ReviewerSubmitEvaluationAPIView,
     CouncilLiveDefenseSessionAPIView,
     CouncilSubmitScoreAPIView,
     CouncilToggleLockAPIView,
+    CouncilChairSetDefenseStatusAPIView,
+    CouncilSecretaryRemindScoringAPIView,
+    CouncilScheduleDefenseAPIView,
+    CouncilConflictCheckAPIView,
+    CouncilAssignProjectAPIView,
+    CouncilAssignMemberAPIView,
+    GlobalSearchAPIView,
 )
 from .views import (
     GroupRequestView,
@@ -100,9 +112,12 @@ from .views import (
     StudentExternalEvaluationAPIView,
     EvaluationScheduleListCreateAPIView,
     EvaluationScheduleDetailAPIView,
+    # Bug Report & Feedback
+    BugReportAPIView,
     # Admin Dashboard
     admin_dashboard,
 )
+from .views_media import GetSignedMediaUrlAPIView, SecureMediaDownloadView
 
 
 urlpatterns = [
@@ -472,6 +487,14 @@ urlpatterns = [
         name="evaluation-schedule-detail",
     ),
 
+    # Secure Media Download & Signed URLs
+    path("media/get-signed-url/", GetSignedMediaUrlAPIView.as_view(), name="media-get-signed-url"),
+    path("media/download-token/", GetSignedMediaUrlAPIView.as_view(), name="media-download-token"),
+    path("media/download/<path:file_path>", SecureMediaDownloadView.as_view(), name="media-secure-download"),
+
+    # Bug Reports & User Feedback
+    path("bug-reports/", BugReportAPIView.as_view(), name="bug-reports"),
+
     # =========================================================================
     # UTC FACULTY OF IT GRADUATION THESIS WORKFLOW ENDPOINTS
     # =========================================================================
@@ -479,11 +502,17 @@ urlpatterns = [
     path("student/graduation-project/", StudentGraduationProjectAPIView.as_view(), name="utc-student-graduation-project"),
     path("student/outline/submit/", StudentOutlineSubmissionAPIView.as_view(), name="utc-student-outline-submit"),
     path("student/weekly-reports/", StudentWeeklyReportAPIView.as_view(), name="utc-student-weekly-reports"),
+    path("student/supervision-logs/", StudentSupervisionLogsAPIView.as_view(), name="utc-student-supervision-logs"),
+    path("student/tasks/", StudentTasksAPIView.as_view(), name="utc-student-tasks"),
+    path("student/tasks/<int:pk>/complete/", StudentMarkTaskCompletedAPIView.as_view(), name="utc-student-task-complete"),
 
     path("supervisor/graduation-projects/", SupervisorGraduationProjectsAPIView.as_view(), name="utc-supervisor-graduation-projects"),
     path("supervisor/outline/review/", SupervisorOutlineReviewAPIView.as_view(), name="utc-supervisor-outline-review"),
     path("supervisor/weekly-feedback/", SupervisorWeeklyFeedbackAPIView.as_view(), name="utc-supervisor-weekly-feedback"),
     path("supervisor/defense-evaluation/", SupervisorDefenseEvaluationAPIView.as_view(), name="utc-supervisor-defense-evaluation"),
+    path("supervisor/supervision-logs/", SupervisorSupervisionLogsAPIView.as_view(), name="utc-supervisor-supervision-logs"),
+    path("supervisor/tasks/", SupervisorTasksAPIView.as_view(), name="utc-supervisor-tasks"),
+    path("supervisor/tasks/<int:pk>/", SupervisorTasksAPIView.as_view(), name="utc-supervisor-task-detail"),
 
     path("reviewer/assigned-projects/", ReviewerAssignedProjectsAPIView.as_view(), name="utc-reviewer-assigned-projects"),
     path("reviewer/submit-evaluation/", ReviewerSubmitEvaluationAPIView.as_view(), name="utc-reviewer-submit-evaluation"),
@@ -491,4 +520,12 @@ urlpatterns = [
     path("council/live-session/", CouncilLiveDefenseSessionAPIView.as_view(), name="utc-council-live-session"),
     path("council/submit-score/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-submit-score"),
     path("council/toggle-lock/", CouncilToggleLockAPIView.as_view(), name="utc-council-toggle-lock"),
+    path("council/chair/set-defense-status/", CouncilChairSetDefenseStatusAPIView.as_view(), name="utc-council-chair-defense-status"),
+    path("council/remind-scoring/", CouncilSecretaryRemindScoringAPIView.as_view(), name="utc-council-remind-scoring"),
+    path("council/<int:council_id>/schedule/", CouncilScheduleDefenseAPIView.as_view(), name="utc-council-schedule-defense"),
+    path("council/conflicts/", CouncilConflictCheckAPIView.as_view(), name="utc-council-conflicts"),
+    path("council/assign-project/", CouncilAssignProjectAPIView.as_view(), name="utc-council-assign-project"),
+    path("council/assign-member/", CouncilAssignMemberAPIView.as_view(), name="utc-council-assign-member"),
+
+    path("global-search/", GlobalSearchAPIView.as_view(), name="global-search"),
 ]

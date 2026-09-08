@@ -145,6 +145,7 @@ else:
             "default": dj_database_url.config(
                 default=db_url,
                 conn_max_age=600,
+                conn_health_checks=True,
                 ssl_require=True
             )
         }
@@ -154,10 +155,20 @@ else:
                 "ENGINE": "django.db.backends.sqlite3",
                 "NAME": BASE_DIR / "db.sqlite3",
                 "OPTIONS": {
-                    "timeout": 20,  # Wait up to 20 seconds for database lock to clear
+                    "timeout": 30,  # Wait up to 30 seconds for database lock to clear under high concurrency
                 },
             }
         }
+
+# Optimize password hashing speed for development
+if DEBUG:
+    PASSWORD_HASHERS = [
+        "django.contrib.auth.hashers.MD5PasswordHasher",
+        "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+        "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+        "django.contrib.auth.hashers.Argon2PasswordHasher",
+        "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+    ]
 
 
 # Password validation
@@ -189,6 +200,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 
 
 # Default primary key field type
@@ -323,3 +339,9 @@ else:
             "BACKEND": "channels.layers.InMemoryChannelLayer"
         }
     }
+
+# Large file upload settings (support 20MB+ PDFs up to 50MB without timeout or memory error)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
+

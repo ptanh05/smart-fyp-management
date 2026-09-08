@@ -83,6 +83,63 @@
   background-color: var(--primary-light);
 }
 
+/* Notification Category Tabs */
+.notification-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: var(--bg-primary, #f8fafc);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.notif-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.notif-tab-btn:hover {
+  background-color: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+}
+
+.notif-tab-btn.active {
+  background-color: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.notif-tab-badge {
+  background-color: rgba(255, 255, 255, 0.3);
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+}
+
+.notif-tab-btn:not(.active) .notif-tab-badge {
+  background-color: #e2e8f0;
+  color: #475569;
+}
+
+[data-theme="dark"] .notification-tabs {
+  background-color: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .notif-tab-btn:not(.active) .notif-tab-badge {
+  background-color: #334155;
+  color: #cbd5e1;
+}
+
 .notification-list {
   max-height: 400px;
   overflow-y: auto;

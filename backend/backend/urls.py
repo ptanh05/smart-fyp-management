@@ -5,6 +5,10 @@ from .project_views import (
     DocumentDownloadView,
     SRSTemplateDownloadView,
     ChatAttachmentDownloadView,
+from app.views_media import (
+    DocumentSecureDownloadView,
+    TemplateSecureDownloadView,
+    SecureMediaDownloadView,
 )
 
 def health_check(request):
@@ -17,7 +21,7 @@ urlpatterns = [
     path("api/", include("app.urls")),
     path(
         "documents/<str:filename>/",
-        DocumentDownloadView.as_view(),
+        DocumentSecureDownloadView.as_view(),
         name="document-download",
     ),
     path(
@@ -27,7 +31,7 @@ urlpatterns = [
     ),
     path(
         "doc_templates/<str:filename>/",
-        SRSTemplateDownloadView.as_view(),
+        TemplateSecureDownloadView.as_view(),
         name="template-download",
     ),
     path(
@@ -44,5 +48,8 @@ urlpatterns = [
         "media/chat_attachments/<str:filename>/",
         ChatAttachmentDownloadView.as_view(),
         name="media-chat-attachment-download",
+        "media/<path:file_path>",
+        SecureMediaDownloadView.as_view(),
+        name="media-download",
     ),
 ]

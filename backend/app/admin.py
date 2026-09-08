@@ -1,7 +1,7 @@
 # students/admin.py
 from typing import Any
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin import AdminSite
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
@@ -36,7 +36,14 @@ from .models import (
     EvaluationSchedule,
     Notification,
     DocumentRequirement,
+    SystemBugReport,
+    AcademicBatch,
+    DefenseCouncil,
+    CouncilMember,
+    GraduationProject,
 )
+from .services import NotificationService
+from .services import CouncilConflictService
 from project_lib.admin import ImportableExportableAdmin, Workbook, RecordImportError
 
 
@@ -294,7 +301,7 @@ class DocumentRequirementAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ["project_name", "project_category", "panel", "user"]
+    list_display = ["project_name", "project_category", "panel", "user", "conflict_of_interest_status"]
 
     list_filter = ["project_category__category_name", "panel"]
     readonly_fields = ("user",)
@@ -307,6 +314,33 @@ class ProjectAdmin(admin.ModelAdmin):
         ("Technical Details", {"fields": ("language", "functionalities")}),
         ("Assignment", {"fields": ("panel", "user")}),
     )
+
+    def conflict_of_interest_status(self, obj):
+        if not obj.panel:
+            return format_html('<span style="color: #64748b;">Chưa gán Panel</span>')
+        sup_group = SupervisorOfStudentGroup.objects.filter(project=obj).first()
+        if sup_group and sup_group.supervisor:
+            sup_user = sup_group.supervisor.user
+            if obj.panel.committee_member.filter(user=sup_user).exists():
+                return format_html(
+                    '<span style="background-color: #fee2e2; color: #b91c1c; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #f87171;">⚠️ Xung đột: GVHD thuộc Panel</span>'
+                )
+        return format_html(
+            '<span style="background-color: #dcfce7; color: #15803d; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #86efac;">✅ Hợp lệ</span>'
+        )
+    conflict_of_interest_status.short_description = "COI Status"
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.panel:
+            sup_group = SupervisorOfStudentGroup.objects.filter(project=obj).first()
+            if sup_group and sup_group.supervisor:
+                sup_user = sup_group.supervisor.user
+                if obj.panel.committee_member.filter(user=sup_user).exists():
+                    messages.warning(
+                        request,
+                        f"⚠️ CẢNH BÁO XUNG ĐỘT LỢI ÍCH (Conflict of Interest): Giảng viên hướng dẫn {sup_user.get_full_name()} là thành viên trong Panel {obj.panel.name} được phân công!"
+                    )
 
 
 @admin.register(SupervisorOfStudentGroup)
@@ -1478,3 +1512,186 @@ class EvaluationScheduleAdmin(admin.ModelAdmin):
     def mark_postponed(self, request, queryset):
         count = queryset.update(status='postponed')
         self.message_user(request, f'{count} schedules marked as postponed.')
+
+
+# ==================== Bug Report & UTC Council Admin ====================
+
+
+@admin.register(SystemBugReport)
+class SystemBugReportAdmin(admin.ModelAdmin):
+    list_display = ['id', 'title', 'user', 'status', 'page_url', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['title', 'description', 'user__username', 'page_url']
+    readonly_fields = ['created_at', 'updated_at', 'screenshot_preview']
+    list_editable = ['status']
+    ordering = ['-created_at']
+
+    def screenshot_preview(self, obj):
+        if obj.screenshot:
+            return format_html(
+                '<a href="{0}" target="_blank"><img src="{0}" style="max-height: 200px; max-width: 400px; border-radius: 6px; border: 1px solid #ccc;"/></a>',
+                obj.screenshot.url
+            )
+        return "Không có ảnh đính kèm"
+    screenshot_preview.short_description = "Ảnh chụp màn hình"
+# ==============================================================================
+# UTC GRADUATION & DEFENSE COUNCIL ADMIN
+# ==============================================================================
+
+@admin.register(AcademicBatch)
+class AcademicBatchAdmin(admin.ModelAdmin):
+    list_display = ["batch_code", "batch_name", "is_active", "start_date", "end_date", "created_at"]
+    list_filter = ["is_active"]
+    search_fields = ["batch_code", "batch_name"]
+
+
+class CouncilMemberInline(admin.TabularInline):
+    model = CouncilMember
+    extra = 1
+    fields = ["user", "role", "supervisor", "external_institution"]
+
+
+@admin.register(DefenseCouncil)
+class DefenseCouncilAdmin(admin.ModelAdmin):
+    list_display = [
+        "council_number",
+        "council_name",
+        "batch",
+        "defense_room",
+        "session_date",
+        "session_time",
+        "get_members_count",
+        "get_projects_count",
+        "conflict_of_interest_status",
+    ]
+    list_filter = ["batch", "session_date", "session_time"]
+    search_fields = ["council_name", "defense_room"]
+    inlines = [CouncilMemberInline]
+    actions = ["check_conflicts_action", "send_defense_schedule_email_action"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.session_date:
+            try:
+                NotificationService.notify_defense_scheduled_emails(obj)
+            except Exception:
+                pass
+
+    @admin.action(description='Gửi email thông báo lịch bảo vệ UTC cho Hội đồng này')
+    def send_defense_schedule_email_action(self, request, queryset):
+        for council in queryset:
+            NotificationService.notify_defense_scheduled_emails(council)
+        self.message_user(request, f'Đã kích hoạt gửi email thông báo lịch bảo vệ cho {queryset.count()} hội đồng.')
+
+    def get_members_count(self, obj):
+        return obj.members.count()
+    get_members_count.short_description = "Thành viên"
+
+    def get_projects_count(self, obj):
+        return obj.projects.count()
+    get_projects_count.short_description = "Đồ án"
+
+    def conflict_of_interest_status(self, obj):
+        res = CouncilConflictService.check_council_conflicts(council_id=obj.id)
+        if res["has_conflict"]:
+            count = res["total_conflicts"]
+            details = "\n".join(c["message"] for c in res["conflicts"])
+            return format_html(
+                '<span style="background-color: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #f87171;" title="{}">⚠️ Có xung đột ({})</span>',
+                details,
+                count
+            )
+        return format_html(
+            '<span style="background-color: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #86efac;">✅ Hợp lệ</span>'
+        )
+    conflict_of_interest_status.short_description = "Xung đột lợi ích (COI)"
+
+    @admin.action(description="Kiểm tra Xung đột Lợi ích (Conflict of Interest)")
+    def check_conflicts_action(self, request, queryset):
+        total_conflicts = 0
+        report_lines = []
+        for council in queryset:
+            res = CouncilConflictService.check_council_conflicts(council_id=council.id)
+            if res["has_conflict"]:
+                total_conflicts += res["total_conflicts"]
+                for c in res["conflicts"]:
+                    report_lines.append(f"[{council.council_name}] {c['message']}")
+
+        if total_conflicts > 0:
+            self.message_user(
+                request,
+                f"Phát hiện {total_conflicts} trường hợp xung đột lợi ích:\n" + " | ".join(report_lines[:5]),
+                level=messages.WARNING
+            )
+        else:
+            self.message_user(
+                request,
+                "Tất cả các hội đồng được chọn đều hợp lệ, không có xung đột lợi ích nào!",
+                level=messages.SUCCESS
+            )
+
+
+@admin.register(CouncilMember)
+class CouncilMemberAdmin(admin.ModelAdmin):
+    list_display = ["council", "user", "role", "supervisor", "external_institution"]
+    list_filter = ["council__batch", "council", "role"]
+    search_fields = ["user__first_name", "user__last_name", "user__username", "council__council_name"]
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        conflicts = CouncilConflictService.check_member_assignment(obj.council, obj.user, obj.supervisor)
+        if conflicts:
+            messages.warning(
+                request,
+                f"⚠️ CẢNH BÁO XUNG ĐỘT LỢI ÍCH (Conflict of Interest): {conflicts[0]['message']}"
+            )
+
+
+@admin.register(GraduationProject)
+class GraduationProjectAdmin(admin.ModelAdmin):
+    list_display = [
+        "student",
+        "topic_title_vi",
+        "supervisor",
+        "reviewer",
+        "council",
+        "status",
+        "defense_status",
+        "conflict_of_interest_status",
+    ]
+    list_filter = ["batch", "status", "defense_status", "council"]
+    search_fields = [
+        "student__registration_no",
+        "student__user__first_name",
+        "student__user__last_name",
+        "topic_title_vi",
+        "topic_title_en"
+    ]
+    readonly_fields = ["created_at", "updated_at"]
+
+    def conflict_of_interest_status(self, obj):
+        if not obj.council:
+            return format_html('<span style="color: #64748b;">Chưa xếp HĐ</span>')
+        conflicts = CouncilConflictService.check_project_assignment(obj.council, obj)
+        if conflicts:
+            types = ", ".join(set(c["conflict_type"] for c in conflicts))
+            return format_html(
+                '<span style="background-color: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #f87171;" title="{}">⚠️ Xung đột ({})</span>',
+                conflicts[0]["message"],
+                types
+            )
+        return format_html(
+            '<span style="background-color: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #86efac;">✅ Hợp lệ</span>'
+        )
+    conflict_of_interest_status.short_description = "Xung đột lợi ích (COI)"
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.council:
+            conflicts = CouncilConflictService.check_project_assignment(obj.council, obj)
+            if conflicts:
+                messages.warning(
+                    request,
+                    f"⚠️ CẢNH BÁO XUNG ĐỘT LỢI ÍCH: {conflicts[0]['message']} trong {obj.council.council_name}."
+                )
+

@@ -1026,3 +1026,25 @@ body {
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
 }
+
+/* ==================== Global Print Styles ==================== */
+@media print {
+  nav,
+  header,
+  aside,
+  footer,
+  .navbar,
+  .utc-header,
+  .utc-sidebar,
+  .utc-top-header,
+  .btn,
+  button,
+  .toast-portal-container,
+  .global-search-container,
+  .chat-room-card,
+  .chat-room,
+  .search-filter-container,
+  .fab {
+    display: none !important;
+  }
+}

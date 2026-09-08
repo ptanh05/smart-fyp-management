@@ -5,6 +5,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
+import BugReportModal from './BugReportModal';
+import GlobalSearchBar from './GlobalSearchBar';
 import './Navbar.css';
 
 interface NavbarProps {
@@ -15,6 +17,7 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const { t, i18n } = useTranslation();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showBugReport, setShowBugReport] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { toggleTheme, isDark } = useTheme();
   const navigate = useNavigate();
@@ -104,6 +107,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             <span className="navbar-brand-short">UTC FYP</span>
           </div>
 
+          {/* Global Search Bar (Desktop) */}
+          <div className="navbar-search-wrapper navbar-desktop">
+            <GlobalSearchBar />
+          </div>
+
           {/* Mobile hamburger button */}
           <button
             className="navbar-toggle"
@@ -140,6 +148,14 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               {isDark ? '☀️' : '🌙'}
             </button>
             <button
+              className="btn btn-outline btn-bug-report"
+              onClick={() => setShowBugReport(true)}
+              title="Báo lỗi hệ thống / Gửi phản hồi kèm ảnh"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', borderColor: '#f59e0b', color: isDark ? '#fbbf24' : '#b45309' }}
+            >
+              <span>🐞</span> Báo lỗi
+            </button>
+            <button
               className="btn btn-outline"
               onClick={() => setShowChangePassword(true)}
               title={t('nav.changePassword', 'Đổi Mật Khẩu')}
@@ -163,6 +179,9 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               </div>
             </div>
             <div className="mobile-menu-divider"></div>
+            <div className="mobile-menu-item mobile-search-container" style={{ padding: '6px 12px' }}>
+              <GlobalSearchBar placeholder="Tìm kiếm nhanh... (Ctrl+K)" />
+            </div>
             <div className="mobile-menu-item">
               <NotificationDropdown onNavigate={handleNotificationNavigate} />
             </div>
@@ -173,6 +192,15 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               }}
             >
               {isDark ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            </button>
+            <button
+              className="mobile-menu-item mobile-menu-button"
+              onClick={() => {
+                setShowBugReport(true);
+                setMobileMenuOpen(false);
+              }}
+            >
+              🐞 Báo lỗi hệ thống
             </button>
             <button
               className="mobile-menu-item mobile-menu-button"
@@ -205,6 +233,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
       <ChangePasswordModal
         isOpen={showChangePassword}
         onClose={() => setShowChangePassword(false)}
+      />
+
+      <BugReportModal
+        isOpen={showBugReport}
+        onClose={() => setShowBugReport(false)}
       />
     </>
   );
