@@ -8,7 +8,10 @@ from app.models import (
     CommitteeMember,
     CustomUser,
     Group,
+    GroupMember,
+    GroupJoinRequest,
     GroupCreationComment,
+    AcademicBatch,
     ProjectCategories,
     Project,
     SupervisorStudentComments,
@@ -67,9 +70,17 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     user = CustomUserSerializer(read_only=True)
     group_id = serializers.SerializerMethodField(read_only=True)
     groupmate_id = serializers.SerializerMethodField(read_only=True)
+    has_group = serializers.SerializerMethodField(read_only=True)
+    my_group_name = serializers.SerializerMethodField(read_only=True)
     external_evaluation = serializers.SerializerMethodField(read_only=True)
 
     def get_group_id(self, obj):
+        # Check supervisor group via GroupMember
+        membership = GroupMember.objects.filter(student=obj).first()
+        if membership:
+            sg = SupervisorOfStudentGroup.objects.filter(group=membership.group, status="accepted").first()
+            if sg:
+                return sg.id
         group = SupervisorOfStudentGroup.objects.filter(
             Q(group__student_1=obj) | Q(group__student_2=obj),
             status="accepted",
@@ -77,11 +88,30 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         return group.id if group else None
 
     def get_groupmate_id(self, obj):
+        # Check if student is in any active group via GroupMember
+        membership = GroupMember.objects.filter(student=obj).first()
+        if membership:
+            return membership.group.id
         group = Group.objects.filter(
             Q(student_1=obj) | Q(student_2=obj),
             status="accepted",
         ).first()
         return group.id if group else None
+
+    def get_has_group(self, obj):
+        return bool(self.get_groupmate_id(obj))
+
+    def get_my_group_name(self, obj):
+        membership = GroupMember.objects.filter(student=obj).select_related("group").first()
+        if membership:
+            return membership.group.group_name or f"Nhóm #{membership.group.id}"
+        group = Group.objects.filter(
+            Q(student_1=obj) | Q(student_2=obj),
+            status="accepted",
+        ).first()
+        if group:
+            return group.group_name or f"Nhóm #{group.id}"
+        return None
 
     def get_external_evaluation(self, obj):
         """Get external evaluation status if exists."""
@@ -121,6 +151,8 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             "batch_no",
             "group_id",
             "groupmate_id",
+            "has_group",
+            "my_group_name",
             "external_evaluation",
         ]
 
@@ -1488,6 +1520,127 @@ class EvaluationScheduleCreateSerializer(serializers.ModelSerializer):
                 })
         return attrs
 
+
+class GroupMemberSerializer(serializers.ModelSerializer):
+    student = StudentProfileSerializer(read_only=True)
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+
+    class Meta:
+        model = GroupMember
+        fields = ["id", "student", "role", "role_display", "joined_at"]
+
+
+class GroupJoinRequestSerializer(serializers.ModelSerializer):
+    student = StudentProfileSerializer(read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    group_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = GroupJoinRequest
+        fields = [
+            "id",
+            "group",
+            "group_name",
+            "student",
+            "message",
+            "status",
+            "status_display",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_group_name(self, obj):
+        return obj.group.group_name or f"Nhóm #{obj.group.id}"
+
+
+class ProjectGroupSerializer(serializers.ModelSerializer):
+    leader = StudentProfileSerializer(read_only=True)
+    academic_batch_name = serializers.SerializerMethodField(read_only=True)
+    members = GroupMemberSerializer(many=True, read_only=True)
+    current_members_count = serializers.IntegerField(read_only=True)
+    is_full = serializers.BooleanField(read_only=True)
+    topic_status_display = serializers.CharField(source="get_topic_status_display", read_only=True)
+    join_requests = serializers.SerializerMethodField(read_only=True)
+    my_join_request = serializers.SerializerMethodField(read_only=True)
+    is_my_group = serializers.SerializerMethodField(read_only=True)
+    my_role = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Group
+        fields = [
+            "id",
+            "group_name",
+            "academic_batch",
+            "academic_batch_name",
+            "leader",
+            "max_members",
+            "current_members_count",
+            "is_recruiting",
+            "is_full",
+            "tentative_topic",
+            "tentative_description",
+            "topic_status",
+            "topic_status_display",
+            "topic_revision_notes",
+            "members",
+            "join_requests",
+            "my_join_request",
+            "is_my_group",
+            "my_role",
+        ]
+
+    def get_academic_batch_name(self, obj):
+        return str(obj.academic_batch) if obj.academic_batch else ""
+
+    def get_join_requests(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            try:
+                student = Student.objects.get(user=request.user)
+                if (obj.leader == student) or (obj.student_1 == student):
+                    requests = obj.join_requests.filter(status="PENDING").order_by("-created_at")
+                    return GroupJoinRequestSerializer(requests, many=True, context=self.context).data
+            except Student.DoesNotExist:
+                pass
+        return []
+
+    def get_my_join_request(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            try:
+                student = Student.objects.get(user=request.user)
+                join_req = obj.join_requests.filter(student=student).order_by("-created_at").first()
+                if join_req:
+                    return GroupJoinRequestSerializer(join_req, context=self.context).data
+            except Student.DoesNotExist:
+                pass
+        return None
+
+    def get_is_my_group(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            try:
+                student = Student.objects.get(user=request.user)
+                return obj.members.filter(student=student).exists() or obj.student_1 == student or obj.student_2 == student
+            except Student.DoesNotExist:
+                pass
+        return False
+
+    def get_my_role(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            try:
+                student = Student.objects.get(user=request.user)
+                m = obj.members.filter(student=student).first()
+                if m:
+                    return m.role
+                if obj.student_1 == student or obj.leader == student:
+                    return "LEADER"
+                if obj.student_2 == student:
+                    return "MEMBER"
+            except Student.DoesNotExist:
+                pass
+        return None
 
 class SystemBugReportSerializer(serializers.ModelSerializer):
     """Serializer cho module báo lỗi hệ thống kèm kiểm tra nhị phân ảnh chụp màn hình"""
