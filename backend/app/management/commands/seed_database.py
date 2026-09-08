@@ -99,16 +99,13 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("  - Superuser 'admin' already exists"))
 
     def create_project_categories(self):
-        """Create project categories tailored for UTC faculties"""
+        """Create project categories tailored for UTC Faculty of Information Technology departments"""
         categories_data = [
-            "Khoa CNTT - Hệ thống Thông tin & Khoa học Dữ liệu",
-            "Khoa CNTT - Công nghệ Phần mềm & Trí tuệ Nhân tạo",
-            "Khoa Điện-Điện tử - Tự động hóa Giao thông",
-            "Khoa Điện-Điện tử - Hệ thống Điện & Viễn thông",
-            "Khoa Cầu đường - Kỹ thuật Hạ tầng Giao thông",
-            "Khoa Vận tải Kinh tế - Logistics & Chuỗi Cung ứng",
-            "Khoa Cơ khí - Đầu máy Toa xe & Kỹ thuật Ô tô",
-            "Khoa Quản lý Dự án Giao thông & Hạ tầng",
+            "Bộ môn Công nghệ Phần mềm (CNPM)",
+            "Bộ môn Hệ thống Thông tin & Mạng máy tính",
+            "Bộ môn Khoa học Máy tính & Trí tuệ Nhân tạo",
+            "Chương trình Kỹ sư CLC CNTT Việt - Anh",
+            "Bộ môn Tin học Cơ sở & Kỹ thuật Dữ liệu",
         ]
         
         categories = []
@@ -116,12 +113,16 @@ class Command(BaseCommand):
             cat, created = ProjectCategories.objects.get_or_create(category_name=name)
             categories.append(cat)
         
-        self.stdout.write(self.style.SUCCESS(f"  [OK] Created {len(categories)} UTC project categories"))
+        self.stdout.write(self.style.SUCCESS(f"  [OK] Created {len(categories)} UTC FIT project categories"))
         return categories
 
     def create_committee_panels(self):
-        """Create committee member panels"""
-        panels_data = ["Hội đồng A - CNTT & Tự động hóa", "Hội đồng B - Cầu đường & Hạ tầng", "Hội đồng C - Vận tải & Logistics"]
+        """Create committee member panels for Faculty of IT"""
+        panels_data = [
+            "Hội đồng 01 - Công nghệ Phần mềm & HTTT",
+            "Hội đồng 02 - Khoa học Máy tính & AI",
+            "Hội đồng 03 - Mạng Máy tính & CLC Việt - Anh"
+        ]
         
         panels = []
         for name in panels_data:
@@ -132,19 +133,19 @@ class Command(BaseCommand):
         return panels
 
     def create_students(self):
-        """Create student users with UTC registration numbers and emails"""
+        """Create student users with UTC registration numbers and emails (Khoa CNTT)"""
         students_data = [
             # (username, email, first_name, last_name, reg_no, department, semester, batch)
             ("student1", "201200101@sv.utc.edu.vn", "Văn A", "Nguyen", "201200101", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
             ("student2", "201200102@sv.utc.edu.vn", "Thị B", "Tran", "201200102", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
             ("student3", "201200103@sv.utc.edu.vn", "Văn C", "Le", "201200103", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
             ("student4", "201200104@sv.utc.edu.vn", "Thị D", "Pham", "201200104", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
-            ("student5", "201200105@sv.utc.edu.vn", "Văn E", "Hoang", "201200105", "Khoa Điện - Điện tử", "semester_7", "K61"),
-            ("student6", "201200106@sv.utc.edu.vn", "Thị F", "Vu", "201200106", "Khoa Điện - Điện tử", "semester_7", "K61"),
-            ("student7", "201200107@sv.utc.edu.vn", "Văn G", "Do", "201200107", "Khoa Cầu đường", "semester_7", "K61"),
-            ("student8", "201200108@sv.utc.edu.vn", "Thị H", "Bui", "201200108", "Khoa Cầu đường", "semester_7", "K61"),
-            ("student9", "201100109@sv.utc.edu.vn", "Văn I", "Dang", "201100109", "Khoa Vận tải - Kinh tế", "semester_8", "K60"),
-            ("student10", "201100110@sv.utc.edu.vn", "Thị K", "Ngo", "201100110", "Khoa Vận tải - Kinh tế", "semester_8", "K60"),
+            ("student5", "201200105@sv.utc.edu.vn", "Văn E", "Hoang", "201200105", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
+            ("student6", "201200106@sv.utc.edu.vn", "Thị F", "Vu", "201200106", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
+            ("student7", "201200107@sv.utc.edu.vn", "Văn G", "Do", "201200107", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
+            ("student8", "201200108@sv.utc.edu.vn", "Thị H", "Bui", "201200108", "Khoa Công nghệ Thông tin", "semester_7", "K61"),
+            ("student9", "201100109@sv.utc.edu.vn", "Văn I", "Dang", "201100109", "Khoa Công nghệ Thông tin", "semester_8", "K60"),
+            ("student10", "201100110@sv.utc.edu.vn", "Thị K", "Ngo", "201100110", "Khoa Công nghệ Thông tin", "semester_8", "K60"),
         ]
         
         students = []
@@ -272,11 +273,11 @@ class Command(BaseCommand):
         """Create student groups"""
         groups_data = [
             # (student1_idx, student2_idx, category_idx, status)
-            (0, 1, 0, "accepted"),   # Group 1 - Khoa CNTT
-            (2, 3, 1, "accepted"),   # Group 2 - Khoa CNTT AI
-            (4, 5, 2, "accepted"),   # Group 3 - Khoa Điện - Điện tử
-            (6, 7, 4, "accepted"),   # Group 4 - Khoa Cầu đường
-            (8, 9, 5, "pending"),    # Group 5 - Khoa Vận tải - Logistics
+            (0, 1, 0, "accepted"),   # Group 1 - CNPM
+            (2, 3, 1, "accepted"),   # Group 2 - HTTT & Mạng
+            (4, 5, 2, "accepted"),   # Group 3 - KHMT & AI
+            (6, 7, 3, "accepted"),   # Group 4 - CLC Việt - Anh
+            (8, 9, 4, "pending"),    # Group 5 - Tin học Cơ sở
         ]
         
         groups = []
@@ -295,43 +296,43 @@ class Command(BaseCommand):
         return groups
 
     def create_projects(self, categories):
-        """Create projects"""
+        """Create projects for Faculty of IT"""
         projects_data = [
             # (name, description, language, functionalities, category_idx)
             (
-                "Hệ thống Quản lý Đồ án Smart FYP UTC",
-                "Hệ thống số hóa quy trình quản lý vòng đời đồ án tốt nghiệp dành cho Trường Đại học Giao thông Vận tải.",
+                "Hệ thống Quản lý Đồ án Tốt nghiệp Smart FYP Khoa CNTT",
+                "Hệ thống số hóa quy trình quản lý vòng đời đồ án tốt nghiệp dành cho Khoa Công nghệ Thông tin - UTC.",
                 "Python, Django, React, TypeScript",
                 "Xác thực vai trò, Quản lý nhóm đồ án, Duyệt đề tài, Nộp tài liệu, Đánh giá hội đồng",
-                0  # Khoa CNTT - Hệ thống Thông tin
+                0  # Bộ môn Công nghệ Phần mềm
             ),
             (
-                "Hệ thống Giám sát & Nhận diện Biển số Xe Giao thông",
-                "Hệ thống xử lý ảnh và trí tuệ nhân tạo nhận diện biển số xe thông minh phục vụ quản lý giao thông đô thị.",
-                "Python, OpenCV, TensorFlow, FastAPI",
+                "Nền tảng Giám sát & Quản lý Hạ tầng Mạng UTC",
+                "Hệ thống giám sát tình trạng thiết bị mạng và quản lý băng thông nội bộ Trường ĐHGTVT.",
+                "Python, FastAPI, React, Docker",
+                "Giám sát SNMP, Phân tích lưu lượng mạng, Cảnh báo sự cố thời gian thực",
+                1  # Bộ môn HTTT & Mạng
+            ),
+            (
+                "Hệ thống Nhận diện Biển số Xe Thông minh bằng Deep Learning",
+                "Hệ thống xử lý ảnh và trí tuệ nhân tạo nhận diện biển số xe thông minh phục vụ quản lý phương tiện giao thông.",
+                "Python, OpenCV, PyTorch, FastAPI",
                 "Nhận diện biển số, Phân tích mật độ xe, Báo cáo thống kê, Cảnh báo vi phạm",
-                1  # Khoa CNTT - AI
+                2  # Bộ môn KHMT & AI
             ),
             (
-                "Hệ thống Điều khiển Đèn Giao thông Thông minh IoT",
-                "Giải pháp tự động điều chỉnh chu kỳ đèn giao thông theo mật độ dòng xe thực tế qua cảm biến IoT.",
-                "C++, Embedded C, React Native, Python",
+                "Hệ thống Điều khiển Đèn Giao thông Thông minh IoT & Edge Computing",
+                "Giải pháp tự động điều chỉnh chu kỳ đèn giao thông theo mật độ dòng xe thực tế qua cảm biến IoT và AI Edge.",
+                "C++, Embedded Linux, React Native, Python",
                 "Thu thập dữ liệu cảm biến, Thuật toán điều phối luồng xe, Giám sát thời gian thực",
-                2  # Khoa Điện-Điện tử
+                3  # Kỹ sư CLC CNTT Việt - Anh
             ),
             (
-                "Phần mềm Quản lý & Bảo trì Công trình Cầu đường",
-                "Ứng dụng quản lý lịch trình bảo dưỡng, kiểm định kết cấu cầu đường và hạ tầng giao thông.",
-                "Python, PostgreSQL, React",
-                "Quản lý hồ sơ công trình, Cảnh báo hỏng hóc, Lập kế hoạch bảo trì, Xuất báo cáo kỹ thuật",
-                4  # Khoa Cầu đường
-            ),
-            (
-                "Hệ thống Quản trị Chuỗi Cung ứng & Logistics Vận tải",
-                "Nền tảng tối ưu hóa tuyến đường vận chuyển container và theo dõi hành trình xe tải đường dài.",
-                "Python, D3.js, PostgreSQL",
-                "Tối ưu tuyến đường, Theo dõi GPS, Quản lý kho bãi, Tính toán chi phí vận tải",
-                5  # Khoa Vận tải Kinh tế
+                "Hệ thống Dự báo Nhu cầu Vận tải Đa phương thức bằng Kỹ thuật Dữ liệu",
+                "Nền tảng phân tích dữ liệu lớn dự báo nhu cầu vận tải và luồng hành khách giao thông đô thị.",
+                "Python, Spark, Scikit-learn, React",
+                "Mô hình học máy dự báo, Trực quan hóa dữ liệu, Báo cáo xu hướng vận tải",
+                4  # Bộ môn Tin học Cơ sở & Kỹ thuật Dữ liệu
             ),
         ]
         

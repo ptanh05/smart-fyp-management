@@ -31,6 +31,21 @@ class ErrorBoundary extends Component<Props, State> {
     // Log the error to console (could be sent to error reporting service)
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
+
+    // Auto-reload on chunk load error after new Vercel deployment
+    const isChunkLoadError =
+      error?.message?.includes('Failed to fetch dynamically imported module') ||
+      error?.message?.includes('Importing a module script failed') ||
+      error?.message?.includes('error loading dynamically imported module');
+
+    if (isChunkLoadError) {
+      const storageKey = 'vite_chunk_reload_' + window.location.pathname;
+      const lastReload = sessionStorage.getItem(storageKey);
+      if (!lastReload || Date.now() - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem(storageKey, Date.now().toString());
+        window.location.reload();
+      }
+    }
   }
 
   handleRetry = (): void => {

@@ -54,6 +54,17 @@ const SupervisorDashboard: React.FC = () => {
     }
   }, [activeTab]);
 
+  // Auto-sync when internet reconnects without page reload
+  useEffect(() => {
+    const handleOnlineSync = () => {
+      loadData();
+    };
+    window.addEventListener('app:online-sync', handleOnlineSync);
+    return () => {
+      window.removeEventListener('app:online-sync', handleOnlineSync);
+    };
+  }, []);
+
   const loadData = async () => {
     try {
       setLoading(true);

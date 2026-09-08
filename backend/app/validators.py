@@ -322,125 +322,171 @@ def model_validate_no_html(value: str):
         )
 
 
-def validate_uploaded_file(file_obj):
+def validate_uploaded_file(file_obj, allowed_extensions=None, max_size_bytes=52428800):
     """
-    Validate uploaded files for:
-    - Maximum file size (25MB)
-    - Safe file extension (pdf, doc, docx, ppt, pptx, zip, rar, xls, xlsx, txt)
-    - Path safety / double extension checks
+    Validate uploaded files at binary level:
+    - Maximum file size (default 50MB)
+    - Safe file extension check
+    - Path safety / directory traversal checks
     - Content-based magic bytes & binary signature inspection
+    - Strict rejection of executable binaries (PE/ELF/Mach-O) and script payloads
     """
     if not file_obj:
         return file_obj
 
-    # 1. File Size Check (25 MB max)
-    MAX_SIZE = 25 * 1024 * 1024
-    if file_obj.size > MAX_SIZE:
-        raise serializers.ValidationError("File size exceeds maximum limit of 25MB.")
+    # 1. File Size Check (Default 50 MB)
+    if hasattr(file_obj, "size") and file_obj.size > max_size_bytes:
+        max_mb = max_size_bytes // (1024 * 1024)
+        raise serializers.ValidationError(f"Kích thước tệp vượt quá giới hạn cho phép ({max_mb}MB).")
 
     # 2. Extension Check
-    ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".zip", ".rar", ".xls", ".xlsx", ".txt"}
     import os
-    ext = os.path.splitext(file_obj.name)[1].lower()
+    ext = os.path.splitext(file_obj.name)[1].lower() if file_obj.name else ""
     
-    if ext not in ALLOWED_EXTENSIONS:
+    DEFAULT_ALLOWED_EXTENSIONS = {
+        ".pdf", ".doc", ".docx", ".ppt", ".pptx",
+        ".zip", ".rar", ".xls", ".xlsx", ".txt",
+        ".png", ".jpg", ".jpeg", ".webp"
+    }
+    allowed = set(allowed_extensions) if allowed_extensions else DEFAULT_ALLOWED_EXTENSIONS
+
+    if ext not in allowed:
         raise serializers.ValidationError(
-            f"File extension '{ext}' is not allowed. Allowed types: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+            f"Định dạng tệp '{ext}' không được hỗ trợ. Các định dạng cho phép: {', '.join(sorted(allowed))}"
         )
 
     # 3. Path traversal / Double extension check
     base_name = os.path.basename(file_obj.name)
     if ".." in base_name or "/" in base_name or "\\" in base_name:
-        raise serializers.ValidationError("Invalid file name.")
+        raise serializers.ValidationError("Tên tệp không hợp lệ.")
 
     # 4. Read header bytes for Magic Byte Inspection
+    header = b""
     try:
         if hasattr(file_obj, "seek"):
             file_obj.seek(0)
-        header = file_obj.read(2048) if hasattr(file_obj, "read") else b""
+        header = file_obj.read(4096) if hasattr(file_obj, "read") else b""
         if hasattr(file_obj, "seek"):
             file_obj.seek(0)
     except Exception:
-        raise serializers.ValidationError("Unable to read file content.")
+        raise serializers.ValidationError("Không thể đọc nội dung tệp tin.")
 
     if not header:
         if ext != ".txt":
-            raise serializers.ValidationError("File content is empty.")
+            raise serializers.ValidationError("Nội dung tệp tin trống (0 bytes).")
         return file_obj
 
-    # Explicitly block known executable / binary payload signatures regardless of extension
+    # 5. Strictly block known executable / script binary signatures regardless of extension
     BLOCKED_MAGIC_SIGNATURES = [
-        b"MZ",                     # Windows PE Executable / DLL
-        b"\x7fELF",                # Linux ELF Executable
-        b"\xca\xfe\xba\xbe",        # Mach-O / Java Class File
-        b"\xfe\xed\xfa\xce",        # Mach-O 32-bit
-        b"\xfe\xed\xfa\xcf",        # Mach-O 64-bit
+        (b"MZ", "Windows Executable/DLL (.exe/.dll)"),
+        (b"\x7fELF", "Linux/Unix ELF Executable"),
+        (b"\xca\xfe\xba\xbe", "Java Class/Mach-O Binary"),
+        (b"\xfe\xed\xfa\xce", "Mach-O 32-bit Binary"),
+        (b"\xfe\xed\xfa\xcf", "Mach-O 64-bit Binary"),
+        (b"\xce\xfa\xed\xfe", "Mach-O Reverse Endian"),
+        (b"\xcf\xfa\xed\xfe", "Mach-O Reverse Endian 64-bit"),
+        (b"#!", "Shell Script / Executable Script"),
+        (b"MSCF", "Microsoft Cabinet File (.cab)"),
+        (b"\x4c\x00\x00\x00", "Windows Shortcut (.lnk)"),
+        (b"regf", "Windows Registry Hive"),
     ]
-    for sig in BLOCKED_MAGIC_SIGNATURES:
+    for sig, desc in BLOCKED_MAGIC_SIGNATURES:
         if header.startswith(sig):
-            raise serializers.ValidationError("Executable or malicious file binary content detected.")
+            raise serializers.ValidationError(
+                f"Phát hiện tệp thực thi hoặc nhị phân nguy hiểm ({desc}). Hệ thống từ chối lưu trữ."
+            )
 
-    # Magic byte validation per extension
+    # Check for embedded script payloads disguised as documents
+    header_lower = header.lower()
+    if ext in [".pdf", ".doc", ".docx", ".ppt", ".pptx", ".txt"]:
+        dangerous_script_tags = [b"<?php", b"<script", b"<html", b"<%"]
+        for tag in dangerous_script_tags:
+            if tag in header_lower[:512]:
+                raise serializers.ValidationError(
+                    "Tệp chứa mã kịch bản thực thi nguy hiểm (PHP/HTML/Script). Hệ thống từ chối lưu trữ."
+                )
+
+    # 6. Magic byte validation per extension
     if ext == ".pdf":
         if not header.startswith(b"%PDF-"):
-            raise serializers.ValidationError("Invalid PDF file header. File content does not match .pdf format.")
+            raise serializers.ValidationError("Tiêu đề tệp PDF không hợp lệ (Missing %PDF- header). Tệp có thể đã bị hỏng hoặc đổi đuôi giả mạo.")
 
     elif ext in [".zip", ".docx", ".xlsx", ".pptx"]:
         # ZIP archive signature (PK\x03\x04 or PK\x05\x06 or PK\x07\x08)
         if not (header.startswith(b"PK\x03\x04") or header.startswith(b"PK\x05\x06") or header.startswith(b"PK\x07\x08")):
-            raise serializers.ValidationError(f"Invalid file header for '{ext}'. File content is not a valid ZIP-compressed document.")
+            raise serializers.ValidationError(f"Tiêu đề tệp '{ext}' không hợp lệ. Tệp không phải là tài liệu chuẩn nén ZIP.")
 
-        if ext == ".zip":
-            import zipfile
-            try:
-                if hasattr(file_obj, "seek"):
-                    file_obj.seek(0)
-                if zipfile.is_zipfile(file_obj):
-                    file_obj.seek(0)
-                    with zipfile.ZipFile(file_obj) as zf:
-                        total_uncompressed = 0
-                        max_uncompressed_limit = 200 * 1024 * 1024  # 200 MB
-                        for info in zf.infolist():
-                            if ".." in info.filename or info.filename.startswith("/") or info.filename.startswith("\\"):
-                                raise serializers.ValidationError("Archive contains unsafe file path entry.")
-                            total_uncompressed += info.file_size
-                            if total_uncompressed > max_uncompressed_limit:
-                                raise serializers.ValidationError("Decompressed archive size exceeds maximum safety limit (Zip Bomb detected).")
-                if hasattr(file_obj, "seek"):
-                    file_obj.seek(0)
-            except serializers.ValidationError:
-                raise
-            except Exception:
-                pass
+        import zipfile
+        try:
+            if hasattr(file_obj, "seek"):
+                file_obj.seek(0)
+            if zipfile.is_zipfile(file_obj):
+                file_obj.seek(0)
+                with zipfile.ZipFile(file_obj) as zf:
+                    total_uncompressed = 0
+                    max_uncompressed_limit = 300 * 1024 * 1024  # 300 MB
+                    file_names = zf.namelist()
+
+                    # Check Office Open XML structure for docx/xlsx/pptx
+                    if ext in [".docx", ".xlsx", ".pptx"]:
+                        has_content_types = any("[Content_Types].xml" in name for name in file_names)
+                        if not has_content_types:
+                            raise serializers.ValidationError(
+                                f"Tệp '{ext}' không chứa cấu trúc tài liệu Microsoft Office hợp lệ."
+                            )
+
+                    for info in zf.infolist():
+                        if ".." in info.filename or info.filename.startswith("/") or info.filename.startswith("\\"):
+                            raise serializers.ValidationError("Tệp lưu trữ chứa đường dẫn không an toàn.")
+                        total_uncompressed += info.file_size
+                        if total_uncompressed > max_uncompressed_limit:
+                            raise serializers.ValidationError("Kích thước giải nén vượt quá giới hạn an toàn (Phát hiện Zip Bomb).")
+            if hasattr(file_obj, "seek"):
+                file_obj.seek(0)
+        except serializers.ValidationError:
+            raise
+        except Exception:
+            pass
 
     elif ext in [".doc", ".xls", ".ppt"]:
         # OLE Compound File signature: \xd0\xcf\11\xe0\xa1\xb1\x1a\xe1
         OLE_HEADER = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
         if not header.startswith(OLE_HEADER):
-            raise serializers.ValidationError(f"Invalid binary header for '{ext}'. File content does not match Microsoft Office legacy format.")
+            raise serializers.ValidationError(f"Tiêu đề tệp '{ext}' không khớp với định dạng Microsoft Office tiêu chuẩn.")
 
     elif ext == ".rar":
         # RAR signature: Rar!\x1a\x07 (v4 or v5)
         if not header.startswith(b"Rar!\x1a\x07"):
-            raise serializers.ValidationError("Invalid RAR file header. File content does not match .rar format.")
+            raise serializers.ValidationError("Tiêu đề tệp RAR không hợp lệ.")
+
+    elif ext in [".png"]:
+        if not header.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise serializers.ValidationError("Tệp không phải là định dạng ảnh PNG hợp lệ.")
+
+    elif ext in [".jpg", ".jpeg"]:
+        if not header.startswith(b"\xff\xd8\xff"):
+            raise serializers.ValidationError("Tệp không phải là định dạng ảnh JPEG hợp lệ.")
+
+    elif ext in [".webp"]:
+        if not (header.startswith(b"RIFF") and b"WEBP" in header[:16]):
+            raise serializers.ValidationError("Tệp không phải là định dạng ảnh WebP hợp lệ.")
 
     elif ext == ".txt":
-        # Check text file for binary null bytes or non-text control characters
         if b"\x00" in header:
-            raise serializers.ValidationError("Binary content detected in text file.")
-        
-        # Check UTF-8 / text decodability
+            raise serializers.ValidationError("Phát hiện dữ liệu nhị phân trong tệp văn bản .txt.")
         try:
             sample_text = header.decode("utf-8")
         except UnicodeDecodeError:
             try:
                 sample_text = header.decode("latin-1")
             except Exception:
-                raise serializers.ValidationError("Invalid text encoding.")
-        
-        # Reject if text contains high ratio of non-printable control characters
+                raise serializers.ValidationError("Bảng mã văn bản không hợp lệ.")
         non_printable = sum(1 for char in sample_text if ord(char) < 32 and char not in "\n\r\t\f")
         if len(sample_text) > 0 and (non_printable / len(sample_text)) > 0.05:
-            raise serializers.ValidationError("Binary content detected in text file.")
+            raise serializers.ValidationError("Phát hiện dữ liệu nhị phân trong tệp văn bản .txt.")
 
     return file_obj
+
+
+# Alias for backward and forward compatibility
+validate_file_content = validate_uploaded_file

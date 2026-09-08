@@ -35,6 +35,7 @@ from app.models import (
     ExternalGroupAssignment,
     ExternalEvaluation,
     EvaluationSchedule,
+    SystemBugReport,
 )
 from app.validators import (
     validate_chat_message,
@@ -45,6 +46,7 @@ from app.validators import (
     validate_evaluation_comment,
     validate_title,
     validate_no_html,
+    validate_uploaded_file,
     MAX_CHAT_MESSAGE_LENGTH,
     MAX_COMMENT_LENGTH,
     MAX_PROJECT_DESCRIPTION_LENGTH,
@@ -489,36 +491,17 @@ class DocumentSerializer(serializers.ModelSerializer):
         return obj.group.project.project_name
 
     def validate_uploaded_file(self, value):
-        """Validate uploaded file size and type."""
+        """Validate uploaded file size, type, and binary magic bytes."""
         if value is None:
             return value
 
-        # Validate file size
-        if value.size > self.MAX_FILE_SIZE_BYTES:
-            raise serializers.ValidationError(
-                f"File size exceeds maximum allowed size of {self.MAX_FILE_SIZE_MB}MB. "
-                f"Your file is {value.size / (1024 * 1024):.2f}MB."
-            )
-
-        # Get file extension
-        file_name = value.name.lower()
-        file_extension = file_name.split('.')[-1] if '.' in file_name else ''
-
-        # Validate file extension
-        if file_extension not in self.ALLOWED_EXTENSIONS:
-            raise serializers.ValidationError(
-                f"Invalid file type '.{file_extension}'. "
-                f"Allowed file types: {', '.join(self.ALLOWED_EXTENSIONS).upper()}"
-            )
-
-        # Validate content type (if available)
-        content_type = getattr(value, 'content_type', None)
-        if content_type and content_type not in self.ALLOWED_CONTENT_TYPES:
-            # Some browsers may send different content types, so we also check extension
-            # If extension is valid but content type is not recognized, allow it
-            pass
-
-        return value
+        # Validate with comprehensive binary magic byte and executable check
+        allowed_exts = [f".{ext.lower()}" for ext in self.ALLOWED_EXTENSIONS]
+        return validate_uploaded_file(
+            value,
+            allowed_extensions=allowed_exts,
+            max_size_bytes=self.MAX_FILE_SIZE_BYTES
+        )
 
     class Meta:
         model = Document
@@ -619,29 +602,16 @@ class CommitteeMemberTemplatesSerializer(serializers.ModelSerializer):
     )
 
     def validate_uploaded_file(self, value):
-        """Validate uploaded file size and type."""
+        """Validate uploaded file size, type, and binary magic bytes."""
         if value is None:
             return value
 
-        # Validate file size
-        if value.size > self.MAX_FILE_SIZE_BYTES:
-            raise serializers.ValidationError(
-                f"File size exceeds maximum allowed size of {self.MAX_FILE_SIZE_MB}MB. "
-                f"Your file is {value.size / (1024 * 1024):.2f}MB."
-            )
-
-        # Get file extension
-        file_name = value.name.lower()
-        file_extension = file_name.split('.')[-1] if '.' in file_name else ''
-
-        # Validate file extension
-        if file_extension not in self.ALLOWED_EXTENSIONS:
-            raise serializers.ValidationError(
-                f"Invalid file type '.{file_extension}'. "
-                f"Allowed file types: {', '.join(self.ALLOWED_EXTENSIONS).upper()}"
-            )
-
-        return value
+        allowed_exts = [f".{ext.lower()}" for ext in self.ALLOWED_EXTENSIONS]
+        return validate_uploaded_file(
+            value,
+            allowed_extensions=allowed_exts,
+            max_size_bytes=self.MAX_FILE_SIZE_BYTES
+        )
 
     class Meta:
         model = CommitteeMemberTemplates
@@ -669,7 +639,7 @@ class DocumentRequirementSerializer(serializers.ModelSerializer):
             return value
         try:
             if timezone.is_naive(value):
-                value = timezone.make_aware(value, timezone.utc)
+                value = timezone.make_aware(value)
         except (ValueError, TypeError):
             pass
         return value
@@ -1478,3 +1448,43 @@ class EvaluationScheduleCreateSerializer(serializers.ModelSerializer):
                     'end_time': 'End time must be after start time.'
                 })
         return attrs
+
+
+class SystemBugReportSerializer(serializers.ModelSerializer):
+    """Serializer cho module báo lỗi hệ thống kèm kiểm tra nhị phân ảnh chụp màn hình"""
+    username = serializers.CharField(source="user.username", read_only=True)
+    user_full_name = serializers.SerializerMethodField(read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = SystemBugReport
+        fields = [
+            "id",
+            "user",
+            "username",
+            "user_full_name",
+            "title",
+            "description",
+            "page_url",
+            "screenshot",
+            "status",
+            "status_display",
+            "admin_notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "user", "status", "admin_notes", "created_at", "updated_at"]
+
+    def get_user_full_name(self, obj):
+        if obj.user:
+            return obj.user.get_full_name() or obj.user.username
+        return "Khách"
+
+    def validate_screenshot(self, value):
+        if value is None:
+            return value
+        return validate_uploaded_file(
+            value,
+            allowed_extensions=[".png", ".jpg", ".jpeg", ".webp"],
+            max_size_bytes=15 * 1024 * 1024  # 15MB
+        )

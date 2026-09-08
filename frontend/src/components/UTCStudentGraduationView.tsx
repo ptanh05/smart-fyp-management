@@ -5,7 +5,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
 
 export const UTCStudentGraduationView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'survey' | 'project' | 'outline' | 'weekly' | 'grade'>('project');
+  const [activeTab, setActiveTab] = useState<'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade'>('project');
   const [loading, setLoading] = useState(true);
 
   // Survey Data
@@ -38,6 +38,17 @@ export const UTCStudentGraduationView: React.FC = () => {
   const [weekFile, setWeekFile] = useState<File | null>(null);
   const [reportSubmitting, setReportSubmitting] = useState(false);
 
+  // Supervision Meeting Logs & Interactive Task Board Data
+  const [meetingLogs, setMeetingLogs] = useState<any[]>([]);
+  const [tasksData, setTasksData] = useState<{
+    stats: { total: number; completed: number; in_progress: number; todo: number; completion_rate: number };
+    tasks: any[];
+  } | null>(null);
+  const [taskFilter, setTaskFilter] = useState<'ALL' | 'TODO' | 'IN_PROGRESS' | 'COMPLETED'>('ALL');
+  const [selectedTaskForNotes, setSelectedTaskForNotes] = useState<any | null>(null);
+  const [studentNotesInput, setStudentNotesInput] = useState('');
+  const [savingTaskNote, setSavingTaskNote] = useState(false);
+
   const getHeaders = () => {
     const token = localStorage.getItem('access_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -46,10 +57,12 @@ export const UTCStudentGraduationView: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [surveyRes, projRes, weeklyRes] = await Promise.all([
+      const [surveyRes, projRes, weeklyRes, logsRes, tasksRes] = await Promise.all([
         axios.get(`${API_BASE}/student/survey/`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/student/graduation-project/`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/student/weekly-reports/`, { headers: getHeaders() }).catch(() => null),
+        axios.get(`${API_BASE}/student/supervision-logs/`, { headers: getHeaders() }).catch(() => null),
+        axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null),
       ]);
 
       if (surveyRes?.data) {
@@ -74,6 +87,14 @@ export const UTCStudentGraduationView: React.FC = () => {
       if (weeklyRes?.data) {
         setWeeklyReports(weeklyRes.data);
       }
+
+      if (logsRes?.data) {
+        setMeetingLogs(logsRes.data);
+      }
+
+      if (tasksRes?.data) {
+        setTasksData(tasksRes.data);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -84,6 +105,65 @@ export const UTCStudentGraduationView: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleToggleTaskComplete = async (task: any) => {
+    try {
+      const nextCompleted = !task.is_completed;
+      if (tasksData) {
+        const updatedTasks = tasksData.tasks.map((t: any) =>
+          t.id === task.id ? { ...t, is_completed: nextCompleted, status: nextCompleted ? 'COMPLETED' : 'IN_PROGRESS' } : t
+        );
+        const completedCount = updatedTasks.filter((t: any) => t.is_completed).length;
+        setTasksData({
+          ...tasksData,
+          stats: {
+            ...tasksData.stats,
+            completed: completedCount,
+            completion_rate: tasksData.stats.total > 0 ? Math.round((completedCount / tasksData.stats.total) * 1000) / 10 : 0,
+          },
+          tasks: updatedTasks,
+        });
+      }
+
+      await axios.patch(
+        `${API_BASE}/student/tasks/${task.id}/complete/`,
+        { is_completed: nextCompleted },
+        { headers: getHeaders() }
+      );
+      const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
+      if (refreshTasks?.data) setTasksData(refreshTasks.data);
+    } catch (err: any) {
+      alert('Lỗi cập nhật nhiệm vụ: ' + (err.response?.data?.detail || err.message));
+      const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
+      if (refreshTasks?.data) setTasksData(refreshTasks.data);
+    }
+  };
+
+  const handleOpenNotesModal = (task: any) => {
+    setSelectedTaskForNotes(task);
+    setStudentNotesInput(task.student_notes || '');
+  };
+
+  const handleSaveStudentNotes = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTaskForNotes) return;
+    try {
+      setSavingTaskNote(true);
+      await axios.patch(
+        `${API_BASE}/student/tasks/${selectedTaskForNotes.id}/complete/`,
+        { student_notes: studentNotesInput },
+        { headers: getHeaders() }
+      );
+      alert('Đã lưu ghi chú tiến độ nhiệm vụ thành công!');
+      setSelectedTaskForNotes(null);
+      const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
+      if (refreshTasks?.data) setTasksData(refreshTasks.data);
+    } catch (err: any) {
+      alert('Lỗi lưu ghi chú: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setSavingTaskNote(false);
+    }
+  };
 
   const handleSaveSurvey = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,8 +266,9 @@ export const UTCStudentGraduationView: React.FC = () => {
           { key: 'project', label: '1. Đồ án & GVHD', icon: '🎓' },
           { key: 'survey', label: '2. Khảo sát & Nguyện vọng', icon: '📝' },
           { key: 'outline', label: '3. Đề cương ĐATN', icon: '📄' },
-          { key: 'weekly', label: '4. Báo cáo tiến độ (1-15 tuần)', icon: '📅' },
-          { key: 'grade', label: '5. Bảng điểm tổng kết UTC', icon: '🏆' },
+          { key: 'weekly', label: '4. Báo cáo tiến độ tuần', icon: '📅' },
+          { key: 'supervision', label: '5. Nhật ký & Task Board', icon: '📋' },
+          { key: 'grade', label: '6. Bảng điểm tổng kết UTC', icon: '🏆' },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -596,7 +677,289 @@ export const UTCStudentGraduationView: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 5: Final Grade Summary */}
+      {/* Tab 5: Supervision Meeting Logs & Interactive Task Board */}
+      {activeTab === 'supervision' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                  <span>📋</span> Ban Nhiệm Vụ Đồ Án (Task Board) & Tiến Độ Hoàn Thành
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Theo dõi danh sách công việc được GVHD giao, đánh dấu hoàn thành và cập nhật kết quả thực hiện.
+                </p>
+              </div>
+
+              {tasksData?.stats && (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    Tổng số: {tasksData.stats.total} việc
+                  </span>
+                  <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Đã xong: {tasksData.stats.completed}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Bar */}
+            {tasksData?.stats && (
+              <div className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800/80">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-300">Tiến độ hoàn thành nhiệm vụ được giao</span>
+                  <span className="font-bold text-emerald-400 text-sm">
+                    {tasksData.stats.completed} / {tasksData.stats.total} ({tasksData.stats.completion_rate}%)
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 via-teal-400 to-emerald-400 transition-all duration-500"
+                    style={{ width: `${tasksData.stats.completion_rate}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800">
+              <span className="text-xs text-slate-400 font-medium mr-1">Bộ lọc:</span>
+              {[
+                { key: 'ALL', label: 'Tất cả nhiệm vụ' },
+                { key: 'TODO', label: 'Cần làm (Todo)' },
+                { key: 'IN_PROGRESS', label: 'Đang thực hiện' },
+                { key: 'COMPLETED', label: 'Đã hoàn thành' },
+              ].map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setTaskFilter(f.key as any)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+                    taskFilter === f.key
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Task List */}
+            <div className="space-y-3 pt-2">
+              {(() => {
+                const list = tasksData?.tasks || [];
+                const filtered = list.filter((t) => {
+                  if (taskFilter === 'TODO') return !t.is_completed && t.status === 'TODO';
+                  if (taskFilter === 'IN_PROGRESS') return !t.is_completed && t.status === 'IN_PROGRESS';
+                  if (taskFilter === 'COMPLETED') return t.is_completed;
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
+                      {list.length === 0
+                        ? 'Chưa có nhiệm vụ nào được giao từ Giảng viên hướng dẫn.'
+                        : 'Không có nhiệm vụ nào phù hợp với bộ lọc hiện tại.'}
+                    </div>
+                  );
+                }
+
+                return filtered.map((task) => {
+                  const isOverdue = task.due_date && !task.is_completed && new Date(task.due_date) < new Date();
+                  return (
+                    <div
+                      key={task.id}
+                      className={`p-4 rounded-xl border transition flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+                        task.is_completed
+                          ? 'bg-slate-950/60 border-slate-800/80 opacity-80'
+                          : 'bg-slate-950 border-slate-800 hover:border-slate-700 shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3.5 flex-1">
+                        {/* Interactive Checkbox */}
+                        <div className="pt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={task.is_completed}
+                            onChange={() => handleToggleTaskComplete(task)}
+                            className="w-5 h-5 rounded border-slate-700 text-emerald-500 focus:ring-emerald-500/20 bg-slate-900 cursor-pointer accent-emerald-500"
+                            title="Đánh dấu hoàn thành nhiệm vụ"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`text-sm font-semibold transition ${
+                                task.is_completed ? 'line-through text-slate-400' : 'text-slate-100'
+                              }`}
+                            >
+                              {task.title}
+                            </span>
+
+                            {/* Priority Badge */}
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                                task.priority === 'URGENT'
+                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                  : task.priority === 'HIGH'
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  : task.priority === 'LOW'
+                                  ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                                  : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              }`}
+                            >
+                              {task.priority_display || task.priority}
+                            </span>
+
+                            {/* Status Badge */}
+                            {task.is_completed ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                ✅ Hoàn thành
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-500/10 text-blue-300">
+                                {task.status_display || 'Cần làm'}
+                              </span>
+                            )}
+                          </div>
+
+                          {task.description && (
+                            <p className="text-xs text-slate-300 whitespace-pre-line">{task.description}</p>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-1">
+                            <span>
+                              GV giao:{' '}
+                              <b className="text-slate-300">{task.assigned_by_name || 'GVHD'}</b>
+                            </span>
+                            {task.due_date && (
+                              <span className={isOverdue ? 'text-rose-400 font-bold' : ''}>
+                                ⏰ Hạn chót: <b>{task.due_date}</b> {isOverdue && '(Quá hạn)'}
+                              </span>
+                            )}
+                            {task.completed_at && (
+                              <span className="text-emerald-400/80">
+                                Hoàn tất lúc: {new Date(task.completed_at).toLocaleDateString('vi-VN')}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Student Notes Display */}
+                          {task.student_notes && (
+                            <div className="mt-2 p-2.5 rounded bg-blue-950/20 border border-blue-500/20 text-xs text-blue-200">
+                              <span className="font-semibold text-blue-400">📝 Ghi chú / Link kết quả SV:</span>{' '}
+                              {task.student_notes}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action: Add notes */}
+                      <div className="flex items-center gap-2 self-end md:self-center">
+                        <button
+                          onClick={() => handleOpenNotesModal(task)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5"
+                        >
+                          <span>✏️</span>
+                          <span>{task.student_notes ? 'Sửa ghi chú SV' : 'Ghi chú / Nộp link'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+
+          {/* Supervision Meeting Logs Section */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <span>🗓️</span> Nhật Ký Hướng Dẫn Định Kỳ (Supervision Meeting Logs)
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Biên bản ghi nhận các buổi làm việc định kỳ giữa Giảng viên hướng dẫn và Sinh viên.
+              </p>
+            </div>
+
+            {meetingLogs.length === 0 ? (
+              <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
+                Chưa có buổi họp/hướng dẫn nào được ghi nhận từ GVHD.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {meetingLogs.map((log, idx) => (
+                  <div
+                    key={log.id}
+                    className="p-5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition space-y-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-3">
+                        <span className="w-7 h-7 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center text-xs font-bold border border-blue-500/30">
+                          #{meetingLogs.length - idx}
+                        </span>
+                        <div>
+                          <span className="text-sm font-bold text-slate-100">Buổi hướng dẫn: {log.meeting_date}</span>
+                          <span className="text-xs text-slate-400 ml-2">({log.meeting_time})</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
+                            log.meeting_type === 'ONLINE'
+                              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                              : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                          }`}
+                        >
+                          {log.meeting_type_display || (log.meeting_type === 'ONLINE' ? 'Trực tuyến' : 'Gặp trực tiếp')}
+                        </span>
+                        {log.location_or_link && (
+                          <span className="text-xs text-slate-300">
+                            Địa điểm/Link: <b>{log.location_or_link}</b>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <span className="font-semibold text-slate-300">Nội dung trao đổi & tiến độ:</span>
+                        <p className="text-slate-200 mt-1 whitespace-pre-line bg-slate-900/60 p-3 rounded-lg border border-slate-800/60">
+                          {log.content_discussed}
+                        </p>
+                      </div>
+
+                      {log.supervisor_notes && (
+                        <div>
+                          <span className="font-semibold text-emerald-400">Góp ý & Nhận xét của GVHD:</span>
+                          <p className="text-emerald-300/90 mt-1 whitespace-pre-line bg-emerald-950/20 p-3 rounded-lg border border-emerald-500/20">
+                            {log.supervisor_notes}
+                          </p>
+                        </div>
+                      )}
+
+                      {log.next_meeting_plan && (
+                        <div>
+                          <span className="font-semibold text-amber-400">Kế hoạch kỳ tới:</span>
+                          <p className="text-slate-300 mt-1 whitespace-pre-line bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/60">
+                            {log.next_meeting_plan}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 6: Final Grade Summary */}
       {activeTab === 'grade' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6 shadow-xl max-w-3xl">
           <div>
@@ -669,6 +1032,50 @@ export const UTCStudentGraduationView: React.FC = () => {
               Chưa có dữ liệu điểm tổng kết cho đồ án của bạn.
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal: Ghi chú & Nộp link kết quả nhiệm vụ của sinh viên */}
+      {selectedTaskForNotes && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl space-y-4">
+            <div>
+              <span className="text-xs text-blue-400 font-semibold">Cập nhật tiến độ nhiệm vụ</span>
+              <h3 className="text-base font-bold text-slate-100 mt-1">{selectedTaskForNotes.title}</h3>
+            </div>
+
+            <form onSubmit={handleSaveStudentNotes} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">
+                  Ghi chú kết quả, link Github Commit hoặc Drive tài liệu:
+                </label>
+                <textarea
+                  rows={4}
+                  value={studentNotesInput}
+                  onChange={(e) => setStudentNotesInput(e.target.value)}
+                  placeholder="Ví dụ: Đã hoàn thành các chức năng theo yêu cầu, link demo: https://... hoặc commit hash: abc1234"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTaskForNotes(null)}
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingTaskNote}
+                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 disabled:opacity-50"
+                >
+                  {savingTaskNote ? 'Đang lưu...' : 'Lưu ghi chú'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

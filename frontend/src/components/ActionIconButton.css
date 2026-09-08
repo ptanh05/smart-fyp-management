@@ -1,0 +1,170 @@
+/* Miniature Action Icon Button Styles & Tooltips */
+
+.action-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.action-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 32px;
+  height: 32px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: transparent;
+  user-select: none;
+}
+
+.action-icon-symbol {
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icon-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Button Variants */
+.action-icon-btn.variant-ghost {
+  color: #4b5563;
+  background-color: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+.action-icon-btn.variant-ghost:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: #111827;
+  transform: translateY(-1px);
+}
+
+.action-icon-btn.variant-primary {
+  background-color: #003366;
+  color: #ffffff;
+  border-color: #002244;
+}
+.action-icon-btn.variant-primary:hover:not(:disabled) {
+  background-color: #002244;
+  box-shadow: 0 2px 4px rgba(0, 51, 102, 0.25);
+  transform: translateY(-1px);
+}
+
+.action-icon-btn.variant-secondary {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+.action-icon-btn.variant-secondary:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #1f2937;
+  transform: translateY(-1px);
+}
+
+.action-icon-btn.variant-danger {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.action-icon-btn.variant-danger:hover:not(:disabled) {
+  background-color: #fecaca;
+  color: #991b1b;
+  transform: translateY(-1px);
+}
+
+.action-icon-btn.variant-success {
+  background-color: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+.action-icon-btn.variant-success:hover:not(:disabled) {
+  background-color: #bbf7d0;
+  color: #166534;
+  transform: translateY(-1px);
+}
+
+.action-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Tooltip Popup on Hover */
+.action-icon-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.95);
+  background-color: #1f2937;
+  color: #f9fafb;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.action-icon-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 4px;
+  border-style: solid;
+  border-color: #1f2937 transparent transparent transparent;
+}
+
+.action-icon-wrapper:hover .action-icon-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) scale(1);
+}
+
+/* Dark theme support */
+body.dark-mode .action-icon-btn.variant-ghost {
+  color: #e5e7eb;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+body.dark-mode .action-icon-btn.variant-ghost:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+body.dark-mode .action-icon-btn.variant-secondary {
+  background-color: #374151;
+  color: #e5e7eb;
+  border-color: #4b5563;
+}
+body.dark-mode .action-icon-btn.variant-secondary:hover:not(:disabled) {
+  background-color: #4b5563;
+  color: #ffffff;
+}
+
+body.dark-mode .action-icon-tooltip {
+  background-color: #111827;
+  color: #f3f4f6;
+  border: 1px solid #374151;
+}
+
+body.dark-mode .action-icon-tooltip::after {
+  border-color: #111827 transparent transparent transparent;
+}

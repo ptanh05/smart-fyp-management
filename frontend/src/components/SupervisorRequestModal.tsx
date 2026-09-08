@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiService } from '../services/api';
 import type { ProjectCategory, Project } from '../types';
+import DebouncedSubmitButton from './DebouncedSubmitButton';
 import './Modal.css';
 
 interface SupervisorRequestModalProps {
@@ -24,6 +25,7 @@ const SupervisorRequestModal: React.FC<SupervisorRequestModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [supervisorSearch, setSupervisorSearch] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inFlightRef = useRef(false);
 
   const categoryId = initialProject.project_category;
   const categoryName = projectCategories.find((c) => c.id === categoryId)?.category_name ?? '';
@@ -57,7 +59,9 @@ const SupervisorRequestModal: React.FC<SupervisorRequestModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (inFlightRef.current || loading) return;
     if (selectedSupervisor) {
+      inFlightRef.current = true;
       setLoading(true);
       setError(null);
       try {
@@ -72,6 +76,7 @@ const SupervisorRequestModal: React.FC<SupervisorRequestModalProps> = ({
         setError(msg);
       } finally {
         setLoading(false);
+        inFlightRef.current = false;
       }
     }
   };
@@ -149,13 +154,13 @@ const SupervisorRequestModal: React.FC<SupervisorRequestModalProps> = ({
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading || !selectedSupervisor}
+            <DebouncedSubmitButton
+              loading={loading}
+              loadingText="Đang gửi..."
+              disabled={!selectedSupervisor}
             >
-              {loading ? 'Sending...' : 'Send Request'}
-            </button>
+              Gửi yêu cầu (Send Request)
+            </DebouncedSubmitButton>
           </div>
         </form>
       </div>

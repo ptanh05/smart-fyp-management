@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import DocumentViewerModal from './DocumentViewerModal';
+import ActionIconButton from './ActionIconButton';
 import './StudentTemplatesView.css';
 
 interface Template {
@@ -184,6 +185,13 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
                         Download
                       </button>
                     </div>
+                    <ActionIconButton
+                      action="download"
+                      tooltip="Tải về biểu mẫu chuẩn (Template) cho đồ án"
+                      onClick={() => downloadTemplate(t.uploaded_file, t.title)}
+                      label="Tải về"
+                      variant="primary"
+                    />
                   </td>
                 </tr>
               ))}

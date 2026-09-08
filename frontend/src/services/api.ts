@@ -35,11 +35,27 @@ import type {
   EvaluationScheduleCreate,
 } from '../types';
 
+import { triggerGlobalToast } from '../contexts/ToastContext';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/app';
 
 
 class ApiService {
   private api: AxiosInstance;
+  private pendingRequests = new Map<string, Promise<any>>();
+
+  private deduplicateRequest<T>(key: string, fetcher: () => Promise<T>, ttlMs = 2500): Promise<T> {
+    if (this.pendingRequests.has(key)) {
+      return this.pendingRequests.get(key) as Promise<T>;
+    }
+    const promise = fetcher().finally(() => {
+      setTimeout(() => {
+        this.pendingRequests.delete(key);
+      }, ttlMs);
+    });
+    this.pendingRequests.set(key, promise);
+    return promise;
+  }
 
   constructor() {
     this.api = axios.create({
@@ -62,10 +78,15 @@ class ApiService {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor to handle token refresh via HttpOnly Cookie
+    // Response interceptor to handle token refresh via HttpOnly Cookie and network errors
     this.api.interceptors.response.use(
       (response) => response,
       async (error) => {
+        // Check for network connectivity failure
+        if (!navigator.onLine || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+          triggerGlobalToast('Mất kết nối Internet, vui lòng kiểm tra đường truyền', 'warning', 6000);
+        }
+
         const originalRequest = error.config;
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
@@ -122,8 +143,10 @@ class ApiService {
 
   // Student Profile
   async getStudentProfile(): Promise<Student> {
-    const response = await this.api.get<Student>('/student/profile/');
-    return response.data;
+    return this.deduplicateRequest('student-profile', async () => {
+      const response = await this.api.get<Student>('/student/profile/');
+      return response.data;
+    });
   }
 
   // WebSocket Ticket
@@ -134,19 +157,24 @@ class ApiService {
 
   // Supervisor Profile
   async getSupervisorProfile(): Promise<Supervisor> {
-    const response = await this.api.get<Supervisor>('/supervisor/profile/');
-    return response.data;
+    return this.deduplicateRequest('supervisor-profile', async () => {
+      const response = await this.api.get<Supervisor>('/supervisor/profile/');
+      return response.data;
+    });
   }
 
   async updateSupervisorProfile(data: Partial<Supervisor>): Promise<Supervisor> {
+    this.pendingRequests.delete('supervisor-profile');
     const response = await this.api.patch<Supervisor>('/supervisor/profile/', data);
     return response.data;
   }
 
   // Committee Member Profile
   async getCommitteeMemberProfile(): Promise<CommitteeMember> {
-    const response = await this.api.get<CommitteeMember>('/committee_member/profile/');
-    return response.data;
+    return this.deduplicateRequest('committee-profile', async () => {
+      const response = await this.api.get<CommitteeMember>('/committee_member/profile/');
+      return response.data;
+    });
   }
 
   // Committee Member Groups (for evaluation)
@@ -170,8 +198,10 @@ class ApiService {
 
   // Project Categories
   async getProjectCategories(): Promise<{ results: ProjectCategory[] }> {
-    const response = await this.api.get<{ results: ProjectCategory[] }>('/project/categories/');
-    return response.data;
+    return this.deduplicateRequest('project-categories', async () => {
+      const response = await this.api.get<{ results: ProjectCategory[] }>('/project/categories/');
+      return response.data;
+    }, 10000);
   }
 
   // Groups
@@ -329,11 +359,19 @@ class ApiService {
     return Array.isArray(response.data) ? response.data : [];
   }
 
-  async uploadDocument(documentType: string, data: FormData): Promise<Document> {
+  async uploadDocument(
+    documentType: string,
+    data: FormData,
+    onProgress?: (progressEvent: any) => void,
+    signal?: AbortSignal
+  ): Promise<Document> {
     const response = await this.api.post<Document>(`/proposal-document/${documentType}/`, data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 120000, // 2 minutes timeout for large 20MB files
+      onUploadProgress: onProgress,
+      signal: signal,
     });
     return response.data;
   }
@@ -397,6 +435,20 @@ class ApiService {
 
   async deleteDocument(documentType: string, documentId: number): Promise<void> {
     await this.api.delete(`/proposal-document/${documentType}/${documentId}/`);
+  }
+
+  /** Get a short-lived Signed URL for downloading or opening a file in browser */
+  async getSignedMediaUrl(filePath: string): Promise<string> {
+    try {
+      const response = await this.api.get<{ signed_url: string }>(`/media/get-signed-url/`, {
+        params: { file_path: filePath.replace(/^\//, '') },
+      });
+      const signedUrl = response.data.signed_url;
+      return signedUrl.startsWith('http') ? signedUrl : `${window.location.origin}${signedUrl}`;
+    } catch (error) {
+      console.error('Failed to get signed media URL:', error);
+      return filePath;
+    }
   }
 
   // Document requirements (committee-defined deadlines; students see and submit against these)
@@ -595,11 +647,19 @@ class ApiService {
     return [];
   }
 
-  async uploadTemplate(templateType: string, data: FormData): Promise<any> {
+  async uploadTemplate(
+    templateType: string,
+    data: FormData,
+    onProgress?: (progressEvent: any) => void,
+    signal?: AbortSignal
+  ): Promise<any> {
     const response = await this.api.post(`/srs_template/${templateType}/`, data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 120000,
+      onUploadProgress: onProgress,
+      signal: signal,
     });
     return response.data;
   }
@@ -887,6 +947,46 @@ class ApiService {
     document.body.appendChild(link);
     link.click();
     link.remove();
+  }
+
+  // Bug Report / User Feedback
+  async submitBugReport(formData: FormData): Promise<{ message: string; report: any }> {
+    const response = await this.api.post<{ message: string; report: any }>('/bug-reports/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  // Global Search & Council Management
+  async globalSearch(q: string, type = 'all'): Promise<any> {
+    const response = await this.api.get('/global-search/', {
+      params: { q, type }
+    });
+    return response.data;
+  }
+
+  async getCouncilConflicts(params?: { council_id?: number; batch_id?: number }): Promise<any> {
+    const response = await this.api.get('/council/conflicts/', { params });
+    return response.data;
+  }
+
+  async assignProjectToCouncil(projectId: number, councilId: number | null, force = false): Promise<any> {
+    const response = await this.api.post('/council/assign-project/', {
+      project_id: projectId,
+      council_id: councilId,
+      force
+    });
+    return response.data;
+  }
+
+  async assignMemberToCouncil(councilId: number, userId: number, role = 'MEMBER', force = false): Promise<any> {
+    const response = await this.api.post('/council/assign-member/', {
+      council_id: councilId,
+      user_id: userId,
+      role,
+      force
+    });
+    return response.data;
   }
 
   // Utility
