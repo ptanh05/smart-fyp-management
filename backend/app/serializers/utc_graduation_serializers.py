@@ -193,6 +193,7 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
     session_time = serializers.CharField(source="council.get_session_time_display", read_only=True, default="")
     topic_category_name = serializers.CharField(source="topic_category.name", read_only=True, default="")
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+    reviewer_verdict_display = serializers.CharField(source="get_reviewer_verdict_display", read_only=True)
     outline_review = OutlineReviewSerializer(read_only=True)
     weekly_reports = WeeklyProgressReportSerializer(many=True, read_only=True)
     final_grade = FinalGradeSummarySerializer(source="final_grade_summary", read_only=True)
@@ -224,8 +225,11 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
             "supervisor_score",
             "supervisor_feedback",
             "is_eligible_for_defense",
+            "supervisor_score_is_draft",
             "reviewer_score",
             "reviewer_feedback",
+            "reviewer_verdict",
+            "reviewer_verdict_display",
             "outline_review",
             "weekly_reports",
             "final_grade",

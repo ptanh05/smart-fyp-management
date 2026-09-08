@@ -14,6 +14,7 @@ from app.models import (
     SupervisorStudentComments,
     SupervisorOfStudentGroup,
     Document,
+    DocumentComment,
     ScopeDocumentEvaluationCriteria,
     CommitteeMemberPanel,
     CommitteeMemberTemplates,
@@ -309,6 +310,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     groups_data = serializers.SerializerMethodField(read_only=True)
     panel_info = serializers.SerializerMethodField(read_only=True)
     is_offered = serializers.SerializerMethodField(read_only=True)
+    has_registered_groups = serializers.SerializerMethodField(read_only=True)
 
     # Add validation for text fields
     project_name = serializers.CharField(
@@ -343,6 +345,9 @@ class ProjectSerializer(serializers.ModelSerializer):
     def get_is_offered(self, obj):
         return obj.user_id is None
 
+    def get_has_registered_groups(self, obj):
+        return obj.groups.filter(status__in=["pending", "accepted"]).exists()
+
     class Meta:
         model = Project
         fields = [
@@ -355,9 +360,10 @@ class ProjectSerializer(serializers.ModelSerializer):
             "groups_data",
             "panel_info",
             "is_offered",
+            "has_registered_groups",
         ]
 
-        read_only_fields = ["id", "groups_data", "panel_info", "is_offered"]
+        read_only_fields = ["id", "groups_data", "panel_info", "is_offered", "has_registered_groups"]
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -479,6 +485,7 @@ class DocumentSerializer(serializers.ModelSerializer):
     uploaded_by = StudentProfileSerializer(read_only=True)
     document_type = serializers.CharField(required=False)
     project_name = serializers.SerializerMethodField(read_only=True)
+    comments_count = serializers.IntegerField(source="comments.count", read_only=True)
     title = serializers.CharField(
         max_length=MAX_TITLE_LENGTH,
         validators=[validate_title],
@@ -536,6 +543,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             "submitted_to_committee_at",
             "is_late",
             "late_duration",
+            "comments_count",
         ]
         read_only_fields = [
             "uploaded_at",
@@ -547,7 +555,30 @@ class DocumentSerializer(serializers.ModelSerializer):
             "submitted_to_committee_at",
             "is_late",
             "late_duration",
+            "comments_count",
         ]
+
+
+class DocumentCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField(read_only=True)
+    author_type = serializers.CharField(source="author.user_type", read_only=True)
+
+    def get_author_name(self, obj):
+        return obj.author.get_full_name() or obj.author.username
+
+    class Meta:
+        model = DocumentComment
+        fields = [
+            "id",
+            "document",
+            "author",
+            "author_name",
+            "author_type",
+            "section",
+            "comment",
+            "created_at",
+        ]
+        read_only_fields = ["id", "author", "author_name", "author_type", "created_at"]
 
 
 class DocumentStatusUpdateSerializer(serializers.ModelSerializer):
@@ -560,6 +591,7 @@ class SupervisorDocumentSerializer(serializers.ModelSerializer):
     """Serializer for documents as viewed by supervisors, includes group and student info."""
     uploaded_by = StudentProfileSerializer(read_only=True)
     group_info = serializers.SerializerMethodField()
+    comments_count = serializers.IntegerField(source="comments.count", read_only=True)
 
     class Meta:
         model = Document
@@ -575,6 +607,9 @@ class SupervisorDocumentSerializer(serializers.ModelSerializer):
             "group_info",
             "submitted_to_committee",
             "submitted_to_committee_at",
+            "is_late",
+            "late_duration",
+            "comments_count",
         ]
 
     def get_group_info(self, obj):
@@ -722,6 +757,7 @@ class SRSEvaluationSupervisorSerializer(serializers.ModelSerializer):
             "is_write_up_correct",
             "student_participation",
             "comment",
+            "is_draft",
             "total_marks",
         ]
         read_only_fields = ["id"]
@@ -784,6 +820,7 @@ class SDDEvaluationSupervisorSerializer(serializers.ModelSerializer):
             "regularity",
             "seminar_participation",
             "comment",
+            "is_draft",
             "total_marks",
         ]
         read_only_fields = ["id"]
@@ -840,6 +877,7 @@ class Evaluation3SupervisorSerializer(serializers.ModelSerializer):
             "is_template_followed",
             "is_writeup_correct",
             "comment",
+            "is_draft",
             "total_marks",
         ]
         read_only_fields = ["id"]
@@ -890,6 +928,7 @@ class Evaluation4SupervisorSerializer(serializers.ModelSerializer):
             "is_template_followed",
             "is_writeup_correct",
             "comment",
+            "is_draft",
             "total_marks",
         ]
         read_only_fields = ["id"]

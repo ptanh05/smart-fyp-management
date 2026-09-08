@@ -109,6 +109,21 @@ export interface Project {
   groups_data?: number[];
   panel_info?: Panel | null;
   is_offered?: boolean;
+  has_registered_groups?: boolean;
+  category_name?: string;
+  user?: number;
+}
+
+export interface DocumentComment {
+  id: number;
+  document: number;
+  author: number;
+  author_name: string;
+  author_role: string;
+  section: string;
+  section_display?: string;
+  comment: string;
+  created_at: string;
 }
 
 export interface SupervisorOfStudentGroup {
@@ -136,6 +151,7 @@ export interface Document {
   submitted_to_committee_at?: string | null;
   is_late?: boolean;
   late_duration?: string | null;
+  comments_count?: number;
   group_info?: {
     id: number;
     project_name: string | null;

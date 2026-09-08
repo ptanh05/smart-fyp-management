@@ -32,6 +32,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [showReviewerModal, setShowReviewerModal] = useState(false);
   const [revScore, setRevScore] = useState('');
   const [revFeedback, setRevFeedback] = useState('');
+  const [revVerdict, setRevVerdict] = useState<'APPROVED' | 'CONDITIONAL' | 'REJECTED'>('APPROVED');
 
   const getHeaders = () => {
     const token = localStorage.getItem('access_token');
@@ -100,9 +101,12 @@ export const UTCSupervisorGraduationView: React.FC = () => {
     }
   };
 
-  const handleSupervisorEvaluation = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSupervisorEvaluation = async (isDraft: boolean = false) => {
     if (!selectedProject) return;
+    if (evalScore === '' || isNaN(Number(evalScore))) {
+      alert('Vui lòng nhập điểm hướng dẫn hợp lệ (0 - 10).');
+      return;
+    }
     try {
       await axios.post(
         `${API_BASE}/supervisor/defense-evaluation/`,
@@ -111,10 +115,15 @@ export const UTCSupervisorGraduationView: React.FC = () => {
           supervisor_score: Number(evalScore),
           supervisor_feedback: evalFeedback,
           is_eligible_for_defense: isEligible,
+          is_draft: isDraft,
         },
         { headers: getHeaders()}
       );
-      alert('Đã lưu phiếu đánh giá GVHD thành công!');
+      if (isDraft) {
+        alert('Đã lưu nháp phiếu đánh giá GVHD thành công! Điểm chưa được công bố cho sinh viên.');
+      } else {
+        alert('Đã lưu phiếu đánh giá GVHD chính thức thành công!');
+      }
       setShowEvalModal(false);
       fetchData();
     } catch (err: any) {
@@ -132,10 +141,11 @@ export const UTCSupervisorGraduationView: React.FC = () => {
           project_id: selectedProject.id,
           reviewer_score: Number(revScore),
           reviewer_feedback: revFeedback,
+          reviewer_verdict: revVerdict,
         },
         { headers: getHeaders()}
       );
-      alert('Đã lưu phiếu phản biện thành công!');
+      alert('Đã lưu phiếu phản biện và kết luận thành công!');
       setShowReviewerModal(false);
       fetchData();
     } catch (err: any) {
@@ -324,9 +334,22 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                     )}
                   </div>
                   <p className="text-xs text-slate-300"><b>Đề tài:</b> {p.topic_title_vi}</p>
-                  <p className="text-xs text-emerald-400 font-semibold">
-                    Điểm GVHD: {p.supervisor_score !== null ? `${p.supervisor_score} / 10đ` : 'Chưa chấm'}
-                  </p>
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <span className="text-xs text-emerald-400 font-semibold">
+                      Điểm GVHD: {p.supervisor_score !== null ? `${p.supervisor_score} / 10đ` : 'Chưa chấm'}
+                    </span>
+                    {p.supervisor_score !== null && (
+                      p.supervisor_score_is_draft ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          BẢN NHÁP
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          CHÍNH THỨC
+                        </span>
+                      )
+                    )}
+                  </div>
                 </div>
 
                 <button
@@ -339,7 +362,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition shadow-md shadow-emerald-600/30"
                 >
-                  Chấm điểm GVHD
+                  {p.supervisor_score !== null ? 'Sửa điểm GVHD' : 'Chấm điểm GVHD'}
                 </button>
               </div>
             ))}
@@ -364,9 +387,29 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                       <span className="text-xs text-slate-400">GVHD: {p.supervisor?.full_name}</span>
                     </div>
                     <p className="text-xs text-slate-300"><b>Đề tài:</b> {p.topic_title_vi}</p>
-                    <p className="text-xs text-indigo-400 font-semibold">
-                      Điểm GVPB: {p.reviewer_score !== null ? `${p.reviewer_score} / 10đ` : 'Chưa chấm phản biện'}
-                    </p>
+                    <div className="flex items-center gap-3 pt-0.5">
+                      <span className="text-xs text-indigo-400 font-semibold">
+                        Điểm GVPB: {p.reviewer_score !== null ? `${p.reviewer_score} / 10đ` : 'Chưa chấm phản biện'}
+                      </span>
+                      {p.reviewer_verdict && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            p.reviewer_verdict === 'APPROVED'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : p.reviewer_verdict === 'CONDITIONAL'
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          }`}
+                        >
+                          {p.reviewer_verdict_display ||
+                            (p.reviewer_verdict === 'APPROVED'
+                              ? 'Cho phép bảo vệ'
+                              : p.reviewer_verdict === 'CONDITIONAL'
+                              ? 'Bảo vệ có điều kiện'
+                              : 'Không cho phép bảo vệ')}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <button
@@ -374,11 +417,12 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                       setSelectedProject(p);
                       setRevScore(p.reviewer_score !== null ? p.reviewer_score.toString() : '');
                       setRevFeedback(p.reviewer_feedback || '');
+                      setRevVerdict(p.reviewer_verdict || 'APPROVED');
                       setShowReviewerModal(true);
                     }}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition shadow-md shadow-indigo-600/30"
                   >
-                    Chấm Phản biện
+                    {p.reviewer_score !== null ? 'Sửa điểm Phản biện' : 'Chấm Phản biện'}
                   </button>
                 </div>
               ))}
@@ -495,7 +539,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
             <h3 className="text-base font-bold text-slate-100 mb-2">Phiếu Đánh giá của Giảng viên hướng dẫn</h3>
             <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
-            <form onSubmit={handleSupervisorEvaluation} className="space-y-3">
+            <form onSubmit={(e) => { e.preventDefault(); handleSupervisorEvaluation(false); }} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Điểm hướng dẫn (Thang 10, tối đa 10.0đ)</label>
                 <input
@@ -543,10 +587,18 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   Hủy
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"
+                  type="button"
+                  onClick={() => handleSupervisorEvaluation(true)}
+                  className="px-3 py-2 rounded bg-amber-600/90 hover:bg-amber-600 text-white text-xs font-semibold"
                 >
-                  Lưu điểm GVHD
+                  💾 Lưu nháp (Draft)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSupervisorEvaluation(false)}
+                  className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+                >
+                  ✓ Lưu chính thức
                 </button>
               </div>
             </form>
@@ -577,6 +629,21 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               </div>
 
               <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">
+                  Kết luận phản biện <span className="text-rose-400">*</span>
+                </label>
+                <select
+                  value={revVerdict}
+                  onChange={(e) => setRevVerdict(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                >
+                  <option value="APPROVED">Cho phép bảo vệ</option>
+                  <option value="CONDITIONAL">Bảo vệ có điều kiện</option>
+                  <option value="REJECTED">Không cho phép bảo vệ</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Nhận xét & Câu hỏi phản biện</label>
                 <textarea
                   rows={3}
@@ -599,7 +666,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   type="submit"
                   className="px-4 py-2 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500"
                 >
-                  Lưu điểm Phản biện
+                  Lưu điểm & Kết luận
                 </button>
               </div>
             </form>

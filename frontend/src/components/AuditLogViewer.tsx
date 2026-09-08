@@ -16,6 +16,7 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ groupId, showStats = tr
   const [hasMore, setHasMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Filters
   const [evaluationType, setEvaluationType] = useState<string>('');
@@ -100,6 +101,33 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ groupId, showStats = tr
     }
   };
 
+  const handleExportLogs = async () => {
+    try {
+      setExporting(true);
+      const params: Record<string, unknown> = {};
+      if (evaluationType) params.evaluation_type = evaluationType;
+      if (fromDate) params.from_date = fromDate;
+      if (toDate) params.to_date = toDate;
+      if (groupId) params.group = groupId;
+
+      const blob = await apiService.exportAuditLogs(params);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      console.error('Export audit logs failed:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Xuất dữ liệu thất bại';
+      alert('Không thể xuất file audit log: ' + errorMessage);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString();
@@ -148,7 +176,31 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ groupId, showStats = tr
 
   return (
     <div className="audit-container">
-      <h3 className="audit-title">Audit Logs</h3>
+      <div className="audit-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <h3 className="audit-title" style={{ margin: 0 }}>Audit Logs</h3>
+        <button
+          onClick={handleExportLogs}
+          disabled={exporting}
+          className="audit-export-button"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: '#10b981',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '6px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: exporting ? 'not-allowed' : 'pointer',
+            opacity: exporting ? 0.7 : 1,
+            transition: 'background-color 0.2s',
+          }}
+        >
+          {exporting ? '⏳ Đang xuất...' : '📥 Xuất Excel/CSV (Export Logs)'}
+        </button>
+      </div>
 
       {/* Stats Summary */}
       {showStats && stats && !groupId && (

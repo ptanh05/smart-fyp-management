@@ -18,6 +18,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
   const [scoreComments, setScoreComments] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
+  const [locking, setLocking] = useState(false);
 
   const getHeaders = () => {
     const token = localStorage.getItem('access_token');
@@ -87,6 +88,36 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
     }
   };
 
+  const handleToggleLock = async () => {
+    if (!councilData) return;
+    const willLock = !councilData.is_locked;
+    const confirmPrompt = window.confirm(
+      willLock
+        ? 'Bạn có chắc chắn muốn KHÓA ĐIỂM Hội đồng? Tất cả điểm số sẽ chuyển sang trạng thái Chỉ đọc (Read-only) và không thể chỉnh sửa thêm.'
+        : 'Bạn có chắc chắn muốn MỞ KHÓA điểm Hội đồng? Thành viên sẽ có thể tiếp tục chấm/sửa điểm.'
+    );
+    if (!confirmPrompt) return;
+
+    try {
+      setLocking(true);
+      const res = await axios.post(
+        `${API_BASE}/council/toggle-lock/`,
+        {
+          council_id: councilData.id,
+          is_locked: willLock,
+        },
+        { headers: getHeaders() }
+      );
+      alert(res.data.message || (willLock ? 'Đã khóa điểm hội đồng thành công!' : 'Đã mở khóa điểm thành công!'));
+      fetchData();
+    } catch (err: any) {
+      console.error('Toggle lock error:', err);
+      alert('Lỗi: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setLocking(false);
+    }
+  };
+
   const totalPreview = (Number(scorePres) || 0) + (Number(scoreContent) || 0) + (Number(scoreQa) || 0) + (Number(scoreDemo) || 0);
 
   if (loading) {
@@ -107,13 +138,18 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       {/* Council Info Header */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
               Hội đồng #{councilData.council_number}
             </span>
             <span className="text-xs px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
               Vai trò: {councilData.my_role}
             </span>
+            {councilData.is_locked && (
+              <span className="text-xs px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold flex items-center gap-1">
+                🔒 ĐÃ KHÓA ĐIỂM (CHỈ ĐỌC)
+              </span>
+            )}
           </div>
           <h2 className="text-xl font-bold text-slate-100 mt-1">{councilData.council_name}</h2>
           <div className="text-xs text-slate-400 mt-1 flex items-center gap-4">
@@ -123,9 +159,28 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
           </div>
         </div>
 
-        <div className="text-right">
-          <span className="text-xs text-slate-400">Tổng số đề tài bảo vệ</span>
-          <p className="text-2xl font-bold text-emerald-400">{projects.length} Sinh viên</p>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <span className="text-xs text-slate-400">Tổng số đề tài bảo vệ</span>
+            <p className="text-2xl font-bold text-emerald-400">{projects.length} Sinh viên</p>
+          </div>
+          {councilData.can_lock && (
+            <button
+              onClick={handleToggleLock}
+              disabled={locking}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md ${
+                councilData.is_locked
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/30'
+                  : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+              }`}
+            >
+              {locking
+                ? 'Đang xử lý...'
+                : councilData.is_locked
+                ? '🔓 Mở khóa điểm Hội đồng'
+                : '🔒 Khóa điểm Hội đồng'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -178,12 +233,14 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                   <button
                     onClick={() => handleOpenScoreModal(p)}
                     className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
-                      hasMyScore
+                      councilData.is_locked
+                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                        : hasMyScore
                         ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
                         : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
                     }`}
                   >
-                    {hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm bảo vệ'}
+                    {councilData.is_locked ? '👁️ Xem điểm' : hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm bảo vệ'}
                   </button>
                 </div>
               </div>
@@ -201,6 +258,15 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
               <h3 className="text-base font-bold text-slate-100 mt-1">{selectedProject?.topic_title_vi}</h3>
             </div>
 
+            {councilData.is_locked && (
+              <div className="p-3 bg-rose-950/50 border border-rose-800/80 rounded-xl text-rose-300 text-xs flex items-center gap-2">
+                <span>🔒</span>
+                <span>
+                  Hội đồng đã khóa điểm sau buổi bảo vệ{councilData.locked_by ? ` (bởi ${councilData.locked_by})` : ''}. Tất cả điểm số chuyển sang chế độ Chỉ đọc (Read-only) và không thể chỉnh sửa.
+                </span>
+              </div>
+            )}
+
             <form onSubmit={handleScoreSubmit} className="space-y-4">
               <div className="space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs">
                 <div>
@@ -214,8 +280,9 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     min="0"
                     max="3.0"
                     value={scorePres}
+                    disabled={councilData.is_locked}
                     onChange={(e) => setScorePres(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
@@ -230,8 +297,9 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     min="0"
                     max="3.0"
                     value={scoreContent}
+                    disabled={councilData.is_locked}
                     onChange={(e) => setScoreContent(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
@@ -246,8 +314,9 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     min="0"
                     max="2.0"
                     value={scoreQa}
+                    disabled={councilData.is_locked}
                     onChange={(e) => setScoreQa(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
@@ -262,8 +331,9 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     min="0"
                     max="2.0"
                     value={scoreDemo}
+                    disabled={councilData.is_locked}
                     onChange={(e) => setScoreDemo(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
@@ -278,9 +348,10 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                 <textarea
                   rows={3}
                   value={scoreComments}
+                  disabled={councilData.is_locked}
                   onChange={(e) => setScoreComments(e.target.value)}
                   placeholder="Ghi nhận xét và câu hỏi của thành viên hội đồng..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500 disabled:opacity-50"
                 />
               </div>
 
@@ -290,15 +361,17 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                   onClick={() => setShowScoreModal(false)}
                   className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
-                  Hủy
+                  {councilData.is_locked ? 'Đóng' : 'Hủy'}
                 </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
-                >
-                  {submitting ? 'Đang lưu...' : 'Xác nhận Điểm Chấm'}
-                </button>
+                {!councilData.is_locked && (
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
+                  >
+                    {submitting ? 'Đang lưu...' : 'Xác nhận Điểm Chấm'}
+                  </button>
+                )}
               </div>
             </form>
           </div>

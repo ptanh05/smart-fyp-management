@@ -403,6 +403,29 @@ class NotificationService:
                         action_url='/student/dashboard?tab=evaluations',
                     )
 
+    @staticmethod
+    def notify_document_comment(comment):
+        """Notify group students when supervisor or member comments on a document."""
+        document = comment.document
+        sup_group = getattr(document, "group", None)
+        author_name = comment.author.get_full_name() or comment.author.username
+        title = f"Nhận xét mới trên tài liệu: {document.title}"
+        msg = f"{author_name} đã thêm nhận xét ({comment.section}): \"{comment.comment[:80]}\""
+
+        if sup_group and sup_group.group:
+            grp = sup_group.group
+            for student in [grp.student_1, grp.student_2]:
+                if student and student.user != comment.author:
+                    NotificationService.create_notification(
+                        user=student.user,
+                        notification_type="new_comment",
+                        title=title,
+                        message=msg,
+                        related_group=grp,
+                        related_supervisor_group=sup_group,
+                        action_url="/student/dashboard?tab=documents",
+                    )
+
 
 class AuditService:
     """Service class for audit logging."""

@@ -416,23 +416,29 @@ class SupervisorDefenseEvaluationAPIView(APIView):
             return Response({"supervisor_score": ["Điểm số không hợp lệ."]}, status=status.HTTP_400_BAD_REQUEST)
 
         project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+        is_draft = bool(request.data.get("is_draft", False))
 
         with transaction.atomic():
             project.supervisor_score = score
             project.supervisor_feedback = supervisor_feedback
-            project.is_eligible_for_defense = is_eligible
-            if is_eligible:
-                project.status = "DEFENSE_READY"
-            project.save()
+            project.supervisor_score_is_draft = is_draft
+            if not is_draft:
+                project.is_eligible_for_defense = is_eligible
+                if is_eligible:
+                    project.status = "DEFENSE_READY"
+                project.save()
 
-            # Update Final Grade
-            summary, _ = FinalGradeSummary.objects.get_or_create(project=project)
-            summary.supervisor_score = score
-            policy = EvaluationPolicy.objects.filter(batch=project.batch).first()
-            summary.calculate_and_save(policy=policy)
+                # Update Final Grade
+                summary, _ = FinalGradeSummary.objects.get_or_create(project=project)
+                summary.supervisor_score = score
+                policy = EvaluationPolicy.objects.filter(batch=project.batch).first()
+                summary.calculate_and_save(policy=policy)
+            else:
+                project.save()
 
+        msg = "Đã lưu nháp phiếu đánh giá của Giảng viên hướng dẫn! Điểm chưa công bố cho sinh viên." if is_draft else "Đã lưu và công bố phiếu đánh giá của Giảng viên hướng dẫn!"
         return Response({
-            "message": "Đã lưu phiếu đánh giá của Giảng viên hướng dẫn!",
+            "message": msg,
             "project": GraduationProjectDetailSerializer(project).data
         }, status=status.HTTP_200_OK)
 
@@ -471,6 +477,9 @@ class ReviewerSubmitEvaluationAPIView(APIView):
         project_id = request.data.get("project_id")
         reviewer_score = request.data.get("reviewer_score")
         reviewer_feedback = request.data.get("reviewer_feedback", "").strip()
+        reviewer_verdict = request.data.get("reviewer_verdict", "APPROVED")
+        if reviewer_verdict not in ["APPROVED", "CONDITIONAL", "REJECTED"]:
+            reviewer_verdict = "APPROVED"
 
         try:
             score = float(reviewer_score)
@@ -484,6 +493,7 @@ class ReviewerSubmitEvaluationAPIView(APIView):
         with transaction.atomic():
             project.reviewer_score = score
             project.reviewer_feedback = reviewer_feedback
+            project.reviewer_verdict = reviewer_verdict
             project.save()
 
             # Update Final Grade
@@ -492,8 +502,9 @@ class ReviewerSubmitEvaluationAPIView(APIView):
             policy = EvaluationPolicy.objects.filter(batch=project.batch).first()
             summary.calculate_and_save(policy=policy)
 
+        verdict_text = getattr(project, "get_reviewer_verdict_display", lambda: reviewer_verdict)()
         return Response({
-            "message": "Đã lưu nhận xét và điểm của Giảng viên phản biện!",
+            "message": f"Đã lưu nhận xét và kết luận phản biện ({verdict_text})!",
             "project": GraduationProjectDetailSerializer(project).data
         }, status=status.HTTP_200_OK)
 
@@ -532,6 +543,7 @@ class CouncilLiveDefenseSessionAPIView(APIView):
 
         role_display = getattr(council_member, "get_role_display", lambda: council_member.role)()
         session_time_display = getattr(council, "get_session_time_display", lambda: council.session_time)()
+        can_lock = role_display in ["Chủ tịch hội đồng", "Ủy viên, Thư ký"] or user.is_staff
 
         return Response({
             "council": {
@@ -541,7 +553,11 @@ class CouncilLiveDefenseSessionAPIView(APIView):
                 "session_date": council.session_date,
                 "session_time": session_time_display,
                 "defense_room": council.defense_room,
-                "my_role": role_display
+                "my_role": role_display,
+                "is_locked": getattr(council, "is_locked", False),
+                "locked_at": council.locked_at if getattr(council, "is_locked", False) else None,
+                "locked_by": council.locked_by.get_full_name() or council.locked_by.username if getattr(council, "is_locked", False) and council.locked_by else None,
+                "can_lock": can_lock
             },
             "projects": projects_data
         }, status=status.HTTP_200_OK)
@@ -555,6 +571,12 @@ class CouncilSubmitScoreAPIView(APIView):
         council_member = CouncilMember.objects.filter(user=user).first()
         if not council_member:
             return Response({"detail": "Bạn không phải thành viên Hội đồng bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
+
+        if council_member.council and getattr(council_member.council, "is_locked", False):
+            return Response(
+                {"detail": "Hội đồng đã khóa điểm. Toàn bộ điểm số ở trạng thái chỉ đọc (Read-only), không thể chỉnh sửa."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         project_id = request.data.get("project_id")
         p_score = float(request.data.get("score_presentation", 0.0))
@@ -607,4 +629,37 @@ class CouncilSubmitScoreAPIView(APIView):
             "message": f"Đã chấm điểm thành công cho SV {project.student.registration_no}: {live_score.total_score}đ (Điểm TB HĐ: {summary.council_avg_score}đ - Tổng kết: {summary.final_score_10}đ)",
             "live_score": CouncilLiveScoreSerializer(live_score).data,
             "final_grade": FinalGradeSummarySerializer(summary).data
+        }, status=status.HTTP_200_OK)
+
+
+class CouncilToggleLockAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        council_id = request.data.get("council_id")
+        lock = request.data.get("lock", True)
+
+        council = get_object_or_404(DefenseCouncil, id=council_id)
+        membership = CouncilMember.objects.filter(council=council, user=user).first()
+        is_chair_or_secretary = membership and membership.role in ["CHAIR", "SECRETARY"]
+        is_admin = user.is_staff or getattr(user, "user_type", None) == "committee_member"
+
+        if not is_chair_or_secretary and not is_admin:
+            return Response(
+                {"detail": "Chỉ Chủ tịch hoặc Thư ký hội đồng mới có quyền khóa hoặc mở khóa điểm."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        council.is_locked = bool(lock)
+        council.locked_at = timezone.now() if lock else None
+        council.locked_by = user if lock else None
+        council.save(update_fields=["is_locked", "locked_at", "locked_by"])
+
+        action = "khóa" if lock else "mở khóa"
+        return Response({
+            "message": f"Đã {action} điểm hội đồng {council.council_name} thành công!",
+            "is_locked": council.is_locked,
+            "locked_at": council.locked_at,
+            "locked_by": user.get_full_name() or user.username if lock else None
         }, status=status.HTTP_200_OK)

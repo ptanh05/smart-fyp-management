@@ -111,6 +111,23 @@ class IsStudentOrSupervisorOrCommitteeMember(BasePermission):
         ]
 
 
+class IsSupervisorOrCommitteeMember(BasePermission):
+    """
+    Permission class that allows access to supervisors, committee members, and admins.
+    """
+
+    message = "You must be a supervisor or committee member to access this resource."
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+        return hasattr(request.user, 'user_type') and request.user.user_type in [
+            'supervisor', 'committee_member', 'admin'
+        ]
+
+
 class IsDocumentOwner(BasePermission):
     """
     Permission class that checks if the user owns the document.
