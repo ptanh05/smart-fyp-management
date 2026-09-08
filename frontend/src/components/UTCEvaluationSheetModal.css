@@ -262,32 +262,100 @@
   }
 }
 
-/* Print CSS Rule */
+/* Print CSS Rule for Standard A4 Grading Sheet */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm 20mm;
+  }
+
+  /* Hide entire page body contents by default */
   body * {
     visibility: hidden;
   }
-  .utc-modal-container,
-  .utc-modal-container * {
-    visibility: visible;
-  }
-  .utc-modal-overlay {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    padding: 0;
-  }
+
+  /* Hide navigation, toolbars, buttons, overlays completely */
+  nav,
+  header,
+  aside,
+  footer,
+  .navbar,
+  .utc-header,
+  .utc-sidebar,
+  .utc-top-header,
   .utc-modal-header,
-  .utc-modal-actions {
+  .utc-modal-actions,
+  .btn,
+  .btn-utc-print,
+  .btn-utc-close,
+  button,
+  .toast-portal-container,
+  .global-search-container,
+  .chat-room-card,
+  .chat-room,
+  .search-filter-container,
+  .chat-members-bar {
     display: none !important;
   }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt !important;
+    font-family: 'Times New Roman', Times, serif !important;
+  }
+
+  /* Make modal container and its contents visible and positioned cleanly */
+  .utc-modal-container,
+  .utc-modal-container * {
+    visibility: visible !important;
+  }
+
+  .utc-modal-overlay {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
   .utc-modal-container {
-    box-shadow: none;
-    border: none;
-    width: 100%;
-    max-width: 100%;
+    position: static !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  .utc-modal-body {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .utc-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .utc-table th,
+  .utc-table td {
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+
+  .utc-signatures-section {
+    page-break-inside: avoid;
   }
 }

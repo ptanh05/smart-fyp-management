@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
+import GlobalSearchBar from './GlobalSearchBar';
 import './UTCAppLayout.css';
 
 interface UTCAppLayoutProps {
@@ -28,7 +29,6 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>('academic');
 
@@ -199,15 +199,10 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             >
               ☰
             </button>
-            <div className="utc-search-bar">
-              <span className="search-icon">🔍</span>
-              <input
-                type="text"
-                placeholder={t('common.search', 'Tìm kiếm thông tin đồ án, giảng viên, biểu mẫu...')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+            <GlobalSearchBar
+              className="utc-header-global-search"
+              placeholder={t('common.search', 'Tìm kiếm đề tài, sinh viên, GV, biểu mẫu... (Ctrl+K)')}
+            />
           </div>
 
           <div className="utc-topbar-right">

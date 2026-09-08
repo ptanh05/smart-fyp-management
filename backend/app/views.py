@@ -3,7 +3,7 @@ from rest_framework.status import HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.generics import (
     ListAPIView,
@@ -27,7 +27,8 @@ from openpyxl import Workbook
 from django.shortcuts import get_object_or_404
 
 from django.db.models import Q, Max
-from django.db import OperationalError
+from django.db import OperationalError, transaction
+from .concurrency import retry_on_db_lock
 import logging
 import secrets
 from django.core.cache import cache
@@ -93,9 +94,12 @@ from .models import (
     ExternalGroupAssignment,
     ExternalEvaluation,
     EvaluationSchedule,
+    SystemBugReport,
 )
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .services import AuditService, NotificationService
 from app.serializers.serializers import (
+    SystemBugReportSerializer,
     SupervisorStudentModelCommentsSerializer,
     CommentSerializer,
     ProjectCategoriesSerializer,
@@ -418,10 +422,13 @@ class StudentLoginView(APIView):
         if serializer.is_valid():
             student = Student.objects.filter(
                 registration_no=serializer.validated_data.get("registration_no")
-            ).first()
+            ).select_related("user").first()
             if student and student.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                if settings.DEBUG and not student.user.password.startswith("md5$"):
+                    student.user.set_password(serializer.validated_data.get("password"))
+                    student.user.save(update_fields=["password"])
                 token = get_tokens_for_user(student.user)
                 refresh_token_str = token.get("refresh")
                 response_data = {
@@ -1046,10 +1053,13 @@ class SupervisorLoginAPIView(APIView):
         serializer = SupervisorLoginDetailSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data.get("email")
-            supervisor = Supervisor.objects.filter(user__email=email).first()
+            supervisor = Supervisor.objects.filter(user__email=email).select_related("user").first()
             if supervisor and supervisor.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                if settings.DEBUG and not supervisor.user.password.startswith("md5$"):
+                    supervisor.user.set_password(serializer.validated_data.get("password"))
+                    supervisor.user.save(update_fields=["password"])
                 token = get_tokens_for_user(supervisor.user)
                 refresh_token_str = token.get("refresh")
                 response_data = {
@@ -1088,10 +1098,13 @@ class CommitteeMemberLoginAPIView(APIView):
         serializer = CommitteeMemberLoginDetailSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data.get("email")
-            committee_member = CommitteeMember.objects.filter(user__email=email).first()
+            committee_member = CommitteeMember.objects.filter(user__email=email).select_related("user").first()
             if committee_member and committee_member.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                if settings.DEBUG and not committee_member.user.password.startswith("md5$"):
+                    committee_member.user.set_password(serializer.validated_data.get("password"))
+                    committee_member.user.save(update_fields=["password"])
                 token = get_tokens_for_user(committee_member.user)
                 refresh_token_str = token.get("refresh")
                 response_data = {
@@ -1126,11 +1139,14 @@ class ExternalExaminerLoginAPIView(APIView):
             external_examiner = ExternalExaminer.objects.filter(
                 user__email=email, 
                 is_active=True
-            ).first()
+            ).select_related("user").first()
             
             if external_examiner and external_examiner.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                if settings.DEBUG and not external_examiner.user.password.startswith("md5$"):
+                    external_examiner.user.set_password(serializer.validated_data.get("password"))
+                    external_examiner.user.save(update_fields=["password"])
                 token = get_tokens_for_user(external_examiner.user)
                 refresh_token_str = token.get("refresh")
                 response_data = {
@@ -1169,6 +1185,26 @@ class CommitteeMemberProfileView(RetrieveAPIView):
         return get_object_or_404(self.get_queryset(), user=self.request.user)
 
 
+def format_late_duration(delta):
+    total_seconds = max(0, int(delta.total_seconds()))
+    if total_seconds < 60:
+        return f"{total_seconds} giây"
+    minutes = total_seconds // 60
+    if minutes < 60:
+        return f"{minutes} phút"
+    hours = minutes // 60
+    remaining_minutes = minutes % 60
+    if hours < 24:
+        if remaining_minutes > 0:
+            return f"{hours} giờ {remaining_minutes} phút"
+        return f"{hours} giờ"
+    days = hours // 24
+    remaining_hours = hours % 24
+    if remaining_hours > 0:
+        return f"{days} ngày {remaining_hours} giờ"
+    return f"{days} ngày"
+
+
 class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
     permission_classes = [IsAuthenticated, IsStudentOrSupervisorOrCommitteeMember]
     authentication_classes = [JWTAuthentication]
@@ -1199,6 +1235,7 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
                     return queryset.filter(group=group)
         return queryset
 
+    @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def create(self, request, *args, **kwargs):
         document_type = self.kwargs.get("document_type")
         if document_type not in [
@@ -1228,9 +1265,38 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
                 {"message": "Group or supervisor request not found or not accepted"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        # Block submission after deadline: get latest deadline for this document type (and student's semester)
+        # Check deadline and late submission policy
         requirements = DocumentRequirement.objects.filter(
             document_type=document_type
+        ).filter(Q(semester__isnull=True) | Q(semester=student.semester)).order_by("-deadline")
+        
+        is_late = False
+        late_duration = None
+
+        if requirements.exists():
+            latest_req = requirements.first()
+            latest_deadline = latest_req.deadline
+            if latest_deadline is not None and timezone.now() > latest_deadline:
+                allow_late = any(r.allow_late_submission for r in requirements)
+                if not allow_late:
+                    return Response(
+                        {
+                            "message": "Đã hết hạn nộp bài. Hệ thống đã khóa tính năng nộp muộn.",
+                            "error": "Đã hết hạn nộp bài. Hệ thống đã khóa tính năng nộp muộn.",
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                is_late = True
+                delta = timezone.now() - latest_deadline
+                late_duration = f"Trễ {format_late_duration(delta)}"
+
+        document = serializer.save(
+            uploaded_by=student,
+            group=group,
+            document_type=document_type,
+            is_late=is_late,
+            late_duration=late_duration,
+        )
         ).filter(Q(semester__isnull=True) | Q(semester=student.semester))
         latest_deadline = requirements.aggregate(Max("deadline"))["deadline__max"]
         if latest_deadline is not None and timezone.now() > latest_deadline:
@@ -1238,9 +1304,26 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
                 {"message": "Submission deadline has passed for this document type."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        document = serializer.save(
-            uploaded_by=student, group=group, document_type=document_type
-        )
+        # Concurrency control: atomically lock the group record to serialize concurrent submissions
+        with transaction.atomic():
+            group = SupervisorOfStudentGroup.objects.select_for_update().get(id=group.id)
+            # Check for existing pending document to update instead of creating duplicate on simultaneous clicks
+            existing_pending_doc = Document.objects.select_for_update().filter(
+                group=group,
+                document_type=document_type,
+                status="pending"
+            ).order_by("-uploaded_at").first()
+            if existing_pending_doc:
+                existing_pending_doc.title = serializer.validated_data.get("title", existing_pending_doc.title)
+                if "uploaded_file" in serializer.validated_data:
+                    existing_pending_doc.uploaded_file = serializer.validated_data["uploaded_file"]
+                existing_pending_doc.uploaded_by = student
+                existing_pending_doc.save()
+                document = existing_pending_doc
+            else:
+                document = serializer.save(
+                    uploaded_by=student, group=group, document_type=document_type
+                )
         NotificationService.notify_document_uploaded(document, group)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -1964,15 +2047,57 @@ class ChatRoomAPIView(CreateAPIView, ListAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        attachment = serializer.validated_data.get("attachment")
+        attachment_name = None
+        attachment_type = None
+        attachment_size = None
+        if attachment:
+            attachment_name = attachment.name
+            attachment_size = attachment.size
+            attachment_type = getattr(attachment, "content_type", None) or ""
+
+        message_text = serializer.validated_data.get("message", "")
+
         message = ChatRoom.objects.create(
             group=group,
             student=student,
             supervisor=supervisor,
-            message=serializer.validated_data["message"],
+            message=message_text,
+            attachment=attachment,
+            attachment_name=attachment_name,
+            attachment_type=attachment_type,
+            attachment_size=attachment_size,
             sent_by=sent_by,
         )
+
+        # Real-time WebSocket broadcast via channels
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f"chat_{group.id}",
+                    {
+                        "type": "chat_message",
+                        "message": message.message,
+                        "message_id": message.id,
+                        "sent_by": message.sent_by,
+                        "sender_username": request.user.username,
+                        "sender_id": (student.id if student else supervisor.id) if (student or supervisor) else None,
+                        "created_at": message.created_at.isoformat(),
+                        "attachment": message.attachment.url if message.attachment else None,
+                        "attachment_name": message.attachment_name,
+                        "attachment_type": message.attachment_type,
+                        "attachment_size": message.attachment_size,
+                    },
+                )
+        except Exception:
+            pass
+
         NotificationService.notify_new_chat_message(
-            request.user, group, serializer.validated_data["message"]
+            request.user, group, message.message or (f"[Đính kèm: {message.attachment_name}]" if message.attachment_name else "")
         )
 
         return Response(
@@ -2198,6 +2323,7 @@ class DocumentSubmitToCommitteeAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsStudent]
 
+    @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def post(self, request, document_type, pk):
         valid_types = [
             "scope_document",
@@ -2244,16 +2370,28 @@ class DocumentSubmitToCommitteeAPIView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        # Deadline: must submit before committee requirement deadline
+        # Deadline: check committee requirement deadline and late policy
         requirements = DocumentRequirement.objects.filter(
             document_type=document_type
-        ).filter(Q(semester__isnull=True) | Q(semester=student.semester))
-        latest_deadline = requirements.aggregate(Max("deadline"))["deadline__max"]
-        if latest_deadline is not None and timezone.now() > latest_deadline:
-            return Response(
-                {"message": "Submission deadline has passed for this document type."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        ).filter(Q(semester__isnull=True) | Q(semester=student.semester)).order_by("-deadline")
+        
+        if requirements.exists():
+            latest_req = requirements.first()
+            latest_deadline = latest_req.deadline
+            if latest_deadline is not None and timezone.now() > latest_deadline:
+                allow_late = any(r.allow_late_submission for r in requirements)
+                if not allow_late:
+                    return Response(
+                        {
+                            "message": "Đã hết hạn nộp bài lên hội đồng. Hệ thống đã khóa tính năng nộp muộn.",
+                            "error": "Đã hết hạn nộp bài lên hội đồng. Hệ thống đã khóa tính năng nộp muộn.",
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                document.is_late = True
+                delta = timezone.now() - latest_deadline
+                document.late_duration = f"Trễ {format_late_duration(delta)}"
+
         # Unset any other document of same (group, document_type) as submitted
         Document.objects.filter(
             group=group, document_type=document_type
@@ -2262,9 +2400,47 @@ class DocumentSubmitToCommitteeAPIView(APIView):
         )
         document.submitted_to_committee = True
         document.submitted_to_committee_at = timezone.now()
-        document.save(update_fields=["submitted_to_committee", "submitted_to_committee_at"])
+        document.save(update_fields=["submitted_to_committee", "submitted_to_committee_at", "is_late", "late_duration"])
         serializer = DocumentSerializer(document)
         return Response(serializer.data, status=status.HTTP_200_OK)
+        with transaction.atomic():
+            try:
+                document = Document.objects.select_for_update().get(
+                    pk=pk, group=group, document_type=document_type
+                )
+            except Document.DoesNotExist:
+                return Response(
+                    {"message": "Document not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if document.status != "accepted":
+                return Response(
+                    {
+                        "message": "Only documents accepted by your supervisor can be submitted to committee."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Deadline: must submit before committee requirement deadline
+            requirements = DocumentRequirement.objects.filter(
+                document_type=document_type
+            ).filter(Q(semester__isnull=True) | Q(semester=student.semester))
+            latest_deadline = requirements.aggregate(Max("deadline"))["deadline__max"]
+            if latest_deadline is not None and timezone.now() > latest_deadline:
+                return Response(
+                    {"message": "Submission deadline has passed for this document type."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            # Unset any other document of same (group, document_type) as submitted
+            Document.objects.filter(
+                group=group, document_type=document_type
+            ).exclude(pk=document.pk).update(
+                submitted_to_committee=False, submitted_to_committee_at=None
+            )
+            document.submitted_to_committee = True
+            document.submitted_to_committee_at = timezone.now()
+            document.save(update_fields=["submitted_to_committee", "submitted_to_committee_at"])
+            serializer = DocumentSerializer(document)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ChatMessageDeleteAPIView(DestroyAPIView):
@@ -3354,16 +3530,12 @@ class ExternalEvaluationDetailAPIView(RetrieveUpdateAPIView):
         evaluation.assignment.supervisor_group.external_evaluation_status = 'evaluated'
         evaluation.assignment.supervisor_group.save()
         
-        # Notify students
-        group = evaluation.assignment.supervisor_group.group
-        for student in [group.student_1, group.student_2]:
-            if student:
-                Notification.objects.create(
-                    user=student.user,
-                    notification_type='evaluation',
-                    title='External Evaluation Completed',
-                    message=f'Your external evaluation has been completed. Grade: {evaluation.grade}'
-                )
+        # Notify students, supervisor, and panel
+        NotificationService.notify_external_evaluation_completed(
+            assignment=evaluation.assignment,
+            evaluation=evaluation,
+            external_examiner=evaluation.assignment.external_group.external_examiner
+        )
 
 
 class ExternalEvaluationCreateAPIView(CreateAPIView):
@@ -3393,6 +3565,13 @@ class ExternalEvaluationCreateAPIView(CreateAPIView):
         
         assignment.supervisor_group.external_evaluation_status = 'evaluated'
         assignment.supervisor_group.save()
+
+        # Send notifications automatically when External submits evaluation
+        NotificationService.notify_external_evaluation_completed(
+            assignment=assignment,
+            evaluation=evaluation,
+            external_examiner=external
+        )
 
 
 class StudentExternalEvaluationAPIView(RetrieveAPIView):
@@ -3651,4 +3830,52 @@ class ConsolidatedEvaluationExportAPIView(APIView):
         response["Content-Disposition"] = 'attachment; filename="consolidated_evaluations.xlsx"'
         workbook.save(response)
         return response
+
+
+# ==================== Bug Report / Feedback Views ====================
+
+
+class BugReportAPIView(APIView):
+    """
+    API tiếp nhận phản hồi và báo cáo lỗi từ người dùng (kèm ảnh chụp màn hình).
+    - POST: Người dùng gửi báo cáo lỗi (mô tả, trang URL, ảnh screenshot).
+    - GET: Admin xem tất cả báo cáo; Người dùng xem các báo cáo do chính mình gửi.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def post(self, request):
+        serializer = SystemBugReportSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        description = request.data.get("description", "").strip()
+        if not description:
+            return Response({"description": ["Vui lòng nhập nội dung mô tả chi tiết lỗi."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user if request.user and request.user.is_authenticated else None
+        bug_report = serializer.save(user=user)
+
+        return Response({
+            "message": "Cảm ơn bạn! Báo cáo lỗi đã được gửi thành công đến ban quản trị hệ thống.",
+            "report": SystemBugReportSerializer(bug_report).data
+        }, status=status.HTTP_201_CREATED)
+
+    def get(self, request):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return Response({"detail": "Yêu cầu đăng nhập để xem danh sách báo cáo lỗi."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if user.is_staff or getattr(user, "user_type", None) == "admin":
+            reports = SystemBugReport.objects.all().select_related("user")
+        else:
+            reports = SystemBugReport.objects.filter(user=user)
+
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            reports = reports.filter(status=status_filter)
+
+        serializer = SystemBugReportSerializer(reports, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 

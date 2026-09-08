@@ -4,8 +4,9 @@ import type {
   ExternalExaminerListItem, 
   ExternalGroup, 
   ExternalGroupCreate,
-  SupervisorOfStudentGroup 
+  SupervisorOfStudentGroup,
 } from '../types';
+import ActionIconButton from './ActionIconButton';
 import './ExternalManagement.css';
 
 const ExternalManagement: React.FC = () => {
@@ -326,19 +327,21 @@ const ExternalManagement: React.FC = () => {
                         )}
                         <p><strong>Capacity:</strong> {group.assignments_count || 0}/{group.max_groups}</p>
                       </div>
-                      <div className="group-actions">
-                        <button 
-                          className="btn btn-secondary btn-sm"
+                      <div className="group-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <ActionIconButton 
+                          action="view"
+                          tooltip="Xem chi tiết danh sách đồ án phân công cho đợt chấm này"
                           onClick={() => setSelectedGroup(group)}
-                        >
-                          View Assignments
-                        </button>
-                        <button 
-                          className="btn btn-danger btn-sm"
+                          label="Xem phân công"
+                          variant="secondary"
+                        />
+                        <ActionIconButton 
+                          action="delete"
+                          tooltip="Xóa đợt đánh giá chuyên gia này khỏi hệ thống"
                           onClick={() => handleDeleteGroup(group.id)}
-                        >
-                          Delete
-                        </button>
+                          label="Xóa"
+                          variant="danger"
+                        />
                       </div>
                     </div>
                   ))

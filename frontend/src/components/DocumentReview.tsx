@@ -218,9 +218,16 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
             <div key={doc.id} className={`document-card ${canReview(doc) ? 'needs-review' : ''}`}>
               <div className="document-card-header">
                 <span className="document-type">{getDocumentTypeLabel(doc.document_type)}</span>
-                <span className={`badge ${getStatusBadgeClass(doc.status)}`}>
-                  {getStatusLabel(doc.status)}
-                </span>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  {doc.is_late && (
+                    <span className="badge" style={{ backgroundColor: '#dc2626', color: 'white' }} title={doc.late_duration || 'Nộp muộn'}>
+                      🔴 Nộp muộn (Late){doc.late_duration ? ` • ${doc.late_duration}` : ''}
+                    </span>
+                  )}
+                  <span className={`badge ${getStatusBadgeClass(doc.status)}`}>
+                    {getStatusLabel(doc.status)}
+                  </span>
+                </div>
               </div>
 
               <div className="document-card-body">
@@ -318,6 +325,15 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
                 <label>Uploaded At:</label>
                 <span>{new Date(selectedDocument.uploaded_at).toLocaleString()}</span>
               </div>
+
+              {selectedDocument.is_late && (
+                <div className="detail-row">
+                  <label>Nộp muộn:</label>
+                  <span className="badge" style={{ backgroundColor: '#dc2626', color: 'white', fontWeight: 600 }}>
+                    🔴 Nộp muộn (Late){selectedDocument.late_duration ? ` • ${selectedDocument.late_duration}` : ''}
+                  </span>
+                </div>
+              )}
 
               {selectedDocument.uploaded_by && (
                 <div className="detail-row">

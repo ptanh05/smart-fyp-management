@@ -32,6 +32,12 @@
   display: none;
 }
 
+.navbar-search-wrapper {
+  flex: 1;
+  max-width: 440px;
+  margin: 0 16px;
+}
+
 .navbar-actions {
   display: flex;
   gap: 12px;

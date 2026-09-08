@@ -180,6 +180,8 @@ export interface Document {
   /** True after student submits this (accepted) document to committee; committee sees only these. */
   submitted_to_committee?: boolean;
   submitted_to_committee_at?: string | null;
+  is_late?: boolean;
+  late_duration?: string | null;
   group_info?: {
     id: number;
     project_name: string | null;
@@ -209,6 +211,7 @@ export interface DocumentRequirement {
   document_type_display: string;
   title: string;
   deadline: string;
+  allow_late_submission?: boolean;
   semester: string | null;
   created_at: string;
   updated_at: string;
@@ -219,6 +222,10 @@ export interface ChatMessage {
   id: number;
   group: number;
   message: string;
+  attachment?: string | null;
+  attachment_name?: string | null;
+  attachment_type?: string | null;
+  attachment_size?: number | null;
   sent_by: 'student' | 'supervisor';
   created_at: string;
   student?: Student;

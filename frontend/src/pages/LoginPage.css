@@ -321,8 +321,14 @@
 }
 
 .utc-input-group {
-  position: relative;
   margin-bottom: 16px;
+}
+
+.utc-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .utc-input-icon {
@@ -332,8 +338,15 @@
   transform: translateY(-50%);
   font-size: 1.1rem;
   opacity: 0.6;
+  pointer-events: none;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
 }
 
+.utc-input-wrapper input,
 .utc-input-group input {
   width: 100%;
   padding: 12px 44px 12px 42px;
@@ -367,13 +380,16 @@
   color: #22c55e;
   font-weight: 800;
   font-size: 1rem;
+  pointer-events: none;
+  line-height: 1;
+  z-index: 1;
 }
 
 .utc-field-error {
   color: #dc2626;
   font-size: 0.78rem;
   font-weight: 600;
-  margin-top: 4px;
+  margin-top: 6px;
   padding-left: 4px;
   animation: fadeIn 0.2s ease;
 }
@@ -393,7 +409,7 @@
 .utc-toggle-password-btn {
   position: absolute;
   right: 12px;
-  top: 18px;
+  top: 50%;
   transform: translateY(-50%);
   background: transparent;
   border: none;
@@ -406,6 +422,8 @@
   justify-content: center;
   opacity: 0.7;
   transition: opacity 0.2s ease, transform 0.2s ease;
+  line-height: 1;
+  z-index: 2;
 }
 
 .utc-toggle-password-btn:hover {
