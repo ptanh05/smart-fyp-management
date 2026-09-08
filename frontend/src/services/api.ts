@@ -7,6 +7,8 @@ import type {
   CommitteeMember,
   ProjectCategory,
   Group,
+  ProjectGroup,
+  GroupJoinRequestInfo,
   Project,
   SupervisorOfStudentGroup,
   Document,
@@ -217,6 +219,106 @@ class ApiService {
 
   async createGroupComment(groupId: number, comment: string): Promise<any> {
     const response = await this.api.post(`/groupmate/${groupId}/comments/`, { comment });
+    return response.data;
+  }
+
+  // ==========================================
+  // Student Capstone Group Management (15 Features)
+  // ==========================================
+
+  async getRecruitingGroups(search?: string): Promise<ProjectGroup[]> {
+    const params = search ? { search } : {};
+    const response = await this.api.get<ProjectGroup[]>('/student-groups/recruiting/', { params });
+    return response.data;
+  }
+
+  async createStudentGroup(data: {
+    name: string;
+    tentative_topic?: string;
+    tentative_description?: string;
+    max_members?: number;
+  }): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>('/student-groups/create/', data);
+    return response.data;
+  }
+
+  async getMyStudentGroup(): Promise<{ has_group: boolean; group?: ProjectGroup; message?: string }> {
+    const response = await this.api.get<{ has_group: boolean; group?: ProjectGroup; message?: string }>('/student-groups/my-group/');
+    return response.data;
+  }
+
+  async requestToJoinGroup(groupId: number, message?: string): Promise<{ message: string; request: GroupJoinRequestInfo }> {
+    const response = await this.api.post<{ message: string; request: GroupJoinRequestInfo }>(
+      `/student-groups/${groupId}/join-request/`,
+      { message }
+    );
+    return response.data;
+  }
+
+  async getMySentJoinRequests(): Promise<GroupJoinRequestInfo[]> {
+    const response = await this.api.get<GroupJoinRequestInfo[]>('/student-groups/my-join-requests/');
+    return response.data;
+  }
+
+  async approveJoinRequest(requestId: number): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      `/student-groups/join-requests/${requestId}/approve/`
+    );
+    return response.data;
+  }
+
+  async rejectJoinRequest(requestId: number): Promise<{ message: string }> {
+    const response = await this.api.post<{ message: string }>(
+      `/student-groups/join-requests/${requestId}/reject/`
+    );
+    return response.data;
+  }
+
+  async kickGroupMember(memberId: number): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      '/student-groups/kick-member/',
+      { member_id: memberId }
+    );
+    return response.data;
+  }
+
+  async leaveGroup(): Promise<{ message: string }> {
+    const response = await this.api.post<{ message: string }>('/student-groups/leave/');
+    return response.data;
+  }
+
+  async disbandGroup(): Promise<{ message: string }> {
+    const response = await this.api.post<{ message: string }>('/student-groups/disband/');
+    return response.data;
+  }
+
+  async transferLeadership(newLeaderId: number): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      '/student-groups/transfer-leadership/',
+      { new_leader_id: newLeaderId }
+    );
+    return response.data;
+  }
+
+  async updateTopicProposal(data: {
+    topic_title: string;
+    topic_description?: string;
+  }): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      '/student-groups/update-topic/',
+      data
+    );
+    return response.data;
+  }
+
+  async reviewGroupTopic(
+    groupId: number,
+    data: { verdict: 'APPROVED' | 'REVISION_REQUESTED' | 'REJECTED'; notes?: string }
+  ): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      `/student-groups/${groupId}/topic-review/`,
+      data
+    );
     return response.data;
   }
 

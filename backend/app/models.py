@@ -187,22 +187,109 @@ class Group(models.Model):
         ("rejected", "Rejected"),
         ("canceled", "Canceled"),
     )
+    TOPIC_STATUS_CHOICES = (
+        ("NOT_REGISTERED", "Chưa đăng ký đề tài"),
+        ("PENDING_REVIEW", "Chờ duyệt đề tài"),
+        ("REVISION_REQUESTED", "Yêu cầu chỉnh sửa"),
+        ("APPROVED", "Đã phê duyệt chính thức"),
+        ("REJECTED", "Từ chối"),
+    )
+
+    group_name = models.CharField(max_length=255, null=True, blank=True)
+    academic_batch = models.ForeignKey(
+        AcademicBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name="academic_groups"
+    )
+    leader = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True, related_name="led_groups"
+    )
+    max_members = models.PositiveSmallIntegerField(default=3)
+    is_recruiting = models.BooleanField(default=True)
+    tentative_topic = models.CharField(max_length=500, blank=True, default="")
+    tentative_description = models.TextField(blank=True, default="")
+    topic_status = models.CharField(
+        max_length=30, choices=TOPIC_STATUS_CHOICES, default="NOT_REGISTERED"
+    )
+    topic_revision_notes = models.TextField(blank=True, default="")
+
     student_1 = models.ForeignKey(
-        Student, on_delete=models.CASCADE, related_name="send_request"
+        Student, on_delete=models.CASCADE, related_name="send_request", null=True, blank=True
     )
     student_2 = models.ForeignKey(
         Student, on_delete=models.CASCADE, related_name="receive_request", null=True, blank=True
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     project_category = models.ForeignKey(
-        ProjectCategories, on_delete=models.CASCADE, related_name="groupmate_project"
+        ProjectCategories, on_delete=models.SET_NULL, related_name="groupmate_project", null=True, blank=True
     )
 
     class Meta:
         unique_together = ("student_1", "student_2", "id")
 
+    @property
+    def current_members_count(self):
+        count = self.members.count()
+        if count > 0:
+            return count
+        c = 0
+        if self.student_1:
+            c += 1
+        if self.student_2:
+            c += 1
+        return c
+
+    @property
+    def is_full(self):
+        return self.current_members_count >= self.max_members
+
     def __str__(self):
-        return f"{self.student_1} - {self.student_2} - {self.status}"
+        name = self.group_name or f"Group #{self.id}"
+        return f"{name} ({self.current_members_count}/{self.max_members})"
+
+
+class GroupMember(models.Model):
+    ROLE_CHOICES = (
+        ("LEADER", "Trưởng nhóm"),
+        ("MEMBER", "Thành viên"),
+    )
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name="members"
+    )
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name="group_memberships"
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="MEMBER")
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("group", "student")
+
+    def __str__(self):
+        return f"{self.student} - {self.group.group_name or self.group.id} ({self.role})"
+
+
+class GroupJoinRequest(models.Model):
+    STATUS_CHOICES = (
+        ("PENDING", "Chờ duyệt"),
+        ("ACCEPTED", "Đã duyệt"),
+        ("REJECTED", "Từ chối"),
+        ("CANCELED", "Đã hủy"),
+    )
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name="join_requests"
+    )
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name="student_join_requests"
+    )
+    message = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.student} -> {self.group.group_name or self.group.id} ({self.status})"
 
 
 class GroupCreationComment(models.Model):
@@ -1613,6 +1700,12 @@ class Notification(models.Model):
         ("group_request", "Group Request"),
         ("group_request_accepted", "Group Request Accepted"),
         ("group_request_rejected", "Group Request Rejected"),
+        ("group_join_request", "Group Join Request"),
+        ("group_kicked", "Group Kicked"),
+        ("group_leave", "Group Leave"),
+        ("group_disbanded", "Group Disbanded"),
+        ("group_leadership_transferred", "Leadership Transferred"),
+        ("topic_revision_resubmitted", "Topic Revision Resubmitted"),
         ("supervisor_request", "Supervisor Request"),
         ("supervisor_request_accepted", "Supervisor Request Accepted"),
         ("supervisor_request_rejected", "Supervisor Request Rejected"),
