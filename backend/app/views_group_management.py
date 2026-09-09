@@ -833,3 +833,96 @@ class SupervisorTopicReviewAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+# ==============================================================================
+# 14. RENAME STUDENT GROUP (Leader renames group)
+# ==============================================================================
+
+class RenameStudentGroupAPIView(APIView):
+    """
+    Trưởng nhóm cập nhật lại tên nhóm đồ án:
+    - Kiểm tra sinh viên hiện tại là Trưởng nhóm (Leader)
+    - Nhập tên nhóm mới hợp lệ (tối thiểu 3 ký tự, không quá 255 ký tự, không trùng trong cùng đợt)
+    - Cập nhật group_name và lưu trên toàn hệ thống
+    - Thông báo cho các thành viên trong nhóm
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        student = get_current_student(user)
+        if not student:
+            return Response({"message": "Chỉ dành cho tài khoản sinh viên."}, status=status.HTTP_403_FORBIDDEN)
+
+        group = Group.objects.filter(
+            Q(leader=student) | Q(student_1=student),
+            members__student=student,
+            members__role="LEADER",
+        ).distinct().first()
+
+        if not group:
+            membership = GroupMember.objects.filter(student=student, role="LEADER").select_related("group").first()
+            if membership:
+                group = membership.group
+
+        if not group:
+            return Response(
+                {"message": "Chỉ Trưởng nhóm mới có quyền đổi tên nhóm đồ án."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        new_name = request.data.get("name", "").strip()
+        if not new_name:
+            return Response(
+                {"message": "Tên nhóm không được để trống hoặc chỉ chứa khoảng trắng."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(new_name) < 3:
+            return Response(
+                {"message": "Tên nhóm phải có ít nhất 3 ký tự."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(new_name) > 255:
+            return Response(
+                {"message": "Tên nhóm không được vượt quá 255 ký tự."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check for duplicates in the same academic batch
+        duplicate = Group.objects.filter(
+            academic_batch=group.academic_batch,
+            group_name__iexact=new_name,
+        ).exclude(pk=group.pk).exists()
+        if duplicate:
+            return Response(
+                {"message": f"Tên nhóm '{new_name}' đã tồn tại trong đợt này. Vui lòng chọn tên khác."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_name = group.group_name or f"Nhóm #{group.id}"
+        with transaction.atomic():
+            group.group_name = new_name
+            group.save(update_fields=["group_name"])
+
+            # Send notification to other members
+            for m in group.members.exclude(student=student).select_related("student__user"):
+                NotificationService.create_notification(
+                    user=m.student.user,
+                    notification_type="general",
+                    title="Nhóm đổi tên",
+                    message=f"Trưởng nhóm đã đổi tên nhóm từ '{old_name}' thành '{new_name}'.",
+                    related_group=group,
+                    action_url="/student/dashboard?tab=groups",
+                )
+
+        return Response(
+            {
+                "message": f"Đổi tên nhóm thành '{new_name}' thành công.",
+                "group": ProjectGroupSerializer(group, context={"request": request}).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+

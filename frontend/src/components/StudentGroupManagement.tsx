@@ -52,12 +52,19 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedMemberForLeader, setSelectedMemberForLeader] = useState<number | ''>('');
 
+  // Rename Group Modal (Feature 1)
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [submittingRename, setSubmittingRename] = useState(false);
+
   // Topic Revision Form (Feature 15)
   const [topicForm, setTopicForm] = useState({
     topic_title: '',
     topic_description: '',
   });
   const [topicSubmitting, setTopicSubmitting] = useState(false);
+
 
   const isCreateDirty = Boolean(createForm.name.trim() || createForm.tentative_topic.trim() || createForm.tentative_description.trim());
   const createModalGuard = useModalGuard({
@@ -81,10 +88,19 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
     isDirty: Boolean(selectedMemberForLeader),
   });
 
+  const isRenameDirty = Boolean(newGroupName.trim() && myGroup && newGroupName.trim() !== myGroup.group_name);
+  const renameModalGuard = useModalGuard({
+    isOpen: showRenameModal,
+    onClose: () => setShowRenameModal(false),
+    isDirty: isRenameDirty,
+    confirmMessage: 'Bạn có thay đổi tên nhóm chưa lưu. Bạn có chắc muốn đóng không?',
+  });
+
   const confirmDialogGuard = useModalGuard({
     isOpen: Boolean(confirmAction),
     onClose: () => setConfirmAction(null),
   });
+
 
   // --------------------------------------------------------------------------
   // Data Loading
@@ -355,8 +371,51 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
   };
 
   // --------------------------------------------------------------------------
+  // Feature 1 (User Request): Trưởng nhóm đổi tên nhóm đồ án
+  // --------------------------------------------------------------------------
+  const handleOpenRenameModal = () => {
+    if (!myGroup) return;
+    setNewGroupName(myGroup.group_name);
+    setRenameError(null);
+    setShowRenameModal(true);
+  };
+
+  const handleRenameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newGroupName.trim();
+    if (!trimmed) {
+      setRenameError('Tên nhóm không được để trống.');
+      return;
+    }
+    if (trimmed.length < 3) {
+      setRenameError('Tên nhóm phải có ít nhất 3 ký tự.');
+      return;
+    }
+    if (trimmed.length > 255) {
+      setRenameError('Tên nhóm không được vượt quá 255 ký tự.');
+      return;
+    }
+
+    try {
+      setSubmittingRename(true);
+      setRenameError(null);
+      const res = await apiService.renameStudentGroup(trimmed);
+      setMyGroup(res.group);
+      setShowRenameModal(false);
+      showAlert('success', res.message || 'Cập nhật tên nhóm thành công!');
+      if (onProfileRefresh) onProfileRefresh();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Không thể đổi tên nhóm. Vui lòng thử lại.';
+      setRenameError(msg);
+    } finally {
+      setSubmittingRename(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
   // Feature 15: Chỉnh sửa nội dung đề xuất đề tài khi GVHD yêu cầu sửa
   // --------------------------------------------------------------------------
+
   const handleUpdateTopicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topicForm.topic_title.trim()) {
@@ -435,7 +494,31 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
                 <span style={{ fontSize: '0.85rem', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>
                   Nhóm Đồ Án Tốt Nghiệp
                 </span>
-                <h1 className="my-group-title">{myGroup.group_name}</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <h1 className="my-group-title" style={{ margin: 0 }}>{myGroup.group_name}</h1>
+                  {isLeader && (
+                    <button
+                      onClick={handleOpenRenameModal}
+                      className="btn btn-secondary btn-sm"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        color: '#fff',
+                        border: '1px solid rgba(255, 255, 255, 0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        padding: '4px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                      }}
+                      title="Trưởng nhóm đổi tên nhóm đồ án"
+                    >
+                      ✏️ Đổi tên nhóm
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="my-group-badges">
@@ -1049,6 +1132,59 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
                 Tiếp tục
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Rename Group (Feature 1) */}
+      {showRenameModal && myGroup && (
+        <div className="custom-modal-overlay" onClick={renameModalGuard.handleOverlayClick}>
+          <div className="custom-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="custom-modal-header">
+              <h3>✏️ Đổi Tên Nhóm Đồ Án</h3>
+              <button className="custom-modal-close" onClick={renameModalGuard.requestClose}>
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleRenameSubmit}>
+              <div className="custom-modal-body">
+                <p style={{ margin: '0 0 12px 0', color: '#64748b', fontSize: '0.9rem' }}>
+                  Tên nhóm mới sẽ được cập nhật đồng bộ trên toàn bộ hệ thống cho tất cả thành viên.
+                </p>
+
+                {renameError && (
+                  <div style={{ padding: '8px 12px', background: '#fef2f2', border: '1px solid #f87171', borderRadius: '6px', color: '#dc2626', fontSize: '0.85rem', marginBottom: '12px' }}>
+                    {renameError}
+                  </div>
+                )}
+
+                <div className="form-field">
+                  <label htmlFor="rename-group-input">
+                    Tên nhóm mới <span className="required-star">*</span>
+                  </label>
+                  <input
+                    id="rename-group-input"
+                    type="text"
+                    required
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="Nhập tên nhóm mới (tối thiểu 3 ký tự)..."
+                    autoFocus
+                  />
+                  <span className="field-hint">Tên nhóm phải từ 3 - 255 ký tự và không trùng trong cùng kỳ đồ án.</span>
+                </div>
+              </div>
+
+              <div className="custom-modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={renameModalGuard.requestClose}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={submittingRename || !newGroupName.trim()}>
+                  {submittingRename ? 'Đang lưu...' : 'Lưu tên mới'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
