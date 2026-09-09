@@ -1845,6 +1845,7 @@ class AuditLog(models.Model):
         ("document_status_change", "Document Status Change"),
         ("group_status_change", "Group Status Change"),
         ("supervisor_request_update", "Supervisor Request Update"),
+        ("email_notification_error", "Email Notification Error"),
     )
     
     EVALUATION_TYPE_CHOICES = (

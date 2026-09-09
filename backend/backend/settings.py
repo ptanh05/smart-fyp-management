@@ -85,6 +85,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "app.middleware.BotProtectionMiddleware",
 ]
 
 
@@ -102,7 +103,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/hour",      # Anonymous users: 100 requests per hour
         "user": "1000/hour",     # Authenticated users: 1000 requests per hour
-        "login": "10/minute",    # Login attempts: 10 per minute (custom scope)
+        "login": "120/minute" if DEBUG else "10/minute",    # Login attempts: relaxed in dev
         "password_reset": "5/hour",  # Password reset requests: 5 per hour
     },
 }

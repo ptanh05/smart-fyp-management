@@ -91,7 +91,13 @@ class ApiService {
         }
 
         const originalRequest = error.config;
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (!originalRequest) return Promise.reject(error);
+
+        const isAuthEndpoint = originalRequest.url?.includes('/login/') || 
+                               originalRequest.url?.includes('/token/refresh/') ||
+                               originalRequest.url?.includes('/token/logout/');
+
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
           originalRequest._retry = true;
           try {
             // Send request to refresh token endpoint - HttpOnly cookie attached automatically via withCredentials
@@ -103,8 +109,13 @@ class ApiService {
             }
             return this.api(originalRequest);
           } catch (refreshError) {
-            this.logout();
-            window.location.href = '/login';
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user_type');
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login';
+            }
+            return Promise.reject(refreshError);
           }
         }
         return Promise.reject(error);
@@ -199,6 +210,19 @@ class ApiService {
     return response.data;
   }
 
+  // Project Categories
+  async getProjectCategories(): Promise<ProjectCategory[]> {
+    return this.deduplicateRequest('project-categories', async () => {
+      const response = await this.api.get<ProjectCategory[] | { results: ProjectCategory[] }>('/project/categories/');
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data && (response.data as any).results) {
+        return (response.data as any).results;
+      }
+      return [];
+    }, 10000);
+  }
+
   // Groups
   async getGroupRequests(options?: { requested?: 'to' | 'from'; status?: string; search?: string }): Promise<Group[]> {
     const params: Record<string, string> = {};
@@ -243,19 +267,6 @@ class ApiService {
   async createGroupComment(groupId: number, comment: string): Promise<any> {
     const response = await this.api.post(`/groupmate/${groupId}/comments/`, { comment });
     return response.data;
-  }
-
-  // Categories
-  async getProjectCategories(): Promise<ProjectCategory[]> {
-    return this.deduplicateRequest('project-categories', async () => {
-      const response = await this.api.get<ProjectCategory[] | { results: ProjectCategory[] }>('/project/categories/');
-      if (Array.isArray(response.data)) {
-        return response.data;
-      } else if (response.data && response.data.results) {
-        return response.data.results;
-      }
-      return [];
-    }, 10000);
   }
 
   // ==========================================

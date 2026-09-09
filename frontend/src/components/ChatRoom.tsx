@@ -757,7 +757,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
         <div ref={messagesEndRef} />
       </div>
       
-      <form onSubmit={sendMessage} className="chat-footer-form">
+      <form onSubmit={sendMessage} className="chat-form chat-footer-form">
         {/* Selected file preview before sending */}
         {selectedAttachment && (
           <div className="chat-selected-attachment-bar">

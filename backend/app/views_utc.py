@@ -484,6 +484,47 @@ class SupervisorGraduationProjectsAPIView(APIView):
 
         return Response(GraduationProjectDetailSerializer(projects, many=True).data, status=status.HTTP_200_OK)
 
+class SupervisorOutlineGroupReviewListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        supervisor = getattr(user, "supervisor_profile", None)
+        if not supervisor:
+            return Response({"detail": "Chỉ dành cho Giảng viên."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Supervisor can review outlines from:
+        # 1. Any review groups they are a member of
+        # 2. Any graduation projects they directly supervise
+        review_groups = supervisor.outline_groups.all()
+
+        # Ensure outline reviews exist for projects supervised by this supervisor
+        supervised_projects = GraduationProject.objects.filter(supervisor=supervisor)
+        for p in supervised_projects:
+            OutlineReview.objects.get_or_create(project=p)
+
+        from django.db.models import Q
+        query = Q(project__supervisor=supervisor)
+        if review_groups.exists():
+            query |= Q(review_group__in=review_groups)
+
+        reviews = OutlineReview.objects.filter(query).select_related(
+            "project__student__user",
+            "project__supervisor__user",
+            "review_group",
+            "reviewer__user"
+        ).distinct()
+
+        from .utils.vietnamese_sort import sort_by_vietnamese_name
+        reviews_list = list(reviews)
+        reviews_list = sort_by_vietnamese_name(
+            reviews_list,
+            key_extractor=lambda r: (f"{r.project.student.user.last_name} {r.project.student.user.first_name}".strip() if (r.project.student.user.last_name or r.project.student.user.first_name) else (r.project.student.user.get_full_name() or r.project.student.user.username))
+        )
+        
+        from app.serializers.utc_graduation_serializers import OutlineReviewSerializer
+        return Response(OutlineReviewSerializer(reviews_list, many=True).data, status=status.HTTP_200_OK)
+
 
 class SupervisorOutlineReviewAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -501,8 +542,18 @@ class SupervisorOutlineReviewAPIView(APIView):
         if not project_id or not verdict:
             return Response({"detail": "project_id và verdict là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
 
-        project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+        project = get_object_or_404(GraduationProject, id=project_id)
+        
+        # Verify permissions: either supervisor of the project OR member of the assigned review group
+        is_supervisor = project.supervisor_id == supervisor.id
         review, _ = OutlineReview.objects.get_or_create(project=project)
+        
+        is_group_reviewer = False
+        if review.review_group and review.review_group.members.filter(id=supervisor.id).exists():
+            is_group_reviewer = True
+            
+        if not is_supervisor and not is_group_reviewer:
+            return Response({"detail": "Bạn không có quyền thẩm định đề cương này."}, status=status.HTTP_403_FORBIDDEN)
 
         with transaction.atomic():
             review.reviewer = supervisor
@@ -991,8 +1042,16 @@ class CouncilLiveDefenseSessionAPIView(APIView):
             "student__user",
             "supervisor__user",
             "reviewer__user",
+            "reviewer__user",
             "final_grade_summary"
-        ).order_by("student__user__last_name")
+        )
+
+        from .utils.vietnamese_sort import sort_by_vietnamese_name
+        projects_list = list(projects)
+        projects_list = sort_by_vietnamese_name(
+            projects_list,
+            key_extractor=lambda p: p.student.user.get_full_name() or p.student.user.username
+        )
 
         # Get scores submitted by this member and all scores in council
         member_scores = {getattr(s, "project_id", getattr(s.project, "id", None)): s for s in CouncilLiveScore.objects.filter(member=council_member)}
@@ -1007,7 +1066,7 @@ class CouncilLiveDefenseSessionAPIView(APIView):
             scores_by_project[p_id][s.member_id] = s
 
         projects_data = []
-        for p in projects:
+        for p in projects_list:
             p_data = dict(GraduationProjectDetailSerializer(p).data)
             my_score = member_scores.get(getattr(p, "id", None))
             p_data["my_score"] = CouncilLiveScoreSerializer(my_score).data if my_score else None
@@ -1183,6 +1242,7 @@ class CouncilSubmitScoreAPIView(APIView):
 
 
 class CouncilToggleLockAPIView(APIView):
+    """Khóa hoặc mở khóa bảng điểm hội đồng"""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -1478,13 +1538,13 @@ class CouncilAssignProjectAPIView(APIView):
         council = get_object_or_404(DefenseCouncil, id=council_id)
         conflicts = CouncilConflictService.check_project_assignment(council, project)
 
-        if conflicts and not force:
+        if conflicts:
             return Response({
                 "success": False,
                 "has_conflict": True,
                 "conflicts_count": len(conflicts),
                 "conflicts": conflicts,
-                "message": f"Phát hiện {len(conflicts)} cảnh báo xung đột lợi ích (Conflict of Interest) với các thành viên trong {council.council_name}."
+                "message": conflicts[0].get("message", f"Không thể xếp sinh viên vào Hội đồng có GVHD tham gia chấm. ({len(conflicts)} vi phạm)")
             }, status=status.HTTP_400_BAD_REQUEST)
 
         project.council = council
@@ -1493,8 +1553,7 @@ class CouncilAssignProjectAPIView(APIView):
         AuditLog.objects.create(
             user=request.user,
             action_type="status_change",
-            description=f"Phân công đề tài {project.student.registration_no} vào {council.council_name}." +
-                        (" (Xác nhận cưỡng chế dù có xung đột lợi ích)" if conflicts else "")
+            description=f"Phân công đề tài {project.student.registration_no} vào {council.council_name}."
         )
 
         return Response({
@@ -1533,13 +1592,13 @@ class CouncilAssignMemberAPIView(APIView):
 
         conflicts = CouncilConflictService.check_member_assignment(council, user, supervisor)
 
-        if conflicts and not force:
+        if conflicts:
             return Response({
                 "success": False,
                 "has_conflict": True,
                 "conflicts_count": len(conflicts),
                 "conflicts": conflicts,
-                "message": f"Phát hiện {len(conflicts)} cảnh báo xung đột lợi ích (Conflict of Interest) giữa giảng viên và các đề tài trong {council.council_name}."
+                "message": conflicts[0].get("message", f"Phát hiện {len(conflicts)} vi phạm quy chế độc lập hội đồng.")
             }, status=status.HTTP_400_BAD_REQUEST)
 
         member, created = CouncilMember.objects.update_or_create(
@@ -1554,8 +1613,7 @@ class CouncilAssignMemberAPIView(APIView):
         AuditLog.objects.create(
             user=request.user,
             action_type="status_change",
-            description=f"{'Thêm' if created else 'Cập nhật'} ủy viên {user.get_full_name()} ({member.get_role_display()}) vào {council.council_name}." +
-                        (" (Xác nhận cưỡng chế dù có xung đột lợi ích)" if conflicts else "")
+            description=f"{'Thêm' if created else 'Cập nhật'} ủy viên {user.get_full_name()} ({member.get_role_display()}) vào {council.council_name}."
         )
 
         return Response({
@@ -1755,4 +1813,3 @@ class GlobalSearchAPIView(APIView):
             "categories": categories_count,
             "results": results
         }, status=status.HTTP_200_OK)
-

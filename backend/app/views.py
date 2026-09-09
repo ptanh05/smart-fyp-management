@@ -425,14 +425,25 @@ class StudentLoginView(APIView):
     throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
+        from django.core.cache import cache
+        from app.models import AuditLog
         serializer = StudentLoginDetailSerializer(data=request.data)
         if serializer.is_valid():
+            identifier = serializer.validated_data.get("registration_no")
+            lock_key = f"login_lock_{identifier}"
+            if cache.get(lock_key):
+                return Response({"detail": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần.", "message": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            
+            fail_key = f"login_fail_{identifier}"
+            fail_count = cache.get(fail_key, 0)
+            
             student = Student.objects.filter(
-                registration_no=serializer.validated_data.get("registration_no")
+                Q(registration_no=identifier) | Q(user__username=identifier) | Q(user__email=identifier)
             ).select_related("user").first()
             if student and student.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                cache.delete(fail_key)
                 if settings.DEBUG and not student.user.password.startswith("md5$"):
                     student.user.set_password(serializer.validated_data.get("password"))
                     student.user.save(update_fields=["password"])
@@ -446,10 +457,23 @@ class StudentLoginView(APIView):
                 set_refresh_cookie(response, refresh_token_str)
                 return response
             else:
+                fail_count += 1
+                if fail_count >= 3:
+                    cache.set(lock_key, True, 15 * 60)
+                    cache.delete(fail_key)
+                    if student:
+                        AuditLog.objects.create(
+                            user=student.user,
+                            action_type="SECURITY_ALERT",
+                            description=f"Tài khoản bị khóa 15 phút do nhập sai mật khẩu 3 lần."
+                        )
+                    return Response({"detail": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần.", "message": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+                
+                cache.set(fail_key, fail_count, 15 * 60)
                 return Response(
                     {
-                        "detail": "Invalid registration number or password.",
-                        "message": "Invalid registration number or password.",
+                        "detail": f"Sai thông tin đăng nhập. Bạn còn {3 - fail_count} lần thử trước khi bị khóa.",
+                        "message": f"Sai thông tin đăng nhập. Bạn còn {3 - fail_count} lần thử trước khi bị khóa.",
                     },
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
@@ -1076,13 +1100,25 @@ class SupervisorLoginAPIView(APIView):
     throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
+        from django.core.cache import cache
+        from app.models import AuditLog
         serializer = SupervisorLoginDetailSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer.validated_data.get("email")
-            supervisor = Supervisor.objects.filter(user__email=email).select_related("user").first()
+            identifier = serializer.validated_data.get("email")
+            lock_key = f"login_lock_{identifier}"
+            if cache.get(lock_key):
+                return Response({"detail": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần.", "message": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+            
+            fail_key = f"login_fail_{identifier}"
+            fail_count = cache.get(fail_key, 0)
+
+            supervisor = Supervisor.objects.filter(
+                Q(user__email=identifier) | Q(user__username=identifier) | Q(supervisor_id=identifier)
+            ).select_related("user").first()
             if supervisor and supervisor.user.check_password(
                 serializer.validated_data.get("password")
             ):
+                cache.delete(fail_key)
                 if settings.DEBUG and not supervisor.user.password.startswith("md5$"):
                     supervisor.user.set_password(serializer.validated_data.get("password"))
                     supervisor.user.save(update_fields=["password"])
@@ -1096,10 +1132,23 @@ class SupervisorLoginAPIView(APIView):
                 set_refresh_cookie(response, refresh_token_str)
                 return response
             else:
+                fail_count += 1
+                if fail_count >= 3:
+                    cache.set(lock_key, True, 15 * 60)
+                    cache.delete(fail_key)
+                    if supervisor:
+                        AuditLog.objects.create(
+                            user=supervisor.user,
+                            action_type="SECURITY_ALERT",
+                            description=f"Tài khoản bị khóa 15 phút do nhập sai mật khẩu 3 lần."
+                        )
+                    return Response({"detail": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần.", "message": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+                
+                cache.set(fail_key, fail_count, 15 * 60)
                 return Response(
                     {
-                        "detail": "Invalid registration number or password.",
-                        "message": "Invalid registration number or password.",
+                        "detail": f"Sai thông tin đăng nhập. Bạn còn {3 - fail_count} lần thử trước khi bị khóa.",
+                        "message": f"Sai thông tin đăng nhập. Bạn còn {3 - fail_count} lần thử trước khi bị khóa.",
                     },
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
@@ -1124,7 +1173,9 @@ class CommitteeMemberLoginAPIView(APIView):
         serializer = CommitteeMemberLoginDetailSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data.get("email")
-            committee_member = CommitteeMember.objects.filter(user__email=email).select_related("user").first()
+            committee_member = CommitteeMember.objects.filter(
+                Q(user__email=email) | Q(user__username=email) | Q(committee_id=email)
+            ).select_related("user").first()
             if committee_member and committee_member.user.check_password(
                 serializer.validated_data.get("password")
             ):
@@ -1163,7 +1214,7 @@ class ExternalExaminerLoginAPIView(APIView):
         if serializer.is_valid():
             email = serializer.validated_data.get("email")
             external_examiner = ExternalExaminer.objects.filter(
-                user__email=email, 
+                Q(user__email=email) | Q(user__username=email) | Q(external_id=email), 
                 is_active=True
             ).select_related("user").first()
             
