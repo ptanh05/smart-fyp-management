@@ -542,6 +542,21 @@ class ProjectCategoriesView(ListAPIView):
     queryset = ProjectCategories.objects.all()
     pagination_class = BasePagination
 
+    def list(self, request, *args, **kwargs):
+        from django.core.cache import cache
+        cache_key = "project_categories_all_list"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            res = Response(cached_data)
+            res["Cache-Control"] = "private, max-age=300"
+            return res
+
+        response = super().list(request, *args, **kwargs)
+        if response.status_code == 200:
+            cache.set(cache_key, response.data, 900)
+            response["Cache-Control"] = "private, max-age=300"
+        return response
+
 
 class GroupRequestView(CreateAPIView, UpdateAPIView, ListAPIView):
     authentication_classes = [JWTAuthentication]

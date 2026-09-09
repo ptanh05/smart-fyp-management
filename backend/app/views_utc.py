@@ -74,8 +74,20 @@ class StudentSurveyAPIView(APIView):
             return Response({"detail": "Hồ sơ sinh viên không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
 
         batch = student.academic_batch or AcademicBatch.objects.filter(is_active=True).first()
-        topic_areas = ProjectTopicArea.objects.filter(is_active=True)
-        supervisors = Supervisor.objects.all().select_related("user").order_by("user__first_name")
+        
+        from django.core.cache import cache
+
+        topic_areas_data = cache.get("utc_active_topic_areas_data")
+        if topic_areas_data is None:
+            topic_areas = ProjectTopicArea.objects.filter(is_active=True)
+            topic_areas_data = ProjectTopicAreaSerializer(topic_areas, many=True).data
+            cache.set("utc_active_topic_areas_data", topic_areas_data, 600)
+
+        supervisors_data = cache.get("utc_active_supervisors_brief_data")
+        if supervisors_data is None:
+            supervisors = Supervisor.objects.all().select_related("user").order_by("user__first_name")
+            supervisors_data = SupervisorBriefSerializer(supervisors, many=True).data
+            cache.set("utc_active_supervisors_brief_data", supervisors_data, 300)
 
         survey = InternshipInfo.objects.filter(student=student).first()
         survey_data = InternshipInfoSerializer(survey).data if survey else None
@@ -95,8 +107,8 @@ class StudentSurveyAPIView(APIView):
                 "batch_code": getattr(batch, "batch_code", "") if batch else "",
                 "batch_name": getattr(batch, "batch_name", "") if batch else ""
             },
-            "topic_areas": ProjectTopicAreaSerializer(topic_areas, many=True).data,
-            "supervisors": SupervisorBriefSerializer(supervisors, many=True).data,
+            "topic_areas": topic_areas_data,
+            "supervisors": supervisors_data,
             "survey": survey_data
         }, status=status.HTTP_200_OK)
 
