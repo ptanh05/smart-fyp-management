@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { apiService } from '../services/api';
 import DebouncedSubmitButton from './DebouncedSubmitButton';
+import { useModalGuard } from '../utils/modalHooks';
 import './BugReportModal.css';
 
 interface BugReportModalProps {
@@ -18,6 +19,21 @@ const BugReportModal: React.FC<BugReportModalProps> = ({ isOpen, onClose }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isDirty = Boolean(title.trim() || description.trim() || screenshot);
+  const { requestClose, handleOverlayClick } = useModalGuard({
+    isOpen,
+    onClose: () => {
+      handleRemoveScreenshot();
+      setTitle('');
+      setDescription('');
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      onClose();
+    },
+    isDirty,
+    confirmMessage: 'Bạn có nội dung báo cáo sự cố chưa gửi. Bạn có chắc muốn đóng không?',
+  });
 
   if (!isOpen) return null;
 
@@ -102,13 +118,13 @@ const BugReportModal: React.FC<BugReportModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="bug-modal-overlay" onClick={onClose}>
+    <div className="bug-modal-overlay" onClick={handleOverlayClick}>
       <div className="bug-modal-container" onClick={(e) => e.stopPropagation()}>
         <div className="bug-modal-header">
           <h3 className="bug-modal-title">
             <span>🐞</span> Báo Lỗi Hệ Thống & Phản Hồi
           </h3>
-          <button className="bug-modal-close-btn" onClick={onClose} aria-label="Đóng modal">
+          <button className="bug-modal-close-btn" onClick={requestClose} aria-label="Đóng modal">
             ✕
           </button>
         </div>

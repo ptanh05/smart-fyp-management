@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useModalGuard } from '../utils/modalHooks';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
@@ -28,6 +29,30 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [locking, setLocking] = useState(false);
+
+  const initialScoreRef = useRef({
+    scorePres: 2.5,
+    scoreContent: 2.5,
+    scoreQa: 1.5,
+    scoreDemo: 1.5,
+    scoreComments: '',
+  });
+
+  const isScoreDirty =
+    showScoreModal &&
+    !councilData?.is_locked &&
+    (Number(scorePres) !== Number(initialScoreRef.current.scorePres) ||
+      Number(scoreContent) !== Number(initialScoreRef.current.scoreContent) ||
+      Number(scoreQa) !== Number(initialScoreRef.current.scoreQa) ||
+      Number(scoreDemo) !== Number(initialScoreRef.current.scoreDemo) ||
+      scoreComments !== initialScoreRef.current.scoreComments);
+
+  const { requestClose: requestCloseScoreModal, handleOverlayClick: handleScoreOverlayClick } = useModalGuard({
+    isOpen: showScoreModal,
+    onClose: () => setShowScoreModal(false),
+    isDirty: isScoreDirty,
+    confirmMessage: 'Bạn có điểm số hoặc ý kiến nhận xét chưa lưu. Bạn có chắc muốn đóng không?',
+  });
 
   const getHeaders = () => {
     const token = localStorage.getItem('access_token');
@@ -136,19 +161,27 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
   const handleOpenScoreModal = (project: any) => {
     setSelectedProject(project);
-    if (project.my_score) {
-      setScorePres(project.my_score.score_presentation);
-      setScoreContent(project.my_score.score_content);
-      setScoreQa(project.my_score.score_qa);
-      setScoreDemo(project.my_score.score_demo);
-      setScoreComments(project.my_score.comments || '');
-    } else {
-      setScorePres(2.5);
-      setScoreContent(2.5);
-      setScoreQa(1.5);
-      setScoreDemo(1.5);
-      setScoreComments('');
-    }
+    const initial = project.my_score
+      ? {
+          scorePres: project.my_score.score_presentation,
+          scoreContent: project.my_score.score_content,
+          scoreQa: project.my_score.score_qa,
+          scoreDemo: project.my_score.score_demo,
+          scoreComments: project.my_score.comments || '',
+        }
+      : {
+          scorePres: 2.5,
+          scoreContent: 2.5,
+          scoreQa: 1.5,
+          scoreDemo: 1.5,
+          scoreComments: '',
+        };
+    setScorePres(initial.scorePres);
+    setScoreContent(initial.scoreContent);
+    setScoreQa(initial.scoreQa);
+    setScoreDemo(initial.scoreDemo);
+    setScoreComments(initial.scoreComments);
+    initialScoreRef.current = initial;
     setShowScoreModal(true);
   };
 
@@ -727,8 +760,8 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
       {/* Modal Live Grading Form */}
       {showScoreModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-lg w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={handleScoreOverlayClick}>
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-lg w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
             <div>
               <span className="text-xs font-mono text-blue-400">
                 {selectedProject?.student_reg_no} - {selectedProject?.student_name}
@@ -838,7 +871,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowScoreModal(false)}
+                  onClick={requestCloseScoreModal}
                   className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
                   {councilData.is_locked ? 'Đóng' : 'Hủy'}

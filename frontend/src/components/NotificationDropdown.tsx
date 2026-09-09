@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { Notification, NotificationType } from '../types';
+import { getRelativeTime } from '../utils/dateUtils';
 import './NotificationDropdown.css';
 
 interface NotificationDropdownProps {
@@ -289,18 +290,6 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
     return colors[type] || '#64748b';
   };
 
-  // Format time ago
-  const formatTimeAgo = (dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-    return date.toLocaleDateString();
-  };
 
   return (
     <div ref={dropdownRef} className="notification-container">
@@ -405,8 +394,11 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
                     <div className="notification-content">
                       <div className="notification-title">{notification.title}</div>
                       <div className="notification-message">{notification.message}</div>
-                      <div className="notification-time">
-                        {formatTimeAgo(notification.created_at)}
+                      <div
+                        className="notification-time"
+                        title={notification.created_at ? new Date(notification.created_at).toLocaleString('vi-VN') : ''}
+                      >
+                        {getRelativeTime(notification.created_at)}
                       </div>
                     </div>
                     <button

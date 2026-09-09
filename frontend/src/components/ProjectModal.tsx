@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { apiService } from '../services/api';
 import type { ProjectCategory } from '../types';
 import DebouncedSubmitButton from './DebouncedSubmitButton';
+import { useModalGuard } from '../utils/modalHooks';
 import './Modal.css';
 
 interface ProjectModalProps {
@@ -20,6 +21,20 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ onClose, projectCategories,
   });
   const [loading, setLoading] = useState(false);
   const inFlightRef = useRef(false);
+
+  const isDirty = Boolean(
+    formData.project_name.trim() ||
+    formData.project_description.trim() ||
+    formData.language.trim() ||
+    formData.functionalities.trim() ||
+    formData.project_category
+  );
+  const { requestClose, handleOverlayClick } = useModalGuard({
+    isOpen: true,
+    onClose,
+    isDirty,
+    confirmMessage: 'Bạn có thông tin đề tài đang nhập dở. Bạn có chắc muốn đóng không?',
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,11 +57,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ onClose, projectCategories,
   };
 
   return (
-    <div className="modal" onClick={onClose}>
+    <div className="modal" onClick={handleOverlayClick}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Create Project</h2>
-          <button className="close-btn" onClick={onClose}>
+          <button className="close-btn" onClick={requestClose}>
             ×
           </button>
         </div>
@@ -101,7 +116,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ onClose, projectCategories,
             />
           </div>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-secondary" onClick={requestClose}>
               Cancel
             </button>
             <DebouncedSubmitButton loading={loading} loadingText="Đang tạo...">
