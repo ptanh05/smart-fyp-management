@@ -326,12 +326,9 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
   };
 
   // Send message via WebSocket or API
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() && !selectedAttachment) return;
   const sendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newMessage.trim() || loading) return;
+    if ((!newMessage.trim() && !selectedAttachment) || loading) return;
 
     setLoading(true);
     
@@ -349,8 +346,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
         // Send multipart form data with attachment
         const formData = new FormData();
         formData.append('group', String(groupId));
-        if (newMessage.trim()) {
-          formData.append('message', newMessage.trim());
+        if (messageToSend) {
+          formData.append('message', messageToSend);
         }
         formData.append('attachment', selectedAttachment);
 
@@ -364,7 +361,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
         scrollToBottom();
       } else if (wsRef.current?.readyState === WebSocket.OPEN) {
         // Send via WebSocket
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: 'chat_message',
           message: messageToSend,
@@ -373,8 +369,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
         scrollToBottom();
       } else {
         // Fallback to REST API
-        const createdMsg = await apiService.sendChatMessage({ group: groupId, message: newMessage });
-        await apiService.sendChatMessage({ group: groupId, message: messageToSend });
+        const createdMsg = await apiService.sendChatMessage({ group: groupId, message: messageToSend });
         setNewMessage('');
         setMessages((prev) => {
           if (prev.some((m) => m.id === createdMsg.id)) return prev;
@@ -762,7 +757,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
         <div ref={messagesEndRef} />
       </div>
       
-      <form onSubmit={sendMessage} className="chat-form">
+      <form onSubmit={sendMessage} className="chat-form chat-footer-form">
         {/* Selected file preview before sending */}
         {selectedAttachment && (
           <div className="chat-selected-attachment-bar">
@@ -807,29 +802,20 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
           >
             📎
           </button>
-          <input
-            type="text"
-            value={newMessage}
-            onChange={handleInputChange}
-            placeholder={selectedAttachment ? 'Thêm chú thích (tùy chọn)...' : 'Nhập tin nhắn...'}
-      <form onSubmit={sendMessage} className="chat-footer-form">
-        <div className="chat-input-area">
           <textarea
             ref={textareaRef}
             value={newMessage}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Nhập tin nhắn... (Nhấn Enter để gửi, Shift + Enter để xuống dòng)"
+            placeholder={selectedAttachment ? 'Thêm chú thích (tùy chọn)... (Nhấn Enter để gửi)' : 'Nhập tin nhắn... (Nhấn Enter để gửi, Shift + Enter để xuống dòng)'}
             maxLength={2000}
             rows={2}
             className="chat-textarea"
           />
           <button
             type="submit"
-            className="btn btn-primary"
-            disabled={loading || (!newMessage.trim() && !selectedAttachment)}
             className="btn btn-primary chat-send-btn"
-            disabled={loading || !newMessage.trim()}
+            disabled={loading || (!newMessage.trim() && !selectedAttachment)}
           >
             {loading ? 'Đang gửi...' : 'Gửi'}
           </button>

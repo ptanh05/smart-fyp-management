@@ -149,8 +149,6 @@ const DocumentRow: React.FC<DocumentRowProps> = ({
               Xem trước
             </button>
           )}
-          <button
-            className="btn btn-primary btn-sm"
           <ActionIconButton
             action="download"
             tooltip="Tải về tệp tin tài liệu này về máy tính"

@@ -28,15 +28,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = () => {
-    apiService.logout();
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_type');
     setUser(null);
     setUserType(null);
+    apiService.logout();
   };
 
   const refreshUser = async () => {
     try {
       const type = localStorage.getItem('user_type') as UserType;
-      if (!type) {
+      const token = localStorage.getItem('access_token');
+      if (!type || !token || !['student', 'supervisor', 'committee_member', 'external_examiner'].includes(type)) {
+        if (type || token) {
+          localStorage.removeItem('user_type');
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+        }
+        setUser(null);
+        setUserType(null);
         setLoading(false);
         return;
       }

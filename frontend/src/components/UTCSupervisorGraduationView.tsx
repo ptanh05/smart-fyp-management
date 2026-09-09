@@ -8,6 +8,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'students' | 'outlines' | 'weekly' | 'eval' | 'reviewer'>('students');
   const [projects, setProjects] = useState<any[]>([]);
   const [reviewerProjects, setReviewerProjects] = useState<any[]>([]);
+  const [outlineReviews, setOutlineReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Outline Review Modal
@@ -69,12 +70,14 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [projRes, revRes] = await Promise.all([
+      const [projRes, revRes, outRes] = await Promise.all([
         axios.get(`${API_BASE}/supervisor/graduation-projects/`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/reviewer/assigned-projects/`, { headers: getHeaders() }).catch(() => null),
+        axios.get(`${API_BASE}/supervisor/outline-group-reviews/`, { headers: getHeaders() }).catch(() => null),
       ]);
       if (projRes?.data) setProjects(projRes.data);
       if (revRes?.data) setReviewerProjects(revRes.data);
+      if (outRes?.data) setOutlineReviews(outRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -360,38 +363,47 @@ export const UTCSupervisorGraduationView: React.FC = () => {
       {/* Tab 2: Outlines Review */}
       {activeTab === 'outlines' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-          <h3 className="font-bold text-base text-slate-100">Xét duyệt Đề cương chi tiết</h3>
-          <div className="space-y-3">
-            {projects.map((p) => (
-              <div key={p.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-blue-400">{p.student_reg_no}</span>
-                    <span className="font-semibold text-sm text-slate-100">{p.student_name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
-                      p.status === 'OUTLINE_APPROVED' ? 'bg-emerald-500/10 text-emerald-400' :
-                      p.status === 'OUTLINE_REVISION' ? 'bg-amber-500/10 text-amber-400' :
-                      'bg-blue-500/10 text-blue-400'
-                    }`}>
-                      {p.status_display || p.status}
-                    </span>
+          <h3 className="font-bold text-base text-slate-100">Danh sách Đề cương được phân công thẩm định</h3>
+          {outlineReviews.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">Chưa có đề cương nào được phân công cho Nhóm của Thầy/Cô.</div>
+          ) : (
+            <div className="space-y-3">
+              {outlineReviews.map((r) => (
+                <div key={r.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-blue-400">{r.student_reg_no}</span>
+                      <span className="font-semibold text-sm text-slate-100">{r.student_name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                        r.verdict === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400' :
+                        r.verdict === 'REVISION_REQUIRED' ? 'bg-amber-500/10 text-amber-400' :
+                        r.verdict === 'REJECTED' ? 'bg-rose-500/10 text-rose-400' :
+                        'bg-blue-500/10 text-blue-400'
+                      }`}>
+                        {r.verdict === 'APPROVED' ? 'Đã duyệt' : 
+                         r.verdict === 'REVISION_REQUIRED' ? 'Yêu cầu sửa' : 
+                         r.verdict === 'REJECTED' ? 'Không đạt' : 'Chờ xét duyệt'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300"><b>Đề tài:</b> {r.topic_title}</p>
+                    <p className="text-xs text-slate-400"><b>Nhóm thẩm định:</b> {r.group_name} {r.reviewer_name ? `(Người duyệt: ${r.reviewer_name})` : ''}</p>
                   </div>
-                  <p className="text-xs text-slate-300"><b>Đề tài:</b> {p.topic_title_vi}</p>
-                </div>
 
-                <button
-                  onClick={() => {
-                    setSelectedProject(p);
-                    setOutlineComments(p.outline_review?.comments || '');
-                    setShowOutlineModal(true);
-                  }}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition"
-                >
-                  Xét duyệt Đề cương
-                </button>
-              </div>
-            ))}
-          </div>
+                  <button
+                    onClick={() => {
+                      setSelectedProject({ id: r.project, student_name: r.student_name, topic_title_vi: r.topic_title });
+                      setOutlineComments(r.comments || '');
+                      setVerdict(r.verdict && r.verdict !== 'PENDING' ? r.verdict : 'APPROVED');
+                      setShowOutlineModal(true);
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition"
+                  >
+                    Thẩm định Đề cương
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

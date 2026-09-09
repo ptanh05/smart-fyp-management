@@ -62,7 +62,7 @@ const AppRoutes: React.FC = () => {
       <Routes>
         <Route
           path="/login"
-          element={userType ? <Navigate to={`/${userType}/dashboard`} replace /> : <LoginPage />}
+          element={userType && ['student', 'supervisor', 'committee_member', 'external_examiner'].includes(userType) ? <Navigate to={`/${userType}/dashboard`} replace /> : <LoginPage />}
         />
         <Route
           path="/student/dashboard"

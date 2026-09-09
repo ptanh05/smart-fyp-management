@@ -5,6 +5,7 @@ from .project_views import (
     DocumentDownloadView,
     SRSTemplateDownloadView,
     ChatAttachmentDownloadView,
+)
 from app.views_media import (
     DocumentSecureDownloadView,
     TemplateSecureDownloadView,
@@ -48,6 +49,8 @@ urlpatterns = [
         "media/chat_attachments/<str:filename>/",
         ChatAttachmentDownloadView.as_view(),
         name="media-chat-attachment-download",
+    ),
+    path(
         "media/<path:file_path>",
         SecureMediaDownloadView.as_view(),
         name="media-download",

@@ -1845,6 +1845,7 @@ class AuditLog(models.Model):
         ("document_status_change", "Document Status Change"),
         ("group_status_change", "Group Status Change"),
         ("supervisor_request_update", "Supervisor Request Update"),
+        ("email_notification_error", "Email Notification Error"),
     )
     
     EVALUATION_TYPE_CHOICES = (
@@ -2056,6 +2057,7 @@ class DefenseCouncil(models.Model):
     locked_at = models.DateTimeField(null=True, blank=True)
     locked_by = models.ForeignKey(
         CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name="locked_councils"
+    )
     current_defending_project = models.ForeignKey(
         "GraduationProject",
         on_delete=models.SET_NULL,

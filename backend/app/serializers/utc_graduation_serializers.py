@@ -69,17 +69,27 @@ class InternshipInfoSerializer(serializers.ModelSerializer):
 
 
 class OutlineReviewSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    student_reg_no = serializers.SerializerMethodField()
+    topic_title = serializers.CharField(source="project.topic_title_vi", read_only=True, default="")
+    group_name = serializers.CharField(source="review_group.name", read_only=True, default="")
     reviewer_name = serializers.SerializerMethodField()
+    outline_file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = OutlineReview
         fields = [
             "id",
             "project",
+            "student_name",
+            "student_reg_no",
+            "topic_title",
+            "group_name",
             "review_group",
             "reviewer",
             "reviewer_name",
             "outline_file",
+            "outline_file_url",
             "verdict",
             "comments",
             "submitted_at",
@@ -87,10 +97,31 @@ class OutlineReviewSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["submitted_at", "reviewed_at"]
 
+    def get_student_name(self, obj):
+        if not obj.project or not obj.project.student or not obj.project.student.user:
+            return ""
+        u = obj.project.student.user
+        if u.last_name and u.first_name:
+            return f"{u.last_name} {u.first_name}".strip()
+        return u.get_full_name() or u.username
+
+    def get_student_reg_no(self, obj):
+        if not obj.project or not obj.project.student:
+            return ""
+        return obj.project.student.registration_no or ""
+
     def get_reviewer_name(self, obj):
         if not obj.reviewer:
             return ""
-        return obj.reviewer.user.get_full_name()
+        u = obj.reviewer.user
+        prefix = f"{obj.reviewer.academic_title} " if obj.reviewer.academic_title else ""
+        name = f"{u.last_name} {u.first_name}".strip() if (u.last_name and u.first_name) else (u.get_full_name() or u.username)
+        return f"{prefix}{name}".strip()
+
+    def get_outline_file_url(self, obj):
+        if obj.outline_file:
+            return obj.outline_file.url
+        return ""
 
 
 class WeeklyProgressReportSerializer(serializers.ModelSerializer):

@@ -84,7 +84,6 @@ const StudentDashboard: React.FC = () => {
     const handleOnlineSync = () => {
       loadData();
       if (activeTab === 'project') loadProjects();
-      if (activeTab === 'groups') loadGroupRequests();
       if (activeTab === 'supervisor' || activeTab === 'documents' || activeTab === 'chat') loadSupervisorRequests();
     };
 

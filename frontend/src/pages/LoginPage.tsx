@@ -46,12 +46,12 @@ const LoginPage: React.FC = () => {
     } else {
       if (!emailVal.trim()) {
         errors.email = i18n.language.startsWith('vi')
-          ? 'Vui lòng nhập Email cán bộ/giảng viên UTC'
-          : 'Please enter UTC Staff/Supervisor Email';
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal.trim())) {
+          ? 'Vui lòng nhập Email hoặc Tên đăng nhập cán bộ UTC'
+          : 'Please enter UTC Staff Email or Username';
+      } else if (emailVal.trim().length < 3) {
         errors.email = i18n.language.startsWith('vi')
-          ? 'Định dạng Email không hợp lệ (Ví dụ: gvdemo@utc.edu.vn)'
-          : 'Invalid Email format (e.g. gvdemo@utc.edu.vn)';
+          ? 'Thông tin đăng nhập phải có ít nhất 3 ký tự'
+          : 'Username/Email must be at least 3 characters';
       }
     }
 
@@ -239,6 +239,90 @@ const LoginPage: React.FC = () => {
             </button>
           </div>
 
+          {/* Quick Demo Accounts Helper */}
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            flexWrap: 'wrap',
+            marginBottom: '16px',
+            padding: '10px 12px',
+            background: 'rgba(0, 51, 102, 0.05)',
+            borderRadius: '8px',
+            border: '1px dashed #cbd5e1',
+            fontSize: '0.82rem',
+            alignItems: 'center'
+          }}>
+            <span style={{ fontWeight: 600, color: '#003366', marginRight: '2px' }}>
+              ⚡ Điền mẫu:
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setUserType('student');
+                setRegistrationNo('201200101');
+                setPassword('student123');
+                setFieldErrors({});
+                setError('');
+              }}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid #93c5fd',
+                background: userType === 'student' ? '#dbeafe' : '#fff',
+                cursor: 'pointer',
+                fontWeight: 500,
+                color: '#1e40af',
+                fontSize: '0.8rem'
+              }}
+            >
+              🎓 SV: 201200101
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setUserType('supervisor');
+                setEmail('supervisor1');
+                setPassword('supervisor123');
+                setFieldErrors({});
+                setError('');
+              }}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid #86efac',
+                background: userType === 'supervisor' ? '#dcfce7' : '#fff',
+                cursor: 'pointer',
+                fontWeight: 500,
+                color: '#166534',
+                fontSize: '0.8rem'
+              }}
+            >
+              👨‍🏫 GV: supervisor1
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setUserType('committee_member');
+                setEmail('committee1');
+                setPassword('committee123');
+                setFieldErrors({});
+                setError('');
+              }}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid #fde047',
+                background: userType === 'committee_member' ? '#fef9c3' : '#fff',
+                cursor: 'pointer',
+                fontWeight: 500,
+                color: '#854d0e',
+                fontSize: '0.8rem'
+              }}
+            >
+              🏛️ HĐ: committee1
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} className="utc-login-form" noValidate>
             {userType === 'student' ? (
               <div className={`utc-input-group ${touched.registrationNo && fieldErrors.registrationNo ? 'has-error' : ''} ${touched.registrationNo && !fieldErrors.registrationNo && registrationNo ? 'is-valid' : ''}`}>
@@ -254,7 +338,7 @@ const LoginPage: React.FC = () => {
                       }
                     }}
                     onBlur={() => handleBlur('registrationNo')}
-                    placeholder={t('login.usernamePlaceholder', 'Nhập mã sinh viên UTC (Ví dụ: 201200101 hoặc svdemo)')}
+                    placeholder={t('login.usernamePlaceholder', 'Nhập mã sinh viên UTC (Ví dụ: 201200101 hoặc student1)')}
                   />
                   {touched.registrationNo && !fieldErrors.registrationNo && registrationNo && (
                     <span className="utc-valid-icon">✓</span>
@@ -269,7 +353,7 @@ const LoginPage: React.FC = () => {
                 <div className="utc-input-wrapper">
                   <span className="utc-input-icon">✉️</span>
                   <input
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -278,7 +362,7 @@ const LoginPage: React.FC = () => {
                       }
                     }}
                     onBlur={() => handleBlur('email')}
-                    placeholder={t('login.emailPlaceholder', 'Nhập email UTC (Ví dụ: gvdemo@utc.edu.vn)')}
+                    placeholder={t('login.emailPlaceholder', 'Nhập email hoặc username (Ví dụ: supervisor1 hoặc gvc.nguyen@utc.edu.vn)')}
                   />
                   {touched.email && !fieldErrors.email && email && (
                     <span className="utc-valid-icon">✓</span>
