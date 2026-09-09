@@ -199,14 +199,6 @@ class ApiService {
     return response.data;
   }
 
-  // Project Categories
-  async getProjectCategories(): Promise<{ results: ProjectCategory[] }> {
-    return this.deduplicateRequest('project-categories', async () => {
-      const response = await this.api.get<{ results: ProjectCategory[] }>('/project/categories/');
-      return response.data;
-    }, 10000);
-  }
-
   // Groups
   async getGroupRequests(options?: { requested?: 'to' | 'from'; status?: string; search?: string }): Promise<Group[]> {
     const params: Record<string, string> = {};
@@ -255,13 +247,17 @@ class ApiService {
 
   // Categories
   async getProjectCategories(): Promise<ProjectCategory[]> {
-    const response = await this.api.get<ProjectCategory[] | { results: ProjectCategory[] }>('/project/categories/');
-    if (Array.isArray(response.data)) {
-      return response.data;
-    } else if (response.data && response.data.results) {
-      return response.data.results;
-    }
-    return [];
+    return this.deduplicateRequest('project-categories', async () => {
+      const response = await this.api.get<ProjectCategory[] | { results: ProjectCategory[] }>('/project/categories/');
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data && response.data.results) {
+        return response.data.results;
+      }
+      return [];
+    }, 10000);
+  }
+
   // ==========================================
   // Student Capstone Group Management (15 Features)
   // ==========================================

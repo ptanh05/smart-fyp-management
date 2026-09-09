@@ -1316,20 +1316,6 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
                 delta = timezone.now() - latest_deadline
                 late_duration = f"Trễ {format_late_duration(delta)}"
 
-        document = serializer.save(
-            uploaded_by=student,
-            group=group,
-            document_type=document_type,
-            is_late=is_late,
-            late_duration=late_duration,
-        )
-        ).filter(Q(semester__isnull=True) | Q(semester=student.semester))
-        latest_deadline = requirements.aggregate(Max("deadline"))["deadline__max"]
-        if latest_deadline is not None and timezone.now() > latest_deadline:
-            return Response(
-                {"message": "Submission deadline has passed for this document type."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
         # Concurrency control: atomically lock the group record to serialize concurrent submissions
         with transaction.atomic():
             group = SupervisorOfStudentGroup.objects.select_for_update().get(id=group.id)
@@ -1344,11 +1330,17 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
                 if "uploaded_file" in serializer.validated_data:
                     existing_pending_doc.uploaded_file = serializer.validated_data["uploaded_file"]
                 existing_pending_doc.uploaded_by = student
+                existing_pending_doc.is_late = is_late
+                existing_pending_doc.late_duration = late_duration
                 existing_pending_doc.save()
                 document = existing_pending_doc
             else:
                 document = serializer.save(
-                    uploaded_by=student, group=group, document_type=document_type
+                    uploaded_by=student,
+                    group=group,
+                    document_type=document_type,
+                    is_late=is_late,
+                    late_duration=late_duration,
                 )
         NotificationService.notify_document_uploaded(document, group)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -927,7 +927,7 @@ class CouncilLiveDefenseSessionAPIView(APIView):
                 "is_locked": getattr(council, "is_locked", False),
                 "locked_at": council.locked_at if getattr(council, "is_locked", False) else None,
                 "locked_by": council.locked_by.get_full_name() or council.locked_by.username if getattr(council, "is_locked", False) and council.locked_by else None,
-                "can_lock": can_lock
+                "can_lock": can_lock,
                 "my_role_code": council_member.role,
                 "current_defending_project_id": council.current_defending_project_id,
                 "has_conflict": council_conflict_info.get("has_conflict", False),
@@ -1043,8 +1043,6 @@ class CouncilSubmitScoreAPIView(APIView):
 
 
 class CouncilToggleLockAPIView(APIView):
-class CouncilChairSetDefenseStatusAPIView(APIView):
-    """Chủ tịch hội đồng điều hành buổi bảo vệ: Chuyển trạng thái đồ án sang 'Đang bảo vệ' (In Progress / DEFENDING)"""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -1075,6 +1073,14 @@ class CouncilChairSetDefenseStatusAPIView(APIView):
             "locked_at": council.locked_at,
             "locked_by": user.get_full_name() or user.username if lock else None
         }, status=status.HTTP_200_OK)
+
+
+class CouncilChairSetDefenseStatusAPIView(APIView):
+    """Chủ tịch hội đồng điều hành buổi bảo vệ: Chuyển trạng thái đồ án sang 'Đang bảo vệ' (In Progress / DEFENDING)"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
         council_member = CouncilMember.objects.filter(user=user).select_related("council").first()
         if not council_member:
             return Response({"detail": "Bạn không thuộc Hội đồng bảo vệ nào."}, status=status.HTTP_403_FORBIDDEN)

@@ -210,7 +210,6 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
     }
   };
 
-  const totalPreview = (Number(scorePres) || 0) + (Number(scoreContent) || 0) + (Number(scoreQa) || 0) + (Number(scoreDemo) || 0);
   const totalPreview =
     (Number(scorePres) || 0) +
     (Number(scoreContent) || 0) +
@@ -245,6 +244,8 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
             {councilData.is_locked && (
               <span className="text-xs px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold flex items-center gap-1">
                 🔒 ĐÃ KHÓA ĐIỂM (CHỈ ĐỌC)
+              </span>
+            )}
             {isChair && (
               <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
                 👑 Quyền Điều hành
@@ -645,12 +646,14 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                       <button
                         onClick={() => handleOpenScoreModal(p)}
                         className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
-                          hasMyScore
+                          councilData.is_locked
+                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                            : hasMyScore
                             ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
                             : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
                         }`}
                       >
-                        {hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm'}
+                        {councilData.is_locked ? '👁️ Xem điểm' : hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm bảo vệ'}
                       </button>
                     )}
                   </div>
@@ -668,19 +671,6 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                       </span>
                     </div>
 
-                  <button
-                    onClick={() => handleOpenScoreModal(p)}
-                    className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
-                      councilData.is_locked
-                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                        : hasMyScore
-                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
-                    }`}
-                  >
-                    {councilData.is_locked ? '👁️ Xem điểm' : hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm bảo vệ'}
-                  </button>
-                </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                       {p.scoring_summary?.members_breakdown?.map((m: any) => (
                         <div

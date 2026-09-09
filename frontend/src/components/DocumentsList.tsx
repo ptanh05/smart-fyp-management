@@ -149,8 +149,6 @@ const DocumentRow: React.FC<DocumentRowProps> = ({
               Xem trước
             </button>
           )}
-          <button
-            className="btn btn-primary btn-sm"
           <ActionIconButton
             action="download"
             tooltip="Tải về tệp tin tài liệu này về máy tính"
@@ -636,16 +634,6 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
             </>
           )}
         </button>
-        {!uploading && (
-          <button 
-            className="btn btn-primary submit-btn"
-            onClick={handleSubmit}
-            disabled={!selectedFile || deadlinePassed}
-          >
-            <span>📤</span>
-            Tải lên tài liệu
-          </button>
-        )}
       </div>
 
       {/* Divider */}

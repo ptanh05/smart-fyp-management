@@ -2056,6 +2056,7 @@ class DefenseCouncil(models.Model):
     locked_at = models.DateTimeField(null=True, blank=True)
     locked_by = models.ForeignKey(
         CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name="locked_councils"
+    )
     current_defending_project = models.ForeignKey(
         "GraduationProject",
         on_delete=models.SET_NULL,
