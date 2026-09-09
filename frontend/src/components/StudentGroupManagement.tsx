@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/api';
 import type { Student, ProjectGroup, GroupJoinRequestInfo, TopicStatus } from '../types';
+import { useModalGuard } from '../utils/modalHooks';
 import './StudentGroupManagement.css';
 
 interface StudentGroupManagementProps {
@@ -57,6 +58,33 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
     topic_description: '',
   });
   const [topicSubmitting, setTopicSubmitting] = useState(false);
+
+  const isCreateDirty = Boolean(createForm.name.trim() || createForm.tentative_topic.trim() || createForm.tentative_description.trim());
+  const createModalGuard = useModalGuard({
+    isOpen: showCreateModal,
+    onClose: () => setShowCreateModal(false),
+    isDirty: isCreateDirty,
+    confirmMessage: 'Bạn có dữ liệu tạo nhóm đang nhập dở. Bạn có chắc muốn đóng không?',
+  });
+
+  const isJoinDirty = Boolean(joinMessage.trim());
+  const joinModalGuard = useModalGuard({
+    isOpen: showJoinModal,
+    onClose: () => setShowJoinModal(false),
+    isDirty: isJoinDirty,
+    confirmMessage: 'Bạn có lời nhắn xin gia nhập chưa gửi. Bạn có chắc muốn đóng không?',
+  });
+
+  const transferModalGuard = useModalGuard({
+    isOpen: showTransferModal,
+    onClose: () => setShowTransferModal(false),
+    isDirty: Boolean(selectedMemberForLeader),
+  });
+
+  const confirmDialogGuard = useModalGuard({
+    isOpen: Boolean(confirmAction),
+    onClose: () => setConfirmAction(null),
+  });
 
   // --------------------------------------------------------------------------
   // Data Loading
@@ -840,11 +868,11 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
 
       {/* Modal: Create Group (Feature 2, 3, 4, 5) */}
       {showCreateModal && (
-        <div className="custom-modal-overlay">
-          <div className="custom-modal">
+        <div className="custom-modal-overlay" onClick={createModalGuard.handleOverlayClick}>
+          <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
             <div className="custom-modal-header">
               <h3>Tạo Nhóm Đồ Án Mới</h3>
-              <button className="custom-modal-close" onClick={() => setShowCreateModal(false)}>
+              <button className="custom-modal-close" onClick={createModalGuard.requestClose}>
                 ✕
               </button>
             </div>
@@ -912,7 +940,7 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={createModalGuard.requestClose}
                   disabled={submittingCreate}
                 >
                   Hủy
@@ -928,11 +956,11 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
 
       {/* Modal: Request to Join (Feature 6) */}
       {showJoinModal && selectedGroupForJoin && (
-        <div className="custom-modal-overlay">
-          <div className="custom-modal">
+        <div className="custom-modal-overlay" onClick={joinModalGuard.handleOverlayClick}>
+          <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
             <div className="custom-modal-header">
               <h3>Xin Gia Nhập: {selectedGroupForJoin.group_name}</h3>
-              <button className="custom-modal-close" onClick={() => setShowJoinModal(false)}>
+              <button className="custom-modal-close" onClick={joinModalGuard.requestClose}>
                 ✕
               </button>
             </div>
@@ -961,7 +989,7 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
               </div>
 
               <div className="custom-modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowJoinModal(false)}>
+                <button type="button" className="btn btn-secondary" onClick={joinModalGuard.requestClose}>
                   Hủy
                 </button>
                 <button type="submit" className="btn btn-primary">
@@ -975,11 +1003,11 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
 
       {/* Modal: Transfer Leadership (Feature 14) */}
       {showTransferModal && myGroup && (
-        <div className="custom-modal-overlay">
-          <div className="custom-modal">
+        <div className="custom-modal-overlay" onClick={transferModalGuard.handleOverlayClick}>
+          <div className="custom-modal" onClick={(e) => e.stopPropagation()}>
             <div className="custom-modal-header">
               <h3>👑 Chuyển Quyền Trưởng Nhóm</h3>
-              <button className="custom-modal-close" onClick={() => setShowTransferModal(false)}>
+              <button className="custom-modal-close" onClick={transferModalGuard.requestClose}>
                 ✕
               </button>
             </div>
@@ -1009,7 +1037,7 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
             </div>
 
             <div className="custom-modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowTransferModal(false)}>
+              <button type="button" className="btn btn-secondary" onClick={transferModalGuard.requestClose}>
                 Hủy
               </button>
               <button
@@ -1027,13 +1055,13 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
 
       {/* Confirmation Dialog (Kick, Leave, Disband, Transfer) */}
       {confirmAction && (
-        <div className="custom-modal-overlay">
-          <div className="custom-modal" style={{ maxWidth: '440px' }}>
+        <div className="custom-modal-overlay" onClick={confirmDialogGuard.handleOverlayClick}>
+          <div className="custom-modal" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
             <div className="custom-modal-header">
               <h3 style={{ color: confirmAction.type === 'disband' ? '#dc2626' : undefined }}>
                 {confirmAction.title}
               </h3>
-              <button className="custom-modal-close" onClick={() => setConfirmAction(null)}>
+              <button className="custom-modal-close" onClick={confirmDialogGuard.requestClose}>
                 ✕
               </button>
             </div>
@@ -1045,7 +1073,7 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
             </div>
 
             <div className="custom-modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setConfirmAction(null)}>
+              <button type="button" className="btn btn-secondary" onClick={confirmDialogGuard.requestClose}>
                 Hủy bỏ
               </button>
               <button

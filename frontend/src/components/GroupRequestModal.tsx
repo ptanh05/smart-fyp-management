@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import type { ProjectCategory, Student } from '../types';
 import DebouncedSubmitButton from './DebouncedSubmitButton';
+import { useModalGuard } from '../utils/modalHooks';
 import './Modal.css';
 
 interface GroupRequestModalProps {
@@ -82,12 +83,20 @@ const GroupRequestModal: React.FC<GroupRequestModalProps> = ({
     }
   };
 
+  const isDirty = Boolean(selectedStudent !== null || selectedCategory !== null || searchQuery.trim() !== '');
+  const { requestClose, handleOverlayClick } = useModalGuard({
+    isOpen: true,
+    onClose,
+    isDirty,
+    confirmMessage: 'Bạn có thông tin yêu cầu ghép nhóm chưa gửi. Bạn có chắc muốn đóng không?',
+  });
+
   return (
-    <div className="modal" onClick={onClose}>
+    <div className="modal" onClick={handleOverlayClick}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Send Group Request</h2>
-          <button className="close-btn" onClick={onClose}>
+          <button className="close-btn" onClick={requestClose}>
             ×
           </button>
         </div>
@@ -159,7 +168,7 @@ const GroupRequestModal: React.FC<GroupRequestModalProps> = ({
             </select>
           </div>
           <div className="btn-row">
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
+            <button type="button" className="btn btn-secondary" onClick={requestClose} disabled={loading}>
               Cancel
             </button>
             <DebouncedSubmitButton loading={loading} loadingText="Đang gửi..." disabled={loadingStudents}>
