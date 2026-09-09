@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useModalGuard } from '../utils/modalHooks';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
@@ -27,6 +28,31 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
   const [scoreComments, setScoreComments] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
+  const [locking, setLocking] = useState(false);
+
+  const initialScoreRef = useRef({
+    scorePres: 2.5,
+    scoreContent: 2.5,
+    scoreQa: 1.5,
+    scoreDemo: 1.5,
+    scoreComments: '',
+  });
+
+  const isScoreDirty =
+    showScoreModal &&
+    !councilData?.is_locked &&
+    (Number(scorePres) !== Number(initialScoreRef.current.scorePres) ||
+      Number(scoreContent) !== Number(initialScoreRef.current.scoreContent) ||
+      Number(scoreQa) !== Number(initialScoreRef.current.scoreQa) ||
+      Number(scoreDemo) !== Number(initialScoreRef.current.scoreDemo) ||
+      scoreComments !== initialScoreRef.current.scoreComments);
+
+  const { requestClose: requestCloseScoreModal, handleOverlayClick: handleScoreOverlayClick } = useModalGuard({
+    isOpen: showScoreModal,
+    onClose: () => setShowScoreModal(false),
+    isDirty: isScoreDirty,
+    confirmMessage: 'Bạn có điểm số hoặc ý kiến nhận xét chưa lưu. Bạn có chắc muốn đóng không?',
+  });
 
   const getHeaders = () => {
     const token = localStorage.getItem('access_token');
@@ -135,19 +161,27 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
   const handleOpenScoreModal = (project: any) => {
     setSelectedProject(project);
-    if (project.my_score) {
-      setScorePres(project.my_score.score_presentation);
-      setScoreContent(project.my_score.score_content);
-      setScoreQa(project.my_score.score_qa);
-      setScoreDemo(project.my_score.score_demo);
-      setScoreComments(project.my_score.comments || '');
-    } else {
-      setScorePres(2.5);
-      setScoreContent(2.5);
-      setScoreQa(1.5);
-      setScoreDemo(1.5);
-      setScoreComments('');
-    }
+    const initial = project.my_score
+      ? {
+          scorePres: project.my_score.score_presentation,
+          scoreContent: project.my_score.score_content,
+          scoreQa: project.my_score.score_qa,
+          scoreDemo: project.my_score.score_demo,
+          scoreComments: project.my_score.comments || '',
+        }
+      : {
+          scorePres: 2.5,
+          scoreContent: 2.5,
+          scoreQa: 1.5,
+          scoreDemo: 1.5,
+          scoreComments: '',
+        };
+    setScorePres(initial.scorePres);
+    setScoreContent(initial.scoreContent);
+    setScoreQa(initial.scoreQa);
+    setScoreDemo(initial.scoreDemo);
+    setScoreComments(initial.scoreComments);
+    initialScoreRef.current = initial;
     setShowScoreModal(true);
   };
 
@@ -179,6 +213,36 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
     }
   };
 
+  const handleToggleLock = async () => {
+    if (!councilData) return;
+    const willLock = !councilData.is_locked;
+    const confirmPrompt = window.confirm(
+      willLock
+        ? 'Bạn có chắc chắn muốn KHÓA ĐIỂM Hội đồng? Tất cả điểm số sẽ chuyển sang trạng thái Chỉ đọc (Read-only) và không thể chỉnh sửa thêm.'
+        : 'Bạn có chắc chắn muốn MỞ KHÓA điểm Hội đồng? Thành viên sẽ có thể tiếp tục chấm/sửa điểm.'
+    );
+    if (!confirmPrompt) return;
+
+    try {
+      setLocking(true);
+      const res = await axios.post(
+        `${API_BASE}/council/toggle-lock/`,
+        {
+          council_id: councilData.id,
+          is_locked: willLock,
+        },
+        { headers: getHeaders() }
+      );
+      alert(res.data.message || (willLock ? 'Đã khóa điểm hội đồng thành công!' : 'Đã mở khóa điểm thành công!'));
+      fetchData();
+    } catch (err: any) {
+      console.error('Toggle lock error:', err);
+      alert('Lỗi: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setLocking(false);
+    }
+  };
+
   const totalPreview =
     (Number(scorePres) || 0) +
     (Number(scoreContent) || 0) +
@@ -203,13 +267,18 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       {/* Council Info Header */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
               Hội đồng #{councilData.council_number}
             </span>
             <span className="text-xs px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
               Vai trò của bạn: {councilData.my_role}
             </span>
+            {councilData.is_locked && (
+              <span className="text-xs px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold flex items-center gap-1">
+                🔒 ĐÃ KHÓA ĐIỂM (CHỈ ĐỌC)
+              </span>
+            )}
             {isChair && (
               <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
                 👑 Quyền Điều hành
@@ -230,6 +299,27 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          <div className="text-right">
+            <span className="text-xs text-slate-400">Tổng số đề tài bảo vệ</span>
+            <p className="text-2xl font-bold text-emerald-400">{projects.length} Sinh viên</p>
+          </div>
+          {councilData.can_lock && (
+            <button
+              onClick={handleToggleLock}
+              disabled={locking}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md ${
+                councilData.is_locked
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/30'
+                  : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+              }`}
+            >
+              {locking
+                ? 'Đang xử lý...'
+                : councilData.is_locked
+                ? '🔓 Mở khóa điểm Hội đồng'
+                : '🔒 Khóa điểm Hội đồng'}
+            </button>
+          )}
           {/* Live Sync Toggle */}
           <button
             onClick={() => setAutoSync(!autoSync)}
@@ -249,6 +339,33 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* COUNCIL CONFLICT OF INTEREST ALERT BANNER */}
+      {councilData?.has_conflict && (
+        <div className="bg-red-950/30 border border-red-500/40 rounded-xl p-4 shadow-lg flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-red-400 font-bold text-sm">
+            <span className="text-base">⚠️</span>
+            <span>CẢNH BÁO XUNG ĐỘT LỢI ÍCH (Conflict of Interest)</span>
+            <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-xs px-2 py-0.5 rounded-full font-mono">
+              {councilData.total_conflicts} vi phạm
+            </span>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Hội đồng này có thành viên đồng thời là Giảng viên hướng dẫn hoặc Phản biện của sinh viên trong hội đồng.
+            Theo quy chế đào tạo UTC, thành viên có xung đột lợi ích <strong>không được phép chấm điểm Hội đồng</strong> cho đề tài đó.
+          </p>
+          <div className="mt-1 space-y-1.5">
+            {councilData.conflicts?.map((c: any, i: number) => (
+              <div key={i} className="text-xs text-red-300 bg-red-900/20 border border-red-500/20 rounded px-3 py-1.5 flex items-center justify-between">
+                <span>• {c.message}</span>
+                <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 rounded bg-red-950 text-red-400 border border-red-800">
+                  {c.conflict_type}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* LIVE DEFENSE EXECUTIVE DASHBOARD BANNER */}
       {currentDefendingProject ? (
@@ -435,6 +552,15 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                           ⏳ Chờ bảo vệ
                         </span>
                       )}
+
+                      {p.has_conflict && (
+                        <span
+                          className="px-2 py-0.5 rounded text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/40 flex items-center gap-1"
+                          title={p.conflicts?.map((c: any) => c.message).join('\n')}
+                        >
+                          ⚠️ Xung đột ({p.conflicts?.length})
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-xs text-slate-200 font-medium">{p.topic_title_vi}</p>
@@ -448,6 +574,16 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                         </span>
                       )}
                     </div>
+
+                    {p.has_conflict && p.conflicts && p.conflicts.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {p.conflicts.map((c: any, ci: number) => (
+                          <span key={ci} className="text-[11px] bg-red-500/10 text-red-300 border border-red-500/20 rounded px-2 py-0.5">
+                            ⚠️ {c.message}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions & Status Breakdown */}
@@ -529,16 +665,30 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     )}
 
                     {/* Grade Button */}
-                    <button
-                      onClick={() => handleOpenScoreModal(p)}
-                      className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
-                        hasMyScore
-                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
-                      }`}
-                    >
-                      {hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm'}
-                    </button>
+                    {p.scoring_summary?.members_breakdown?.some(
+                      (m: any) => m.role_code === councilData.my_role_code && m.is_supervisor
+                    ) ? (
+                      <button
+                        disabled
+                        className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-red-950/40 text-red-400 border border-red-500/30 cursor-not-allowed opacity-80"
+                        title="Bạn là Giảng viên hướng dẫn của SV này nên không được chấm điểm Hội đồng theo quy chế."
+                      >
+                        🚫 GVHD (Không chấm HĐ)
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenScoreModal(p)}
+                        className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
+                          councilData.is_locked
+                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                            : hasMyScore
+                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
+                        }`}
+                      >
+                        {councilData.is_locked ? '👁️ Xem điểm' : hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm bảo vệ'}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -610,14 +760,23 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
       {/* Modal Live Grading Form */}
       {showScoreModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-lg w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={handleScoreOverlayClick}>
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-lg w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
             <div>
               <span className="text-xs font-mono text-blue-400">
                 {selectedProject?.student_reg_no} - {selectedProject?.student_name}
               </span>
               <h3 className="text-base font-bold text-slate-100 mt-1">{selectedProject?.topic_title_vi}</h3>
             </div>
+
+            {councilData.is_locked && (
+              <div className="p-3 bg-rose-950/50 border border-rose-800/80 rounded-xl text-rose-300 text-xs flex items-center gap-2">
+                <span>🔒</span>
+                <span>
+                  Hội đồng đã khóa điểm sau buổi bảo vệ{councilData.locked_by ? ` (bởi ${councilData.locked_by})` : ''}. Tất cả điểm số chuyển sang chế độ Chỉ đọc (Read-only) và không thể chỉnh sửa.
+                </span>
+              </div>
+            )}
 
             <form onSubmit={handleScoreSubmit} className="space-y-4">
               <div className="space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs">
@@ -632,8 +791,9 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     min="0"
                     max="3.0"
                     value={scorePres}
+                    disabled={councilData.is_locked}
                     onChange={(e) => setScorePres(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
@@ -648,8 +808,9 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     min="0"
                     max="3.0"
                     value={scoreContent}
+                    disabled={councilData.is_locked}
                     onChange={(e) => setScoreContent(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
@@ -664,8 +825,9 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     min="0"
                     max="2.0"
                     value={scoreQa}
+                    disabled={councilData.is_locked}
                     onChange={(e) => setScoreQa(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
@@ -680,8 +842,9 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     min="0"
                     max="2.0"
                     value={scoreDemo}
+                    disabled={councilData.is_locked}
                     onChange={(e) => setScoreDemo(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
@@ -698,27 +861,30 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                 <textarea
                   rows={3}
                   value={scoreComments}
+                  disabled={councilData.is_locked}
                   onChange={(e) => setScoreComments(e.target.value)}
                   placeholder="Ghi nhận xét và câu hỏi của thành viên hội đồng..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500 disabled:opacity-50"
                 />
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowScoreModal(false)}
+                  onClick={requestCloseScoreModal}
                   className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
-                  Hủy
+                  {councilData.is_locked ? 'Đóng' : 'Hủy'}
                 </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
-                >
-                  {submitting ? 'Đang lưu...' : 'Xác nhận Điểm Chấm'}
-                </button>
+                {!councilData.is_locked && (
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
+                  >
+                    {submitting ? 'Đang lưu...' : 'Xác nhận Điểm Chấm'}
+                  </button>
+                )}
               </div>
             </form>
           </div>

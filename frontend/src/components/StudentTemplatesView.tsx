@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
+import DocumentViewerModal from './DocumentViewerModal';
+import ActionIconButton from './ActionIconButton';
 import './StudentTemplatesView.css';
 
 interface Template {
@@ -35,6 +37,7 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string; type: string } | null>(null);
 
   useEffect(() => {
     if (studentSemester && !semester) {
@@ -155,19 +158,56 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
                   <td>{formatLabel(t.semester)}</td>
                   <td>{new Date(t.uploaded_at).toLocaleDateString()}</td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {t.uploaded_file && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-info btn-sm"
+                          onClick={() =>
+                            setPreviewDoc({
+                              url: t.uploaded_file,
+                              title: t.title,
+                              type: t.template_type,
+                            })
+                          }
+                          title="Xem trước tài liệu trực tiếp"
+                          style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <span>👁️</span>
+                          Xem trước
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => downloadTemplate(t.uploaded_file, t.title)}
+                      >
+                        Download
+                      </button>
+                    </div>
+                    <ActionIconButton
+                      action="download"
+                      tooltip="Tải về biểu mẫu chuẩn (Template) cho đồ án"
                       onClick={() => downloadTemplate(t.uploaded_file, t.title)}
-                    >
-                      Download
-                    </button>
+                      label="Tải về"
+                      variant="primary"
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {previewDoc && (
+        <DocumentViewerModal
+          isOpen={!!previewDoc}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc.title}
+          documentUrl={previewDoc.url}
+          documentType={previewDoc.type}
+        />
       )}
     </div>
   );

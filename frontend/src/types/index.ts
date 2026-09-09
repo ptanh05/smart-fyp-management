@@ -51,6 +51,8 @@ export interface Student {
   batch_no: string;
   group_id?: number;
   groupmate_id?: number;
+  has_group?: boolean;
+  my_group_name?: string;
 }
 
 export interface Supervisor {
@@ -87,6 +89,50 @@ export interface ProjectCategory {
   supervisor?: Supervisor[];
 }
 
+export interface GroupMemberInfo {
+  id: number;
+  student: Student;
+  role: 'LEADER' | 'MEMBER';
+  role_display: string;
+  joined_at: string;
+}
+
+export interface GroupJoinRequestInfo {
+  id: number;
+  group: number;
+  group_name?: string;
+  student: Student;
+  message?: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELED';
+  status_display: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export type TopicStatus = 'NOT_REGISTERED' | 'PENDING_REVIEW' | 'REVISION_REQUESTED' | 'APPROVED' | 'REJECTED';
+
+export interface ProjectGroup {
+  id: number;
+  group_name: string;
+  academic_batch?: number | null;
+  academic_batch_name?: string;
+  leader: Student;
+  max_members: number;
+  current_members_count: number;
+  is_recruiting: boolean;
+  is_full: boolean;
+  tentative_topic?: string;
+  tentative_description?: string;
+  topic_status: TopicStatus;
+  topic_status_display: string;
+  topic_revision_notes?: string;
+  members: GroupMemberInfo[];
+  join_requests?: GroupJoinRequestInfo[];
+  my_join_request?: GroupJoinRequestInfo | null;
+  is_my_group?: boolean;
+  my_role?: 'LEADER' | 'MEMBER' | null;
+}
+
 export interface Group {
   id: number;
   student_1: number;
@@ -109,6 +155,21 @@ export interface Project {
   groups_data?: number[];
   panel_info?: Panel | null;
   is_offered?: boolean;
+  has_registered_groups?: boolean;
+  category_name?: string;
+  user?: number;
+}
+
+export interface DocumentComment {
+  id: number;
+  document: number;
+  author: number;
+  author_name: string;
+  author_role: string;
+  section: string;
+  section_display?: string;
+  comment: string;
+  created_at: string;
 }
 
 export interface SupervisorOfStudentGroup {
@@ -134,6 +195,9 @@ export interface Document {
   /** True after student submits this (accepted) document to committee; committee sees only these. */
   submitted_to_committee?: boolean;
   submitted_to_committee_at?: string | null;
+  is_late?: boolean;
+  late_duration?: string | null;
+  comments_count?: number;
   group_info?: {
     id: number;
     project_name: string | null;
@@ -163,6 +227,7 @@ export interface DocumentRequirement {
   document_type_display: string;
   title: string;
   deadline: string;
+  allow_late_submission?: boolean;
   semester: string | null;
   created_at: string;
   updated_at: string;
@@ -173,6 +238,10 @@ export interface ChatMessage {
   id: number;
   group: number;
   message: string;
+  attachment?: string | null;
+  attachment_name?: string | null;
+  attachment_type?: string | null;
+  attachment_size?: number | null;
   sent_by: 'student' | 'supervisor';
   created_at: string;
   student?: Student;

@@ -29,9 +29,12 @@ from .models import (
     FinalGradeSummary,
     AcademicBatch,
     AuditLog,
-    Notification
+    Notification,
+    Project,
+    Document,
+    DocumentRequirement
 )
-from .services import NotificationService
+from .services import NotificationService, CouncilConflictService
 from .serializers.utc_graduation_serializers import (
     ProjectTopicAreaSerializer,
     SupervisorBriefSerializer,
@@ -41,9 +44,11 @@ from .serializers.utc_graduation_serializers import (
     SupervisionMeetingLogSerializer,
     SupervisionTaskSerializer,
     CouncilLiveScoreSerializer,
+    GraduationProjectDetailSerializer,
     FinalGradeSummarySerializer,
-    GraduationProjectDetailSerializer
 )
+from .validators import validate_uploaded_file
+from .concurrency import retry_on_db_lock
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +195,7 @@ class StudentOutlineSubmissionAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
+    @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def post(self, request):
         user = request.user
         student = getattr(user, "student_profile", None)
@@ -216,21 +222,25 @@ class StudentOutlineSubmissionAPIView(APIView):
         if is_duplicated:
             return Response({"topic_title_vi": ["Tên đề tài đã trùng lặp với đề tài đã được nghiệm thu từ các năm trước."]}, status=status.HTTP_400_BAD_REQUEST)
 
-        # File validation
+        # File validation with binary magic checks
         if outline_file:
-            if not outline_file.name.lower().endswith(".pdf"):
-                return Response({"outline_file": ["Đề cương phải là file định dạng PDF."]}, status=status.HTTP_400_BAD_REQUEST)
-            if outline_file.size > 25 * 1024 * 1024:
-                return Response({"outline_file": ["Kích thước file không được vượt quá 25MB."]}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                validate_uploaded_file(outline_file, allowed_extensions=[".pdf"], max_size_bytes=25 * 1024 * 1024)
+            except Exception as e:
+                err_msg = getattr(e, "detail", str(e))
+                if isinstance(err_msg, list):
+                    err_msg = err_msg[0]
+                return Response({"outline_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
+            project = GraduationProject.objects.select_for_update().get(id=project.id)
             project.topic_title_vi = topic_title_vi
             if topic_title_en:
                 project.topic_title_en = topic_title_en
             project.status = "OUTLINE_PENDING"
             project.save()
 
-            review, _ = OutlineReview.objects.get_or_create(project=project)
+            review, _ = OutlineReview.objects.select_for_update().get_or_create(project=project)
             if outline_file:
                 review.outline_file = outline_file
             review.verdict = "PENDING"
@@ -263,6 +273,7 @@ class StudentWeeklyReportAPIView(APIView):
         reports = WeeklyProgressReport.objects.filter(project=project).order_by("week_number")
         return Response(WeeklyProgressReportSerializer(reports, many=True).data, status=status.HTTP_200_OK)
 
+    @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def post(self, request):
         user = request.user
         student = getattr(user, "student_profile", None)
@@ -289,18 +300,35 @@ class StudentWeeklyReportAPIView(APIView):
         if not summary_content:
             return Response({"summary_content": ["Vui lòng nhập nội dung tóm tắt kết quả công việc trong tuần."]}, status=status.HTTP_400_BAD_REQUEST)
 
-        report, _ = WeeklyProgressReport.objects.update_or_create(
-            project=project,
-            week_number=week_num,
-            defaults={
-                "summary_content": summary_content,
-                "planned_tasks": planned_tasks,
-                "git_commit_link": git_commit_link,
-            }
-        )
+        # File validation with binary magic checks
         if attached_file:
-            report.attached_file = attached_file
-            report.save(update_fields=["attached_file"])
+            try:
+                validate_uploaded_file(
+                    attached_file,
+                    allowed_extensions=[".pdf", ".zip", ".rar", ".docx", ".xlsx", ".pptx"],
+                    max_size_bytes=25 * 1024 * 1024
+                )
+            except Exception as e:
+                err_msg = getattr(e, "detail", str(e))
+                if isinstance(err_msg, list):
+                    err_msg = err_msg[0]
+                return Response({"attached_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            project = GraduationProject.objects.select_for_update().get(id=project.id)
+            report, _ = WeeklyProgressReport.objects.select_for_update().update_or_create(
+                project=project,
+                week_number=week_num,
+                defaults={
+                    "summary_content": summary_content,
+                    "planned_tasks": planned_tasks,
+                    "git_commit_link": git_commit_link,
+                    "submitted_at": timezone.now(),
+                }
+            )
+            if attached_file:
+                report.attached_file = attached_file
+                report.save(update_fields=["attached_file", "submitted_at"])
 
         return Response({
             "message": f"Nộp báo cáo tuần {week_num} thành công!",
@@ -539,23 +567,29 @@ class SupervisorDefenseEvaluationAPIView(APIView):
             return Response({"supervisor_score": ["Điểm số không hợp lệ."]}, status=status.HTTP_400_BAD_REQUEST)
 
         project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+        is_draft = bool(request.data.get("is_draft", False))
 
         with transaction.atomic():
             project.supervisor_score = score
             project.supervisor_feedback = supervisor_feedback
-            project.is_eligible_for_defense = is_eligible
-            if is_eligible:
-                project.status = "DEFENSE_READY"
-            project.save()
+            project.supervisor_score_is_draft = is_draft
+            if not is_draft:
+                project.is_eligible_for_defense = is_eligible
+                if is_eligible:
+                    project.status = "DEFENSE_READY"
+                project.save()
 
-            # Update Final Grade
-            summary, _ = FinalGradeSummary.objects.get_or_create(project=project)
-            summary.supervisor_score = score
-            policy = EvaluationPolicy.objects.filter(batch=project.batch).first()
-            summary.calculate_and_save(policy=policy)
+                # Update Final Grade
+                summary, _ = FinalGradeSummary.objects.get_or_create(project=project)
+                summary.supervisor_score = score
+                policy = EvaluationPolicy.objects.filter(batch=project.batch).first()
+                summary.calculate_and_save(policy=policy)
+            else:
+                project.save()
 
+        msg = "Đã lưu nháp phiếu đánh giá của Giảng viên hướng dẫn! Điểm chưa công bố cho sinh viên." if is_draft else "Đã lưu và công bố phiếu đánh giá của Giảng viên hướng dẫn!"
         return Response({
-            "message": "Đã lưu phiếu đánh giá của Giảng viên hướng dẫn!",
+            "message": msg,
             "project": GraduationProjectDetailSerializer(project).data
         }, status=status.HTTP_200_OK)
 
@@ -764,6 +798,9 @@ class ReviewerSubmitEvaluationAPIView(APIView):
         project_id = request.data.get("project_id")
         reviewer_score = request.data.get("reviewer_score")
         reviewer_feedback = request.data.get("reviewer_feedback", "").strip()
+        reviewer_verdict = request.data.get("reviewer_verdict", "APPROVED")
+        if reviewer_verdict not in ["APPROVED", "CONDITIONAL", "REJECTED"]:
+            reviewer_verdict = "APPROVED"
 
         try:
             score = float(reviewer_score)
@@ -777,6 +814,7 @@ class ReviewerSubmitEvaluationAPIView(APIView):
         with transaction.atomic():
             project.reviewer_score = score
             project.reviewer_feedback = reviewer_feedback
+            project.reviewer_verdict = reviewer_verdict
             project.save()
 
             # Update Final Grade
@@ -785,8 +823,9 @@ class ReviewerSubmitEvaluationAPIView(APIView):
             policy = EvaluationPolicy.objects.filter(batch=project.batch).first()
             summary.calculate_and_save(policy=policy)
 
+        verdict_text = getattr(project, "get_reviewer_verdict_display", lambda: reviewer_verdict)()
         return Response({
-            "message": "Đã lưu nhận xét và điểm của Giảng viên phản biện!",
+            "message": f"Đã lưu nhận xét và kết luận phản biện ({verdict_text})!",
             "project": GraduationProjectDetailSerializer(project).data
         }, status=status.HTTP_200_OK)
 
@@ -858,6 +897,10 @@ class CouncilLiveDefenseSessionAPIView(APIView):
                     "total_score": m_score.total_score if m_score else None,
                 })
 
+            p_conflicts = CouncilConflictService.check_project_assignment(council, p)
+            p_data["conflicts"] = p_conflicts
+            p_data["has_conflict"] = len(p_conflicts) > 0
+
             p_data["scoring_summary"] = {
                 "total_eligible_members": eligible_count,
                 "submitted_count": submitted_count,
@@ -869,6 +912,8 @@ class CouncilLiveDefenseSessionAPIView(APIView):
 
         role_display = getattr(council_member, "get_role_display", lambda: council_member.role)()
         session_time_display = getattr(council, "get_session_time_display", lambda: council.session_time)()
+        can_lock = role_display in ["Chủ tịch hội đồng", "Ủy viên, Thư ký"] or user.is_staff
+        council_conflict_info = CouncilConflictService.check_council_conflicts(council_id=council.id)
 
         return Response({
             "council": {
@@ -879,8 +924,15 @@ class CouncilLiveDefenseSessionAPIView(APIView):
                 "session_time": session_time_display,
                 "defense_room": council.defense_room,
                 "my_role": role_display,
+                "is_locked": getattr(council, "is_locked", False),
+                "locked_at": council.locked_at if getattr(council, "is_locked", False) else None,
+                "locked_by": council.locked_by.get_full_name() or council.locked_by.username if getattr(council, "is_locked", False) and council.locked_by else None,
+                "can_lock": can_lock,
                 "my_role_code": council_member.role,
                 "current_defending_project_id": council.current_defending_project_id,
+                "has_conflict": council_conflict_info.get("has_conflict", False),
+                "total_conflicts": council_conflict_info.get("total_conflicts", 0),
+                "conflicts": council_conflict_info.get("conflicts", []),
             },
             "members": [
                 {
@@ -898,11 +950,18 @@ class CouncilLiveDefenseSessionAPIView(APIView):
 class CouncilSubmitScoreAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def post(self, request):
         user = request.user
         council_member = CouncilMember.objects.filter(user=user).first()
         if not council_member:
             return Response({"detail": "Bạn không phải thành viên Hội đồng bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
+
+        if council_member.council and getattr(council_member.council, "is_locked", False):
+            return Response(
+                {"detail": "Hội đồng đã khóa điểm. Toàn bộ điểm số ở trạng thái chỉ đọc (Read-only), không thể chỉnh sửa."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         project_id = request.data.get("project_id")
         p_score = float(request.data.get("score_presentation", 0.0))
@@ -917,6 +976,7 @@ class CouncilSubmitScoreAPIView(APIView):
             return Response({"detail": "Vi phạm quy chế: Giảng viên hướng dẫn không được chấm điểm Hội đồng cho sinh viên của mình."}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
+            project = GraduationProject.objects.select_for_update().get(id=project_id, council=council_member.council)
             live_score, _ = CouncilLiveScore.objects.update_or_create(
                 project=project,
                 member=council_member,
@@ -938,7 +998,7 @@ class CouncilSubmitScoreAPIView(APIView):
                 avg_council = 0.0
 
             # Update FinalGradeSummary
-            summary, _ = FinalGradeSummary.objects.get_or_create(project=project)
+            summary, _ = FinalGradeSummary.objects.select_for_update().get_or_create(project=project)
             summary.supervisor_score = project.supervisor_score
             summary.reviewer_score = project.reviewer_score
             summary.council_avg_score = avg_council
@@ -979,6 +1039,39 @@ class CouncilSubmitScoreAPIView(APIView):
             "message": f"Đã chấm điểm thành công cho SV {project.student.registration_no}: {live_score.total_score}đ (Điểm TB HĐ: {summary.council_avg_score}đ - Tổng kết: {summary.final_score_10}đ)",
             "live_score": CouncilLiveScoreSerializer(live_score).data,
             "final_grade": FinalGradeSummarySerializer(summary).data
+        }, status=status.HTTP_200_OK)
+
+
+class CouncilToggleLockAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        council_id = request.data.get("council_id")
+        lock = request.data.get("lock", True)
+
+        council = get_object_or_404(DefenseCouncil, id=council_id)
+        membership = CouncilMember.objects.filter(council=council, user=user).first()
+        is_chair_or_secretary = membership and membership.role in ["CHAIR", "SECRETARY"]
+        is_admin = user.is_staff or getattr(user, "user_type", None) == "committee_member"
+
+        if not is_chair_or_secretary and not is_admin:
+            return Response(
+                {"detail": "Chỉ Chủ tịch hoặc Thư ký hội đồng mới có quyền khóa hoặc mở khóa điểm."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        council.is_locked = bool(lock)
+        council.locked_at = timezone.now() if lock else None
+        council.locked_by = user if lock else None
+        council.save(update_fields=["is_locked", "locked_at", "locked_by"])
+
+        action = "khóa" if lock else "mở khóa"
+        return Response({
+            "message": f"Đã {action} điểm hội đồng {council.council_name} thành công!",
+            "is_locked": council.is_locked,
+            "locked_at": council.locked_at,
+            "locked_by": user.get_full_name() or user.username if lock else None
         }, status=status.HTTP_200_OK)
 
 
@@ -1126,3 +1219,400 @@ class CouncilSecretaryRemindScoringAPIView(APIView):
             "already_submitted_count": len(submitted_member_ids),
             "pending_count": len(pending_members)
         }, status=status.HTTP_200_OK)
+
+
+class CouncilScheduleDefenseAPIView(APIView):
+    """
+    API for Committee / Admin to schedule defense session for a council.
+    Updates session_date, session_time, defense_room, and dispatches UTC HTML email
+    notifications to students, supervisors, and council members.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, council_id):
+        user = request.user
+        if not (user.is_staff or getattr(user, "user_type", None) in ["admin", "committee"]):
+            return Response({"detail": "Chỉ Ban chủ nhiệm hoặc Admin mới có quyền xếp lịch bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
+
+        council = get_object_or_404(DefenseCouncil, id=council_id)
+        session_date = request.data.get("session_date")
+        session_time = request.data.get("session_time")
+        defense_room = request.data.get("defense_room", "").strip()
+
+        if session_date:
+            council.session_date = session_date
+        if session_time:
+            council.session_time = session_time
+        if defense_room:
+            council.defense_room = defense_room
+
+        council.save()
+
+        # Send UTC branded email notifications to all parties (students, supervisors, members)
+        NotificationService.notify_defense_scheduled_emails(council)
+
+        return Response({
+            "message": f"Xếp lịch bảo vệ thành công cho Hội đồng số {council.council_number} và đã kích hoạt email thông báo nhận diện UTC!",
+            "council": {
+                "id": council.id,
+                "council_number": council.council_number,
+                "session_date": str(council.session_date),
+                "session_time": council.session_time,
+                "defense_room": council.defense_room,
+            }
+        }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# COUNCIL CONFLICT OF INTEREST & ASSIGNMENT MANAGEMENT
+# ==============================================================================
+
+class CouncilConflictCheckAPIView(APIView):
+    """
+    API kiểm tra xung đột lợi ích (Conflict of Interest) trong phân công hội đồng bảo vệ.
+    Hỗ trợ kiểm tra toàn bộ hội đồng trong đợt hoặc một hội đồng cụ thể.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        council_id = request.query_params.get("council_id")
+        batch_id = request.query_params.get("batch_id")
+
+        if council_id:
+            try:
+                council_id = int(council_id)
+            except ValueError:
+                return Response({"detail": "council_id phải là số nguyên."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if batch_id:
+            try:
+                batch_id = int(batch_id)
+            except ValueError:
+                return Response({"detail": "batch_id phải là số nguyên."}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = CouncilConflictService.check_council_conflicts(council_id=council_id, batch_id=batch_id)
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class CouncilAssignProjectAPIView(APIView):
+    """
+    API phân công đề tài vào hội đồng bảo vệ có kiểm tra cảnh báo xung đột lợi ích.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        project_id = request.data.get("project_id")
+        council_id = request.data.get("council_id")
+        force = request.data.get("force", False)
+        if isinstance(force, str):
+            force = force.lower() in ("true", "1")
+        else:
+            force = bool(force)
+
+        if not project_id:
+            return Response({"detail": "project_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+        project = get_object_or_404(
+            GraduationProject.objects.select_related("student__user", "supervisor__user", "reviewer__user"),
+            id=project_id
+        )
+
+        # Unassign if council_id is None or 0
+        if council_id is None or council_id == "" or council_id == 0:
+            old_council_name = project.council.council_name if project.council else "Không"
+            project.council = None
+            project.save(update_fields=["council"])
+
+            AuditLog.objects.create(
+                user=request.user,
+                action_type="status_change",
+                description=f"Hủy phân công đề tài {project.student.registration_no} khỏi hội đồng {old_council_name}."
+            )
+            return Response({
+                "success": True,
+                "message": f"Đã hủy phân công đề tài khỏi hội đồng.",
+                "project_id": project.id,
+                "council_id": None
+            }, status=status.HTTP_200_OK)
+
+        council = get_object_or_404(DefenseCouncil, id=council_id)
+        conflicts = CouncilConflictService.check_project_assignment(council, project)
+
+        if conflicts and not force:
+            return Response({
+                "success": False,
+                "has_conflict": True,
+                "conflicts_count": len(conflicts),
+                "conflicts": conflicts,
+                "message": f"Phát hiện {len(conflicts)} cảnh báo xung đột lợi ích (Conflict of Interest) với các thành viên trong {council.council_name}."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        project.council = council
+        project.save(update_fields=["council"])
+
+        AuditLog.objects.create(
+            user=request.user,
+            action_type="status_change",
+            description=f"Phân công đề tài {project.student.registration_no} vào {council.council_name}." +
+                        (" (Xác nhận cưỡng chế dù có xung đột lợi ích)" if conflicts else "")
+        )
+
+        return Response({
+            "success": True,
+            "message": f"Đã phân công đề tài của sinh viên {project.student.user.get_full_name()} vào {council.council_name}.",
+            "project_id": project.id,
+            "council_id": council.id,
+            "council_name": council.council_name,
+            "has_conflict": len(conflicts) > 0,
+            "conflicts": conflicts
+        }, status=status.HTTP_200_OK)
+
+
+class CouncilAssignMemberAPIView(APIView):
+    """
+    API thêm hoặc cập nhật thành viên vào hội đồng bảo vệ có kiểm tra cảnh báo xung đột lợi ích.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        council_id = request.data.get("council_id")
+        user_id = request.data.get("user_id")
+        role = request.data.get("role", "MEMBER")
+        force = request.data.get("force", False)
+        if isinstance(force, str):
+            force = force.lower() in ("true", "1")
+        else:
+            force = bool(force)
+
+        if not council_id or not user_id:
+            return Response({"detail": "council_id và user_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+        council = get_object_or_404(DefenseCouncil, id=council_id)
+        user = get_object_or_404(CustomUser, id=user_id)
+        supervisor = Supervisor.objects.filter(user=user).first()
+
+        conflicts = CouncilConflictService.check_member_assignment(council, user, supervisor)
+
+        if conflicts and not force:
+            return Response({
+                "success": False,
+                "has_conflict": True,
+                "conflicts_count": len(conflicts),
+                "conflicts": conflicts,
+                "message": f"Phát hiện {len(conflicts)} cảnh báo xung đột lợi ích (Conflict of Interest) giữa giảng viên và các đề tài trong {council.council_name}."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        member, created = CouncilMember.objects.update_or_create(
+            council=council,
+            user=user,
+            defaults={
+                "role": role,
+                "supervisor": supervisor
+            }
+        )
+
+        AuditLog.objects.create(
+            user=request.user,
+            action_type="status_change",
+            description=f"{'Thêm' if created else 'Cập nhật'} ủy viên {user.get_full_name()} ({member.get_role_display()}) vào {council.council_name}." +
+                        (" (Xác nhận cưỡng chế dù có xung đột lợi ích)" if conflicts else "")
+        )
+
+        return Response({
+            "success": True,
+            "message": f"Đã phân công Thầy/Cô {user.get_full_name()} vào {council.council_name} ({member.get_role_display()}).",
+            "member_id": member.id,
+            "council_id": council.id,
+            "role": member.role,
+            "role_display": member.get_role_display(),
+            "has_conflict": len(conflicts) > 0,
+            "conflicts": conflicts
+        }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# GLOBAL SEARCH API
+# ==============================================================================
+
+class GlobalSearchAPIView(APIView):
+    """
+    Thanh tìm kiếm toàn cục (Global Search) ở Top Header.
+    Tìm kiếm tức thời đa đối tượng: Đề tài, Sinh viên, Giảng viên, Hội đồng, Biểu mẫu.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q
+
+        q = request.query_params.get("q", "").strip()
+        search_type = request.query_params.get("type", "all").lower()
+
+        if not q or len(q) < 2:
+            return Response({
+                "query": q,
+                "total_results": 0,
+                "results": [],
+                "categories": {
+                    "projects": 0,
+                    "faculty": 0,
+                    "students": 0,
+                    "councils": 0,
+                    "documents": 0
+                }
+            }, status=status.HTTP_200_OK)
+
+        results = []
+
+        # 1. Projects (GraduationProject & Project)
+        if search_type in ["all", "projects"]:
+            # Graduation Projects (UTC)
+            grad_projects = GraduationProject.objects.filter(
+                Q(topic_title_vi__icontains=q) |
+                Q(topic_title_en__icontains=q) |
+                Q(student__registration_no__icontains=q) |
+                Q(student__user__first_name__icontains=q) |
+                Q(student__user__last_name__icontains=q) |
+                Q(supervisor__user__first_name__icontains=q) |
+                Q(supervisor__user__last_name__icontains=q)
+            ).select_related("student__user", "supervisor__user", "council")[:8]
+
+            for p in grad_projects:
+                s_name = p.student.user.get_full_name() or p.student.user.username
+                results.append({
+                    "id": f"grad_project_{p.id}",
+                    "item_id": p.id,
+                    "type": "project",
+                    "type_label": "Đồ án Tốt nghiệp",
+                    "icon": "🎓",
+                    "title": p.topic_title_vi or p.topic_title_en,
+                    "subtitle": f"SV: {s_name} ({p.student.registration_no}) • Lớp: {p.student.course_class or 'K62'}",
+                    "extra_info": f"HĐ: {p.council.council_name if p.council else 'Chưa gán'} • Trạng thái: {p.get_status_display()}",
+                    "action_url": f"/student/dashboard?tab=overview",
+                })
+
+            # Standard FYP Projects
+            fyp_projects = Project.objects.filter(
+                Q(project_name__icontains=q) |
+                Q(project_description__icontains=q) |
+                Q(language__icontains=q)
+            ).select_related("project_category")[:5]
+
+            for p in fyp_projects:
+                results.append({
+                    "id": f"fyp_project_{p.id}",
+                    "item_id": p.id,
+                    "type": "project",
+                    "type_label": "Đề tài FYP",
+                    "icon": "📁",
+                    "title": p.project_name,
+                    "subtitle": f"Ngôn ngữ: {p.language or 'N/A'} • Danh mục: {p.project_category.category_name if p.project_category else 'N/A'}",
+                    "extra_info": p.project_description[:80] + "..." if p.project_description and len(p.project_description) > 80 else p.project_description,
+                    "action_url": f"/student/dashboard?tab=project",
+                })
+
+        # 2. Faculty / Supervisors
+        if search_type in ["all", "faculty"]:
+            supervisors = Supervisor.objects.filter(
+                Q(user__first_name__icontains=q) |
+                Q(user__last_name__icontains=q) |
+                Q(user__username__icontains=q) |
+                Q(user__email__icontains=q) |
+                Q(supervisor_id__icontains=q) |
+                Q(department_name__icontains=q)
+            ).select_related("user")[:6]
+
+            for s in supervisors:
+                name = s.user.get_full_name() or s.user.username
+                results.append({
+                    "id": f"supervisor_{s.id}",
+                    "item_id": s.id,
+                    "type": "faculty",
+                    "type_label": "Giảng viên",
+                    "icon": "👨‍🏫",
+                    "title": f"{s.academic_title or 'ThS/TS'}. {name}",
+                    "subtitle": f"Bộ môn: {s.department_name or 'CNTT'} • Email: {s.user.email or 'N/A'}",
+                    "extra_info": f"Mã GV: {s.supervisor_id}",
+                    "action_url": f"/supervisor/dashboard",
+                })
+
+        # 3. Students
+        if search_type in ["all", "students"]:
+            students = Student.objects.filter(
+                Q(user__first_name__icontains=q) |
+                Q(user__last_name__icontains=q) |
+                Q(user__username__icontains=q) |
+                Q(user__email__icontains=q) |
+                Q(registration_no__icontains=q) |
+                Q(department__icontains=q)
+            ).select_related("user")[:6]
+
+            for st in students:
+                name = st.user.get_full_name() or st.user.username
+                results.append({
+                    "id": f"student_{st.id}",
+                    "item_id": st.id,
+                    "type": "student",
+                    "type_label": "Sinh viên",
+                    "icon": "👨‍🎓",
+                    "title": name,
+                    "subtitle": f"MSSV: {st.registration_no} • Khoa: {st.department or 'CNTT'}",
+                    "extra_info": f"Email: {st.user.email or 'N/A'}",
+                    "action_url": f"/student/dashboard",
+                })
+
+        # 4. Councils & Panels
+        if search_type in ["all", "councils"]:
+            councils = DefenseCouncil.objects.filter(
+                Q(council_name__icontains=q) |
+                Q(defense_room__icontains=q)
+            ).select_related("batch")[:6]
+
+            for c in councils:
+                results.append({
+                    "id": f"council_{c.id}",
+                    "item_id": c.id,
+                    "type": "council",
+                    "type_label": "Hội đồng Bảo vệ",
+                    "icon": "🏛️",
+                    "title": f"{c.council_name} (HĐ #{c.council_number})",
+                    "subtitle": f"Phòng: {c.defense_room or 'TBA'} • Ngày: {c.session_date or 'TBA'} ({c.session_time})",
+                    "extra_info": f"Đợt: {c.batch.batch_code if c.batch else 'Kỳ hiện tại'}",
+                    "action_url": f"/committee_member/dashboard?tab=utc_live_defense",
+                })
+
+        # 5. Documents & Templates
+        if search_type in ["all", "documents"]:
+            doc_reqs = DocumentRequirement.objects.filter(
+                Q(title__icontains=q) |
+                Q(document_type__icontains=q)
+            )[:5]
+
+            for d in doc_reqs:
+                results.append({
+                    "id": f"doc_{d.id}",
+                    "item_id": d.id,
+                    "type": "document",
+                    "type_label": "Biểu mẫu / Tài liệu",
+                    "icon": "📄",
+                    "title": d.title,
+                    "subtitle": f"Loại: {d.get_document_type_display()} • Hạn nộp: {d.deadline.strftime('%d/%m/%Y %H:%M') if d.deadline else 'Không có'}",
+                    "extra_info": f"Học kỳ: {d.semester}",
+                    "action_url": f"/student/dashboard?tab=documents",
+                })
+
+        # Tally counts by category
+        categories_count = {
+            "projects": sum(1 for r in results if r["type"] == "project"),
+            "faculty": sum(1 for r in results if r["type"] == "faculty"),
+            "students": sum(1 for r in results if r["type"] == "student"),
+            "councils": sum(1 for r in results if r["type"] == "council"),
+            "documents": sum(1 for r in results if r["type"] == "document"),
+        }
+
+        return Response({
+            "query": q,
+            "total_results": len(results),
+            "categories": categories_count,
+            "results": results
+        }, status=status.HTTP_200_OK)
+

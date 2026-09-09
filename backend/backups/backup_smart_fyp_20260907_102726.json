@@ -1,0 +1,10 @@
+{
+  "backup_file": "backup_smart_fyp_20260907_102726.sqlite3.gz",
+  "timestamp": "20260907_102726",
+  "created_at": "2026-09-07T10:27:29.062546",
+  "size_bytes": 47517,
+  "size_formatted": "0.05 MB",
+  "sha256": "0bc4c98fbbbce51b35adee045d5d63b2343404e8d54edc9560a70205d5aeae1b",
+  "integrity_check": "ok",
+  "database_type": "SQLite"
+}

@@ -3,6 +3,8 @@
  * Handles timezone issues and provides formatting helpers.
  */
 
+import i18n from '../i18n';
+
 /**
  * Formats a date string to a localized date.
  * Handles timezone issues by parsing ISO strings correctly.
@@ -92,31 +94,71 @@ export const parseLocalDate = (dateString: string): Date => {
 };
 
 /**
- * Gets the relative time string (e.g., "2 hours ago", "3 days ago").
+ * Gets the relative time string (e.g., "Vừa xong", "5 phút trước", "2 giờ trước", or "2 hours ago").
+ * Supports both Vietnamese (default) and English depending on active i18n language or explicit locale.
  */
-export const getRelativeTime = (dateString: string | Date): string => {
+export const getRelativeTime = (
+  dateString: string | Date | undefined | null,
+  customLocale?: string
+): string => {
+  if (!dateString) return '';
+
   const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+  if (isNaN(date.getTime())) return '';
+
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
+
+  const activeLng = customLocale || (typeof i18n !== 'undefined' && i18n.language ? i18n.language : 'vi');
+  const isEn = activeLng.startsWith('en');
+
   if (diffInSeconds < 0) {
     // Future date
     const futureDiff = Math.abs(diffInSeconds);
-    if (futureDiff < 60) return 'in a few seconds';
-    if (futureDiff < 3600) return `in ${Math.floor(futureDiff / 60)} minutes`;
-    if (futureDiff < 86400) return `in ${Math.floor(futureDiff / 3600)} hours`;
-    if (futureDiff < 604800) return `in ${Math.floor(futureDiff / 86400)} days`;
-    return formatShortDate(date);
+    const mins = Math.floor(futureDiff / 60);
+    const hours = Math.floor(futureDiff / 3600);
+    const days = Math.floor(futureDiff / 86400);
+
+    if (isEn) {
+      if (futureDiff < 60) return 'in a few seconds';
+      if (futureDiff < 3600) return `in ${mins} minute${mins > 1 ? 's' : ''}`;
+      if (futureDiff < 86400) return `in ${hours} hour${hours > 1 ? 's' : ''}`;
+      if (futureDiff < 604800) return `in ${days} day${days > 1 ? 's' : ''}`;
+      return formatShortDate(date);
+    } else {
+      if (futureDiff < 60) return 'trong vài giây nữa';
+      if (futureDiff < 3600) return `trong ${mins} phút nữa`;
+      if (futureDiff < 86400) return `trong ${hours} giờ nữa`;
+      if (futureDiff < 604800) return `trong ${days} ngày nữa`;
+      return formatShortDate(date);
+    }
   }
-  
+
   // Past date
-  if (diffInSeconds < 60) return 'Just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
-  if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 604800)} weeks ago`;
-  
-  return formatShortDate(date);
+  const mins = Math.floor(diffInSeconds / 60);
+  const hours = Math.floor(diffInSeconds / 3600);
+  const days = Math.floor(diffInSeconds / 86400);
+  const weeks = Math.floor(diffInSeconds / 604800);
+  const months = Math.floor(diffInSeconds / 2592000);
+  const years = Math.floor(diffInSeconds / 31536000);
+
+  if (isEn) {
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${mins} minute${mins > 1 ? 's' : ''} ago`;
+    if (diffInSeconds < 86400) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    if (diffInSeconds < 604800) return `${days} day${days > 1 ? 's' : ''} ago`;
+    if (diffInSeconds < 2592000) return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+    if (diffInSeconds < 31536000) return `${months} month${months > 1 ? 's' : ''} ago`;
+    return `${years} year${years > 1 ? 's' : ''} ago`;
+  } else {
+    if (diffInSeconds < 60) return 'Vừa xong';
+    if (diffInSeconds < 3600) return `${mins} phút trước`;
+    if (diffInSeconds < 86400) return `${hours} giờ trước`;
+    if (diffInSeconds < 604800) return `${days} ngày trước`;
+    if (diffInSeconds < 2592000) return `${weeks} tuần trước`;
+    if (diffInSeconds < 31536000) return `${months} tháng trước`;
+    return `${years} năm trước`;
+  }
 };
 
 /**

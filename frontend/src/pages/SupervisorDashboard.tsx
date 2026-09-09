@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
@@ -16,7 +16,11 @@ import AuditLogViewer from '../components/AuditLogViewer';
 import UTCFypTimeline from '../components/UTCFypTimeline';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { UTCSupervisorGraduationView } from '../components/UTCSupervisorGraduationView';
+import SupervisorOfferedTopics from '../components/SupervisorOfferedTopics';
 import { SkeletonProfile, SkeletonEvaluationGrid } from '../components/SkeletonLoader';
+import { TablePagination } from '../components/TablePagination';
+import { getRelativeTime } from '../utils/dateUtils';
+import { useModalGuard } from '../utils/modalHooks';
 import './Dashboard.css';
 import '../components/EvaluationForm.css';
 import '../components/DocumentReview.css';
@@ -43,6 +47,15 @@ const SupervisorDashboard: React.FC = () => {
   });
   const [savingProfile, setSavingProfile] = useState(false);
 
+  const profileEditGuard = useModalGuard({
+    isOpen: isEditingProfile,
+    onClose: () => handleCancelEdit(),
+    isDirty: Boolean(
+      (profile && editFormData.research_interest !== (profile.research_interest || '')) ||
+      (profile && editFormData.academic_background !== (profile.academic_background || ''))
+    ),
+  });
+
   useEffect(() => {
     loadData();
   }, []);
@@ -53,6 +66,17 @@ const SupervisorDashboard: React.FC = () => {
       loadSupervisorRequests();
     }
   }, [activeTab]);
+
+  // Auto-sync when internet reconnects without page reload
+  useEffect(() => {
+    const handleOnlineSync = () => {
+      loadData();
+    };
+    window.addEventListener('app:online-sync', handleOnlineSync);
+    return () => {
+      window.removeEventListener('app:online-sync', handleOnlineSync);
+    };
+  }, []);
 
   const loadData = async () => {
     try {
@@ -232,6 +256,12 @@ const SupervisorDashboard: React.FC = () => {
             {t('nav.groups', 'Nhóm Đồ Án Hướng Dẫn')}
           </button>
           <button
+            className={`tab ${activeTab === 'offered_topics' ? 'active' : ''}`}
+            onClick={() => setActiveTab('offered_topics')}
+          >
+            💡 Đề Tài Gợi Ý
+          </button>
+          <button
             className={`tab ${activeTab === 'documents' ? 'active' : ''}`}
             onClick={() => setActiveTab('documents')}
           >
@@ -297,12 +327,12 @@ const SupervisorDashboard: React.FC = () => {
               <SupervisorAnalytics />
 
               {isEditingProfile && (
-                <div className="modal-overlay" onClick={handleCancelEdit}>
+                <div className="modal-overlay" onClick={profileEditGuard.handleOverlayClick}>
                   <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
                     <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: '1px solid #e0e0e0' }}>
                       <h3 style={{ margin: 0 }}>Edit Profile</h3>
                       <button 
-                        onClick={handleCancelEdit}
+                        onClick={profileEditGuard.requestClose}
                         style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#666' }}
                       >
                         ×
@@ -363,7 +393,7 @@ const SupervisorDashboard: React.FC = () => {
                     }}>
                       <button 
                         className="btn btn-secondary" 
-                        onClick={handleCancelEdit}
+                        onClick={profileEditGuard.requestClose}
                         disabled={savingProfile}
                       >
                         Cancel
@@ -467,6 +497,12 @@ const SupervisorDashboard: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'offered_topics' && (
+            <div className="card">
+              <SupervisorOfferedTopics onTopicChanged={loadData} />
+            </div>
+          )}
+
           {activeTab === 'documents' && (
             <div className="card">
               <DocumentReview groups={supervisorRequests.filter((r) => r.status === 'accepted')} />
@@ -547,89 +583,558 @@ const GroupsList: React.FC<{
   onViewComments?: (group: SupervisorOfStudentGroup) => void;
   selectedGroupId?: number;
 }> = ({ groups, onViewEvaluations, onOpenChat, onViewDocuments, onViewComments, selectedGroupId }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSemester, setSelectedSemester] = useState<string>('all');
+  const [selectedProgress, setSelectedProgress] = useState<'all' | 'on_track' | 'delayed'>('all');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [sortField, setSortField] = useState<'name' | 'created_at' | 'score' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   if (groups.length === 0) {
-    return <div className="empty-state">No groups assigned</div>;
+    return <div className="empty-state">Chưa có nhóm đồ án nào được phân công</div>;
   }
 
+  // Extract available semesters from students in groups
+  const availableSemesters = Array.from(
+    new Set(
+      groups
+        .flatMap((g) => [
+          g.group?.student_1_details?.semester,
+          g.group?.student_2_details?.semester,
+        ])
+        .filter(Boolean) as string[]
+    )
+  );
+  const defaultSemesters = ['Kỳ 1 2025-2026', 'Kỳ 2 2025-2026', 'Kỳ 1 2024-2025', 'Kỳ 2 2024-2025'];
+  const allSemesters = Array.from(new Set([...availableSemesters, ...defaultSemesters]));
+
+  const getGroupProgress = (g: any): 'on_track' | 'delayed' => {
+    if (g.is_late || (g as any).has_late_documents) {
+      return 'delayed';
+    }
+    return 'on_track';
+  };
+
+  const getGroupName = (g: SupervisorOfStudentGroup): string => {
+    return g.project?.project_name || g.group?.student_1_details?.user?.username || `Group #${g.id}`;
+  };
+
+  const getGroupScore = (g: SupervisorOfStudentGroup): number | null => {
+    if (typeof (g as any).supervisor_score === 'number') return (g as any).supervisor_score;
+    if (typeof (g.project as any)?.supervisor_score === 'number') return (g.project as any).supervisor_score;
+    return null;
+  };
+
+  const filteredGroups = groups.filter((g) => {
+    const sem1 = g.group?.student_1_details?.semester;
+    const sem2 = g.group?.student_2_details?.semester;
+    const groupSem = sem1 || sem2 || 'Kỳ 1 2025-2026';
+
+    const matchesSemester = selectedSemester === 'all' || groupSem === selectedSemester;
+    const progress = getGroupProgress(g);
+    const matchesProgress = selectedProgress === 'all' || progress === selectedProgress;
+
+    const s1Name = g.group?.student_1_details?.user?.username || '';
+    const s2Name = g.group?.student_2_details?.user?.username || '';
+    const s1Reg = g.group?.student_1_details?.registration_no || '';
+    const s2Reg = g.group?.student_2_details?.registration_no || '';
+    const pName = g.project?.project_name || '';
+    const gId = g.id.toString();
+
+    const matchesSearch =
+      !searchTerm ||
+      pName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s1Name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s2Name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s1Reg.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s2Reg.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      gId.includes(searchTerm);
+
+    return matchesSemester && matchesProgress && matchesSearch;
+  });
+
+  const handleSort = (field: 'name' | 'created_at' | 'score') => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const renderSortIcon = (field: 'name' | 'created_at' | 'score') => {
+    if (sortField !== field) {
+      return <span style={{ color: '#94a3b8', marginLeft: '4px', fontSize: '11px' }}>⇅</span>;
+    }
+    return sortDirection === 'asc' ? (
+      <span style={{ color: '#007bff', marginLeft: '4px', fontWeight: 'bold', fontSize: '11px' }}>▲</span>
+    ) : (
+      <span style={{ color: '#007bff', marginLeft: '4px', fontWeight: 'bold', fontSize: '11px' }}>▼</span>
+    );
+  };
+
+  const sortedGroups = useMemo(() => {
+    if (!sortField) return filteredGroups;
+    return [...filteredGroups].sort((a, b) => {
+      if (sortField === 'name') {
+        const nameA = getGroupName(a);
+        const nameB = getGroupName(b);
+        const cmp = nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
+      if (sortField === 'created_at') {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      if (sortField === 'score') {
+        const scoreA = getGroupScore(a) ?? -1;
+        const scoreB = getGroupScore(b) ?? -1;
+        return sortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA;
+      }
+      return 0;
+    });
+  }, [filteredGroups, sortField, sortDirection]);
+
+  const paginatedGroups = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedGroups.slice(start, start + pageSize);
+  }, [sortedGroups, currentPage, pageSize]);
+
   return (
-    <div className="grid">
-      {groups.map((group) => (
-        <div 
-          key={group.id} 
-          className="card" 
-          style={{ 
-            border: selectedGroupId === group.id ? '2px solid #007bff' : '1px solid #ddd',
-            backgroundColor: selectedGroupId === group.id ? '#f0f8ff' : 'white',
-          }}
-        >
-          <h3>Group #{group.id}</h3>
-          <p><strong>Project:</strong> {group.project?.project_name}</p>
-          <p>
-            <strong>Students:</strong> {group.group?.student_1_details?.user?.username || 'N/A'} &{' '}
-            {group.group?.student_2_details?.user?.username || 'N/A'}
-          </p>
-          
-          {/* Panel Assignment */}
-          {group.project?.panel_info && (
-            <div style={{ 
-              marginTop: '10px', 
-              padding: '8px 12px', 
-              backgroundColor: '#e8f4f8', 
-              borderRadius: '4px',
-              border: '1px solid #bee5eb'
-            }}>
-              <p style={{ margin: 0, fontSize: '0.9rem' }}>
-                <strong>📋 Panel:</strong> {group.project.panel_info.name || `Panel #${group.project.panel_info.id}`}
-              </p>
-              {group.project.panel_info.members && group.project.panel_info.members.length > 0 && (
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#555' }}>
-                  Committee: {group.project.panel_info.members.map(m => 
-                    m.user.first_name || m.user.username
-                  ).join(', ')}
-                </p>
-              )}
-            </div>
-          )}
-          
-          <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => onViewDocuments(group)}
-              style={{ flex: 1, minWidth: '80px' }}
-            >
-              📄 Docs
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => onViewEvaluations(group)}
-              style={{ flex: 1, minWidth: '80px' }}
-            >
-              📝 Evaluate
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => onOpenChat(group)}
-              style={{ flex: 1, minWidth: '80px' }}
-            >
-              💬 Chat
-            </button>
-            {onViewComments && (
-              <button
-                className={`btn btn-sm ${selectedGroupId === group.id ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => onViewComments(group)}
-                style={{ flex: 1, minWidth: '80px' }}
-              >
-                📋 Discuss
-              </button>
-            )}
-          </div>
-          {selectedGroupId === group.id && (
-            <p style={{ color: '#007bff', marginTop: '10px', fontWeight: 'bold', fontSize: '0.85rem' }}>
-              ✓ Currently Selected
-            </p>
-          )}
+    <div>
+      {/* Search and Filters Bar */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '12px',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          backgroundColor: '#f8fafc',
+          padding: '14px',
+          borderRadius: '10px',
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: '220px' }}>
+          <input
+            type="text"
+            placeholder="🔍 Tìm kiếm theo tên đề tài, sinh viên, MSSV..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              fontSize: '0.88rem',
+              boxSizing: 'border-box',
+            }}
+          />
         </div>
-      ))}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Kỳ học:</label>
+          <select
+            value={selectedSemester}
+            onChange={(e) => setSelectedSemester(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              fontSize: '0.85rem',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all">Tất cả kỳ học</option>
+            {allSemesters.map((sem) => (
+              <option key={sem} value={sem}>
+                {sem}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Tiến độ:</label>
+          <select
+            value={selectedProgress}
+            onChange={(e) => setSelectedProgress(e.target.value as any)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              fontSize: '0.85rem',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all">Tất cả tiến độ</option>
+            <option value="on_track">🟢 Đúng hạn (On Track)</option>
+            <option value="delayed">🔴 Chậm tiến độ (Delayed)</option>
+          </select>
+        </div>
+
+        {/* View mode toggle */}
+        <div style={{ display: 'flex', border: '1px solid #cbd5e1', borderRadius: '6px', overflow: 'hidden' }}>
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            style={{
+              padding: '6px 12px',
+              border: 'none',
+              backgroundColor: viewMode === 'table' ? '#007bff' : '#ffffff',
+              color: viewMode === 'table' ? '#ffffff' : '#475569',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+            }}
+            title="Xem dạng bảng"
+          >
+            📊 Bảng
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('cards')}
+            style={{
+              padding: '6px 12px',
+              border: 'none',
+              backgroundColor: viewMode === 'cards' ? '#007bff' : '#ffffff',
+              color: viewMode === 'cards' ? '#ffffff' : '#475569',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+            }}
+            title="Xem dạng thẻ"
+          >
+            🗂 Thẻ
+          </button>
+        </div>
+
+        {(searchTerm || selectedSemester !== 'all' || selectedProgress !== 'all') && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setSearchTerm('');
+              setSelectedSemester('all');
+              setSelectedProgress('all');
+            }}
+          >
+            Đặt lại bộ lọc
+          </button>
+        )}
+      </div>
+
+      {filteredGroups.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
+          <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>Không tìm thấy nhóm đồ án phù hợp</p>
+          <p style={{ fontSize: '0.85rem' }}>Hãy thử thay đổi từ khóa tìm kiếm, kỳ học hoặc bộ lọc tiến độ.</p>
+        </div>
+      ) : viewMode === 'table' ? (
+        /* TABLE VIEW WITH SORTING & PAGINATION */
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f1f5f9' }}>
+                  <th style={{ padding: '12px 14px', textAlign: 'left', width: '80px' }}>Mã nhóm</th>
+                  <th
+                    style={{ padding: '12px 14px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSort('name')}
+                    title="Bấm vào để sắp xếp theo Tên"
+                  >
+                    Tên {renderSortIcon('name')}
+                  </th>
+                  <th
+                    style={{ padding: '12px 14px', textAlign: 'left', cursor: 'pointer', userSelect: 'none', width: '140px' }}
+                    onClick={() => handleSort('created_at')}
+                    title="Bấm vào để sắp xếp theo Ngày tạo"
+                  >
+                    Ngày tạo {renderSortIcon('created_at')}
+                  </th>
+                  <th
+                    style={{ padding: '12px 14px', textAlign: 'left', cursor: 'pointer', userSelect: 'none', width: '110px' }}
+                    onClick={() => handleSort('score')}
+                    title="Bấm vào để sắp xếp theo Điểm số"
+                  >
+                    Điểm số {renderSortIcon('score')}
+                  </th>
+                  <th style={{ padding: '12px 14px', textAlign: 'left' }}>Sinh viên</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'left', width: '120px' }}>Tiến độ</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'right', width: '220px' }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedGroups.map((group) => {
+                  const progress = getGroupProgress(group);
+                  const sem =
+                    group.group?.student_1_details?.semester ||
+                    group.group?.student_2_details?.semester ||
+                    'Kỳ 1 2025-2026';
+                  const score = getGroupScore(group);
+
+                  return (
+                    <tr
+                      key={group.id}
+                      style={{
+                        backgroundColor: selectedGroupId === group.id ? '#f0f8ff' : undefined,
+                        borderBottom: '1px solid #e2e8f0',
+                      }}
+                    >
+                      <td style={{ padding: '12px 14px', fontWeight: 'bold', color: '#007bff' }}>
+                        #{group.id}
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{getGroupName(group)}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Kỳ: {sem}</div>
+                      </td>
+                      <td
+                        style={{ padding: '12px 14px', fontSize: '0.85rem', color: '#475569', whiteSpace: 'nowrap' }}
+                        title={group.created_at ? new Date(group.created_at).toLocaleString('vi-VN') : ''}
+                      >
+                        {group.created_at ? getRelativeTime(group.created_at) : 'Mới tạo'}
+                      </td>
+                      <td style={{ padding: '12px 14px', fontWeight: 600, color: score !== null ? '#10b981' : '#64748b' }}>
+                        {score !== null ? `${score} / 10đ` : 'Chưa chấm'}
+                      </td>
+                      <td style={{ padding: '12px 14px', fontSize: '0.85rem' }}>
+                        <div>
+                          {group.group?.student_1_details?.user?.username || 'N/A'}{' '}
+                          {group.group?.student_1_details?.registration_no && (
+                            <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                              ({group.group.student_1_details.registration_no})
+                            </span>
+                          )}
+                        </div>
+                        {group.group?.student_2_details && (
+                          <div style={{ marginTop: '2px' }}>
+                            {group.group.student_2_details.user?.username || 'N/A'}{' '}
+                            {group.group.student_2_details.registration_no && (
+                              <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                                ({group.group.student_2_details.registration_no})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        {progress === 'on_track' ? (
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '10px',
+                              backgroundColor: '#dcfce7',
+                              color: '#166534',
+                              border: '1px solid #bbf7d0',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            🟢 Đúng hạn
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '10px',
+                              backgroundColor: '#fee2e2',
+                              color: '#991b1b',
+                              border: '1px solid #fecaca',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            🔴 Chậm tiến độ
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => onViewDocuments(group)}
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            title="Tài liệu"
+                          >
+                            📄 Docs
+                          </button>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => onViewEvaluations(group)}
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            title="Đánh giá"
+                          >
+                            📝 Điểm
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => onOpenChat(group)}
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            title="Trao đổi"
+                          >
+                            💬 Chat
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <TablePagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalItems={sortedGroups.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[10, 25, 50]}
+          />
+        </div>
+      ) : (
+        /* CARD GRID VIEW */
+        <div>
+          <div className="grid">
+            {paginatedGroups.map((group) => {
+              const sem =
+                group.group?.student_1_details?.semester ||
+                group.group?.student_2_details?.semester ||
+                'Kỳ 1 2025-2026';
+              const progress = getGroupProgress(group);
+
+              return (
+                <div
+                  key={group.id}
+                  className="card"
+                  style={{
+                    border: selectedGroupId === group.id ? '2px solid #007bff' : '1px solid #ddd',
+                    backgroundColor: selectedGroupId === group.id ? '#f0f8ff' : 'white',
+                    position: 'relative',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h3 style={{ margin: 0 }}>Group #{group.id}</h3>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          backgroundColor: '#e2e8f0',
+                          color: '#334155',
+                        }}
+                      >
+                        📅 {sem}
+                      </span>
+                      {progress === 'on_track' ? (
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            backgroundColor: '#dcfce7',
+                            color: '#166534',
+                            border: '1px solid #bbf7d0',
+                          }}
+                        >
+                          🟢 Đúng hạn
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            backgroundColor: '#fee2e2',
+                            color: '#991b1b',
+                            border: '1px solid #fecaca',
+                          }}
+                        >
+                          🔴 Chậm tiến độ
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <p><strong>Project:</strong> {group.project?.project_name}</p>
+                  <p>
+                    <strong>Students:</strong> {group.group?.student_1_details?.user?.username || 'N/A'}{' '}
+                    {group.group?.student_1_details?.registration_no && `(${group.group.student_1_details.registration_no})`} &{' '}
+                    {group.group?.student_2_details?.user?.username || 'N/A'}{' '}
+                    {group.group?.student_2_details?.registration_no && `(${group.group.student_2_details.registration_no})`}
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => onViewDocuments(group)}
+                      style={{ flex: 1, minWidth: '80px' }}
+                    >
+                      📄 Docs
+                    </button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => onViewEvaluations(group)}
+                      style={{ flex: 1, minWidth: '80px' }}
+                    >
+                      📝 Evaluate
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => onOpenChat(group)}
+                      style={{ flex: 1, minWidth: '80px' }}
+                    >
+                      💬 Chat
+                    </button>
+                    {onViewComments && (
+                      <button
+                        className={`btn btn-sm ${selectedGroupId === group.id ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => onViewComments(group)}
+                        style={{ flex: 1, minWidth: '80px' }}
+                      >
+                        📋 Discuss
+                      </button>
+                    )}
+                  </div>
+                  {selectedGroupId === group.id && (
+                    <p style={{ color: '#007bff', marginTop: '10px', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                      ✓ Currently Selected
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: '16px' }}>
+            <TablePagination
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalItems={sortedGroups.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[10, 25, 50]}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

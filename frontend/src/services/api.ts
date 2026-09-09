@@ -7,9 +7,12 @@ import type {
   CommitteeMember,
   ProjectCategory,
   Group,
+  ProjectGroup,
+  GroupJoinRequestInfo,
   Project,
   SupervisorOfStudentGroup,
   Document,
+  DocumentComment,
   DocumentRequirement,
   DocumentTypeValue,
   ChatMessage,
@@ -35,11 +38,27 @@ import type {
   EvaluationScheduleCreate,
 } from '../types';
 
+import { triggerGlobalToast } from '../contexts/ToastContext';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/app';
 
 
 class ApiService {
   private api: AxiosInstance;
+  private pendingRequests = new Map<string, Promise<any>>();
+
+  private deduplicateRequest<T>(key: string, fetcher: () => Promise<T>, ttlMs = 2500): Promise<T> {
+    if (this.pendingRequests.has(key)) {
+      return this.pendingRequests.get(key) as Promise<T>;
+    }
+    const promise = fetcher().finally(() => {
+      setTimeout(() => {
+        this.pendingRequests.delete(key);
+      }, ttlMs);
+    });
+    this.pendingRequests.set(key, promise);
+    return promise;
+  }
 
   constructor() {
     this.api = axios.create({
@@ -62,10 +81,15 @@ class ApiService {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor to handle token refresh via HttpOnly Cookie
+    // Response interceptor to handle token refresh via HttpOnly Cookie and network errors
     this.api.interceptors.response.use(
       (response) => response,
       async (error) => {
+        // Check for network connectivity failure
+        if (!navigator.onLine || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+          triggerGlobalToast('Mất kết nối Internet, vui lòng kiểm tra đường truyền', 'warning', 6000);
+        }
+
         const originalRequest = error.config;
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
@@ -122,8 +146,10 @@ class ApiService {
 
   // Student Profile
   async getStudentProfile(): Promise<Student> {
-    const response = await this.api.get<Student>('/student/profile/');
-    return response.data;
+    return this.deduplicateRequest('student-profile', async () => {
+      const response = await this.api.get<Student>('/student/profile/');
+      return response.data;
+    });
   }
 
   // WebSocket Ticket
@@ -134,19 +160,24 @@ class ApiService {
 
   // Supervisor Profile
   async getSupervisorProfile(): Promise<Supervisor> {
-    const response = await this.api.get<Supervisor>('/supervisor/profile/');
-    return response.data;
+    return this.deduplicateRequest('supervisor-profile', async () => {
+      const response = await this.api.get<Supervisor>('/supervisor/profile/');
+      return response.data;
+    });
   }
 
   async updateSupervisorProfile(data: Partial<Supervisor>): Promise<Supervisor> {
+    this.pendingRequests.delete('supervisor-profile');
     const response = await this.api.patch<Supervisor>('/supervisor/profile/', data);
     return response.data;
   }
 
   // Committee Member Profile
   async getCommitteeMemberProfile(): Promise<CommitteeMember> {
-    const response = await this.api.get<CommitteeMember>('/committee_member/profile/');
-    return response.data;
+    return this.deduplicateRequest('committee-profile', async () => {
+      const response = await this.api.get<CommitteeMember>('/committee_member/profile/');
+      return response.data;
+    });
   }
 
   // Committee Member Groups (for evaluation)
@@ -165,12 +196,6 @@ class ApiService {
     if (options?.forRequest) params.for_request = 'true';
     if (options?.search) params.search = options.search;
     const response = await this.api.get<{ results: Student[]; count: number }>('/listofstudents/', { params });
-    return response.data;
-  }
-
-  // Project Categories
-  async getProjectCategories(): Promise<{ results: ProjectCategory[] }> {
-    const response = await this.api.get<{ results: ProjectCategory[] }>('/project/categories/');
     return response.data;
   }
 
@@ -220,6 +245,119 @@ class ApiService {
     return response.data;
   }
 
+  // Categories
+  async getProjectCategories(): Promise<ProjectCategory[]> {
+    return this.deduplicateRequest('project-categories', async () => {
+      const response = await this.api.get<ProjectCategory[] | { results: ProjectCategory[] }>('/project/categories/');
+      if (Array.isArray(response.data)) {
+        return response.data;
+      } else if (response.data && response.data.results) {
+        return response.data.results;
+      }
+      return [];
+    }, 10000);
+  }
+
+  // ==========================================
+  // Student Capstone Group Management (15 Features)
+  // ==========================================
+
+  async getRecruitingGroups(search?: string): Promise<ProjectGroup[]> {
+    const params = search ? { search } : {};
+    const response = await this.api.get<ProjectGroup[]>('/student-groups/recruiting/', { params });
+    return response.data;
+  }
+
+  async createStudentGroup(data: {
+    name: string;
+    tentative_topic?: string;
+    tentative_description?: string;
+    max_members?: number;
+  }): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>('/student-groups/create/', data);
+    return response.data;
+  }
+
+  async getMyStudentGroup(): Promise<{ has_group: boolean; group?: ProjectGroup; message?: string }> {
+    const response = await this.api.get<{ has_group: boolean; group?: ProjectGroup; message?: string }>('/student-groups/my-group/');
+    return response.data;
+  }
+
+  async requestToJoinGroup(groupId: number, message?: string): Promise<{ message: string; request: GroupJoinRequestInfo }> {
+    const response = await this.api.post<{ message: string; request: GroupJoinRequestInfo }>(
+      `/student-groups/${groupId}/join-request/`,
+      { message }
+    );
+    return response.data;
+  }
+
+  async getMySentJoinRequests(): Promise<GroupJoinRequestInfo[]> {
+    const response = await this.api.get<GroupJoinRequestInfo[]>('/student-groups/my-join-requests/');
+    return response.data;
+  }
+
+  async approveJoinRequest(requestId: number): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      `/student-groups/join-requests/${requestId}/approve/`
+    );
+    return response.data;
+  }
+
+  async rejectJoinRequest(requestId: number): Promise<{ message: string }> {
+    const response = await this.api.post<{ message: string }>(
+      `/student-groups/join-requests/${requestId}/reject/`
+    );
+    return response.data;
+  }
+
+  async kickGroupMember(memberId: number): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      '/student-groups/kick-member/',
+      { member_id: memberId }
+    );
+    return response.data;
+  }
+
+  async leaveGroup(): Promise<{ message: string }> {
+    const response = await this.api.post<{ message: string }>('/student-groups/leave/');
+    return response.data;
+  }
+
+  async disbandGroup(): Promise<{ message: string }> {
+    const response = await this.api.post<{ message: string }>('/student-groups/disband/');
+    return response.data;
+  }
+
+  async transferLeadership(newLeaderId: number): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      '/student-groups/transfer-leadership/',
+      { new_leader_id: newLeaderId }
+    );
+    return response.data;
+  }
+
+  async updateTopicProposal(data: {
+    topic_title: string;
+    topic_description?: string;
+  }): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      '/student-groups/update-topic/',
+      data
+    );
+    return response.data;
+  }
+
+  async reviewGroupTopic(
+    groupId: number,
+    data: { verdict: 'APPROVED' | 'REVISION_REQUESTED' | 'REJECTED'; notes?: string }
+  ): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      `/student-groups/${groupId}/topic-review/`,
+      data
+    );
+    return response.data;
+  }
+
   // Projects
   async getProjects(options?: {
     categoryId?: number;
@@ -255,8 +393,13 @@ class ApiService {
     return response.data;
   }
 
+  async updateProject(id: number, data: Partial<Project>): Promise<Project> {
+    const response = await this.api.patch<Project>(`/project/${id}/`, data);
+    return response.data;
+  }
+
   async deleteProject(id: number): Promise<void> {
-    await this.api.delete(`/projects/list/${id}/`);
+    await this.api.delete(`/project/${id}/`);
   }
 
   // Supervisors
@@ -329,11 +472,19 @@ class ApiService {
     return Array.isArray(response.data) ? response.data : [];
   }
 
-  async uploadDocument(documentType: string, data: FormData): Promise<Document> {
+  async uploadDocument(
+    documentType: string,
+    data: FormData,
+    onProgress?: (progressEvent: any) => void,
+    signal?: AbortSignal
+  ): Promise<Document> {
     const response = await this.api.post<Document>(`/proposal-document/${documentType}/`, data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 120000, // 2 minutes timeout for large 20MB files
+      onUploadProgress: onProgress,
+      signal: signal,
     });
     return response.data;
   }
@@ -383,8 +534,34 @@ class ApiService {
     }
   }
 
+  async fetchDocumentBlob(fileUrl: string): Promise<Blob> {
+    const url = fileUrl.startsWith('http') ? fileUrl : `${window.location.origin}${fileUrl}`;
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(url + (url.includes('?') ? '&preview=1' : '?preview=1'), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load document: ${response.status} ${response.statusText}`);
+    }
+    return await response.blob();
+  }
+
   async deleteDocument(documentType: string, documentId: number): Promise<void> {
     await this.api.delete(`/proposal-document/${documentType}/${documentId}/`);
+  }
+
+  /** Get a short-lived Signed URL for downloading or opening a file in browser */
+  async getSignedMediaUrl(filePath: string): Promise<string> {
+    try {
+      const response = await this.api.get<{ signed_url: string }>(`/media/get-signed-url/`, {
+        params: { file_path: filePath.replace(/^\//, '') },
+      });
+      const signedUrl = response.data.signed_url;
+      return signedUrl.startsWith('http') ? signedUrl : `${window.location.origin}${signedUrl}`;
+    } catch (error) {
+      console.error('Failed to get signed media URL:', error);
+      return filePath;
+    }
   }
 
   // Document requirements (committee-defined deadlines; students see and submit against these)
@@ -404,6 +581,7 @@ class ApiService {
     document_type: DocumentTypeValue;
     title: string;
     deadline: string;
+    allow_late_submission?: boolean;
     semester?: string | null;
   }): Promise<DocumentRequirement> {
     const response = await this.api.post<DocumentRequirement>('/document-requirements/', data);
@@ -417,7 +595,7 @@ class ApiService {
 
   async updateDocumentRequirement(
     id: number,
-    data: Partial<Pick<DocumentRequirement, 'title' | 'deadline' | 'semester'>>
+    data: Partial<Pick<DocumentRequirement, 'title' | 'deadline' | 'semester' | 'allow_late_submission'>>
   ): Promise<DocumentRequirement> {
     const response = await this.api.patch<DocumentRequirement>(`/document-requirements/${id}/`, data);
     return response.data;
@@ -441,6 +619,23 @@ class ApiService {
     // Legacy non-paginated response
     const docs = Array.isArray(response.data) ? response.data : [];
     return { results: docs, count: docs.length, next: null, previous: null };
+  }
+
+  async bulkDownloadSupervisorDocuments(groupIds: number[]): Promise<Blob> {
+    const response = await this.api.post('/supervisor/documents/bulk-download/', { group_ids: groupIds }, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  async getDocumentComments(documentId: number): Promise<DocumentComment[]> {
+    const response = await this.api.get<DocumentComment[]>(`/documents/${documentId}/comments/`);
+    return response.data;
+  }
+
+  async addDocumentComment(documentId: number, data: { section?: string; comment: string }): Promise<DocumentComment> {
+    const response = await this.api.post<DocumentComment>(`/documents/${documentId}/comments/`, data);
+    return response.data;
   }
 
   // Evaluations
@@ -556,6 +751,15 @@ class ApiService {
     return response.data;
   }
 
+  async sendChatMessageWithAttachment(formData: FormData): Promise<ChatMessage> {
+    const response = await this.api.post<ChatMessage>('/chatroom/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  }
+
   async deleteChatMessage(messageId: number): Promise<void> {
     await this.api.delete(`/chatroom/${messageId}/`);
   }
@@ -573,11 +777,19 @@ class ApiService {
     return [];
   }
 
-  async uploadTemplate(templateType: string, data: FormData): Promise<any> {
+  async uploadTemplate(
+    templateType: string,
+    data: FormData,
+    onProgress?: (progressEvent: any) => void,
+    signal?: AbortSignal
+  ): Promise<any> {
     const response = await this.api.post(`/srs_template/${templateType}/`, data, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 120000,
+      onUploadProgress: onProgress,
+      signal: signal,
     });
     return response.data;
   }
@@ -674,6 +886,22 @@ class ApiService {
 
   async getAuditLogStats(): Promise<AuditLogStats> {
     const response = await this.api.get<AuditLogStats>('/audit-logs/stats/');
+    return response.data;
+  }
+
+  async exportAuditLogs(params?: Record<string, unknown>): Promise<Blob> {
+    const response = await this.api.get('/audit-logs/export/', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  async toggleCouncilLock(councilId: number, isLocked: boolean): Promise<any> {
+    const response = await this.api.post('/council/toggle-lock/', {
+      council_id: councilId,
+      is_locked: isLocked,
+    });
     return response.data;
   }
 
@@ -865,6 +1093,46 @@ class ApiService {
     document.body.appendChild(link);
     link.click();
     link.remove();
+  }
+
+  // Bug Report / User Feedback
+  async submitBugReport(formData: FormData): Promise<{ message: string; report: any }> {
+    const response = await this.api.post<{ message: string; report: any }>('/bug-reports/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  // Global Search & Council Management
+  async globalSearch(q: string, type = 'all'): Promise<any> {
+    const response = await this.api.get('/global-search/', {
+      params: { q, type }
+    });
+    return response.data;
+  }
+
+  async getCouncilConflicts(params?: { council_id?: number; batch_id?: number }): Promise<any> {
+    const response = await this.api.get('/council/conflicts/', { params });
+    return response.data;
+  }
+
+  async assignProjectToCouncil(projectId: number, councilId: number | null, force = false): Promise<any> {
+    const response = await this.api.post('/council/assign-project/', {
+      project_id: projectId,
+      council_id: councilId,
+      force
+    });
+    return response.data;
+  }
+
+  async assignMemberToCouncil(councilId: number, userId: number, role = 'MEMBER', force = false): Promise<any> {
+    const response = await this.api.post('/council/assign-member/', {
+      council_id: councilId,
+      user_id: userId,
+      role,
+      force
+    });
+    return response.data;
   }
 
   // Utility

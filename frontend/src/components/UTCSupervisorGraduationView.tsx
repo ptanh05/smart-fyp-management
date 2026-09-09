@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { TablePagination } from './TablePagination';
+import { getRelativeTime } from '../utils/dateUtils';
+import { useModalGuard } from '../utils/modalHooks';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
@@ -9,6 +12,12 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [reviewerProjects, setReviewerProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Sorting & Pagination for Students Table
+  const [sortField, setSortField] = useState<'student_name' | 'created_at' | 'supervisor_score' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [studentPage, setStudentPage] = useState(1);
+  const [studentPageSize, setStudentPageSize] = useState(10);
 
   // Outline Review Modal
   const [selectedProject, setSelectedProject] = useState<any>(null);
@@ -32,6 +41,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [showReviewerModal, setShowReviewerModal] = useState(false);
   const [revScore, setRevScore] = useState('');
   const [revFeedback, setRevFeedback] = useState('');
+  const [revVerdict, setRevVerdict] = useState<'APPROVED' | 'CONDITIONAL' | 'REJECTED'>('APPROVED');
 
   // Supervision Meeting Logs & Tasks Modal State
   const [showSupervisionModal, setShowSupervisionModal] = useState(false);
@@ -59,6 +69,93 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [taskPriority, setTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [savingTask, setSavingTask] = useState(false);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
+
+  // Modal Guards with ESC & dirty form protection
+  const outlineGuard = useModalGuard({
+    isOpen: showOutlineModal,
+    onClose: () => setShowOutlineModal(false),
+    isDirty: Boolean(outlineComments.trim()),
+  });
+
+  const weeklyGuard = useModalGuard({
+    isOpen: showWeeklyModal,
+    onClose: () => setShowWeeklyModal(false),
+    isDirty: Boolean(weeklyFeedback.trim()),
+  });
+
+  const evalGuard = useModalGuard({
+    isOpen: showEvalModal,
+    onClose: () => setShowEvalModal(false),
+    isDirty: Boolean(evalScore !== '' || evalFeedback.trim()),
+  });
+
+  const reviewerGuard = useModalGuard({
+    isOpen: showReviewerModal,
+    onClose: () => setShowReviewerModal(false),
+    isDirty: Boolean(revScore !== '' || revFeedback.trim()),
+  });
+
+  const supervisionGuard = useModalGuard({
+    isOpen: showSupervisionModal,
+    onClose: () => setShowSupervisionModal(false),
+    isDirty: Boolean(contentDiscussed.trim() || supervisorNotes.trim() || taskTitle.trim() || taskDesc.trim()),
+  });
+
+  // Sorting & Pagination Helpers
+  const handleSort = (field: 'student_name' | 'created_at' | 'supervisor_score') => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setStudentPage(1);
+  };
+
+  const renderSortIcon = (field: 'student_name' | 'created_at' | 'supervisor_score') => {
+    if (sortField !== field) {
+      return <span style={{ color: '#64748b', marginLeft: '4px', fontSize: '11px' }}>⇅</span>;
+    }
+    return sortDirection === 'asc' ? (
+      <span style={{ color: '#38bdf8', marginLeft: '4px', fontWeight: 'bold', fontSize: '11px' }}>▲</span>
+    ) : (
+      <span style={{ color: '#38bdf8', marginLeft: '4px', fontWeight: 'bold', fontSize: '11px' }}>▼</span>
+    );
+  };
+
+  const sortedProjects = useMemo(() => {
+    if (!sortField) return projects;
+    return [...projects].sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+
+      if (sortField === 'student_name') {
+        const strA = (valA || a.student_name || '').toString();
+        const strB = (valB || b.student_name || '').toString();
+        const cmp = strA.localeCompare(strB, 'vi', { sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
+
+      if (sortField === 'created_at') {
+        const timeA = valA ? new Date(valA).getTime() : 0;
+        const timeB = valB ? new Date(valB).getTime() : 0;
+        return sortDirection === 'asc' ? timeA - timeB : timeB - timeA;
+      }
+
+      if (sortField === 'supervisor_score') {
+        const numA = valA !== null && valA !== undefined ? Number(valA) : -1;
+        const numB = valB !== null && valB !== undefined ? Number(valB) : -1;
+        return sortDirection === 'asc' ? numA - numB : numB - numA;
+      }
+
+      return 0;
+    });
+  }, [projects, sortField, sortDirection]);
+
+  const paginatedProjects = useMemo(() => {
+    const start = (studentPage - 1) * studentPageSize;
+    return sortedProjects.slice(start, start + studentPageSize);
+  }, [sortedProjects, studentPage, studentPageSize]);
 
   const getHeaders = () => {
     const token = localStorage.getItem('access_token');
@@ -220,9 +317,12 @@ export const UTCSupervisorGraduationView: React.FC = () => {
     }
   };
 
-  const handleSupervisorEvaluation = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSupervisorEvaluation = async (isDraft: boolean = false) => {
     if (!selectedProject) return;
+    if (evalScore === '' || isNaN(Number(evalScore))) {
+      alert('Vui lòng nhập điểm hướng dẫn hợp lệ (0 - 10).');
+      return;
+    }
     try {
       await axios.post(
         `${API_BASE}/supervisor/defense-evaluation/`,
@@ -231,10 +331,15 @@ export const UTCSupervisorGraduationView: React.FC = () => {
           supervisor_score: Number(evalScore),
           supervisor_feedback: evalFeedback,
           is_eligible_for_defense: isEligible,
+          is_draft: isDraft,
         },
         { headers: getHeaders()}
       );
-      alert('Đã lưu phiếu đánh giá GVHD thành công!');
+      if (isDraft) {
+        alert('Đã lưu nháp phiếu đánh giá GVHD thành công! Điểm chưa được công bố cho sinh viên.');
+      } else {
+        alert('Đã lưu phiếu đánh giá GVHD chính thức thành công!');
+      }
       setShowEvalModal(false);
       fetchData();
     } catch (err: any) {
@@ -252,10 +357,11 @@ export const UTCSupervisorGraduationView: React.FC = () => {
           project_id: selectedProject.id,
           reviewer_score: Number(revScore),
           reviewer_feedback: revFeedback,
+          reviewer_verdict: revVerdict,
         },
         { headers: getHeaders()}
       );
-      alert('Đã lưu phiếu phản biện thành công!');
+      alert('Đã lưu phiếu phản biện và kết luận thành công!');
       setShowReviewerModal(false);
       fetchData();
     } catch (err: any) {
@@ -296,7 +402,15 @@ export const UTCSupervisorGraduationView: React.FC = () => {
       {/* Tab 1: Students List */}
       {activeTab === 'students' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
-          <h3 className="font-bold text-base text-slate-100 mb-4">Danh sách Sinh viên đang hướng dẫn ĐATN</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 className="font-bold text-base text-slate-100">
+              Danh sách Sinh viên đang hướng dẫn ĐATN ({projects.length})
+            </h3>
+            <span className="text-xs text-slate-400">
+              💡 Bấm vào tiêu đề cột <b>"Tên"</b>, <b>"Ngày tạo"</b>, <b>"Điểm số"</b> để sắp xếp Tăng dần / Giảm dần.
+            </span>
+          </div>
+
           {projects.length === 0 ? (
             <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào được phân công.</div>
           ) : (
@@ -305,7 +419,27 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                 <thead className="bg-slate-950 text-slate-400 uppercase font-semibold">
                   <tr>
                     <th className="p-3">MSSV</th>
-                    <th className="p-3">Họ và tên</th>
+                    <th
+                      className="p-3 cursor-pointer select-none hover:text-blue-400 transition"
+                      onClick={() => handleSort('student_name')}
+                      title="Bấm để sắp xếp theo Tên sinh viên"
+                    >
+                      Tên {renderSortIcon('student_name')}
+                    </th>
+                    <th
+                      className="p-3 cursor-pointer select-none hover:text-blue-400 transition"
+                      onClick={() => handleSort('created_at')}
+                      title="Bấm để sắp xếp theo Ngày tạo"
+                    >
+                      Ngày tạo {renderSortIcon('created_at')}
+                    </th>
+                    <th
+                      className="p-3 cursor-pointer select-none hover:text-blue-400 transition"
+                      onClick={() => handleSort('supervisor_score')}
+                      title="Bấm để sắp xếp theo Điểm số"
+                    >
+                      Điểm số {renderSortIcon('supervisor_score')}
+                    </th>
                     <th className="p-3">Lớp / Ngành</th>
                     <th className="p-3">Tên đề tài đồ án</th>
                     <th className="p-3">Điện thoại / Email</th>
@@ -314,10 +448,23 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800 text-slate-300">
-                  {projects.map((p) => (
+                  {paginatedProjects.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-950/40">
                       <td className="p-3 font-mono font-semibold text-blue-400">{p.student_reg_no}</td>
                       <td className="p-3 font-medium text-slate-100">{p.student_name}</td>
+                      <td
+                        className="p-3 text-slate-400 whitespace-nowrap"
+                        title={p.created_at ? new Date(p.created_at).toLocaleString('vi-VN') : ''}
+                      >
+                        {p.created_at ? getRelativeTime(p.created_at) : 'Mới tạo'}
+                      </td>
+                      <td className="p-3 font-semibold text-emerald-400">
+                        {p.supervisor_score !== null && p.supervisor_score !== undefined ? (
+                          `${p.supervisor_score} / 10đ`
+                        ) : (
+                          <span className="text-slate-500 font-normal">Chưa chấm</span>
+                        )}
+                      </td>
                       <td className="p-3 text-slate-400">{p.student_class}</td>
                       <td className="p-3 font-medium text-slate-200 max-w-xs">{p.topic_title_vi}</td>
                       <td className="p-3 text-slate-400">
@@ -342,6 +489,18 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+
+              <TablePagination
+                currentPage={studentPage}
+                pageSize={studentPageSize}
+                totalItems={sortedProjects.length}
+                onPageChange={setStudentPage}
+                onPageSizeChange={(newSize) => {
+                  setStudentPageSize(newSize);
+                  setStudentPage(1);
+                }}
+                pageSizeOptions={[10, 25, 50]}
+              />
             </div>
           )}
         </div>
@@ -454,9 +613,22 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                     )}
                   </div>
                   <p className="text-xs text-slate-300"><b>Đề tài:</b> {p.topic_title_vi}</p>
-                  <p className="text-xs text-emerald-400 font-semibold">
-                    Điểm GVHD: {p.supervisor_score !== null ? `${p.supervisor_score} / 10đ` : 'Chưa chấm'}
-                  </p>
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <span className="text-xs text-emerald-400 font-semibold">
+                      Điểm GVHD: {p.supervisor_score !== null ? `${p.supervisor_score} / 10đ` : 'Chưa chấm'}
+                    </span>
+                    {p.supervisor_score !== null && (
+                      p.supervisor_score_is_draft ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          BẢN NHÁP
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          CHÍNH THỨC
+                        </span>
+                      )
+                    )}
+                  </div>
                 </div>
 
                 <button
@@ -469,7 +641,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition shadow-md shadow-emerald-600/30"
                 >
-                  Chấm điểm GVHD
+                  {p.supervisor_score !== null ? 'Sửa điểm GVHD' : 'Chấm điểm GVHD'}
                 </button>
               </div>
             ))}
@@ -494,9 +666,29 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                       <span className="text-xs text-slate-400">GVHD: {p.supervisor?.full_name}</span>
                     </div>
                     <p className="text-xs text-slate-300"><b>Đề tài:</b> {p.topic_title_vi}</p>
-                    <p className="text-xs text-indigo-400 font-semibold">
-                      Điểm GVPB: {p.reviewer_score !== null ? `${p.reviewer_score} / 10đ` : 'Chưa chấm phản biện'}
-                    </p>
+                    <div className="flex items-center gap-3 pt-0.5">
+                      <span className="text-xs text-indigo-400 font-semibold">
+                        Điểm GVPB: {p.reviewer_score !== null ? `${p.reviewer_score} / 10đ` : 'Chưa chấm phản biện'}
+                      </span>
+                      {p.reviewer_verdict && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                            p.reviewer_verdict === 'APPROVED'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : p.reviewer_verdict === 'CONDITIONAL'
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          }`}
+                        >
+                          {p.reviewer_verdict_display ||
+                            (p.reviewer_verdict === 'APPROVED'
+                              ? 'Cho phép bảo vệ'
+                              : p.reviewer_verdict === 'CONDITIONAL'
+                              ? 'Bảo vệ có điều kiện'
+                              : 'Không cho phép bảo vệ')}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <button
@@ -504,11 +696,12 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                       setSelectedProject(p);
                       setRevScore(p.reviewer_score !== null ? p.reviewer_score.toString() : '');
                       setRevFeedback(p.reviewer_feedback || '');
+                      setRevVerdict(p.reviewer_verdict || 'APPROVED');
                       setShowReviewerModal(true);
                     }}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition shadow-md shadow-indigo-600/30"
                   >
-                    Chấm Phản biện
+                    {p.reviewer_score !== null ? 'Sửa điểm Phản biện' : 'Chấm Phản biện'}
                   </button>
                 </div>
               ))}
@@ -519,7 +712,10 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Outline Review */}
       {showOutlineModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={outlineGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
             <h3 className="text-base font-bold text-slate-100 mb-2">Xét duyệt Đề cương ĐATN</h3>
             <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
@@ -551,7 +747,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowOutlineModal(false)}
+                  onClick={outlineGuard.requestClose}
                   className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
                   Hủy
@@ -570,7 +766,10 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Weekly Feedback */}
       {showWeeklyModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={weeklyGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
             <h3 className="text-base font-bold text-slate-100 mb-4">Đánh giá Báo cáo Tuần {selectedReport?.week_number}</h3>
             <form onSubmit={handleFeedbackWeekly} className="space-y-3">
@@ -602,7 +801,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowWeeklyModal(false)}
+                  onClick={weeklyGuard.requestClose}
                   className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
                   Hủy
@@ -621,11 +820,14 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Supervisor Eval */}
       {showEvalModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={evalGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
             <h3 className="text-base font-bold text-slate-100 mb-2">Phiếu Đánh giá của Giảng viên hướng dẫn</h3>
             <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
-            <form onSubmit={handleSupervisorEvaluation} className="space-y-3">
+            <form onSubmit={(e) => { e.preventDefault(); handleSupervisorEvaluation(false); }} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Điểm hướng dẫn (Thang 10, tối đa 10.0đ)</label>
                 <input
@@ -667,16 +869,24 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowEvalModal(false)}
+                  onClick={evalGuard.requestClose}
                   className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
                   Hủy
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"
+                  type="button"
+                  onClick={() => handleSupervisorEvaluation(true)}
+                  className="px-3 py-2 rounded bg-amber-600/90 hover:bg-amber-600 text-white text-xs font-semibold"
                 >
-                  Lưu điểm GVHD
+                  💾 Lưu nháp (Draft)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSupervisorEvaluation(false)}
+                  className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+                >
+                  ✓ Lưu chính thức
                 </button>
               </div>
             </form>
@@ -686,7 +896,10 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Reviewer Eval */}
       {showReviewerModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={reviewerGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
             <h3 className="text-base font-bold text-slate-100 mb-2">Phiếu Chấm Giảng viên Phản biện (20%)</h3>
             <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
@@ -707,6 +920,21 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               </div>
 
               <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">
+                  Kết luận phản biện <span className="text-rose-400">*</span>
+                </label>
+                <select
+                  value={revVerdict}
+                  onChange={(e) => setRevVerdict(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                >
+                  <option value="APPROVED">Cho phép bảo vệ</option>
+                  <option value="CONDITIONAL">Bảo vệ có điều kiện</option>
+                  <option value="REJECTED">Không cho phép bảo vệ</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Nhận xét & Câu hỏi phản biện</label>
                 <textarea
                   rows={3}
@@ -720,7 +948,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowReviewerModal(false)}
+                  onClick={reviewerGuard.requestClose}
                   className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
                   Hủy
@@ -729,7 +957,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   type="submit"
                   className="px-4 py-2 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500"
                 >
-                  Lưu điểm Phản biện
+                  Lưu điểm & Kết luận
                 </button>
               </div>
             </form>
@@ -739,7 +967,10 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Quản lý Nhật ký & Giao việc cho SV */}
       {showSupervisionModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={supervisionGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-5">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-800 pb-4">
@@ -759,7 +990,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               </div>
 
               <button
-                onClick={() => setShowSupervisionModal(false)}
+                onClick={supervisionGuard.requestClose}
                 className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm"
               >
                 ✕

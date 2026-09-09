@@ -1,4 +1,19 @@
 from django.urls import path
+from .views_group_management import (
+    RecruitingGroupsAPIView,
+    CreateStudentGroupAPIView,
+    MyStudentGroupAPIView,
+    RequestToJoinGroupAPIView,
+    MySentJoinRequestsAPIView,
+    ApproveJoinRequestAPIView,
+    RejectJoinRequestAPIView,
+    KickGroupMemberAPIView,
+    LeaveGroupAPIView,
+    DisbandGroupAPIView,
+    TransferLeadershipAPIView,
+    UpdateTopicProposalAPIView,
+    SupervisorTopicReviewAPIView,
+)
 from .views_utc import (
     StudentSurveyAPIView,
     StudentGraduationProjectAPIView,
@@ -17,8 +32,14 @@ from .views_utc import (
     ReviewerSubmitEvaluationAPIView,
     CouncilLiveDefenseSessionAPIView,
     CouncilSubmitScoreAPIView,
+    CouncilToggleLockAPIView,
     CouncilChairSetDefenseStatusAPIView,
     CouncilSecretaryRemindScoringAPIView,
+    CouncilScheduleDefenseAPIView,
+    CouncilConflictCheckAPIView,
+    CouncilAssignProjectAPIView,
+    CouncilAssignMemberAPIView,
+    GlobalSearchAPIView,
 )
 from .views import (
     GroupRequestView,
@@ -86,6 +107,9 @@ from .views import (
     AuditLogListAPIView,
     AuditLogGroupAPIView,
     AuditLogStatsAPIView,
+    AuditLogExportAPIView,
+    DocumentCommentListCreateAPIView,
+    SupervisorDocumentsBulkDownloadAPIView,
     # External Examiner views
     ExternalExaminerLoginAPIView,
     ExternalExaminerProfileAPIView,
@@ -103,9 +127,12 @@ from .views import (
     StudentExternalEvaluationAPIView,
     EvaluationScheduleListCreateAPIView,
     EvaluationScheduleDetailAPIView,
+    # Bug Report & Feedback
+    BugReportAPIView,
     # Admin Dashboard
     admin_dashboard,
 )
+from .views_media import GetSignedMediaUrlAPIView, SecureMediaDownloadView
 
 
 urlpatterns = [
@@ -308,6 +335,16 @@ urlpatterns = [
         SupervisorDocumentsAPIView.as_view(),
         name="supervisor-documents",
     ),
+    path(
+        "supervisor/documents/bulk-download/",
+        SupervisorDocumentsBulkDownloadAPIView.as_view(),
+        name="supervisor-documents-bulk-download",
+    ),
+    path(
+        "documents/<int:document_id>/comments/",
+        DocumentCommentListCreateAPIView.as_view(),
+        name="document-comments",
+    ),
     # Notification endpoints
     path(
         "notifications/",
@@ -365,6 +402,11 @@ urlpatterns = [
         "audit-logs/stats/",
         AuditLogStatsAPIView.as_view(),
         name="audit-logs-stats",
+    ),
+    path(
+        "audit-logs/export/",
+        AuditLogExportAPIView.as_view(),
+        name="audit-logs-export",
     ),
     
     # ==================== External Examiner URLs ====================
@@ -460,6 +502,14 @@ urlpatterns = [
         name="evaluation-schedule-detail",
     ),
 
+    # Secure Media Download & Signed URLs
+    path("media/get-signed-url/", GetSignedMediaUrlAPIView.as_view(), name="media-get-signed-url"),
+    path("media/download-token/", GetSignedMediaUrlAPIView.as_view(), name="media-download-token"),
+    path("media/download/<path:file_path>", SecureMediaDownloadView.as_view(), name="media-secure-download"),
+
+    # Bug Reports & User Feedback
+    path("bug-reports/", BugReportAPIView.as_view(), name="bug-reports"),
+
     # =========================================================================
     # UTC FACULTY OF IT GRADUATION THESIS WORKFLOW ENDPOINTS
     # =========================================================================
@@ -484,6 +534,30 @@ urlpatterns = [
 
     path("council/live-session/", CouncilLiveDefenseSessionAPIView.as_view(), name="utc-council-live-session"),
     path("council/submit-score/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-submit-score"),
+    path("council/toggle-lock/", CouncilToggleLockAPIView.as_view(), name="utc-council-toggle-lock"),
+
+    # =========================================================================
+    # STUDENT CAPSTONE GROUP MANAGEMENT ENDPOINTS (15 FEATURES)
+    # =========================================================================
+    path("student-groups/recruiting/", RecruitingGroupsAPIView.as_view(), name="student-groups-recruiting"),
+    path("student-groups/create/", CreateStudentGroupAPIView.as_view(), name="student-groups-create"),
+    path("student-groups/my-group/", MyStudentGroupAPIView.as_view(), name="student-groups-my-group"),
+    path("student-groups/<int:group_id>/join-request/", RequestToJoinGroupAPIView.as_view(), name="student-groups-join-request"),
+    path("student-groups/my-join-requests/", MySentJoinRequestsAPIView.as_view(), name="student-groups-my-join-requests"),
+    path("student-groups/join-requests/<int:request_id>/approve/", ApproveJoinRequestAPIView.as_view(), name="student-groups-join-approve"),
+    path("student-groups/join-requests/<int:request_id>/reject/", RejectJoinRequestAPIView.as_view(), name="student-groups-join-reject"),
+    path("student-groups/kick-member/", KickGroupMemberAPIView.as_view(), name="student-groups-kick-member"),
+    path("student-groups/leave/", LeaveGroupAPIView.as_view(), name="student-groups-leave"),
+    path("student-groups/disband/", DisbandGroupAPIView.as_view(), name="student-groups-disband"),
+    path("student-groups/transfer-leadership/", TransferLeadershipAPIView.as_view(), name="student-groups-transfer-leadership"),
+    path("student-groups/update-topic/", UpdateTopicProposalAPIView.as_view(), name="student-groups-update-topic"),
+    path("student-groups/<int:group_id>/topic-review/", SupervisorTopicReviewAPIView.as_view(), name="student-groups-topic-review"),
     path("council/chair/set-defense-status/", CouncilChairSetDefenseStatusAPIView.as_view(), name="utc-council-chair-defense-status"),
     path("council/remind-scoring/", CouncilSecretaryRemindScoringAPIView.as_view(), name="utc-council-remind-scoring"),
+    path("council/<int:council_id>/schedule/", CouncilScheduleDefenseAPIView.as_view(), name="utc-council-schedule-defense"),
+    path("council/conflicts/", CouncilConflictCheckAPIView.as_view(), name="utc-council-conflicts"),
+    path("council/assign-project/", CouncilAssignProjectAPIView.as_view(), name="utc-council-assign-project"),
+    path("council/assign-member/", CouncilAssignMemberAPIView.as_view(), name="utc-council-assign-member"),
+
+    path("global-search/", GlobalSearchAPIView.as_view(), name="global-search"),
 ]

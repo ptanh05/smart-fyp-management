@@ -1,5 +1,6 @@
 import React from 'react';
 import { calculateUTCWeightedScore } from '../utils/utcGradeCalculator';
+import { useModalGuard } from '../utils/modalHooks';
 import './UTCEvaluationSheetModal.css';
 
 export interface UTCEvaluationSheetModalProps {
@@ -27,6 +28,11 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
   onClose,
   groupData,
 }) => {
+  const { requestClose, handleOverlayClick } = useModalGuard({
+    isOpen,
+    onClose,
+  });
+
   if (!isOpen) return null;
 
   const supScore = groupData.supervisorScore ?? 8.5;
@@ -40,7 +46,7 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
   };
 
   return (
-    <div className="utc-modal-overlay" onClick={onClose}>
+    <div className="utc-modal-overlay" onClick={handleOverlayClick}>
       <div
         className="utc-modal-container"
         onClick={(e) => e.stopPropagation()}
@@ -51,13 +57,13 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
             <button
               className="btn-utc-print"
               onClick={handlePrint}
-              title="In hoặc Xuất PDF Biên bản"
+              title="In phiếu điểm / Biên bản đánh giá ĐATN UTC"
             >
-              🖨️ In Biên Bản / Xuất PDF
+              🖨️ In phiếu điểm
             </button>
             <button
               className="btn-utc-close"
-              onClick={onClose}
+              onClick={requestClose}
               title="Đóng cửa sổ"
             >
               ✕

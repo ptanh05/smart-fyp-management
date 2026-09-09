@@ -187,22 +187,109 @@ class Group(models.Model):
         ("rejected", "Rejected"),
         ("canceled", "Canceled"),
     )
+    TOPIC_STATUS_CHOICES = (
+        ("NOT_REGISTERED", "Chưa đăng ký đề tài"),
+        ("PENDING_REVIEW", "Chờ duyệt đề tài"),
+        ("REVISION_REQUESTED", "Yêu cầu chỉnh sửa"),
+        ("APPROVED", "Đã phê duyệt chính thức"),
+        ("REJECTED", "Từ chối"),
+    )
+
+    group_name = models.CharField(max_length=255, null=True, blank=True)
+    academic_batch = models.ForeignKey(
+        AcademicBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name="academic_groups"
+    )
+    leader = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True, related_name="led_groups"
+    )
+    max_members = models.PositiveSmallIntegerField(default=3)
+    is_recruiting = models.BooleanField(default=True)
+    tentative_topic = models.CharField(max_length=500, blank=True, default="")
+    tentative_description = models.TextField(blank=True, default="")
+    topic_status = models.CharField(
+        max_length=30, choices=TOPIC_STATUS_CHOICES, default="NOT_REGISTERED"
+    )
+    topic_revision_notes = models.TextField(blank=True, default="")
+
     student_1 = models.ForeignKey(
-        Student, on_delete=models.CASCADE, related_name="send_request"
+        Student, on_delete=models.CASCADE, related_name="send_request", null=True, blank=True
     )
     student_2 = models.ForeignKey(
         Student, on_delete=models.CASCADE, related_name="receive_request", null=True, blank=True
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     project_category = models.ForeignKey(
-        ProjectCategories, on_delete=models.CASCADE, related_name="groupmate_project"
+        ProjectCategories, on_delete=models.SET_NULL, related_name="groupmate_project", null=True, blank=True
     )
 
     class Meta:
         unique_together = ("student_1", "student_2", "id")
 
+    @property
+    def current_members_count(self):
+        count = self.members.count()
+        if count > 0:
+            return count
+        c = 0
+        if self.student_1:
+            c += 1
+        if self.student_2:
+            c += 1
+        return c
+
+    @property
+    def is_full(self):
+        return self.current_members_count >= self.max_members
+
     def __str__(self):
-        return f"{self.student_1} - {self.student_2} - {self.status}"
+        name = self.group_name or f"Group #{self.id}"
+        return f"{name} ({self.current_members_count}/{self.max_members})"
+
+
+class GroupMember(models.Model):
+    ROLE_CHOICES = (
+        ("LEADER", "Trưởng nhóm"),
+        ("MEMBER", "Thành viên"),
+    )
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name="members"
+    )
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name="group_memberships"
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="MEMBER")
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("group", "student")
+
+    def __str__(self):
+        return f"{self.student} - {self.group.group_name or self.group.id} ({self.role})"
+
+
+class GroupJoinRequest(models.Model):
+    STATUS_CHOICES = (
+        ("PENDING", "Chờ duyệt"),
+        ("ACCEPTED", "Đã duyệt"),
+        ("REJECTED", "Từ chối"),
+        ("CANCELED", "Đã hủy"),
+    )
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name="join_requests"
+    )
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name="student_join_requests"
+    )
+    message = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.student} -> {self.group.group_name or self.group.id} ({self.status})"
 
 
 class GroupCreationComment(models.Model):
@@ -283,6 +370,7 @@ class ScopeDocumentEvaluationCriteria(models.Model):
     plagiarism_report = models.BooleanField(null=True, blank=True)
     comments = models.TextField(blank=True, null=True)
     evaluation_status = models.BooleanField(blank=True, null=True)
+    is_draft = models.BooleanField(default=False)
 
     def __str__(self):
         return f"scope_document_{self.id}"
@@ -321,6 +409,7 @@ class SRSEvaluationSupervisor(models.Model):
         max_length=15, choices=STATUS_CHOICES, default="pending"
     )
     comment = models.CharField(max_length=255, null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
 
     @staticmethod
     def percentages_dict() -> dict:
@@ -474,6 +563,7 @@ class SDDEvaluationSupervisor(models.Model):
         max_length=15, choices=STATUS_CHOICES, default="pending"
     )
     comment = models.CharField(max_length=255, null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
 
     @staticmethod
     def percentages_dict() -> dict:
@@ -608,6 +698,7 @@ class Evaluation3Supervisor(models.Model):
     )
 
     comment = models.CharField(max_length=255, null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
 
     @staticmethod
     def percentages_dict() -> dict:
@@ -718,6 +809,7 @@ class Evaluation4Supervisor(models.Model):
     )
 
     comment = models.CharField(max_length=255, null=True, blank=True)
+    is_draft = models.BooleanField(default=False)
 
     @staticmethod
     def percentages_dict() -> dict:
@@ -1505,6 +1597,30 @@ class Document(models.Model):
     # Committee sees only documents with submitted_to_committee=True; all phases stay between student and supervisor.
     submitted_to_committee = models.BooleanField(default=False)
     submitted_to_committee_at = models.DateTimeField(null=True, blank=True)
+    is_late = models.BooleanField(default=False, help_text="Đánh dấu bài nộp muộn sau deadline")
+    late_duration = models.CharField(
+        max_length=100, blank=True, null=True, help_text="Thời gian nộp muộn (ví dụ: Trễ 2 giờ 15 phút)"
+    )
+
+
+class DocumentComment(models.Model):
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name="comments"
+    )
+    author = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name="document_comments"
+    )
+    section = models.CharField(
+        max_length=100, default="general", help_text="Mục nhận xét (general, format, content, requirements,...)"
+    )
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.author.username} on {self.document.title} ({self.section}): {self.comment[:30]}"
 
 
 class CommitteeMemberTemplates(models.Model):
@@ -1552,6 +1668,10 @@ class DocumentRequirement(models.Model):
     document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPE_CHOICES)
     title = models.CharField(max_length=200, help_text="Short label, e.g. 'SRS Submission - Phase 1'")
     deadline = models.DateTimeField(help_text="Upload deadline for this document type")
+    allow_late_submission = models.BooleanField(
+        default=False,
+        help_text="Cho phép sinh viên nộp sau deadline (nếu bật: nộp được và gắn nhãn Late; nếu tắt: khóa nộp)",
+    )
     semester = models.CharField(
         max_length=20,
         choices=SEMESTER_CHOICES,
@@ -1598,7 +1718,11 @@ class ChatRoom(models.Model):
         blank=True,
         related_name="supervisor_messages",
     )
-    message = models.TextField()
+    message = models.TextField(blank=True, default="")
+    attachment = models.FileField(upload_to="chat_attachments/", blank=True, null=True)
+    attachment_name = models.CharField(max_length=255, blank=True, null=True)
+    attachment_type = models.CharField(max_length=100, blank=True, null=True)
+    attachment_size = models.PositiveIntegerField(blank=True, null=True)
     sent_by = models.CharField(max_length=20, choices=MESSAGE_BY_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -1613,6 +1737,12 @@ class Notification(models.Model):
         ("group_request", "Group Request"),
         ("group_request_accepted", "Group Request Accepted"),
         ("group_request_rejected", "Group Request Rejected"),
+        ("group_join_request", "Group Join Request"),
+        ("group_kicked", "Group Kicked"),
+        ("group_leave", "Group Leave"),
+        ("group_disbanded", "Group Disbanded"),
+        ("group_leadership_transferred", "Leadership Transferred"),
+        ("topic_revision_resubmitted", "Topic Revision Resubmitted"),
         ("supervisor_request", "Supervisor Request"),
         ("supervisor_request_accepted", "Supervisor Request Accepted"),
         ("supervisor_request_rejected", "Supervisor Request Rejected"),
@@ -1922,6 +2052,11 @@ class DefenseCouncil(models.Model):
     session_date = models.DateField(null=True, blank=True)
     session_time = models.CharField(max_length=50, choices=SESSION_CHOICES, default="MORNING")
     defense_room = models.CharField(max_length=100, blank=True, null=True)
+    is_locked = models.BooleanField(default=False, help_text="Khóa điểm hội đồng")
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(
+        CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name="locked_councils"
+    )
     current_defending_project = models.ForeignKey(
         "GraduationProject",
         on_delete=models.SET_NULL,
@@ -2014,10 +2149,22 @@ class GraduationProject(models.Model):
     supervisor_score = models.FloatField(null=True, blank=True)
     supervisor_feedback = models.TextField(blank=True, null=True)
     is_eligible_for_defense = models.BooleanField(default=False)
+    supervisor_score_is_draft = models.BooleanField(default=False)
     
     # Reviewer Evaluation
     reviewer_score = models.FloatField(null=True, blank=True)
     reviewer_feedback = models.TextField(blank=True, null=True)
+    reviewer_verdict = models.CharField(
+        max_length=50,
+        choices=(
+            ("APPROVED", "Cho phép bảo vệ"),
+            ("CONDITIONAL", "Bảo vệ có điều kiện"),
+            ("REJECTED", "Không cho phép bảo vệ"),
+        ),
+        default="APPROVED",
+        blank=True,
+        null=True,
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -2302,4 +2449,34 @@ class FinalGradeSummary(models.Model):
 
     def __str__(self):
         return f"Điểm tổng kết: {self.project.student} -> {self.final_score_10}đ ({self.final_letter_grade})"
+
+
+class SystemBugReport(models.Model):
+    """Báo cáo lỗi và phản hồi hệ thống từ người dùng (kèm ảnh chụp màn hình)"""
+    STATUS_CHOICES = (
+        ("PENDING", "Đang chờ xử lý"),
+        ("IN_PROGRESS", "Đang xử lý"),
+        ("RESOLVED", "Đã giải quyết"),
+        ("CLOSED", "Đã đóng"),
+    )
+    user = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="bug_reports"
+    )
+    title = models.CharField(max_length=255, blank=True, default="Báo lỗi hệ thống")
+    description = models.TextField(help_text="Mô tả chi tiết lỗi gặp phải")
+    page_url = models.CharField(max_length=500, blank=True, default="")
+    screenshot = models.FileField(upload_to="bug_reports/", null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    admin_notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Báo cáo lỗi"
+        verbose_name_plural = "Danh sách báo cáo lỗi"
+
+    def __str__(self):
+        username = self.user.username if self.user else "Khách"
+        return f"BugReport #{self.id} từ {username} ({self.get_status_display()})"
 

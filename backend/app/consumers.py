@@ -6,6 +6,7 @@ This module provides WebSocket consumers for:
 """
 
 import json
+from collections import defaultdict
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
@@ -29,7 +30,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     - Group membership validation
     - Message persistence to database
     - Connection status notifications
+    - Real-time member presence (online/offline)
     """
+    room_online_users = defaultdict(set)
     
     async def connect(self):
         """Handle WebSocket connection."""
@@ -62,42 +65,60 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         
         await self.accept()
+
+        username = getattr(self.user, "username", "")
+        if username:
+            ChatConsumer.room_online_users[self.room_group_name].add(username)
+
+        members = await self.get_group_members()
+        online_list = list(ChatConsumer.room_online_users[self.room_group_name])
         
-        # Send connection success message
+        # Send connection success message with presence and members list
         await self.send(text_data=json.dumps({
             "type": "connection_established",
             "message": "Connected to chat",
             "group_id": self.group_id,
             "user_type": getattr(self.user, "user_type", ""),
+            "online_users": online_list,
+            "members": members,
         }))
         
-        # Notify others that user joined
+        # Notify others that user presence updated
         await self.channel_layer.group_send(
             self.room_group_name,
             {
-                "type": "user_join",
-                "username": getattr(self.user, "username", ""),
+                "type": "presence_update",
+                "username": username,
                 "user_type": getattr(self.user, "user_type", ""),
+                "is_online": True,
+                "online_users": online_list,
             }
         )
 
     async def disconnect(self, code):
         """Handle WebSocket disconnect."""
+        username = getattr(self.user, "username", "")
         # Leave room group
         if hasattr(self, "room_group_name"):
+            if username:
+                ChatConsumer.room_online_users[self.room_group_name].discard(username)
+            online_list = list(ChatConsumer.room_online_users[self.room_group_name])
+
             await self.channel_layer.group_discard(
                 self.room_group_name,
                 self.channel_name
             )
             
-            # Notify others that user left if authenticated
-            if hasattr(self, "user") and self.user and getattr(self.user, "is_authenticated", False):
+            # Notify others of presence update
+            if hasattr(self, "channel_layer") and self.channel_layer:
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
-                        "type": "user_leave",
-                        "username": getattr(self.user, "username", ""),
+                        "type": "presence_update",
+                        "username": username,
                         "user_type": getattr(self.user, "user_type", ""),
+                        "is_online": False,
+                        "online_users": online_list,
                     }
                 )
 
@@ -183,6 +204,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "sender_username": saved_message["sender_username"],
                     "sender_id": saved_message["sender_id"],
                     "created_at": saved_message["created_at"],
+                    "attachment": saved_message.get("attachment"),
+                    "attachment_name": saved_message.get("attachment_name"),
+                    "attachment_type": saved_message.get("attachment_type"),
+                    "attachment_size": saved_message.get("attachment_size"),
                 }
             )
         else:
@@ -214,12 +239,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Send chat message to WebSocket."""
         await self.send(text_data=json.dumps({
             "type": "chat_message",
-            "message": event["message"],
+            "message": event.get("message", ""),
             "message_id": event["message_id"],
             "sent_by": event["sent_by"],
             "sender_username": event["sender_username"],
             "sender_id": event["sender_id"],
             "created_at": event["created_at"],
+            "attachment": event.get("attachment"),
+            "attachment_name": event.get("attachment_name"),
+            "attachment_type": event.get("attachment_type"),
+            "attachment_size": event.get("attachment_size"),
         }))
     
     async def typing_indicator(self, event):
@@ -253,6 +282,56 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "username": event["username"],
                 "user_type": event["user_type"],
             }))
+
+    async def presence_update(self, event):
+        """Send real-time presence status update to WebSocket."""
+        await self.send(text_data=json.dumps({
+            "type": "presence_update",
+            "username": event.get("username", ""),
+            "user_type": event.get("user_type", ""),
+            "is_online": event.get("is_online", False),
+            "online_users": event.get("online_users", []),
+        }))
+
+    @database_sync_to_async
+    def get_group_members(self):
+        """Fetch member info for the chat room."""
+        try:
+            group = SupervisorOfStudentGroup.objects.select_related(
+                "supervisor__user",
+                "group__student_1__user",
+                "group__student_2__user"
+            ).get(id=self.group_id)
+
+            members = []
+            if group.supervisor and group.supervisor.user:
+                sup = group.supervisor.user
+                members.append({
+                    "username": sup.username,
+                    "full_name": f"{sup.first_name} {sup.last_name}".strip() or sup.username,
+                    "role": "supervisor",
+                    "role_display": "GVHD",
+                })
+            if group.group and group.group.student_1 and group.group.student_1.user:
+                st1 = group.group.student_1.user
+                members.append({
+                    "username": st1.username,
+                    "full_name": f"{st1.first_name} {st1.last_name}".strip() or st1.username,
+                    "role": "student",
+                    "role_display": "Sinh viên 1",
+                })
+            if group.group and group.group.student_2 and group.group.student_2.user:
+                st2 = group.group.student_2.user
+                members.append({
+                    "username": st2.username,
+                    "full_name": f"{st2.first_name} {st2.last_name}".strip() or st2.username,
+                    "role": "student",
+                    "role_display": "Sinh viên 2",
+                })
+            return members
+        except Exception as e:
+            print(f"Error fetching group members in chat: {e}")
+            return []
     
     # Database operations
     
@@ -331,6 +410,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return {
                 "id": chat_message.id,
                 "message": chat_message.message,
+                "attachment": chat_message.attachment.url if chat_message.attachment else None,
+                "attachment_name": chat_message.attachment_name,
+                "attachment_type": chat_message.attachment_type,
+                "attachment_size": chat_message.attachment_size,
                 "sent_by": chat_message.sent_by,
                 "sender_username": sender_username,
                 "sender_id": sender_id,

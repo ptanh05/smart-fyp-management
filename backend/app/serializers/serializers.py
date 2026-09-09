@@ -8,12 +8,16 @@ from app.models import (
     CommitteeMember,
     CustomUser,
     Group,
+    GroupMember,
+    GroupJoinRequest,
     GroupCreationComment,
+    AcademicBatch,
     ProjectCategories,
     Project,
     SupervisorStudentComments,
     SupervisorOfStudentGroup,
     Document,
+    DocumentComment,
     ScopeDocumentEvaluationCriteria,
     CommitteeMemberPanel,
     CommitteeMemberTemplates,
@@ -35,6 +39,7 @@ from app.models import (
     ExternalGroupAssignment,
     ExternalEvaluation,
     EvaluationSchedule,
+    SystemBugReport,
 )
 from app.validators import (
     validate_chat_message,
@@ -45,6 +50,7 @@ from app.validators import (
     validate_evaluation_comment,
     validate_title,
     validate_no_html,
+    validate_uploaded_file,
     MAX_CHAT_MESSAGE_LENGTH,
     MAX_COMMENT_LENGTH,
     MAX_PROJECT_DESCRIPTION_LENGTH,
@@ -64,9 +70,17 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     user = CustomUserSerializer(read_only=True)
     group_id = serializers.SerializerMethodField(read_only=True)
     groupmate_id = serializers.SerializerMethodField(read_only=True)
+    has_group = serializers.SerializerMethodField(read_only=True)
+    my_group_name = serializers.SerializerMethodField(read_only=True)
     external_evaluation = serializers.SerializerMethodField(read_only=True)
 
     def get_group_id(self, obj):
+        # Check supervisor group via GroupMember
+        membership = GroupMember.objects.filter(student=obj).first()
+        if membership:
+            sg = SupervisorOfStudentGroup.objects.filter(group=membership.group, status="accepted").first()
+            if sg:
+                return sg.id
         group = SupervisorOfStudentGroup.objects.filter(
             Q(group__student_1=obj) | Q(group__student_2=obj),
             status="accepted",
@@ -74,11 +88,30 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         return group.id if group else None
 
     def get_groupmate_id(self, obj):
+        # Check if student is in any active group via GroupMember
+        membership = GroupMember.objects.filter(student=obj).first()
+        if membership:
+            return membership.group.id
         group = Group.objects.filter(
             Q(student_1=obj) | Q(student_2=obj),
             status="accepted",
         ).first()
         return group.id if group else None
+
+    def get_has_group(self, obj):
+        return bool(self.get_groupmate_id(obj))
+
+    def get_my_group_name(self, obj):
+        membership = GroupMember.objects.filter(student=obj).select_related("group").first()
+        if membership:
+            return membership.group.group_name or f"Nhóm #{membership.group.id}"
+        group = Group.objects.filter(
+            Q(student_1=obj) | Q(student_2=obj),
+            status="accepted",
+        ).first()
+        if group:
+            return group.group_name or f"Nhóm #{group.id}"
+        return None
 
     def get_external_evaluation(self, obj):
         """Get external evaluation status if exists."""
@@ -118,6 +151,8 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             "batch_no",
             "group_id",
             "groupmate_id",
+            "has_group",
+            "my_group_name",
             "external_evaluation",
         ]
 
@@ -309,6 +344,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     groups_data = serializers.SerializerMethodField(read_only=True)
     panel_info = serializers.SerializerMethodField(read_only=True)
     is_offered = serializers.SerializerMethodField(read_only=True)
+    has_registered_groups = serializers.SerializerMethodField(read_only=True)
 
     # Add validation for text fields
     project_name = serializers.CharField(
@@ -343,6 +379,9 @@ class ProjectSerializer(serializers.ModelSerializer):
     def get_is_offered(self, obj):
         return obj.user_id is None
 
+    def get_has_registered_groups(self, obj):
+        return obj.groups.filter(status__in=["pending", "accepted"]).exists()
+
     class Meta:
         model = Project
         fields = [
@@ -355,9 +394,10 @@ class ProjectSerializer(serializers.ModelSerializer):
             "groups_data",
             "panel_info",
             "is_offered",
+            "has_registered_groups",
         ]
 
-        read_only_fields = ["id", "groups_data", "panel_info", "is_offered"]
+        read_only_fields = ["id", "groups_data", "panel_info", "is_offered", "has_registered_groups"]
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -479,6 +519,7 @@ class DocumentSerializer(serializers.ModelSerializer):
     uploaded_by = StudentProfileSerializer(read_only=True)
     document_type = serializers.CharField(required=False)
     project_name = serializers.SerializerMethodField(read_only=True)
+    comments_count = serializers.IntegerField(source="comments.count", read_only=True)
     title = serializers.CharField(
         max_length=MAX_TITLE_LENGTH,
         validators=[validate_title],
@@ -489,36 +530,17 @@ class DocumentSerializer(serializers.ModelSerializer):
         return obj.group.project.project_name
 
     def validate_uploaded_file(self, value):
-        """Validate uploaded file size and type."""
+        """Validate uploaded file size, type, and binary magic bytes."""
         if value is None:
             return value
 
-        # Validate file size
-        if value.size > self.MAX_FILE_SIZE_BYTES:
-            raise serializers.ValidationError(
-                f"File size exceeds maximum allowed size of {self.MAX_FILE_SIZE_MB}MB. "
-                f"Your file is {value.size / (1024 * 1024):.2f}MB."
-            )
-
-        # Get file extension
-        file_name = value.name.lower()
-        file_extension = file_name.split('.')[-1] if '.' in file_name else ''
-
-        # Validate file extension
-        if file_extension not in self.ALLOWED_EXTENSIONS:
-            raise serializers.ValidationError(
-                f"Invalid file type '.{file_extension}'. "
-                f"Allowed file types: {', '.join(self.ALLOWED_EXTENSIONS).upper()}"
-            )
-
-        # Validate content type (if available)
-        content_type = getattr(value, 'content_type', None)
-        if content_type and content_type not in self.ALLOWED_CONTENT_TYPES:
-            # Some browsers may send different content types, so we also check extension
-            # If extension is valid but content type is not recognized, allow it
-            pass
-
-        return value
+        # Validate with comprehensive binary magic byte and executable check
+        allowed_exts = [f".{ext.lower()}" for ext in self.ALLOWED_EXTENSIONS]
+        return validate_uploaded_file(
+            value,
+            allowed_extensions=allowed_exts,
+            max_size_bytes=self.MAX_FILE_SIZE_BYTES
+        )
 
     class Meta:
         model = Document
@@ -534,6 +556,9 @@ class DocumentSerializer(serializers.ModelSerializer):
             "uploaded_by",
             "submitted_to_committee",
             "submitted_to_committee_at",
+            "is_late",
+            "late_duration",
+            "comments_count",
         ]
         read_only_fields = [
             "uploaded_at",
@@ -543,7 +568,32 @@ class DocumentSerializer(serializers.ModelSerializer):
             "project_name",
             "submitted_to_committee",
             "submitted_to_committee_at",
+            "is_late",
+            "late_duration",
+            "comments_count",
         ]
+
+
+class DocumentCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField(read_only=True)
+    author_type = serializers.CharField(source="author.user_type", read_only=True)
+
+    def get_author_name(self, obj):
+        return obj.author.get_full_name() or obj.author.username
+
+    class Meta:
+        model = DocumentComment
+        fields = [
+            "id",
+            "document",
+            "author",
+            "author_name",
+            "author_type",
+            "section",
+            "comment",
+            "created_at",
+        ]
+        read_only_fields = ["id", "author", "author_name", "author_type", "created_at"]
 
 
 class DocumentStatusUpdateSerializer(serializers.ModelSerializer):
@@ -556,6 +606,7 @@ class SupervisorDocumentSerializer(serializers.ModelSerializer):
     """Serializer for documents as viewed by supervisors, includes group and student info."""
     uploaded_by = StudentProfileSerializer(read_only=True)
     group_info = serializers.SerializerMethodField()
+    comments_count = serializers.IntegerField(source="comments.count", read_only=True)
 
     class Meta:
         model = Document
@@ -571,6 +622,9 @@ class SupervisorDocumentSerializer(serializers.ModelSerializer):
             "group_info",
             "submitted_to_committee",
             "submitted_to_committee_at",
+            "is_late",
+            "late_duration",
+            "comments_count",
         ]
 
     def get_group_info(self, obj):
@@ -615,29 +669,16 @@ class CommitteeMemberTemplatesSerializer(serializers.ModelSerializer):
     )
 
     def validate_uploaded_file(self, value):
-        """Validate uploaded file size and type."""
+        """Validate uploaded file size, type, and binary magic bytes."""
         if value is None:
             return value
 
-        # Validate file size
-        if value.size > self.MAX_FILE_SIZE_BYTES:
-            raise serializers.ValidationError(
-                f"File size exceeds maximum allowed size of {self.MAX_FILE_SIZE_MB}MB. "
-                f"Your file is {value.size / (1024 * 1024):.2f}MB."
-            )
-
-        # Get file extension
-        file_name = value.name.lower()
-        file_extension = file_name.split('.')[-1] if '.' in file_name else ''
-
-        # Validate file extension
-        if file_extension not in self.ALLOWED_EXTENSIONS:
-            raise serializers.ValidationError(
-                f"Invalid file type '.{file_extension}'. "
-                f"Allowed file types: {', '.join(self.ALLOWED_EXTENSIONS).upper()}"
-            )
-
-        return value
+        allowed_exts = [f".{ext.lower()}" for ext in self.ALLOWED_EXTENSIONS]
+        return validate_uploaded_file(
+            value,
+            allowed_extensions=allowed_exts,
+            max_size_bytes=self.MAX_FILE_SIZE_BYTES
+        )
 
     class Meta:
         model = CommitteeMemberTemplates
@@ -665,7 +706,7 @@ class DocumentRequirementSerializer(serializers.ModelSerializer):
             return value
         try:
             if timezone.is_naive(value):
-                value = timezone.make_aware(value, timezone.utc)
+                value = timezone.make_aware(value)
         except (ValueError, TypeError):
             pass
         return value
@@ -686,6 +727,7 @@ class DocumentRequirementSerializer(serializers.ModelSerializer):
             "document_type_display",
             "title",
             "deadline",
+            "allow_late_submission",
             "semester",
             "created_at",
             "updated_at",
@@ -717,6 +759,7 @@ class SRSEvaluationSupervisorSerializer(serializers.ModelSerializer):
             "is_write_up_correct",
             "student_participation",
             "comment",
+            "is_draft",
             "total_marks",
         ]
         read_only_fields = ["id"]
@@ -779,6 +822,7 @@ class SDDEvaluationSupervisorSerializer(serializers.ModelSerializer):
             "regularity",
             "seminar_participation",
             "comment",
+            "is_draft",
             "total_marks",
         ]
         read_only_fields = ["id"]
@@ -835,6 +879,7 @@ class Evaluation3SupervisorSerializer(serializers.ModelSerializer):
             "is_template_followed",
             "is_writeup_correct",
             "comment",
+            "is_draft",
             "total_marks",
         ]
         read_only_fields = ["id"]
@@ -885,6 +930,7 @@ class Evaluation4SupervisorSerializer(serializers.ModelSerializer):
             "is_template_followed",
             "is_writeup_correct",
             "comment",
+            "is_draft",
             "total_marks",
         ]
         read_only_fields = ["id"]
@@ -917,14 +963,60 @@ class Evaluation4CommitteeMemberSerializer(serializers.ModelSerializer):
 
 
 class ChatRoomSerializer(serializers.ModelSerializer):
+    MAX_ATTACHMENT_SIZE_MB = 25
+    MAX_ATTACHMENT_SIZE_BYTES = MAX_ATTACHMENT_SIZE_MB * 1024 * 1024
+    ALLOWED_ATTACHMENT_EXTENSIONS = [
+        "jpg", "jpeg", "png", "gif", "webp", "svg",
+        "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "zip", "rar"
+    ]
+
     student = StudentProfileSerializer(read_only=True)
     supervisor = SupervisorProfileSerializer(read_only=True)
     message = serializers.CharField(
         max_length=MAX_CHAT_MESSAGE_LENGTH,
-        validators=[validate_chat_message],
+        required=False,
+        allow_blank=True,
+        default="",
         help_text=f"Chat message (max {MAX_CHAT_MESSAGE_LENGTH} characters)"
     )
-    
+    attachment = serializers.FileField(required=False, allow_null=True)
+    attachment_name = serializers.CharField(required=False, allow_null=True, allow_blank=True, max_length=255)
+    attachment_type = serializers.CharField(required=False, allow_null=True, allow_blank=True, max_length=100)
+    attachment_size = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate_message(self, value):
+        if value:
+            from app.validators import validate_no_html
+            value = validate_no_html(value)
+            if len(value) > MAX_CHAT_MESSAGE_LENGTH:
+                raise serializers.ValidationError(
+                    f"Message is too long. Maximum {MAX_CHAT_MESSAGE_LENGTH} characters allowed."
+                )
+            return value.strip()
+        return ""
+
+    def validate_attachment(self, value):
+        if not value:
+            return None
+        if value.size > self.MAX_ATTACHMENT_SIZE_BYTES:
+            raise serializers.ValidationError(
+                f"Attachment size exceeds maximum allowed size of {self.MAX_ATTACHMENT_SIZE_MB}MB."
+            )
+        file_name = value.name.lower()
+        file_extension = file_name.split(".")[-1] if "." in file_name else ""
+        if file_extension not in self.ALLOWED_ATTACHMENT_EXTENSIONS:
+            raise serializers.ValidationError(
+                f"Invalid file type '.{file_extension}'. Allowed types: {', '.join(self.ALLOWED_ATTACHMENT_EXTENSIONS).upper()}"
+            )
+        return value
+
+    def validate(self, attrs):
+        message = (attrs.get("message") or "").strip()
+        attachment = attrs.get("attachment")
+        if not message and not attachment:
+            raise serializers.ValidationError("Either a message or an attachment must be provided.")
+        return attrs
+
     class Meta:
         model = ChatRoom
         fields = [
@@ -933,10 +1025,25 @@ class ChatRoomSerializer(serializers.ModelSerializer):
             "student",
             "supervisor",
             "message",
+            "attachment",
+            "attachment_name",
+            "attachment_type",
+            "attachment_size",
             "sent_by",
             "created_at",
         ]
         read_only_fields = ["id", "created_at", "sent_by", "student", "supervisor"]
+
+    def create(self, validated_data):
+        attachment = validated_data.get("attachment")
+        if attachment:
+            if not validated_data.get("attachment_name"):
+                validated_data["attachment_name"] = attachment.name
+            if not validated_data.get("attachment_size"):
+                validated_data["attachment_size"] = attachment.size
+            if not validated_data.get("attachment_type"):
+                validated_data["attachment_type"] = getattr(attachment, "content_type", None) or ""
+        return super().create(validated_data)
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -1412,3 +1519,164 @@ class EvaluationScheduleCreateSerializer(serializers.ModelSerializer):
                     'end_time': 'End time must be after start time.'
                 })
         return attrs
+
+
+class GroupMemberSerializer(serializers.ModelSerializer):
+    student = StudentProfileSerializer(read_only=True)
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+
+    class Meta:
+        model = GroupMember
+        fields = ["id", "student", "role", "role_display", "joined_at"]
+
+
+class GroupJoinRequestSerializer(serializers.ModelSerializer):
+    student = StudentProfileSerializer(read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    group_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = GroupJoinRequest
+        fields = [
+            "id",
+            "group",
+            "group_name",
+            "student",
+            "message",
+            "status",
+            "status_display",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_group_name(self, obj):
+        return obj.group.group_name or f"Nhóm #{obj.group.id}"
+
+
+class ProjectGroupSerializer(serializers.ModelSerializer):
+    leader = StudentProfileSerializer(read_only=True)
+    academic_batch_name = serializers.SerializerMethodField(read_only=True)
+    members = GroupMemberSerializer(many=True, read_only=True)
+    current_members_count = serializers.IntegerField(read_only=True)
+    is_full = serializers.BooleanField(read_only=True)
+    topic_status_display = serializers.CharField(source="get_topic_status_display", read_only=True)
+    join_requests = serializers.SerializerMethodField(read_only=True)
+    my_join_request = serializers.SerializerMethodField(read_only=True)
+    is_my_group = serializers.SerializerMethodField(read_only=True)
+    my_role = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Group
+        fields = [
+            "id",
+            "group_name",
+            "academic_batch",
+            "academic_batch_name",
+            "leader",
+            "max_members",
+            "current_members_count",
+            "is_recruiting",
+            "is_full",
+            "tentative_topic",
+            "tentative_description",
+            "topic_status",
+            "topic_status_display",
+            "topic_revision_notes",
+            "members",
+            "join_requests",
+            "my_join_request",
+            "is_my_group",
+            "my_role",
+        ]
+
+    def get_academic_batch_name(self, obj):
+        return str(obj.academic_batch) if obj.academic_batch else ""
+
+    def get_join_requests(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            try:
+                student = Student.objects.get(user=request.user)
+                if (obj.leader == student) or (obj.student_1 == student):
+                    requests = obj.join_requests.filter(status="PENDING").order_by("-created_at")
+                    return GroupJoinRequestSerializer(requests, many=True, context=self.context).data
+            except Student.DoesNotExist:
+                pass
+        return []
+
+    def get_my_join_request(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            try:
+                student = Student.objects.get(user=request.user)
+                join_req = obj.join_requests.filter(student=student).order_by("-created_at").first()
+                if join_req:
+                    return GroupJoinRequestSerializer(join_req, context=self.context).data
+            except Student.DoesNotExist:
+                pass
+        return None
+
+    def get_is_my_group(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            try:
+                student = Student.objects.get(user=request.user)
+                return obj.members.filter(student=student).exists() or obj.student_1 == student or obj.student_2 == student
+            except Student.DoesNotExist:
+                pass
+        return False
+
+    def get_my_role(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            try:
+                student = Student.objects.get(user=request.user)
+                m = obj.members.filter(student=student).first()
+                if m:
+                    return m.role
+                if obj.student_1 == student or obj.leader == student:
+                    return "LEADER"
+                if obj.student_2 == student:
+                    return "MEMBER"
+            except Student.DoesNotExist:
+                pass
+        return None
+
+class SystemBugReportSerializer(serializers.ModelSerializer):
+    """Serializer cho module báo lỗi hệ thống kèm kiểm tra nhị phân ảnh chụp màn hình"""
+    username = serializers.CharField(source="user.username", read_only=True)
+    user_full_name = serializers.SerializerMethodField(read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = SystemBugReport
+        fields = [
+            "id",
+            "user",
+            "username",
+            "user_full_name",
+            "title",
+            "description",
+            "page_url",
+            "screenshot",
+            "status",
+            "status_display",
+            "admin_notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "user", "status", "admin_notes", "created_at", "updated_at"]
+
+    def get_user_full_name(self, obj):
+        if obj.user:
+            return obj.user.get_full_name() or obj.user.username
+        return "Khách"
+
+    def validate_screenshot(self, value):
+        if value is None:
+            return value
+        return validate_uploaded_file(
+            value,
+            allowed_extensions=[".png", ".jpg", ".jpeg", ".webp"],
+            max_size_bytes=15 * 1024 * 1024  # 15MB
+        )
