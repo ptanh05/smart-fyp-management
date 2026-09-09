@@ -76,17 +76,38 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
     }
   }, []);
 
-  // Initial fetch and polling setup
+  // Initial fetch and visibility-aware polling setup
   useEffect(() => {
     fetchUnreadCount();
-    
-    // Poll for unread count every 30 seconds
-    pollIntervalRef.current = setInterval(fetchUnreadCount, 30000);
-    
-    return () => {
+
+    const startTimer = () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = setInterval(fetchUnreadCount, 30000);
+    };
+
+    const stopTimer = () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
+    };
+
+    startTimer();
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopTimer();
+      } else {
+        fetchUnreadCount();
+        startTimer();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      stopTimer();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchUnreadCount]);
 

@@ -69,6 +69,7 @@ backend/documents/*
 backend/outlines/*
 !backend/outlines/.gitkeep
 backend/staticfiles/
+backend/app/backup_migrations/
 
 
 # Testing & Coverage (Python)

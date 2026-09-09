@@ -13,7 +13,7 @@ class CustomUser(AbstractUser):
         ("committee_member", "Committee Member"),
         ("external_examiner", "External Examiner"),
     )
-    user_type = models.CharField(max_length=50, choices=USER_TYPE_CHOICES)
+    user_type = models.CharField(max_length=50, choices=USER_TYPE_CHOICES, db_index=True)
     # Password field is inherited from AbstractUser - no need to redefine it
     # Django's UserAdmin will handle password changes properly
 
@@ -207,7 +207,7 @@ class Group(models.Model):
     tentative_topic = models.CharField(max_length=500, blank=True, default="")
     tentative_description = models.TextField(blank=True, default="")
     topic_status = models.CharField(
-        max_length=30, choices=TOPIC_STATUS_CHOICES, default="NOT_REGISTERED"
+        max_length=30, choices=TOPIC_STATUS_CHOICES, default="NOT_REGISTERED", db_index=True
     )
     topic_revision_notes = models.TextField(blank=True, default="")
 
@@ -217,7 +217,7 @@ class Group(models.Model):
     student_2 = models.ForeignKey(
         Student, on_delete=models.CASCADE, related_name="receive_request", null=True, blank=True
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True)
     project_category = models.ForeignKey(
         ProjectCategories, on_delete=models.SET_NULL, related_name="groupmate_project", null=True, blank=True
     )
@@ -1767,8 +1767,8 @@ class Notification(models.Model):
     )
     title = models.CharField(max_length=255)
     message = models.TextField()
-    is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     
     # Optional reference to related objects
     related_group = models.ForeignKey(
@@ -1905,7 +1905,7 @@ class AuditLog(models.Model):
     new_value = models.TextField(blank=True, null=True)
     
     # When the change was made
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     
     # IP address of the user (optional)
     ip_address = models.GenericIPAddressField(blank=True, null=True)

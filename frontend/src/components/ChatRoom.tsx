@@ -524,19 +524,33 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
     }, 100);
   };
 
-  // Initialize: load messages and connect WebSocket
+  // Initialize: load messages, connect WebSocket, and manage visibility-aware polling
   useEffect(() => {
     loadMessages();
     connectWebSocket();
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        if (wsRef.current?.readyState !== WebSocket.OPEN) {
+          pollNewMessages();
+          startPolling();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       disconnectWebSocket();
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
       Object.values(typingTimersRef.current).forEach(t => clearTimeout(t));
     };
-  }, [groupId]);
+  }, [groupId, startPolling, stopPolling, connectWebSocket, disconnectWebSocket]);
 
   // Scroll to bottom on initial load
   useEffect(() => {
