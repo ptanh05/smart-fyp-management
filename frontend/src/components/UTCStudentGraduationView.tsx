@@ -907,7 +907,10 @@ export const UTCStudentGraduationView: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          ⭐ Căn cứ điểm quá trình
+                        </span>
                         <span
                           className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
                             log.meeting_type === 'ONLINE'
@@ -917,11 +920,22 @@ export const UTCStudentGraduationView: React.FC = () => {
                         >
                           {log.meeting_type_display || (log.meeting_type === 'ONLINE' ? 'Trực tuyến' : 'Gặp trực tiếp')}
                         </span>
-                        {log.location_or_link && (
+                        {log.location_or_link && (log.meeting_type === 'ONLINE' || log.location_or_link.startsWith('http')) ? (
+                          <a
+                            href={log.location_or_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition shadow-sm"
+                            title="Bấm để tham gia phòng họp trực tuyến Google Meet / Zoom"
+                          >
+                            <span>📹</span>
+                            <span>Tham gia cuộc họp trực tuyến (Google Meet / Zoom) ↗</span>
+                          </a>
+                        ) : log.location_or_link ? (
                           <span className="text-xs text-slate-300">
-                            Địa điểm/Link: <b>{log.location_or_link}</b>
+                            📍 Địa điểm: <b>{log.location_or_link}</b>
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
 
@@ -939,6 +953,20 @@ export const UTCStudentGraduationView: React.FC = () => {
                           <p className="text-emerald-300/90 mt-1 whitespace-pre-line bg-emerald-950/20 p-3 rounded-lg border border-emerald-500/20">
                             {log.supervisor_notes}
                           </p>
+                        </div>
+                      )}
+
+                      {log.tasks && log.tasks.length > 0 && (
+                        <div className="p-3 rounded-lg bg-blue-950/20 border border-blue-500/20 space-y-1.5">
+                          <span className="font-bold text-blue-300">📌 Nhiệm vụ GVHD giao tuần tới:</span>
+                          {log.tasks.map((t: any) => (
+                            <div key={t.id} className="flex items-center justify-between text-slate-200 pl-2">
+                              <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-400">(Hạn nộp: {t.due_date})</span>}</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.is_completed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-300'}`}>
+                                {t.is_completed ? '✅ Đã xong' : '⏳ Cần làm'}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       )}
 

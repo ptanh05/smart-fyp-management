@@ -62,6 +62,13 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [savingLog, setSavingLog] = useState(false);
   const [showAddLogForm, setShowAddLogForm] = useState(false);
 
+  // Next week task assignment in meeting log form (Feature 5)
+  const [logAssignTask, setLogAssignTask] = useState(false);
+  const [logTaskTitle, setLogTaskTitle] = useState('');
+  const [logTaskDesc, setLogTaskDesc] = useState('');
+  const [logTaskDueDate, setLogTaskDueDate] = useState('');
+  const [logTaskPriority, setLogTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
+
   // New Task Form State
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
@@ -69,6 +76,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [taskPriority, setTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [savingTask, setSavingTask] = useState(false);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
+
 
   // Modal Guards with ESC & dirty form protection
   const outlineGuard = useModalGuard({
@@ -205,35 +213,66 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const handleCreateMeetingLog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supervisionProject || !contentDiscussed) return;
+
+    if (meetingType === 'ONLINE' && !locationOrLink.trim()) {
+      alert('Vui lòng nhập link cuộc họp trực tuyến Google Meet hoặc Zoom.');
+      return;
+    }
+
+    if (logAssignTask && !logTaskTitle.trim()) {
+      alert('Vui lòng nhập tên công việc tuần tới nếu đã chọn giao việc.');
+      return;
+    }
+
     try {
       setSavingLog(true);
+      const payload: any = {
+        project_id: supervisionProject.id,
+        meeting_date: meetingDate,
+        meeting_time: meetingTime,
+        meeting_type: meetingType,
+        location_or_link: locationOrLink.trim(),
+        content_discussed: contentDiscussed.trim(),
+        supervisor_notes: supervisorNotes.trim(),
+        next_meeting_plan: nextMeetingPlan.trim(),
+      };
+
+      if (logAssignTask && logTaskTitle.trim()) {
+        payload.task_title = logTaskTitle.trim();
+        payload.task_description = logTaskDesc.trim();
+        payload.task_due_date = logTaskDueDate || null;
+        payload.task_priority = logTaskPriority;
+      }
+
       const res = await axios.post(
         `${API_BASE}/supervisor/supervision-logs/`,
-        {
-          project_id: supervisionProject.id,
-          meeting_date: meetingDate,
-          meeting_time: meetingTime,
-          meeting_type: meetingType,
-          location_or_link: locationOrLink,
-          content_discussed: contentDiscussed,
-          supervisor_notes: supervisorNotes,
-          next_meeting_plan: nextMeetingPlan,
-        },
+        payload,
         { headers: getHeaders() }
       );
-      alert(res.data?.message || 'Đã lưu nhật ký hướng dẫn thành công!');
+      alert(res.data?.message || 'Đã lưu nhật ký hướng dẫn và căn cứ đánh giá điểm quá trình thành công!');
       setContentDiscussed('');
       setSupervisorNotes('');
       setNextMeetingPlan('');
+      setLocationOrLink('');
+      setLogAssignTask(false);
+      setLogTaskTitle('');
+      setLogTaskDesc('');
+      setLogTaskDueDate('');
       setShowAddLogForm(false);
-      const logsRes = await axios.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
+
+      const [logsRes, tasksRes] = await Promise.all([
+        axios.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${supervisionProject.id}`, { headers: getHeaders() }),
+        axios.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() }),
+      ]);
       if (logsRes?.data) setSupervisionLogs(logsRes.data);
+      if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
     } catch (err: any) {
       alert('Lỗi lưu nhật ký: ' + (err.response?.data?.detail || err.message));
     } finally {
       setSavingLog(false);
     }
   };
+
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1237,10 +1276,13 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">Địa điểm / Link Meet</label>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                        {meetingType === 'ONLINE' ? 'Link phòng họp trực tuyến (Google Meet / Zoom) *' : 'Địa điểm họp trực tiếp'}
+                      </label>
                       <input
                         type="text"
-                        placeholder="VD: Văn phòng bộ môn P405 hoặc https://meet.google.com/..."
+                        required={meetingType === 'ONLINE'}
+                        placeholder={meetingType === 'ONLINE' ? 'VD: https://meet.google.com/abc-defg-hij hoặc https://zoom.us/j/...' : 'VD: Văn phòng bộ môn P405 hoặc phòng LAB...'}
                         value={locationOrLink}
                         onChange={(e) => setLocationOrLink(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
@@ -1270,6 +1312,76 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                       />
                     </div>
 
+                    {/* Feature 5: Giao việc tuần tới làm căn cứ đánh giá điểm quá trình */}
+                    <div className="p-3 bg-slate-900/90 rounded-lg border border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-amber-400">
+                          <input
+                            type="checkbox"
+                            checked={logAssignTask}
+                            onChange={(e) => setLogAssignTask(e.target.checked)}
+                            className="rounded border-slate-700 text-blue-600 focus:ring-0"
+                          />
+                          <span>📌 Giao nhiệm vụ cho tuần tới (Lưu làm căn cứ chấm điểm quá trình)</span>
+                        </label>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                          ⭐ Căn cứ điểm quá trình
+                        </span>
+                      </div>
+
+                      {logAssignTask && (
+                        <div className="space-y-2.5 pt-1 border-t border-slate-800">
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-300 mb-1">Tên công việc / nhiệm vụ *</label>
+                            <input
+                              type="text"
+                              required={logAssignTask}
+                              placeholder="VD: Thiết kế cơ sở dữ liệu và dựng API phân hệ xác thực"
+                              value={logTaskTitle}
+                              onChange={(e) => setLogTaskTitle(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className="block text-[11px] font-medium text-slate-300 mb-1">Mức độ ưu tiên</label>
+                              <select
+                                value={logTaskPriority}
+                                onChange={(e) => setLogTaskPriority(e.target.value as any)}
+                                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                              >
+                                <option value="LOW">Thấp</option>
+                                <option value="MEDIUM">Trung bình</option>
+                                <option value="HIGH">Cao</option>
+                                <option value="URGENT">Khẩn cấp</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-slate-300 mb-1">Hạn nộp (Deadline)</label>
+                              <input
+                                type="date"
+                                value={logTaskDueDate}
+                                onChange={(e) => setLogTaskDueDate(e.target.value)}
+                                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-300 mb-1">Chi tiết yêu cầu & Hướng dẫn</label>
+                            <textarea
+                              rows={2}
+                              placeholder="Ghi chú chi tiết kết quả cần đạt, tài liệu đính kèm..."
+                              value={logTaskDesc}
+                              onChange={(e) => setLogTaskDesc(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <label className="block text-xs font-medium text-slate-300 mb-1">Kế hoạch kỳ họp tiếp theo</label>
                       <input
@@ -1294,7 +1406,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                         disabled={savingLog}
                         className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow disabled:opacity-50"
                       >
-                        {savingLog ? 'Đang lưu...' : 'Lưu nhật ký'}
+                        {savingLog ? 'Đang lưu...' : 'Lưu nhật ký & Căn cứ đánh giá'}
                       </button>
                     </div>
                   </form>
@@ -1310,21 +1422,73 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                 ) : (
                   <div className="space-y-3">
                     {supervisionLogs.map((log, idx) => (
-                      <div key={log.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-bold text-slate-200">
-                            #{supervisionLogs.length - idx} - Ngày {log.meeting_date} ({log.meeting_time})
-                          </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                            {log.meeting_type_display || log.meeting_type}
-                          </span>
+                      <div key={log.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                        <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-200">
+                              #{supervisionLogs.length - idx} - Ngày {log.meeting_date} ({log.meeting_time})
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                              ⭐ Căn cứ điểm quá trình
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                              log.meeting_type === 'ONLINE'
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            }`}>
+                              {log.meeting_type_display || (log.meeting_type === 'ONLINE' ? 'Trực tuyến (Meet/Zoom)' : 'Gặp trực tiếp')}
+                            </span>
+                            {log.location_or_link && (log.meeting_type === 'ONLINE' || log.location_or_link.startsWith('http')) && (
+                              <a
+                                href={log.location_or_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 text-[10px] font-semibold transition"
+                              >
+                                <span>📹 Tham gia cuộc họp ↗</span>
+                              </a>
+                            )}
+                          </div>
                         </div>
+
+                        {log.location_or_link && !(log.meeting_type === 'ONLINE' || log.location_or_link.startsWith('http')) && (
+                          <div className="text-[11px] text-slate-400">
+                            📍 Địa điểm: <span className="text-slate-300">{log.location_or_link}</span>
+                          </div>
+                        )}
+
                         <div className="text-xs text-slate-300 bg-slate-900/50 p-2.5 rounded border border-slate-800/80">
-                          <span className="font-semibold text-slate-400">Nội dung:</span> {log.content_discussed}
+                          <span className="font-semibold text-slate-400">Nội dung trao đổi:</span> {log.content_discussed}
                         </div>
+
                         {log.supervisor_notes && (
                           <div className="text-xs text-emerald-300 bg-emerald-950/20 p-2 rounded border border-emerald-500/20">
-                            <span className="font-semibold">Nhận xét GV:</span> {log.supervisor_notes}
+                            <span className="font-semibold">Nhận xét GVHD:</span> {log.supervisor_notes}
+                          </div>
+                        )}
+
+                        {log.tasks && log.tasks.length > 0 && (
+                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 space-y-1.5 text-xs">
+                            <span className="font-bold text-amber-400">📌 Nhiệm vụ giao tuần tới (Căn cứ đánh giá):</span>
+                            {log.tasks.map((t: any) => (
+                              <div key={t.id} className="flex items-center justify-between text-slate-300 pl-2">
+                                <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-400">(Hạn: {t.due_date})</span>}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded uppercase ${
+                                  t.priority === 'URGENT' ? 'bg-rose-500/10 text-rose-400' : 'bg-slate-800 text-slate-300'
+                                }`}>
+                                  {t.priority_display || t.priority}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {log.next_meeting_plan && (
+                          <div className="text-[11px] text-slate-400">
+                            <b>Kế hoạch kỳ tới:</b> {log.next_meeting_plan}
                           </div>
                         )}
                       </div>

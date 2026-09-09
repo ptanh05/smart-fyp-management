@@ -47,6 +47,48 @@ const SupervisorDashboard: React.FC = () => {
   });
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Broadcast Announcement State (Feature 2)
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: '',
+    message: '',
+  });
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [broadcastError, setBroadcastError] = useState<string | null>(null);
+
+  const isBroadcastDirty = Boolean(broadcastForm.title.trim() || broadcastForm.message.trim());
+  const broadcastModalGuard = useModalGuard({
+    isOpen: isBroadcastModalOpen,
+    onClose: () => setIsBroadcastModalOpen(false),
+    isDirty: isBroadcastDirty,
+    confirmMessage: 'Bạn có nội dung thông báo chưa gửi. Bạn có chắc muốn đóng không?',
+  });
+
+  const handleBroadcastSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
+      setBroadcastError('Vui lòng nhập cả tiêu đề và nội dung thông báo.');
+      return;
+    }
+
+    try {
+      setBroadcasting(true);
+      setBroadcastError(null);
+      const res = await apiService.broadcastAnnouncement({
+        title: broadcastForm.title.trim(),
+        message: broadcastForm.message.trim(),
+      });
+      alert(res.message || 'Đã gửi thông báo chung tới tất cả sinh viên thành công!');
+      setIsBroadcastModalOpen(false);
+      setBroadcastForm({ title: '', message: '' });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Không thể gửi thông báo. Vui lòng thử lại.';
+      setBroadcastError(msg);
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
   const profileEditGuard = useModalGuard({
     isOpen: isEditingProfile,
     onClose: () => handleCancelEdit(),
@@ -55,6 +97,7 @@ const SupervisorDashboard: React.FC = () => {
       (profile && editFormData.academic_background !== (profile.academic_background || ''))
     ),
   });
+
 
   useEffect(() => {
     loadData();
@@ -297,7 +340,26 @@ const SupervisorDashboard: React.FC = () => {
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                   <h2 style={{ margin: 0 }}>{t('profile.title', 'Thông Tin Cá Nhân & Hồ Sơ UTC')}</h2>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => {
+                        setBroadcastForm({ title: '', message: '' });
+                        setBroadcastError(null);
+                        setIsBroadcastModalOpen(true);
+                      }}
+                      style={{
+                        backgroundColor: '#0284c7',
+                        color: '#fff',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                      title="Gửi tin nhắn thông báo chung cho tất cả sinh viên các nhóm hướng dẫn"
+                    >
+                      📢 {t('dashboard.broadcastAnnouncement', 'Gửi Thông Báo Chung')}
+                    </button>
                     <button
                       className="btn btn-outline"
                       onClick={() => setShowUTCSheet(true)}
@@ -414,6 +476,112 @@ const SupervisorDashboard: React.FC = () => {
                         )}
                       </button>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Broadcast Announcement Modal (Feature 2) */}
+              {isBroadcastModalOpen && (
+                <div className="modal-overlay" onClick={broadcastModalGuard.handleOverlayClick}>
+                  <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+                    <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid #e2e8f0' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📢 Gửi Thông Báo Chung Cho Các Nhóm</h3>
+                      <button 
+                        onClick={broadcastModalGuard.requestClose}
+                        style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#64748b' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleBroadcastSubmit}>
+                      <div className="modal-body" style={{ padding: '20px 24px' }}>
+                        <div style={{ padding: '10px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', color: '#1e40af', fontSize: '0.85rem', marginBottom: '16px', lineHeight: 1.5 }}>
+                          ℹ️ Thông báo này sẽ được gửi ngay lập tức tới <b>toàn bộ sinh viên</b> thuộc các nhóm đồ án do thầy/cô hướng dẫn.
+                        </div>
+
+                        {broadcastError && (
+                          <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '0.85rem', marginBottom: '16px' }}>
+                            {broadcastError}
+                          </div>
+                        )}
+
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                          <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#334155', fontSize: '0.9rem' }}>
+                            Tiêu đề thông báo <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ví dụ: Lịch họp báo cáo tiến độ tuần này / Lưu ý nộp đề cương..."
+                            value={broadcastForm.title}
+                            onChange={(e) => setBroadcastForm({ ...broadcastForm, title: e.target.value })}
+                            style={{
+                              width: '100%',
+                              padding: '10px 12px',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              boxSizing: 'border-box',
+                            }}
+                            autoFocus
+                          />
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '8px' }}>
+                          <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', color: '#334155', fontSize: '0.9rem' }}>
+                            Nội dung thông báo chi tiết <span style={{ color: '#ef4444' }}>*</span>
+                          </label>
+                          <textarea
+                            required
+                            rows={5}
+                            placeholder="Nhập nội dung cần nhắn gửi tới các nhóm..."
+                            value={broadcastForm.message}
+                            onChange={(e) => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
+                            style={{
+                              width: '100%',
+                              padding: '10px 12px',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              boxSizing: 'border-box',
+                              resize: 'vertical',
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="modal-footer" style={{ 
+                        display: 'flex', 
+                        justifyContent: 'flex-end', 
+                        gap: '12px', 
+                        padding: '14px 24px', 
+                        borderTop: '1px solid #e2e8f0',
+                        backgroundColor: '#f8fafc',
+                      }}>
+                        <button 
+                          type="button"
+                          className="btn btn-secondary" 
+                          onClick={broadcastModalGuard.requestClose}
+                          disabled={broadcasting}
+                        >
+                          Hủy bỏ
+                        </button>
+                        <button 
+                          type="submit" 
+                          className="btn btn-primary" 
+                          disabled={broadcasting || !broadcastForm.title.trim() || !broadcastForm.message.trim()}
+                          style={{
+                            backgroundColor: '#0284c7',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          {broadcasting ? 'Đang gửi...' : 'Gửi thông báo ngay 🚀'}
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </div>
               )}

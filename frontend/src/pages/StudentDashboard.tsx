@@ -48,11 +48,25 @@ const StudentDashboard: React.FC = () => {
   const [externalLoading, setExternalLoading] = useState(false);
   const [selectedProjectForSupervisor, setSelectedProjectForSupervisor] = useState<Project | null>(null);
   const [showUTCSheet, setShowUTCSheet] = useState(false);
+  const [supervisionLogs, setSupervisionLogs] = useState<any[]>([]);
+  const [supervisionLogsLoading, setSupervisionLogsLoading] = useState(false);
 
   const handleProjectSearch = useCallback((search: string) => {
     setProjectSearch(search);
     loadProjects(search);
   }, []);
+
+  const loadSupervisionLogs = async () => {
+    try {
+      setSupervisionLogsLoading(true);
+      const logs = await apiService.getStudentSupervisionLogs();
+      setSupervisionLogs(Array.isArray(logs) ? logs : []);
+    } catch (err) {
+      console.warn('Failed to load supervision logs on student dashboard:', err);
+    } finally {
+      setSupervisionLogsLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -102,6 +116,9 @@ const StudentDashboard: React.FC = () => {
       ]);
       setProfile(profileData);
       setProjectCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData as any).results || []);
+
+      // Load supervision meetings for dashboard display (Features 3 & 4)
+      loadSupervisionLogs();
 
       if (profileData.groupmate_id) {
         const supervisorRequestsData = await apiService.getSupervisorRequests();
@@ -303,6 +320,119 @@ const StudentDashboard: React.FC = () => {
                     )}
                   </p>
                 </div>
+              </div>
+
+              {/* Feature 3 & 4: Online Meeting Link & Supervision Schedule on Student Dashboard */}
+              <div className="card" style={{ marginTop: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🗓️</span> Lịch Hẹn Gặp & Họp Trực Tuyến Với GVHD
+                  </h2>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={loadSupervisionLogs}
+                    style={{ fontSize: '0.85rem' }}
+                  >
+                    🔄 Cập nhật
+                  </button>
+                </div>
+
+                {supervisionLogsLoading ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>
+                    Đang tải lịch hẹn gặp từ giảng viên...
+                  </div>
+                ) : supervisionLogs.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', background: '#f8fafc', borderRadius: '8px', color: '#64748b', fontSize: '0.9rem', border: '1px dashed #cbd5e1' }}>
+                    Chưa có lịch hẹn gặp trực tuyến hoặc buổi họp nào được lên lịch từ GVHD.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {supervisionLogs.slice(0, 3).map((meeting: any) => {
+                      const isOnline = meeting.meeting_type === 'ONLINE' || (meeting.location_or_link && meeting.location_or_link.startsWith('http'));
+                      return (
+                        <div
+                          key={meeting.id}
+                          style={{
+                            padding: '16px 20px',
+                            background: isOnline ? '#f0f9ff' : '#f8fafc',
+                            border: `1px solid ${isOnline ? '#bae6fd' : '#e2e8f0'}`,
+                            borderRadius: '10px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                          }}
+                        >
+                          <div style={{ flex: '1 1 300px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                              <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                backgroundColor: isOnline ? '#e0f2fe' : '#e2e8f0',
+                                color: isOnline ? '#0369a1' : '#475569',
+                                border: `1px solid ${isOnline ? '#7dd3fc' : '#cbd5e1'}`,
+                              }}>
+                                {isOnline ? '📹 TRỰC TUYẾN (MEET/ZOOM)' : '📍 GẶP TRỰC TIẾP'}
+                              </span>
+                              <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.95rem' }}>
+                                Ngày: {meeting.meeting_date} ({meeting.meeting_time})
+                              </span>
+                            </div>
+
+                            {meeting.content_discussed && (
+                              <p style={{ margin: '4px 0', fontSize: '0.88rem', color: '#334155' }}>
+                                <strong>Nội dung:</strong> {meeting.content_discussed}
+                              </p>
+                            )}
+
+                            {meeting.supervisor_notes && (
+                              <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#047857' }}>
+                                <strong>Nhận xét GV:</strong> {meeting.supervisor_notes}
+                              </p>
+                            )}
+
+                            {!isOnline && meeting.location_or_link && (
+                              <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#64748b' }}>
+                                <strong>Địa điểm:</strong> {meeting.location_or_link}
+                              </p>
+                            )}
+                          </div>
+
+                          {isOnline && meeting.location_or_link && (
+                            <div>
+                              <a
+                                href={meeting.location_or_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-primary"
+                                style={{
+                                  backgroundColor: '#0284c7',
+                                  color: '#fff',
+                                  fontWeight: 600,
+                                  fontSize: '0.85rem',
+                                  padding: '8px 16px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  textDecoration: 'none',
+                                  borderRadius: '6px',
+                                  boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
+                                }}
+                                title="Bấm vào để mở phòng họp trực tuyến"
+                              >
+                                <span>📹</span>
+                                <span>Tham gia cuộc họp trực tuyến ↗</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Panel Assignment Information */}
