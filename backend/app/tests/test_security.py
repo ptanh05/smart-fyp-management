@@ -178,7 +178,7 @@ class SecurityTestCase(TestCase):
             "password": "WrongPassword999!",
         })
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(response.data.get("detail"), "Invalid registration number or password.")
+        self.assertIn("Sai thông tin đăng nhập", response.data.get("detail", ""))
 
     def test_account_enumeration_prevented_non_existent_user(self):
         """Case B: Non-existing registration number + arbitrary password returns identical 401 response."""
@@ -187,7 +187,7 @@ class SecurityTestCase(TestCase):
             "password": "ArbitraryPassword123!",
         })
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(response.data.get("detail"), "Invalid registration number or password.")
+        self.assertIn("Sai thông tin đăng nhập", response.data.get("detail", ""))
 
     # =========================================================================
     # File Upload Magic Byte Verification Tests

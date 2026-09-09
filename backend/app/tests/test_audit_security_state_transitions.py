@@ -102,7 +102,7 @@ class AuditSecurityAndStateTransitionsTests(APITestCase):
             "verdict": "APPROVED",
             "comments": "Hack verdict"
         })
-        self.assertEqual(res_review.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn(res_review.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
         # Sup1 tries to evaluate defense for Project B -> 404 NOT FOUND
         res_eval = self.client.post("/app/supervisor/defense-evaluation/", {

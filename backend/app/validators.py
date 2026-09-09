@@ -437,6 +437,16 @@ def validate_uploaded_file(file_obj, allowed_extensions=None, max_size_bytes=524
         # Fallback if python-magic is not installed correctly or libmagic system library is not available
         pass
 
+    # Native magic header fallback check (reliable across all OS platforms without libmagic)
+    if ext in [".docx", ".xlsx", ".pptx", ".zip"] and not header.startswith(b"PK"):
+        raise serializers.ValidationError(f"Tệp '{ext}' không đúng định dạng (Magic bytes không hợp lệ).")
+    if ext == ".pdf" and not header.startswith(b"%PDF"):
+        raise serializers.ValidationError("Tệp PDF không đúng định dạng (Magic bytes không hợp lệ).")
+    if ext == ".png" and not header.startswith(b"\x89PNG"):
+        raise serializers.ValidationError("Tệp PNG không đúng định dạng ảnh.")
+    if ext in [".jpg", ".jpeg"] and not header.startswith(b"\xff\xd8\xff"):
+        raise serializers.ValidationError("Tệp JPEG không đúng định dạng ảnh.")
+
     return file_obj
 
 

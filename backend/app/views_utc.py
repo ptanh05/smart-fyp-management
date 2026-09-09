@@ -1538,7 +1538,7 @@ class CouncilAssignProjectAPIView(APIView):
         council = get_object_or_404(DefenseCouncil, id=council_id)
         conflicts = CouncilConflictService.check_project_assignment(council, project)
 
-        if conflicts:
+        if conflicts and not force:
             return Response({
                 "success": False,
                 "has_conflict": True,
