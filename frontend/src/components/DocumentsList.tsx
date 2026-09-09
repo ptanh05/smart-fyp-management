@@ -634,16 +634,6 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
             </>
           )}
         </button>
-        {!uploading && (
-          <button 
-            className="btn btn-primary submit-btn"
-            onClick={handleSubmit}
-            disabled={!selectedFile || deadlinePassed}
-          >
-            <span>📤</span>
-            Tải lên tài liệu
-          </button>
-        )}
       </div>
 
       {/* Divider */}

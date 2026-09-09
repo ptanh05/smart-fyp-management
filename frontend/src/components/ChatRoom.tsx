@@ -807,7 +807,11 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
             value={newMessage}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={selectedAttachment ? 'Thêm chú thích (tùy chọn)... (Nhấn Enter để gửi)' : 'Nhập tin nhắn... (Nhấn Enter để gửi, Shift + Enter để xuống dòng)'}
+            placeholder={
+              selectedAttachment
+                ? 'Thêm chú thích (tùy chọn)... (Nhấn Enter để gửi, Shift + Enter để xuống dòng)'
+                : 'Nhập tin nhắn... (Nhấn Enter để gửi, Shift + Enter để xuống dòng)'
+            }
             maxLength={2000}
             rows={2}
             className="chat-textarea"

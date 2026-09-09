@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import type { Project, ProjectCategory } from '../types';
+import { useModalGuard } from '../utils/modalHooks';
 import './SupervisorOfferedTopics.css';
 
 interface SupervisorOfferedTopicsProps {
@@ -29,6 +30,15 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
     project_description: '',
     functionalities: '',
   });
+  const initialFormDataRef = useRef(formData);
+
+  const isDirty = showModal && JSON.stringify(formData) !== JSON.stringify(initialFormDataRef.current);
+  const { requestClose, handleOverlayClick } = useModalGuard({
+    isOpen: showModal,
+    onClose: () => setShowModal(false),
+    isDirty,
+    confirmMessage: 'Bạn có dữ liệu đề tài đang nhập dở chưa lưu. Bạn có chắc muốn đóng không?',
+  });
 
   const loadTopics = async () => {
     try {
@@ -53,13 +63,15 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
   const handleOpenCreateModal = () => {
     setIsEditing(false);
     setSelectedTopicId(null);
-    setFormData({
+    const initial = {
       project_name: '',
       project_category: categories.length > 0 ? categories[0].id : 0,
       language: '',
       project_description: '',
       functionalities: '',
-    });
+    };
+    setFormData(initial);
+    initialFormDataRef.current = initial;
     setModalError(null);
     setShowModal(true);
   };
@@ -71,13 +83,15 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
     }
     setIsEditing(true);
     setSelectedTopicId(topic.id);
-    setFormData({
+    const initial = {
       project_name: topic.project_name,
       project_category: topic.project_category || (categories[0]?.id || 0),
       language: topic.language || '',
       project_description: topic.project_description || '',
       functionalities: topic.functionalities || '',
-    });
+    };
+    setFormData(initial);
+    initialFormDataRef.current = initial;
     setModalError(null);
     setShowModal(true);
   };
@@ -275,13 +289,13 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
 
       {/* Modal Add / Edit Topic */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => !saving && setShowModal(false)}>
+        <div className="modal-overlay" onClick={saving ? undefined : handleOverlayClick}>
           <div className="modal-content topic-edit-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{isEditing ? 'Sửa Thông Tin Đề Tài Gợi Ý' : 'Thêm Đề Tài Gợi Ý Mới'}</h3>
               <button
                 className="modal-close"
-                onClick={() => setShowModal(false)}
+                onClick={requestClose}
                 disabled={saving}
               >
                 ×
@@ -365,7 +379,7 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowModal(false)}
+                  onClick={requestClose}
                   disabled={saving}
                 >
                   Hủy

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
+import { useModalGuard } from '../utils/modalHooks';
 import './ChangePasswordModal.css';
 
 interface ChangePasswordModalProps {
@@ -105,14 +106,22 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
     }
   };
 
+  const isDirty = !success && Boolean(oldPassword || newPassword || confirmPassword);
+  const { requestClose, handleOverlayClick } = useModalGuard({
+    isOpen,
+    onClose: handleClose,
+    isDirty,
+    confirmMessage: 'Bạn có thông tin mật khẩu chưa lưu. Bạn có chắc muốn hủy không?',
+  });
+
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={handleClose}>
+    <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal-content change-password-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Change Password</h2>
-          <button className="close-btn" onClick={handleClose} disabled={loading}>
+          <button className="close-btn" onClick={requestClose} disabled={loading}>
             &times;
           </button>
         </div>
@@ -202,7 +211,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={handleClose}
+              onClick={requestClose}
               disabled={loading}
             >
               Cancel

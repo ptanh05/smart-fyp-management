@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
+import { useModalGuard } from '../utils/modalHooks';
 import './DocumentViewerModal.css';
 
 interface DocumentViewerModalProps {
@@ -72,6 +73,11 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     };
   }, [isOpen, documentUrl]);
 
+  const { requestClose, handleOverlayClick } = useModalGuard({
+    isOpen,
+    onClose,
+  });
+
   if (!isOpen) return null;
 
   const handleZoomIn = () => {
@@ -114,7 +120,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   };
 
   return (
-    <div className={`doc-viewer-overlay ${isFullscreen ? 'fullscreen-mode' : ''}`} onClick={onClose}>
+    <div className={`doc-viewer-overlay ${isFullscreen ? 'fullscreen-mode' : ''}`} onClick={handleOverlayClick}>
       <div className="doc-viewer-container" onClick={(e) => e.stopPropagation()}>
         {/* Header Toolbar */}
         <div className="doc-viewer-header">
@@ -149,7 +155,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
               {downloading ? '⏳ Đang tải...' : '📥 Tải về'}
             </button>
 
-            <button onClick={onClose} className="btn-close" title="Đóng">
+            <button onClick={requestClose} className="btn-close" title="Đóng">
               ✕
             </button>
           </div>

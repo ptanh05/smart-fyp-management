@@ -369,6 +369,28 @@ class ApiService {
     return response.data;
   }
 
+  async renameStudentGroup(name: string): Promise<{ message: string; group: ProjectGroup }> {
+    const response = await this.api.post<{ message: string; group: ProjectGroup }>(
+      '/student-groups/rename/',
+      { name }
+    );
+    return response.data;
+  }
+
+  async broadcastAnnouncement(data: { title: string; message: string }): Promise<{ message: string; recipient_count: number }> {
+    const response = await this.api.post<{ message: string; recipient_count: number }>(
+      '/supervisor/broadcast-announcement/',
+      data
+    );
+    return response.data;
+  }
+
+  async getStudentSupervisionLogs(): Promise<any[]> {
+    const response = await this.api.get<any[]>('/student/supervision-logs/');
+    return response.data;
+  }
+
+
   // Projects
   async getProjects(options?: {
     categoryId?: number;

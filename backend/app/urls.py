@@ -13,6 +13,7 @@ from .views_group_management import (
     TransferLeadershipAPIView,
     UpdateTopicProposalAPIView,
     SupervisorTopicReviewAPIView,
+    RenameStudentGroupAPIView,
 )
 from .views_utc import (
     StudentSurveyAPIView,
@@ -29,6 +30,7 @@ from .views_utc import (
     SupervisorDefenseEvaluationAPIView,
     SupervisorSupervisionLogsAPIView,
     SupervisorTasksAPIView,
+    SupervisorBroadcastAnnouncementAPIView,
     ReviewerAssignedProjectsAPIView,
     ReviewerSubmitEvaluationAPIView,
     CouncilLiveDefenseSessionAPIView,
@@ -555,6 +557,8 @@ urlpatterns = [
     path("student-groups/transfer-leadership/", TransferLeadershipAPIView.as_view(), name="student-groups-transfer-leadership"),
     path("student-groups/update-topic/", UpdateTopicProposalAPIView.as_view(), name="student-groups-update-topic"),
     path("student-groups/<int:group_id>/topic-review/", SupervisorTopicReviewAPIView.as_view(), name="student-groups-topic-review"),
+    path("student-groups/rename/", RenameStudentGroupAPIView.as_view(), name="student-groups-rename"),
+    path("supervisor/broadcast-announcement/", SupervisorBroadcastAnnouncementAPIView.as_view(), name="utc-supervisor-broadcast-announcement"),
     path("council/chair/set-defense-status/", CouncilChairSetDefenseStatusAPIView.as_view(), name="utc-council-chair-defense-status"),
     path("council/remind-scoring/", CouncilSecretaryRemindScoringAPIView.as_view(), name="utc-council-remind-scoring"),
     path("council/<int:council_id>/schedule/", CouncilScheduleDefenseAPIView.as_view(), name="utc-council-schedule-defense"),

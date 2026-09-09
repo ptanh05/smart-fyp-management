@@ -151,30 +151,6 @@ class WeeklyProgressReportSerializer(serializers.ModelSerializer):
         return value
 
 
-class SupervisionMeetingLogSerializer(serializers.ModelSerializer):
-    meeting_type_display = serializers.CharField(source="get_meeting_type_display", read_only=True)
-    supervisor_name = serializers.CharField(source="project.supervisor.user.get_full_name", read_only=True)
-
-    class Meta:
-        model = SupervisionMeetingLog
-        fields = [
-            "id",
-            "project",
-            "meeting_date",
-            "meeting_time",
-            "meeting_type",
-            "meeting_type_display",
-            "location_or_link",
-            "content_discussed",
-            "supervisor_notes",
-            "next_meeting_plan",
-            "supervisor_name",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["created_at", "updated_at"]
-
-
 class SupervisionTaskSerializer(serializers.ModelSerializer):
     priority_display = serializers.CharField(source="get_priority_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
@@ -202,6 +178,32 @@ class SupervisionTaskSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["assigned_by", "completed_at", "created_at", "updated_at"]
+
+
+class SupervisionMeetingLogSerializer(serializers.ModelSerializer):
+    meeting_type_display = serializers.CharField(source="get_meeting_type_display", read_only=True)
+    supervisor_name = serializers.CharField(source="project.supervisor.user.get_full_name", read_only=True)
+    tasks = SupervisionTaskSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SupervisionMeetingLog
+        fields = [
+            "id",
+            "project",
+            "meeting_date",
+            "meeting_time",
+            "meeting_type",
+            "meeting_type_display",
+            "location_or_link",
+            "content_discussed",
+            "supervisor_notes",
+            "next_meeting_plan",
+            "supervisor_name",
+            "tasks",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class CouncilLiveScoreSerializer(serializers.ModelSerializer):

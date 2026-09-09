@@ -32,7 +32,10 @@ from .models import (
     Notification,
     Project,
     Document,
-    DocumentRequirement
+    DocumentRequirement,
+    Group,
+    GroupMember,
+    SupervisorOfStudentGroup,
 )
 from .services import NotificationService, CouncilConflictService
 from .serializers.utc_graduation_serializers import (
@@ -352,10 +355,16 @@ class StudentSupervisionLogsAPIView(APIView):
 
         project = GraduationProject.objects.filter(student=student).first()
         if not project:
-            return Response({"detail": "Chưa được phân công đề tài."}, status=status.HTTP_400_BAD_REQUEST)
+            membership = GroupMember.objects.filter(student=student).first()
+            if membership and membership.group:
+                project = GraduationProject.objects.filter(student__group_memberships__group=membership.group).first()
+
+        if not project:
+            return Response([], status=status.HTTP_200_OK)
 
         logs = SupervisionMeetingLog.objects.filter(project=project).order_by("-meeting_date", "-created_at")
         return Response(SupervisionMeetingLogSerializer(logs, many=True).data, status=status.HTTP_200_OK)
+
 
 
 class StudentTasksAPIView(APIView):
@@ -684,29 +693,68 @@ class SupervisorSupervisionLogsAPIView(APIView):
 
         project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
 
-        log = SupervisionMeetingLog.objects.create(
-            project=project,
-            meeting_date=meeting_date,
-            meeting_time=meeting_time,
-            meeting_type=meeting_type,
-            location_or_link=location_or_link,
-            content_discussed=content_discussed,
-            supervisor_notes=supervisor_notes,
-            next_meeting_plan=next_meeting_plan,
-        )
+        with transaction.atomic():
+            log = SupervisionMeetingLog.objects.create(
+                project=project,
+                meeting_date=meeting_date,
+                meeting_time=meeting_time,
+                meeting_type=meeting_type,
+                location_or_link=location_or_link,
+                content_discussed=content_discussed,
+                supervisor_notes=supervisor_notes,
+                next_meeting_plan=next_meeting_plan,
+            )
+
+            # Feature 5: Giao việc tuần tới kèm Deadline làm căn cứ đánh giá điểm quá trình
+            task_title = request.data.get("task_title", "").strip()
+            created_task = None
+            if task_title:
+                task_desc = request.data.get("task_description", "").strip()
+                task_due_date = request.data.get("task_due_date") or None
+                task_priority = request.data.get("task_priority", "MEDIUM")
+                created_task = SupervisionTask.objects.create(
+                    project=project,
+                    meeting_log=log,
+                    title=task_title,
+                    description=task_desc,
+                    assigned_by=supervisor,
+                    due_date=task_due_date,
+                    priority=task_priority,
+                    status="TODO",
+                )
 
         try:
+            supervisor_name = supervisor.user.get_full_name() or supervisor.user.username
+            if meeting_type == "ONLINE" and location_or_link:
+                notif_title = f"[Lịch họp trực tuyến] Cuộc hẹn từ GVHD {supervisor_name}"
+                notif_msg = f"GVHD đã tạo lịch hẹn gặp trực tuyến lúc {meeting_time} ngày {meeting_date}. Link tham gia: {location_or_link}"
+            else:
+                notif_title = "[Nhật ký hướng dẫn] GVHD vừa ghi nhận buổi làm việc"
+                notif_msg = f"GVHD {supervisor_name} đã cập nhật nhật ký buổi làm việc ngày {meeting_date}."
+
             NotificationService.create_notification(
                 user=project.student.user,
                 notification_type="general",
-                title="[Nhật ký hướng dẫn] GVHD vừa ghi nhận buổi làm việc",
-                message=f"GVHD {supervisor.user.get_full_name()} đã cập nhật nhật ký buổi họp ngày {meeting_date}.",
+                title=notif_title,
+                message=notif_msg,
+                action_url="/student/dashboard",
+                send_email=True,
             )
+
+            if created_task:
+                NotificationService.create_notification(
+                    user=project.student.user,
+                    notification_type="general",
+                    title=f"[Nhiệm vụ mới] {task_title}",
+                    message=f"GVHD đã giao nhiệm vụ tuần tới: '{task_title}'. Hạn nộp: {created_task.due_date or 'Không có'}. (Lưu làm căn cứ đánh giá điểm quá trình)",
+                    action_url="/student/dashboard",
+                    send_email=True,
+                )
         except Exception as e:
             logger.warning("Could not send notification for meeting log: %s", e)
 
         return Response({
-            "message": "Đã lưu nhật ký hướng dẫn thành công!",
+            "message": "Đã lưu nhật ký hướng dẫn và căn cứ đánh giá điểm quá trình thành công!",
             "log": SupervisionMeetingLogSerializer(log).data
         }, status=status.HTTP_201_CREATED)
 
@@ -813,6 +861,98 @@ class SupervisorTasksAPIView(APIView):
         task = get_object_or_404(SupervisionTask, id=task_id, project__supervisor=supervisor)
         task.delete()
         return Response({"message": "Đã xóa nhiệm vụ thành công!"}, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# SUPERVISOR BROADCAST ANNOUNCEMENT (Feature 2)
+# ==============================================================================
+
+class SupervisorBroadcastAnnouncementAPIView(APIView):
+    """
+    Giảng viên gửi tin nhắn thông báo chung cho tất cả các nhóm mình hướng dẫn:
+    - Nhập tiêu đề và nội dung thông báo chung
+    - Tất cả sinh viên trong các nhóm do GV hướng dẫn nhận được thông báo
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        supervisor = getattr(user, "supervisor_profile", None)
+        if not supervisor:
+            return Response(
+                {"message": "Chỉ dành cho giảng viên hướng dẫn."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        title = request.data.get("title", "").strip()
+        message = request.data.get("message", "").strip()
+
+        if not title:
+            return Response(
+                {"message": "Tiêu đề thông báo không được để trống."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not message:
+            return Response(
+                {"message": "Nội dung thông báo không được để trống."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        recipient_users = set()
+
+        # 1. From accepted supervised groups
+        supervised_groups = SupervisorOfStudentGroup.objects.filter(
+            supervisor=supervisor, status="accepted"
+        ).select_related("group")
+
+        for sg in supervised_groups:
+            group = sg.group
+            if group:
+                for member in group.members.select_related("student__user").all():
+                    if member.student and member.student.user:
+                        recipient_users.add(member.student.user)
+                if group.student_1 and group.student_1.user:
+                    recipient_users.add(group.student_1.user)
+                if group.student_2 and group.student_2.user:
+                    recipient_users.add(group.student_2.user)
+
+        # 2. From individual graduation projects
+        grad_projects = GraduationProject.objects.filter(
+            supervisor=supervisor
+        ).select_related("student__user")
+
+        for gp in grad_projects:
+            if gp.student and gp.student.user:
+                recipient_users.add(gp.student.user)
+
+        if not recipient_users:
+            return Response(
+                {"message": "Bạn hiện chưa có sinh viên hoặc nhóm nào được phân công hướng dẫn."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        supervisor_name = supervisor.user.get_full_name() or supervisor.user.username
+        full_title = f"[Thông báo GVHD {supervisor_name}] {title}"
+
+        for u in recipient_users:
+            NotificationService.create_notification(
+                user=u,
+                notification_type="general",
+                title=full_title,
+                message=message,
+                action_url="/student/dashboard",
+                send_email=True,
+            )
+
+        return Response(
+            {
+                "message": f"Đã gửi thông báo chung thành công tới {len(recipient_users)} sinh viên.",
+                "recipient_count": len(recipient_users),
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 
 # ==============================================================================
@@ -1673,4 +1813,3 @@ class GlobalSearchAPIView(APIView):
             "categories": categories_count,
             "results": results
         }, status=status.HTTP_200_OK)
-

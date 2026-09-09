@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { TablePagination } from './TablePagination';
+import { getRelativeTime } from '../utils/dateUtils';
+import { useModalGuard } from '../utils/modalHooks';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
@@ -10,6 +13,12 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [reviewerProjects, setReviewerProjects] = useState<any[]>([]);
   const [outlineReviews, setOutlineReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Sorting & Pagination for Students Table
+  const [sortField, setSortField] = useState<'student_name' | 'created_at' | 'supervisor_score' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [studentPage, setStudentPage] = useState(1);
+  const [studentPageSize, setStudentPageSize] = useState(10);
 
   // Outline Review Modal
   const [selectedProject, setSelectedProject] = useState<any>(null);
@@ -54,6 +63,13 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [savingLog, setSavingLog] = useState(false);
   const [showAddLogForm, setShowAddLogForm] = useState(false);
 
+  // Next week task assignment in meeting log form (Feature 5)
+  const [logAssignTask, setLogAssignTask] = useState(false);
+  const [logTaskTitle, setLogTaskTitle] = useState('');
+  const [logTaskDesc, setLogTaskDesc] = useState('');
+  const [logTaskDueDate, setLogTaskDueDate] = useState('');
+  const [logTaskPriority, setLogTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
+
   // New Task Form State
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
@@ -61,6 +77,94 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [taskPriority, setTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [savingTask, setSavingTask] = useState(false);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
+
+
+  // Modal Guards with ESC & dirty form protection
+  const outlineGuard = useModalGuard({
+    isOpen: showOutlineModal,
+    onClose: () => setShowOutlineModal(false),
+    isDirty: Boolean(outlineComments.trim()),
+  });
+
+  const weeklyGuard = useModalGuard({
+    isOpen: showWeeklyModal,
+    onClose: () => setShowWeeklyModal(false),
+    isDirty: Boolean(weeklyFeedback.trim()),
+  });
+
+  const evalGuard = useModalGuard({
+    isOpen: showEvalModal,
+    onClose: () => setShowEvalModal(false),
+    isDirty: Boolean(evalScore !== '' || evalFeedback.trim()),
+  });
+
+  const reviewerGuard = useModalGuard({
+    isOpen: showReviewerModal,
+    onClose: () => setShowReviewerModal(false),
+    isDirty: Boolean(revScore !== '' || revFeedback.trim()),
+  });
+
+  const supervisionGuard = useModalGuard({
+    isOpen: showSupervisionModal,
+    onClose: () => setShowSupervisionModal(false),
+    isDirty: Boolean(contentDiscussed.trim() || supervisorNotes.trim() || taskTitle.trim() || taskDesc.trim()),
+  });
+
+  // Sorting & Pagination Helpers
+  const handleSort = (field: 'student_name' | 'created_at' | 'supervisor_score') => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setStudentPage(1);
+  };
+
+  const renderSortIcon = (field: 'student_name' | 'created_at' | 'supervisor_score') => {
+    if (sortField !== field) {
+      return <span style={{ color: '#64748b', marginLeft: '4px', fontSize: '11px' }}>⇅</span>;
+    }
+    return sortDirection === 'asc' ? (
+      <span style={{ color: '#38bdf8', marginLeft: '4px', fontWeight: 'bold', fontSize: '11px' }}>▲</span>
+    ) : (
+      <span style={{ color: '#38bdf8', marginLeft: '4px', fontWeight: 'bold', fontSize: '11px' }}>▼</span>
+    );
+  };
+
+  const sortedProjects = useMemo(() => {
+    if (!sortField) return projects;
+    return [...projects].sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+
+      if (sortField === 'student_name') {
+        const strA = (valA || a.student_name || '').toString();
+        const strB = (valB || b.student_name || '').toString();
+        const cmp = strA.localeCompare(strB, 'vi', { sensitivity: 'base' });
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
+
+      if (sortField === 'created_at') {
+        const timeA = valA ? new Date(valA).getTime() : 0;
+        const timeB = valB ? new Date(valB).getTime() : 0;
+        return sortDirection === 'asc' ? timeA - timeB : timeB - timeA;
+      }
+
+      if (sortField === 'supervisor_score') {
+        const numA = valA !== null && valA !== undefined ? Number(valA) : -1;
+        const numB = valB !== null && valB !== undefined ? Number(valB) : -1;
+        return sortDirection === 'asc' ? numA - numB : numB - numA;
+      }
+
+      return 0;
+    });
+  }, [projects, sortField, sortDirection]);
+
+  const paginatedProjects = useMemo(() => {
+    const start = (studentPage - 1) * studentPageSize;
+    return sortedProjects.slice(start, start + studentPageSize);
+  }, [sortedProjects, studentPage, studentPageSize]);
 
   const getHeaders = () => {
     const token = localStorage.getItem('access_token');
@@ -112,35 +216,66 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const handleCreateMeetingLog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supervisionProject || !contentDiscussed) return;
+
+    if (meetingType === 'ONLINE' && !locationOrLink.trim()) {
+      alert('Vui lòng nhập link cuộc họp trực tuyến Google Meet hoặc Zoom.');
+      return;
+    }
+
+    if (logAssignTask && !logTaskTitle.trim()) {
+      alert('Vui lòng nhập tên công việc tuần tới nếu đã chọn giao việc.');
+      return;
+    }
+
     try {
       setSavingLog(true);
+      const payload: any = {
+        project_id: supervisionProject.id,
+        meeting_date: meetingDate,
+        meeting_time: meetingTime,
+        meeting_type: meetingType,
+        location_or_link: locationOrLink.trim(),
+        content_discussed: contentDiscussed.trim(),
+        supervisor_notes: supervisorNotes.trim(),
+        next_meeting_plan: nextMeetingPlan.trim(),
+      };
+
+      if (logAssignTask && logTaskTitle.trim()) {
+        payload.task_title = logTaskTitle.trim();
+        payload.task_description = logTaskDesc.trim();
+        payload.task_due_date = logTaskDueDate || null;
+        payload.task_priority = logTaskPriority;
+      }
+
       const res = await axios.post(
         `${API_BASE}/supervisor/supervision-logs/`,
-        {
-          project_id: supervisionProject.id,
-          meeting_date: meetingDate,
-          meeting_time: meetingTime,
-          meeting_type: meetingType,
-          location_or_link: locationOrLink,
-          content_discussed: contentDiscussed,
-          supervisor_notes: supervisorNotes,
-          next_meeting_plan: nextMeetingPlan,
-        },
+        payload,
         { headers: getHeaders() }
       );
-      alert(res.data?.message || 'Đã lưu nhật ký hướng dẫn thành công!');
+      alert(res.data?.message || 'Đã lưu nhật ký hướng dẫn và căn cứ đánh giá điểm quá trình thành công!');
       setContentDiscussed('');
       setSupervisorNotes('');
       setNextMeetingPlan('');
+      setLocationOrLink('');
+      setLogAssignTask(false);
+      setLogTaskTitle('');
+      setLogTaskDesc('');
+      setLogTaskDueDate('');
       setShowAddLogForm(false);
-      const logsRes = await axios.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
+
+      const [logsRes, tasksRes] = await Promise.all([
+        axios.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${supervisionProject.id}`, { headers: getHeaders() }),
+        axios.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() }),
+      ]);
       if (logsRes?.data) setSupervisionLogs(logsRes.data);
+      if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
     } catch (err: any) {
       alert('Lỗi lưu nhật ký: ' + (err.response?.data?.detail || err.message));
     } finally {
       setSavingLog(false);
     }
   };
+
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -309,7 +444,15 @@ export const UTCSupervisorGraduationView: React.FC = () => {
       {/* Tab 1: Students List */}
       {activeTab === 'students' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
-          <h3 className="font-bold text-base text-slate-100 mb-4">Danh sách Sinh viên đang hướng dẫn ĐATN</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 className="font-bold text-base text-slate-100">
+              Danh sách Sinh viên đang hướng dẫn ĐATN ({projects.length})
+            </h3>
+            <span className="text-xs text-slate-400">
+              💡 Bấm vào tiêu đề cột <b>"Tên"</b>, <b>"Ngày tạo"</b>, <b>"Điểm số"</b> để sắp xếp Tăng dần / Giảm dần.
+            </span>
+          </div>
+
           {projects.length === 0 ? (
             <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào được phân công.</div>
           ) : (
@@ -318,7 +461,27 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                 <thead className="bg-slate-950 text-slate-400 uppercase font-semibold">
                   <tr>
                     <th className="p-3">MSSV</th>
-                    <th className="p-3">Họ và tên</th>
+                    <th
+                      className="p-3 cursor-pointer select-none hover:text-blue-400 transition"
+                      onClick={() => handleSort('student_name')}
+                      title="Bấm để sắp xếp theo Tên sinh viên"
+                    >
+                      Tên {renderSortIcon('student_name')}
+                    </th>
+                    <th
+                      className="p-3 cursor-pointer select-none hover:text-blue-400 transition"
+                      onClick={() => handleSort('created_at')}
+                      title="Bấm để sắp xếp theo Ngày tạo"
+                    >
+                      Ngày tạo {renderSortIcon('created_at')}
+                    </th>
+                    <th
+                      className="p-3 cursor-pointer select-none hover:text-blue-400 transition"
+                      onClick={() => handleSort('supervisor_score')}
+                      title="Bấm để sắp xếp theo Điểm số"
+                    >
+                      Điểm số {renderSortIcon('supervisor_score')}
+                    </th>
                     <th className="p-3">Lớp / Ngành</th>
                     <th className="p-3">Tên đề tài đồ án</th>
                     <th className="p-3">Điện thoại / Email</th>
@@ -327,10 +490,23 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800 text-slate-300">
-                  {projects.map((p) => (
+                  {paginatedProjects.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-950/40">
                       <td className="p-3 font-mono font-semibold text-blue-400">{p.student_reg_no}</td>
                       <td className="p-3 font-medium text-slate-100">{p.student_name}</td>
+                      <td
+                        className="p-3 text-slate-400 whitespace-nowrap"
+                        title={p.created_at ? new Date(p.created_at).toLocaleString('vi-VN') : ''}
+                      >
+                        {p.created_at ? getRelativeTime(p.created_at) : 'Mới tạo'}
+                      </td>
+                      <td className="p-3 font-semibold text-emerald-400">
+                        {p.supervisor_score !== null && p.supervisor_score !== undefined ? (
+                          `${p.supervisor_score} / 10đ`
+                        ) : (
+                          <span className="text-slate-500 font-normal">Chưa chấm</span>
+                        )}
+                      </td>
                       <td className="p-3 text-slate-400">{p.student_class}</td>
                       <td className="p-3 font-medium text-slate-200 max-w-xs">{p.topic_title_vi}</td>
                       <td className="p-3 text-slate-400">
@@ -355,6 +531,18 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+
+              <TablePagination
+                currentPage={studentPage}
+                pageSize={studentPageSize}
+                totalItems={sortedProjects.length}
+                onPageChange={setStudentPage}
+                onPageSizeChange={(newSize) => {
+                  setStudentPageSize(newSize);
+                  setStudentPage(1);
+                }}
+                pageSizeOptions={[10, 25, 50]}
+              />
             </div>
           )}
         </div>
@@ -575,7 +763,10 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Outline Review */}
       {showOutlineModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={outlineGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
             <h3 className="text-base font-bold text-slate-100 mb-2">Xét duyệt Đề cương ĐATN</h3>
             <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
@@ -607,7 +798,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowOutlineModal(false)}
+                  onClick={outlineGuard.requestClose}
                   className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
                   Hủy
@@ -626,7 +817,10 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Weekly Feedback */}
       {showWeeklyModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={weeklyGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
             <h3 className="text-base font-bold text-slate-100 mb-4">Đánh giá Báo cáo Tuần {selectedReport?.week_number}</h3>
             <form onSubmit={handleFeedbackWeekly} className="space-y-3">
@@ -658,7 +852,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowWeeklyModal(false)}
+                  onClick={weeklyGuard.requestClose}
                   className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
                   Hủy
@@ -677,7 +871,10 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Supervisor Eval */}
       {showEvalModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={evalGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
             <h3 className="text-base font-bold text-slate-100 mb-2">Phiếu Đánh giá của Giảng viên hướng dẫn</h3>
             <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
@@ -723,7 +920,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowEvalModal(false)}
+                  onClick={evalGuard.requestClose}
                   className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
                   Hủy
@@ -750,7 +947,10 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Reviewer Eval */}
       {showReviewerModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={reviewerGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
             <h3 className="text-base font-bold text-slate-100 mb-2">Phiếu Chấm Giảng viên Phản biện (20%)</h3>
             <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
@@ -799,7 +999,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowReviewerModal(false)}
+                  onClick={reviewerGuard.requestClose}
                   className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
                 >
                   Hủy
@@ -818,7 +1018,10 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
       {/* Modal Quản lý Nhật ký & Giao việc cho SV */}
       {showSupervisionModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={supervisionGuard.handleOverlayClick}
+        >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-5">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-800 pb-4">
@@ -838,7 +1041,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
               </div>
 
               <button
-                onClick={() => setShowSupervisionModal(false)}
+                onClick={supervisionGuard.requestClose}
                 className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm"
               >
                 ✕
@@ -1085,10 +1288,13 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">Địa điểm / Link Meet</label>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                        {meetingType === 'ONLINE' ? 'Link phòng họp trực tuyến (Google Meet / Zoom) *' : 'Địa điểm họp trực tiếp'}
+                      </label>
                       <input
                         type="text"
-                        placeholder="VD: Văn phòng bộ môn P405 hoặc https://meet.google.com/..."
+                        required={meetingType === 'ONLINE'}
+                        placeholder={meetingType === 'ONLINE' ? 'VD: https://meet.google.com/abc-defg-hij hoặc https://zoom.us/j/...' : 'VD: Văn phòng bộ môn P405 hoặc phòng LAB...'}
                         value={locationOrLink}
                         onChange={(e) => setLocationOrLink(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
@@ -1118,6 +1324,76 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                       />
                     </div>
 
+                    {/* Feature 5: Giao việc tuần tới làm căn cứ đánh giá điểm quá trình */}
+                    <div className="p-3 bg-slate-900/90 rounded-lg border border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-amber-400">
+                          <input
+                            type="checkbox"
+                            checked={logAssignTask}
+                            onChange={(e) => setLogAssignTask(e.target.checked)}
+                            className="rounded border-slate-700 text-blue-600 focus:ring-0"
+                          />
+                          <span>📌 Giao nhiệm vụ cho tuần tới (Lưu làm căn cứ chấm điểm quá trình)</span>
+                        </label>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                          ⭐ Căn cứ điểm quá trình
+                        </span>
+                      </div>
+
+                      {logAssignTask && (
+                        <div className="space-y-2.5 pt-1 border-t border-slate-800">
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-300 mb-1">Tên công việc / nhiệm vụ *</label>
+                            <input
+                              type="text"
+                              required={logAssignTask}
+                              placeholder="VD: Thiết kế cơ sở dữ liệu và dựng API phân hệ xác thực"
+                              value={logTaskTitle}
+                              onChange={(e) => setLogTaskTitle(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className="block text-[11px] font-medium text-slate-300 mb-1">Mức độ ưu tiên</label>
+                              <select
+                                value={logTaskPriority}
+                                onChange={(e) => setLogTaskPriority(e.target.value as any)}
+                                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                              >
+                                <option value="LOW">Thấp</option>
+                                <option value="MEDIUM">Trung bình</option>
+                                <option value="HIGH">Cao</option>
+                                <option value="URGENT">Khẩn cấp</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-slate-300 mb-1">Hạn nộp (Deadline)</label>
+                              <input
+                                type="date"
+                                value={logTaskDueDate}
+                                onChange={(e) => setLogTaskDueDate(e.target.value)}
+                                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-300 mb-1">Chi tiết yêu cầu & Hướng dẫn</label>
+                            <textarea
+                              rows={2}
+                              placeholder="Ghi chú chi tiết kết quả cần đạt, tài liệu đính kèm..."
+                              value={logTaskDesc}
+                              onChange={(e) => setLogTaskDesc(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <label className="block text-xs font-medium text-slate-300 mb-1">Kế hoạch kỳ họp tiếp theo</label>
                       <input
@@ -1142,7 +1418,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                         disabled={savingLog}
                         className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow disabled:opacity-50"
                       >
-                        {savingLog ? 'Đang lưu...' : 'Lưu nhật ký'}
+                        {savingLog ? 'Đang lưu...' : 'Lưu nhật ký & Căn cứ đánh giá'}
                       </button>
                     </div>
                   </form>
@@ -1158,21 +1434,73 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                 ) : (
                   <div className="space-y-3">
                     {supervisionLogs.map((log, idx) => (
-                      <div key={log.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-bold text-slate-200">
-                            #{supervisionLogs.length - idx} - Ngày {log.meeting_date} ({log.meeting_time})
-                          </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                            {log.meeting_type_display || log.meeting_type}
-                          </span>
+                      <div key={log.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                        <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-200">
+                              #{supervisionLogs.length - idx} - Ngày {log.meeting_date} ({log.meeting_time})
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                              ⭐ Căn cứ điểm quá trình
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                              log.meeting_type === 'ONLINE'
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            }`}>
+                              {log.meeting_type_display || (log.meeting_type === 'ONLINE' ? 'Trực tuyến (Meet/Zoom)' : 'Gặp trực tiếp')}
+                            </span>
+                            {log.location_or_link && (log.meeting_type === 'ONLINE' || log.location_or_link.startsWith('http')) && (
+                              <a
+                                href={log.location_or_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 text-[10px] font-semibold transition"
+                              >
+                                <span>📹 Tham gia cuộc họp ↗</span>
+                              </a>
+                            )}
+                          </div>
                         </div>
+
+                        {log.location_or_link && !(log.meeting_type === 'ONLINE' || log.location_or_link.startsWith('http')) && (
+                          <div className="text-[11px] text-slate-400">
+                            📍 Địa điểm: <span className="text-slate-300">{log.location_or_link}</span>
+                          </div>
+                        )}
+
                         <div className="text-xs text-slate-300 bg-slate-900/50 p-2.5 rounded border border-slate-800/80">
-                          <span className="font-semibold text-slate-400">Nội dung:</span> {log.content_discussed}
+                          <span className="font-semibold text-slate-400">Nội dung trao đổi:</span> {log.content_discussed}
                         </div>
+
                         {log.supervisor_notes && (
                           <div className="text-xs text-emerald-300 bg-emerald-950/20 p-2 rounded border border-emerald-500/20">
-                            <span className="font-semibold">Nhận xét GV:</span> {log.supervisor_notes}
+                            <span className="font-semibold">Nhận xét GVHD:</span> {log.supervisor_notes}
+                          </div>
+                        )}
+
+                        {log.tasks && log.tasks.length > 0 && (
+                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 space-y-1.5 text-xs">
+                            <span className="font-bold text-amber-400">📌 Nhiệm vụ giao tuần tới (Căn cứ đánh giá):</span>
+                            {log.tasks.map((t: any) => (
+                              <div key={t.id} className="flex items-center justify-between text-slate-300 pl-2">
+                                <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-400">(Hạn: {t.due_date})</span>}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded uppercase ${
+                                  t.priority === 'URGENT' ? 'bg-rose-500/10 text-rose-400' : 'bg-slate-800 text-slate-300'
+                                }`}>
+                                  {t.priority_display || t.priority}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {log.next_meeting_plan && (
+                          <div className="text-[11px] text-slate-400">
+                            <b>Kế hoạch kỳ tới:</b> {log.next_meeting_plan}
                           </div>
                         )}
                       </div>
