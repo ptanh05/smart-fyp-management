@@ -433,8 +433,8 @@ def validate_uploaded_file(file_obj, allowed_extensions=None, max_size_bytes=524
                 # Allow fallback for zip-based files if magic says application/zip but ext is docx/xlsx/pptx
                 if not (mime_type == 'application/zip' and ext in ['.docx', '.xlsx', '.pptx']):
                     raise serializers.ValidationError(f"MIME type '{mime_type}' không khớp với định dạng tệp '{ext}' (Magic Bytes không hợp lệ).")
-    except ImportError:
-        # Fallback if python-magic is not installed correctly
+    except (ImportError, Exception):
+        # Fallback if python-magic is not installed correctly or libmagic system library is not available
         pass
 
     return file_obj

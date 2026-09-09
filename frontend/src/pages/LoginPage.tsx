@@ -156,52 +156,161 @@ const LoginPage: React.FC = () => {
 
       {/* Main Grid Content Container */}
       <main className="utc-portal-body">
-        {/* Left Side Welcome Info Card */}
+        {/* Left Side Welcome Info Card - Modern UTC Capstone Showcase */}
         <section className="utc-info-card">
+          {/* Official University Badge */}
+          <div className="utc-hero-badge">
+            <span className="utc-badge-pulse"></span>
+            <span className="utc-badge-school">{t('portal.schoolName', 'TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI')}</span>
+            <span className="utc-badge-divider">•</span>
+            <span className="utc-badge-dept">KHOA CÔNG NGHỆ THÔNG TIN</span>
+            <span className="utc-badge-tag">CHÍNH THỨC</span>
+          </div>
+
+          {/* Header Title & Branding */}
           <div className="utc-info-header">
-            <img src={utcLogo} alt="UTC" className="utc-icon-circle blue" style={{ padding: '6px', objectFit: 'contain' }} />
+            <div className="utc-logo-frame">
+              <img src={utcLogo} alt="UTC Logo" className="utc-info-logo" />
+            </div>
             <div className="utc-info-header-text">
-              <h2>{t('portal.welcomeTitle', 'CHÀO MỪNG ĐẾN VỚI HỆ THỐNG SMART FYP UTC')}</h2>
-              <p>{t('portal.welcomeDesc', 'Trường Đại học Giao thông Vận tải — nơi đào tạo nguồn nhân lực chất lượng cao trong lĩnh vực Giao thông Vận tải, Kinh tế, Kỹ thuật và Công nghệ.')}</p>
+              <h2 className="utc-hero-title">
+                {t('portal.welcomeTitle', 'CHÀO MỪNG ĐẾN VỚI HỆ THỐNG SMART FYP UTC')}
+              </h2>
+              <p className="utc-hero-subtitle">
+                {t('portal.welcomeDesc', 'Trường Đại học Giao thông Vận tải — Hệ thống quản lý đề tài & vòng đời đồ án tốt nghiệp sinh viên chuẩn hóa.')}
+              </p>
             </div>
           </div>
 
-          <p className="utc-info-desc">
-            {t('portal.welcomeNote', 'Đăng nhập để quản lý tiến độ đồ án tốt nghiệp, tra cứu điểm số, theo dõi lịch bảo vệ và sử dụng các tiện ích chuẩn hóa dành cho sinh viên và giảng viên UTC.')}
-          </p>
+          {/* 5-Step Capstone Milestone Roadmap */}
+          <div className="utc-timeline-preview-container">
+            <div className="utc-timeline-preview-header">
+              <div className="utc-tl-title-group">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="utc-tl-icon">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+                <span className="utc-timeline-preview-title">Lộ trình 5 Mốc Đồ án Chuẩn UTC</span>
+              </div>
+              <span className="utc-timeline-preview-badge">Khóa K60 - K63</span>
+            </div>
 
-          {/* 4 Feature Boxes Grid */}
+            <div className="utc-timeline-stepper">
+              <div className="utc-stepper-line">
+                <div className="utc-stepper-progress"></div>
+              </div>
+              <div className="utc-step-node completed">
+                <div className="utc-node-circle">1</div>
+                <span className="utc-node-label">Đăng ký đề tài</span>
+                <span className="utc-node-sub">Tuần 1-2</span>
+              </div>
+              <div className="utc-step-node completed">
+                <div className="utc-node-circle">2</div>
+                <span className="utc-node-label">Đề cương chi tiết</span>
+                <span className="utc-node-sub">Tuần 3-4</span>
+              </div>
+              <div className="utc-step-node active">
+                <div className="utc-node-circle">3</div>
+                <span className="utc-node-label">Đánh giá giữa kỳ</span>
+                <span className="utc-node-sub">Tuần 8-10</span>
+              </div>
+              <div className="utc-step-node">
+                <div className="utc-node-circle">4</div>
+                <span className="utc-node-label">Nộp khóa luận</span>
+                <span className="utc-node-sub">Tuần 14</span>
+              </div>
+              <div className="utc-step-node">
+                <div className="utc-node-circle">5</div>
+                <span className="utc-node-label">Bảo vệ Hội đồng</span>
+                <span className="utc-node-sub">Tuần 16</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 4 Feature Boxes Grid - Upgraded with Modern SVGs & Badges */}
           <div className="utc-features-grid">
-            <div className="utc-feature-box">
-              <div className="utc-feature-icon icon-blue">📊</div>
-              <div>
+            <div className="utc-feature-card feat-blue">
+              <div className="utc-feat-top">
+                <div className="utc-feature-icon-wrapper icon-blue">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10" />
+                    <line x1="12" y1="20" x2="12" y2="4" />
+                    <line x1="6" y1="20" x2="6" y2="14" />
+                    <path d="M3 20h18" />
+                  </svg>
+                </div>
+                <span className="utc-feat-badge badge-blue">5 MỐC QUY TRÌNH</span>
+              </div>
+              <div className="utc-feat-content">
                 <h4>{t('portal.feat1Title', 'Quản lý Tiến độ Đồ án')}</h4>
                 <p>{t('portal.feat1Desc', 'Theo dõi 5 mốc tiến độ & trạng thái nộp tài liệu')}</p>
               </div>
             </div>
 
-            <div className="utc-feature-box">
-              <div className="utc-feature-icon icon-navy">📅</div>
-              <div>
+            <div className="utc-feature-card feat-indigo">
+              <div className="utc-feat-top">
+                <div className="utc-feature-icon-wrapper icon-indigo">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </div>
+                <span className="utc-feat-badge badge-indigo">HỘI ĐỒNG & PB</span>
+              </div>
+              <div className="utc-feat-content">
                 <h4>{t('portal.feat2Title', 'Lịch Bảo vệ & Hội đồng')}</h4>
                 <p>{t('portal.feat2Desc', 'Xem lịch bảo vệ, phân công phản biện & hội đồng')}</p>
               </div>
             </div>
 
-            <div className="utc-feature-box">
-              <div className="utc-feature-icon icon-amber">📝</div>
-              <div>
+            <div className="utc-feature-card feat-amber">
+              <div className="utc-feat-top">
+                <div className="utc-feature-icon-wrapper icon-amber">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                </div>
+                <span className="utc-feat-badge badge-amber">BIỂU MẪU A4</span>
+              </div>
+              <div className="utc-feat-content">
                 <h4>{t('portal.feat3Title', 'Biểu mẫu & In Phiếu chấm')}</h4>
                 <p>{t('portal.feat3Desc', 'Xuất biên bản bảo vệ A4 & báo cáo Excel chuẩn UTC')}</p>
               </div>
             </div>
 
-            <div className="utc-feature-box">
-              <div className="utc-feature-icon icon-green">🏆</div>
-              <div>
+            <div className="utc-feature-card feat-emerald">
+              <div className="utc-feat-top">
+                <div className="utc-feature-icon-wrapper icon-emerald">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="8" r="6" />
+                    <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+                  </svg>
+                </div>
+                <span className="utc-feat-badge badge-emerald">40-20-40 • GPA 4.0</span>
+              </div>
+              <div className="utc-feat-content">
                 <h4>{t('portal.feat4Title', 'Trọng số Điểm 40-20-40 & GPA')}</h4>
                 <p>{t('portal.feat4Desc', 'Tự động quy đổi thang GPA 4.0 & điểm chữ UTC')}</p>
               </div>
+            </div>
+          </div>
+
+          {/* Bottom Security / Trust Notice */}
+          <div className="utc-info-footer-bar">
+            <div className="utc-footer-trust">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              <span>{t('portal.welcomeNote', 'Đăng nhập để quản lý tiến độ đồ án tốt nghiệp, tra cứu điểm và xuất biểu mẫu chuẩn UTC.')}</span>
+            </div>
+            <div className="utc-footer-live">
+              <span className="utc-live-dot"></span>
+              <span>UTC 2026-2027</span>
             </div>
           </div>
         </section>
