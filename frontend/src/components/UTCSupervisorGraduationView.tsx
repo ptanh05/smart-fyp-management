@@ -3,6 +3,7 @@ import axios from 'axios';
 import { TablePagination } from './TablePagination';
 import { getRelativeTime } from '../utils/dateUtils';
 import { useModalGuard } from '../utils/modalHooks';
+import { apiService } from '../services/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
@@ -77,6 +78,20 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [taskPriority, setTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [savingTask, setSavingTask] = useState(false);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
+
+  // Topic Confirmation Modal State (Phase 3)
+  const [selectedTopicProject, setSelectedTopicProject] = useState<any>(null);
+  const [topicConfirmVi, setTopicConfirmVi] = useState('');
+  const [topicConfirmEn, setTopicConfirmEn] = useState('');
+  const [confirmingTopic, setConfirmingTopic] = useState(false);
+  const [showTopicConfirmModal, setShowTopicConfirmModal] = useState(false);
+
+  // Task Review Modal State (Phase 5)
+  const [selectedTaskForReview, setSelectedTaskForReview] = useState<any>(null);
+  const [taskReviewVerdict, setTaskReviewVerdict] = useState<'ACCEPTED' | 'REVISION_REQUIRED'>('ACCEPTED');
+  const [taskReviewNotes, setTaskReviewNotes] = useState('');
+  const [reviewingTask, setReviewingTask] = useState(false);
+  const [showTaskReviewModal, setShowTaskReviewModal] = useState(false);
 
 
   // Modal Guards with ESC & dirty form protection
@@ -317,6 +332,62 @@ export const UTCSupervisorGraduationView: React.FC = () => {
     }
   };
 
+  const handleOpenTopicConfirm = (project: any) => {
+    setSelectedTopicProject(project);
+    setTopicConfirmVi(project.topic_title_vi || '');
+    setTopicConfirmEn(project.topic_title_en || '');
+    setShowTopicConfirmModal(true);
+  };
+
+  const handleConfirmTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTopicProject || !topicConfirmVi.trim()) return;
+    try {
+      setConfirmingTopic(true);
+      await apiService.confirmTopicBySupervisor({
+        project_id: selectedTopicProject.id,
+        topic_title_vi: topicConfirmVi.trim(),
+        topic_title_en: topicConfirmEn.trim(),
+      });
+      alert('Đã xác nhận đề tài thành công! Chuyển trạng thái sang TOPIC_CONFIRMED.');
+      setShowTopicConfirmModal(false);
+      fetchData();
+    } catch (err: any) {
+      alert('Lỗi xác nhận đề tài: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setConfirmingTopic(false);
+    }
+  };
+
+  const handleOpenTaskReview = (task: any) => {
+    setSelectedTaskForReview(task);
+    setTaskReviewVerdict(task.review_verdict === 'REVISION_REQUIRED' ? 'REVISION_REQUIRED' : 'ACCEPTED');
+    setTaskReviewNotes(task.supervisor_review_notes || '');
+    setShowTaskReviewModal(true);
+  };
+
+  const handleSubmitTaskReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTaskForReview) return;
+    try {
+      setReviewingTask(true);
+      await apiService.supervisorReviewTask(selectedTaskForReview.id, {
+        verdict: taskReviewVerdict,
+        supervisor_notes: taskReviewNotes.trim(),
+      });
+      alert('Đã lưu kết quả đánh giá nhiệm vụ thành công!');
+      setShowTaskReviewModal(false);
+      if (supervisionProject) {
+        const tasksRes = await axios.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
+        if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
+      }
+    } catch (err: any) {
+      alert('Lỗi đánh giá nhiệm vụ: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setReviewingTask(false);
+    }
+  };
+
   const handleReviewOutline = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProject) return;
@@ -514,9 +585,26 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                         <div className="text-slate-500">{p.student_email}</div>
                       </td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs">
-                          {p.status_display || p.status}
-                        </span>
+                        <div className="space-y-1">
+                          <span className={`px-2 py-0.5 rounded text-xs block w-fit border ${
+                            p.status === 'TOPIC_APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-semibold' :
+                            p.status === 'TOPIC_CONFIRMED' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 font-semibold' :
+                            p.status === 'TOPIC_REVISION' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 font-semibold' :
+                            p.status === 'TOPIC_DRAFT' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 font-semibold' :
+                            'bg-slate-800 text-slate-300 border-slate-700'
+                          }`}>
+                            {p.status_display || p.status}
+                          </span>
+                          {(p.status === 'TOPIC_DRAFT' || p.status === 'TOPIC_REVISION') && (
+                            <button
+                              onClick={() => handleOpenTopicConfirm(p)}
+                              className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition flex items-center gap-1"
+                              title="GV xác nhận đề tài sau khi thảo luận với sinh viên"
+                            >
+                              <span>✏️</span> Xác nhận đề tài
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3 text-right">
                         <button
@@ -1200,6 +1288,19 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                                 ⏳ Chưa xong
                               </span>
                             )}
+
+                            {/* Phase 5 Verdict Badge */}
+                            {t.review_verdict && t.review_verdict !== 'NOT_SUBMITTED' && (
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                t.review_verdict === 'ACCEPTED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+                                t.review_verdict === 'REVISION_REQUIRED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
+                                'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              }`}>
+                                {t.review_verdict === 'ACCEPTED' ? '🎯 Đạt' :
+                                 t.review_verdict === 'REVISION_REQUIRED' ? '⚠️ Cần sửa' :
+                                 '⏳ Chờ đánh giá'}
+                              </span>
+                            )}
                           </div>
                           {t.description && <p className="text-xs text-slate-400">{t.description}</p>}
                           <div className="text-[11px] text-slate-400 flex items-center gap-3 pt-0.5">
@@ -1210,20 +1311,63 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                               </span>
                             )}
                           </div>
+
+                          {/* Phase 5: Student Deliverable */}
+                          {(t.deliverable_file || t.deliverable_url) && (
+                            <div className="mt-1.5 p-2 rounded bg-slate-900 border border-slate-800 text-[11px] space-y-1">
+                              <span className="font-semibold text-emerald-400">📦 Sản phẩm SV nộp:</span>
+                              <div className="flex flex-wrap items-center gap-3">
+                                {t.deliverable_file && (
+                                  <a href={t.deliverable_file} target="_blank" rel="noreferrer" className="text-blue-400 underline font-medium hover:text-blue-300">
+                                    File đính kèm ↗
+                                  </a>
+                                )}
+                                {t.deliverable_url && (
+                                  <a href={t.deliverable_url} target="_blank" rel="noreferrer" className="text-blue-400 underline font-medium hover:text-blue-300">
+                                    Link sản phẩm (Git/Drive) ↗
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           {t.student_notes && (
                             <div className="mt-1 p-2 rounded bg-blue-950/20 border border-blue-500/20 text-[11px] text-blue-200">
                               <span className="font-semibold text-blue-400">📝 Ghi chú từ SV:</span> {t.student_notes}
                             </div>
                           )}
+
+                          {t.supervisor_review_notes && (
+                            <div className={`mt-1 p-2 rounded text-[11px] border ${
+                              t.review_verdict === 'REVISION_REQUIRED'
+                                ? 'bg-rose-950/20 border-rose-500/30 text-rose-300'
+                                : 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                            }`}>
+                              <span className="font-semibold">
+                                {t.review_verdict === 'REVISION_REQUIRED' ? '⚠️ Yêu cầu sửa của GV:' : '💬 Nhận xét của GV:'}
+                              </span>{' '}
+                              {t.supervisor_review_notes}
+                            </div>
+                          )}
                         </div>
 
-                        <button
-                          onClick={() => handleDeleteTask(t.id)}
-                          className="px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs transition"
-                          title="Xóa nhiệm vụ"
-                        >
-                          Xóa
-                        </button>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenTaskReview(t)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition flex items-center gap-1"
+                            title="Đánh giá sản phẩm nhiệm vụ của SV"
+                          >
+                            <span>⚖️</span>
+                            <span>Đánh giá</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTask(t.id)}
+                            className="px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[11px] transition"
+                            title="Xóa nhiệm vụ"
+                          >
+                            Xóa
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1509,6 +1653,165 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Phase 3: Xác nhận đề tài của Giảng viên hướng dẫn */}
+      {showTopicConfirmModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <span className="text-xs text-amber-400 font-semibold uppercase tracking-wider">Giai đoạn 3: GV Xác nhận đề tài</span>
+              <h3 className="text-base font-bold text-slate-100 mt-1">
+                {selectedTopicProject?.student_name} ({selectedTopicProject?.student_reg_no})
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                GVHD và SV cùng thống nhất tên đề tài trước khi trình Khoa phê duyệt chính thức.
+              </p>
+            </div>
+
+            <form onSubmit={handleConfirmTopic} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Việt (*)</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={topicConfirmVi}
+                  onChange={(e) => setTopicConfirmVi(e.target.value)}
+                  placeholder="Nhập tên đề tài tiếng Việt chính xác..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Anh</label>
+                <textarea
+                  rows={2}
+                  value={topicConfirmEn}
+                  onChange={(e) => setTopicConfirmEn(e.target.value)}
+                  placeholder="Nhập tên đề tài tiếng Anh (nếu có)..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="p-3 rounded-lg bg-blue-950/30 border border-blue-500/30 text-blue-300 text-[11px]">
+                ℹ️ Sau khi GV bấm xác nhận, đề tài sẽ chuyển trạng thái <b>TOPIC_CONFIRMED</b> và sẵn sàng trình Ban Chủ nhiệm Khoa duyệt.
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowTopicConfirmModal(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={confirmingTopic}
+                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
+                >
+                  {confirmingTopic ? 'Đang xác nhận...' : '✓ Xác nhận đề tài'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Phase 5: GV Đánh giá kết quả nhiệm vụ của sinh viên */}
+      {showTaskReviewModal && selectedTaskForReview && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Giai đoạn 5: Đánh giá nhiệm vụ</span>
+              <h3 className="text-base font-bold text-slate-100 mt-1">{selectedTaskForReview.title}</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Xem sản phẩm sinh viên nộp và đưa ra kết luận Đạt hoặc Yêu cầu sửa đổi.
+              </p>
+            </div>
+
+            {/* Deliverable details */}
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-2">
+              <h5 className="font-bold text-slate-300">Kết quả sinh viên đã nộp:</h5>
+              {selectedTaskForReview.deliverable_file || selectedTaskForReview.deliverable_url ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  {selectedTaskForReview.deliverable_file && (
+                    <a
+                      href={selectedTaskForReview.deliverable_file}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 font-semibold hover:bg-blue-600/30"
+                    >
+                      <span>📥</span> Tải file sản phẩm ↗
+                    </a>
+                  )}
+                  {selectedTaskForReview.deliverable_url && (
+                    <a
+                      href={selectedTaskForReview.deliverable_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-300 border border-purple-500/30 font-semibold hover:bg-purple-600/30"
+                    >
+                      <span>🔗</span> Link kho lưu trữ / Demo ↗
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <p className="text-slate-500 italic">Sinh viên chưa đính kèm file hoặc link trực tuyến.</p>
+              )}
+
+              {selectedTaskForReview.student_notes && (
+                <div className="pt-1 text-slate-300">
+                  <span className="text-slate-400 font-semibold">Ghi chú từ sinh viên:</span> {selectedTaskForReview.student_notes}
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleSubmitTaskReview} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Kết luận đánh giá (*)</label>
+                <select
+                  value={taskReviewVerdict}
+                  onChange={(e) => setTaskReviewVerdict(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                >
+                  <option value="ACCEPTED">🎯 ĐẠT YÊU CẦU (Hoàn thành nhiệm vụ)</option>
+                  <option value="REVISION_REQUIRED">⚠️ CHƯA ĐẠT / YÊU CẦU SỬA LẠI</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  Nhận xét & Hướng dẫn sửa đổi (nếu có):
+                </label>
+                <textarea
+                  rows={3}
+                  value={taskReviewNotes}
+                  onChange={(e) => setTaskReviewNotes(e.target.value)}
+                  placeholder="Ghi nhận xét đánh giá, chỉ ra điểm cần khắc phục hoặc sửa lại..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowTaskReviewModal(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={reviewingTask}
+                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 disabled:opacity-50"
+                >
+                  {reviewingTask ? 'Đang lưu...' : 'Lưu kết quả đánh giá'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

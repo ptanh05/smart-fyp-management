@@ -13,6 +13,15 @@ from .models import (
     Group,
     SupervisorOfStudentGroup,
     Document,
+    AcademicBatch,
+    ProposedAllocation,
+    GraduationProject,
+    ThesisDeferralRequest,
+    SupervisorQuota,
+    ProjectTopicArea,
+    InternshipInfo,
+    DefenseCouncil,
+    CouncilMember,
 )
 
 logger = logging.getLogger(__name__)
@@ -1094,4 +1103,340 @@ class CouncilConflictService:
                     "message": f"Giảng viên này là GVPB của đề tài sinh viên {s_name} ({p.student.registration_no}) đang trong hội đồng."
                 })
         return conflicts
+
+
+# ==============================================================================
+# GRADUATION THESIS WORKFLOW SERVICES (UTC 6-PHASE SPECIFICATION)
+# ==============================================================================
+
+class DegreeEligibilityService:
+    """Kiểm tra điều kiện học vị giảng viên theo chương trình đào tạo của Sinh viên"""
+
+    @classmethod
+    def is_doctoral_degree(cls, title: str) -> bool:
+        """Kiểm tra chức danh/học vị từ Tiến sĩ trở lên (TS, PGS, GS)"""
+        if not title:
+            return False
+        t = title.strip().upper()
+        # Checks for standard doctoral markers: TS, TS., PGS, GS, Tiến sĩ, Giáo sư
+        doctoral_markers = ["TS", "TIẾN SĨ", "TIEN SI", "PGS", "GS", "GIÁO SƯ", "GIAO SU", "PHÓ GIÁO SƯ"]
+        return any(marker in t for marker in doctoral_markers)
+
+    @classmethod
+    def validate_preferences_for_student(cls, student, supervisors: list):
+        """
+        Nút quyết định Giai đoạn 2: SV có thuộc CT Kỹ sư không?
+        - Có: chuyển sang bước kiểm tra học vị GV tối thiểu (bắt buộc TS trở lên).
+        - Đạt: tiếp tục.
+        - Không đạt: báo lỗi yêu cầu chọn lại.
+        - Không (Cử nhân): tiếp tục (chấp nhận ThS trở lên).
+        """
+        if student.degree_program == "ENGINEER":
+            ineligible_supervisors = []
+            for sup in supervisors:
+                if not sup:
+                    continue
+                title = sup.academic_title or ""
+                if not cls.is_doctoral_degree(title):
+                    ineligible_supervisors.append(
+                        f"{sup.user.get_full_name() or sup.user.username} (Học vị: {title or 'Chưa cập nhật'})"
+                    )
+
+            if ineligible_supervisors:
+                raise ValueError(
+                    f"Sinh viên chương trình Kỹ sư bắt buộc chọn GVHD có học vị từ Tiến sĩ trở lên (TS, PGS, GS). "
+                    f"Giảng viên sau không đủ điều kiện: {', '.join(ineligible_supervisors)}. Vui lòng chọn lại!"
+                )
+        return True
+
+
+class ThesisAllocationService:
+    """
+    Thuật toán phân công đề tài/GVHD dựa trên Ràng buộc cứng (Hard) và Ràng buộc mềm (Soft).
+    Hard Constraints:
+    - Quota/Capacity tối đa của Giảng viên không bị vượt quá (SupervisorQuota.max_total_quota).
+    - SV Kỹ sư chỉ gán cho GV có học vị Tiến sĩ trở lên.
+    - Mỗi SV chỉ được gán tối đa 1 GV.
+    Soft Constraints:
+    - Ưu tiên nguyện vọng: NV1 (100đ) > NV2 (70đ) > NV3 (40đ).
+    - Cân bằng tải phân bổ giữa các GV.
+    - Ưu tiên SV có điểm CPA cao hơn khi xảy ra cạnh tranh quota.
+    """
+
+    @classmethod
+    def run_allocation(cls, batch):
+        """Chạy thuật toán đề xuất phân công cho một đợt đồ án"""
+        from django.db import transaction
+
+        # 1. Lấy danh sách khảo sát/nguyện vọng của SV trong batch
+        surveys = list(
+            InternshipInfo.objects.filter(batch=batch)
+            .select_related("student__user", "preference_1", "preference_2", "preference_3", "preferred_supervisor", "topic_direction")
+            .order_by("-student__cpa", "submitted_at")
+        )
+
+        # 2. Lấy định mức Quota của GV trong batch
+        quotas = {
+            q.supervisor_id: {
+                "max": q.max_total_quota,
+                "assigned": 0,
+                "supervisor": q.supervisor,
+            }
+            for q in SupervisorQuota.objects.filter(batch=batch).select_related("supervisor__user")
+        }
+
+        # Fallback: Nếu GV chưa có SupervisorQuota bản ghi riêng, tạo quota mặc định (10)
+        for s in Supervisor.objects.all():
+            if s.id not in quotas:
+                quotas[s.id] = {
+                    "max": 10,
+                    "assigned": 0,
+                    "supervisor": s,
+                }
+
+        results = []
+        assigned_students = set()
+
+        def can_assign(student, supervisor):
+            if not supervisor or supervisor.id not in quotas:
+                return False
+            # Hard constraint: Check remaining quota
+            q_info = quotas[supervisor.id]
+            if q_info["assigned"] >= q_info["max"]:
+                return False
+            # Hard constraint: Check degree requirement for Engineer students
+            if student.degree_program == "ENGINEER":
+                if not DegreeEligibilityService.is_doctoral_degree(supervisor.academic_title or ""):
+                    return False
+            return True
+
+        # Vòng 1: Xét Nguyện vọng 1 (NV1)
+        for s in surveys:
+            student = s.student
+            if student.id in assigned_students:
+                continue
+            sup1 = s.preference_1 or s.preferred_supervisor
+            if can_assign(student, sup1):
+                quotas[sup1.id]["assigned"] += 1
+                assigned_students.add(student.id)
+                results.append({
+                    "student": student,
+                    "supervisor": sup1,
+                    "matched_preference": 1,
+                    "match_score": 100.0,
+                })
+
+        # Vòng 2: Xét Nguyện vọng 2 (NV2)
+        for s in surveys:
+            student = s.student
+            if student.id in assigned_students:
+                continue
+            sup2 = s.preference_2
+            if can_assign(student, sup2):
+                quotas[sup2.id]["assigned"] += 1
+                assigned_students.add(student.id)
+                results.append({
+                    "student": student,
+                    "supervisor": sup2,
+                    "matched_preference": 2,
+                    "match_score": 70.0,
+                })
+
+        # Vòng 3: Xét Nguyện vọng 3 (NV3)
+        for s in surveys:
+            student = s.student
+            if student.id in assigned_students:
+                continue
+            sup3 = s.preference_3
+            if can_assign(student, sup3):
+                quotas[sup3.id]["assigned"] += 1
+                assigned_students.add(student.id)
+                results.append({
+                    "student": student,
+                    "supervisor": sup3,
+                    "matched_preference": 3,
+                    "match_score": 40.0,
+                })
+
+        # Vòng 4: Gán bổ sung theo hướng nghiên cứu cho SV chưa trúng NV nào
+        unassigned_surveys = [s for s in surveys if s.student.id not in assigned_students]
+        for s in unassigned_surveys:
+            student = s.student
+            topic = s.topic_direction
+            # Tìm GV còn quota và phù hợp điều kiện
+            candidates = []
+            for sup_id, q_info in quotas.items():
+                sup = q_info["supervisor"]
+                if can_assign(student, sup):
+                    # Ưu tiên GV còn nhiều quota trống nhất để cân bằng tải
+                    remaining = q_info["max"] - q_info["assigned"]
+                    candidates.append((remaining, sup))
+
+            if candidates:
+                candidates.sort(key=lambda x: x[0], reverse=True)
+                chosen_sup = candidates[0][1]
+                quotas[chosen_sup.id]["assigned"] += 1
+                assigned_students.add(student.id)
+                results.append({
+                    "student": student,
+                    "supervisor": chosen_sup,
+                    "matched_preference": 0,  # Hệ thống phân bổ tự động
+                    "match_score": 10.0,
+                })
+
+        # Lưu kết quả vào bảng ProposedAllocation
+        with transaction.atomic():
+            ProposedAllocation.objects.filter(batch=batch, is_overridden=False).delete()
+            created_allocations = []
+            for item in results:
+                alloc, _ = ProposedAllocation.objects.update_or_create(
+                    batch=batch,
+                    student=item["student"],
+                    defaults={
+                        "supervisor": item["supervisor"],
+                        "matched_preference": item["matched_preference"],
+                        "match_score": item["match_score"],
+                        "is_overridden": False,
+                    }
+                )
+                created_allocations.append(alloc)
+
+        # Thống kê kết quả
+        total = len(surveys)
+        p1_count = sum(1 for r in results if r["matched_preference"] == 1)
+        p2_count = sum(1 for r in results if r["matched_preference"] == 2)
+        p3_count = sum(1 for r in results if r["matched_preference"] == 3)
+        auto_count = sum(1 for r in results if r["matched_preference"] == 0)
+
+        return {
+            "total_students": total,
+            "allocated_count": len(results),
+            "unallocated_count": total - len(results),
+            "nv1_matched": p1_count,
+            "nv2_matched": p2_count,
+            "nv3_matched": p3_count,
+            "system_assigned": auto_count,
+            "success_rate": round(len(results) / total * 100, 1) if total > 0 else 0,
+            "allocations_count": len(created_allocations),
+        }
+
+    @classmethod
+    def finalize_allocation(cls, batch, user=None):
+        """
+        Khoa chốt phân công: Chuyển toàn bộ ProposedAllocation thành GraduationProject chính thức.
+        Trạng thái chuyển sang ALLOCATED hoặc TOPIC_DRAFT.
+        """
+        from django.db import transaction
+
+        proposed = ProposedAllocation.objects.filter(batch=batch).select_related("student", "supervisor")
+        created_projects = []
+
+        with transaction.atomic():
+            for p in proposed:
+                # Kiểm tra survey có tentative title hay không
+                survey = InternshipInfo.objects.filter(student=p.student, batch=batch).first()
+                default_title = (survey.tentative_title.strip() if survey and survey.tentative_title else "") or f"Đề tài đồ án tốt nghiệp - SV {p.student.registration_no}"
+                topic_cat = survey.topic_direction if survey else None
+
+                proj, created = GraduationProject.objects.update_or_create(
+                    student=p.student,
+                    defaults={
+                        "supervisor": p.supervisor,
+                        "batch": batch,
+                        "topic_category": topic_cat,
+                        "topic_title_vi": default_title,
+                        "status": "TOPIC_DRAFT",
+                    }
+                )
+                created_projects.append(proj)
+
+                # Gửi email / thông báo kết quả phân công
+                try:
+                    NotificationService.create_notification(
+                        user=p.student.user,
+                        notification_type="general",
+                        title="[Đồ án Tốt nghiệp] Kết quả phân công GVHD",
+                        message=f"Bạn đã được phân công Giảng viên hướng dẫn: Thầy/Cô {p.supervisor.user.get_full_name()} ({p.supervisor.academic_title or 'GV'}). Hãy liên hệ GVHD để cùng xác định đề tài (trạng thái Draft).",
+                        action_url="/student/dashboard",
+                        send_email=True,
+                    )
+                except Exception as e:
+                    logger.warning("Could not send notification for student allocation: %s", e)
+
+        return {
+            "batch_code": batch.batch_code,
+            "finalized_projects_count": len(created_projects),
+            "message": f"Khoa đã chốt phân công thành công {len(created_projects)} đề tài cho đợt {batch.batch_code}!"
+        }
+
+
+class AcademicClearanceService:
+    """Xét điều kiện làm đồ án (Giai đoạn 4) & Kiểm tra học vụ cuối trước bảo vệ (Giai đoạn 6)"""
+
+    @staticmethod
+    def check_thesis_start_eligibility(project):
+        """
+        Giai đoạn 4: Xét điều kiện làm ĐA
+        - Đủ: Tiếp tục làm đồ án (IN_PROGRESS)
+        - Không đủ: Kiểm tra Force Approve
+          + Có (is_force_approved=True): Tiếp tục (IN_PROGRESS)
+          + Không: Loại khỏi đợt (DISQUALIFIED)
+        """
+        student = project.student
+        cpa = getattr(student, "cpa", 0.0)
+        is_eligible = getattr(student, "is_eligible_for_thesis", True) and (cpa is None or cpa >= 2.0)
+
+        if is_eligible or project.is_force_approved:
+            project.status = "IN_PROGRESS"
+            project.save(update_fields=["status"])
+            return True, "Đủ điều kiện thực hiện đồ án tốt nghiệp"
+        else:
+            project.status = "DISQUALIFIED"
+            project.save(update_fields=["status"])
+            return False, "Không đủ điều kiện làm đồ án (CPA < 2.0 hoặc vi phạm quy chế) và không được duyệt đặc cách"
+
+    @staticmethod
+    def check_final_academic_clearance(project):
+        """
+        Giai đoạn 6: Kiểm tra điều kiện học vụ cuối
+        - Đủ: Cho phép bảo vệ (DEFENSE_READY)
+        - Không đủ: Chuyển sang xét bảo lưu đồ án
+        """
+        if project.academic_clearance_status == "CLEARED":
+            if project.is_eligible_for_defense:
+                project.status = "DEFENSE_READY"
+                project.save(update_fields=["status"])
+                return True, "Đủ điều kiện bảo vệ đồ án tốt nghiệp"
+        return False, "Chưa hoàn tất điều kiện học vụ cuối, chuyển sang xét bảo lưu đồ án"
+
+
+class CouncilStructureService:
+    """Xác thực cơ cấu Hội đồng bảo vệ chuẩn UTC: 1 Chủ tịch, 2 Thư ký, 2 Ủy viên (1CT-2TK-2UV)"""
+
+    @staticmethod
+    def validate_utc_council_structure(council):
+        members = list(council.members.all())
+        chairs = [m for m in members if m.role == "CHAIR"]
+        secretaries = [m for m in members if m.role == "SECRETARY"]
+        regular_members = [m for m in members if m.role in ["MEMBER", "EXTERNAL_MEMBER"]]
+
+        is_valid = (len(chairs) == 1 and len(secretaries) == 2 and len(regular_members) == 2 and len(members) == 5)
+        errors = []
+        if len(chairs) != 1:
+            errors.append(f"Hội đồng cần đúng 1 Chủ tịch (hiện có: {len(chairs)})")
+        if len(secretaries) != 2:
+            errors.append(f"Hội đồng cần đúng 2 Thư ký (hiện có: {len(secretaries)})")
+        if len(regular_members) != 2:
+            errors.append(f"Hội đồng cần đúng 2 Ủy viên (hiện có: {len(regular_members)})")
+
+        return {
+            "is_valid": is_valid,
+            "total_members": len(members),
+            "chairs_count": len(chairs),
+            "secretaries_count": len(secretaries),
+            "members_count": len(regular_members),
+            "errors": errors,
+            "message": "Cơ cấu hội đồng chuẩn 1CT-2TK-2UV (5 thành viên)" if is_valid else "; ".join(errors)
+        }
+
 

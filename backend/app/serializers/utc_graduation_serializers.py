@@ -3,7 +3,9 @@ from ..models import (
     Supervisor,
     ProjectTopicArea,
     InternshipInfo,
+    ProposedAllocation,
     GraduationProject,
+    ThesisDeferralRequest,
     OutlineReview,
     WeeklyProgressReport,
     SupervisionMeetingLog,
@@ -23,19 +25,40 @@ class SupervisorBriefSerializer(serializers.ModelSerializer):
     department = serializers.CharField(source="department_name", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
     email = serializers.CharField(source="user.email", read_only=True)
+    is_eligible_for_engineer = serializers.SerializerMethodField()
 
     class Meta:
         model = Supervisor
-        fields = ["id", "supervisor_id", "full_name", "academic_title", "department", "phone_number", "username", "email", "is_external", "research_interest"]
+        fields = [
+            "id",
+            "supervisor_id",
+            "full_name",
+            "academic_title",
+            "department",
+            "phone_number",
+            "username",
+            "email",
+            "is_external",
+            "research_interest",
+            "is_eligible_for_engineer",
+        ]
 
     def get_full_name(self, obj):
         prefix = f"{obj.academic_title} " if obj.academic_title else ""
         return f"{prefix}{obj.user.get_full_name() or obj.user.username}".strip()
 
+    def get_is_eligible_for_engineer(self, obj):
+        title = obj.academic_title or ""
+        doctoral_markers = ["TS", "TIẾN SĨ", "TIEN SI", "PGS", "GS", "GIÁO SƯ", "GIAO SU", "PHÓ GIÁO SƯ"]
+        return any(marker in title.upper() for marker in doctoral_markers)
+
 
 class InternshipInfoSerializer(serializers.ModelSerializer):
     topic_direction_name = serializers.CharField(source="topic_direction.name", read_only=True, default="")
     preferred_supervisor_name = serializers.SerializerMethodField()
+    preference_1_name = serializers.SerializerMethodField()
+    preference_2_name = serializers.SerializerMethodField()
+    preference_3_name = serializers.SerializerMethodField()
 
     class Meta:
         model = InternshipInfo
@@ -49,16 +72,35 @@ class InternshipInfoSerializer(serializers.ModelSerializer):
             "topic_direction_name",
             "preferred_supervisor",
             "preferred_supervisor_name",
+            "preference_1",
+            "preference_1_name",
+            "preference_2",
+            "preference_2_name",
+            "preference_3",
+            "preference_3_name",
+            "secondary_criteria_note",
             "tentative_title",
             "submitted_at"
         ]
         read_only_fields = ["student", "submitted_at"]
 
-    def get_preferred_supervisor_name(self, obj):
-        if not obj.preferred_supervisor:
+    def _format_sup_name(self, sup):
+        if not sup:
             return ""
-        prefix = f"{obj.preferred_supervisor.academic_title} " if obj.preferred_supervisor.academic_title else ""
-        return f"{prefix}{obj.preferred_supervisor.user.get_full_name()}".strip()
+        prefix = f"{sup.academic_title} " if sup.academic_title else ""
+        return f"{prefix}{sup.user.get_full_name()}".strip()
+
+    def get_preferred_supervisor_name(self, obj):
+        return self._format_sup_name(obj.preferred_supervisor)
+
+    def get_preference_1_name(self, obj):
+        return self._format_sup_name(obj.preference_1 or obj.preferred_supervisor)
+
+    def get_preference_2_name(self, obj):
+        return self._format_sup_name(obj.preference_2)
+
+    def get_preference_3_name(self, obj):
+        return self._format_sup_name(obj.preference_3)
 
     def validate(self, attrs):
         is_interning = attrs.get("is_interning", False)
@@ -154,6 +196,7 @@ class WeeklyProgressReportSerializer(serializers.ModelSerializer):
 class SupervisionTaskSerializer(serializers.ModelSerializer):
     priority_display = serializers.CharField(source="get_priority_display", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+    review_verdict_display = serializers.CharField(source="get_review_verdict_display", read_only=True)
     assigned_by_name = serializers.CharField(source="assigned_by.user.get_full_name", read_only=True)
 
     class Meta:
@@ -174,10 +217,16 @@ class SupervisionTaskSerializer(serializers.ModelSerializer):
             "is_completed",
             "completed_at",
             "student_notes",
+            "deliverable_file",
+            "deliverable_url",
+            "review_verdict",
+            "review_verdict_display",
+            "supervisor_review_notes",
+            "reviewed_at",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["assigned_by", "completed_at", "created_at", "updated_at"]
+        read_only_fields = ["assigned_by", "completed_at", "reviewed_at", "created_at", "updated_at"]
 
 
 class SupervisionMeetingLogSerializer(serializers.ModelSerializer):
@@ -290,6 +339,7 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
     outline_review = OutlineReviewSerializer(read_only=True)
     weekly_reports = WeeklyProgressReportSerializer(many=True, read_only=True)
     final_grade = FinalGradeSummarySerializer(source="final_grade_summary", read_only=True)
+    signed_outline_file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = GraduationProject
@@ -318,6 +368,10 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
             "defense_status",
             "defense_status_display",
             "is_currently_defending",
+            "is_force_approved",
+            "academic_clearance_status",
+            "signed_outline_file",
+            "signed_outline_file_url",
             "supervisor_score",
             "supervisor_feedback",
             "is_eligible_for_defense",
@@ -335,6 +389,11 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at"
         ]
+
+    def get_signed_outline_file_url(self, obj):
+        if obj.signed_outline_file:
+            return obj.signed_outline_file.url
+        return ""
 
     def get_is_currently_defending(self, obj):
         if obj.council and obj.council.current_defending_project_id == obj.id:
@@ -355,3 +414,71 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
             "todo": todo,
             "completion_rate": rate
         }
+
+
+class ProposedAllocationSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    student_reg_no = serializers.CharField(source="student.registration_no", read_only=True)
+    student_cpa = serializers.FloatField(source="student.cpa", read_only=True)
+    student_program = serializers.CharField(source="student.get_degree_program_display", read_only=True)
+    supervisor_name = serializers.SerializerMethodField()
+    supervisor_title = serializers.CharField(source="supervisor.academic_title", read_only=True)
+
+    class Meta:
+        model = ProposedAllocation
+        fields = [
+            "id",
+            "batch",
+            "student",
+            "student_name",
+            "student_reg_no",
+            "student_cpa",
+            "student_program",
+            "supervisor",
+            "supervisor_name",
+            "supervisor_title",
+            "matched_preference",
+            "match_score",
+            "is_overridden",
+            "override_reason",
+            "created_at",
+        ]
+
+    def get_supervisor_name(self, obj):
+        prefix = f"{obj.supervisor.academic_title} " if obj.supervisor.academic_title else ""
+        return f"{prefix}{obj.supervisor.user.get_full_name() or obj.supervisor.user.username}".strip()
+
+
+class ThesisDeferralRequestSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
+    student_reg_no = serializers.CharField(source="student.registration_no", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    evidence_file_url = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.CharField(source="reviewed_by.get_full_name", read_only=True)
+
+    class Meta:
+        model = ThesisDeferralRequest
+        fields = [
+            "id",
+            "project",
+            "student",
+            "student_name",
+            "student_reg_no",
+            "reason",
+            "evidence_file",
+            "evidence_file_url",
+            "status",
+            "status_display",
+            "admin_notes",
+            "submitted_at",
+            "reviewed_at",
+            "reviewed_by",
+            "reviewed_by_name",
+        ]
+        read_only_fields = ["submitted_at", "reviewed_at", "reviewed_by"]
+
+    def get_evidence_file_url(self, obj):
+        if obj.evidence_file:
+            return obj.evidence_file.url
+        return ""
+

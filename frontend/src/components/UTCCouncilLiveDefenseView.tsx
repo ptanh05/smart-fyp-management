@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useModalGuard } from '../utils/modalHooks';
+import { apiService } from '../services/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
@@ -9,6 +10,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [autoSync, setAutoSync] = useState(true);
+  const [exportingMinutes, setExportingMinutes] = useState(false);
 
   // Live Timer State
   const [timerSeconds, setTimerSeconds] = useState(15 * 60); // 15 mins default
@@ -243,6 +245,26 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
     }
   };
 
+  const handleExportCouncilMinutes = async () => {
+    if (!councilData?.id) return;
+    try {
+      setExportingMinutes(true);
+      const blob = await apiService.exportCouncilMinutesPdf(councilData.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Bien_ban_Hoi_dong_${councilData.council_number || councilData.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert('Lỗi xuất biên bản hội đồng: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setExportingMinutes(false);
+    }
+  };
+
   const totalPreview =
     (Number(scorePres) || 0) +
     (Number(scoreContent) || 0) +
@@ -320,6 +342,18 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                 : '🔒 Khóa điểm Hội đồng'}
             </button>
           )}
+
+          {/* Phase 6: Step 41 - Export Council Minutes PDF */}
+          <button
+            onClick={handleExportCouncilMinutes}
+            disabled={exportingMinutes}
+            className="px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-md bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30 disabled:opacity-50"
+            title="Xuất biên bản tổng hợp điểm bảo vệ của Hội đồng chuẩn định dạng PDF"
+          >
+            <span>📄</span>
+            <span>{exportingMinutes ? 'Đang xuất PDF...' : 'Xuất Biên Bản Hội Đồng (PDF)'}</span>
+          </button>
+
           {/* Live Sync Toggle */}
           <button
             onClick={() => setAutoSync(!autoSync)}
@@ -332,11 +366,6 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
             <span className={`w-2 h-2 rounded-full ${autoSync ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
             {autoSync ? 'Đang Live Sync (5s)' : 'Tạm dừng Sync'}
           </button>
-
-          <div className="text-right">
-            <span className="text-xs text-slate-400">Tổng số đề tài</span>
-            <p className="text-2xl font-bold text-emerald-400">{projects.length} SV</p>
-          </div>
         </div>
       </div>
 

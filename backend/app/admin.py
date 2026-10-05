@@ -41,6 +41,9 @@ from .models import (
     DefenseCouncil,
     CouncilMember,
     GraduationProject,
+    ProposedAllocation,
+    ThesisDeferralRequest,
+    SupervisionTask,
 )
 from .services import NotificationService
 from .services import CouncilConflictService
@@ -1694,4 +1697,19 @@ class GraduationProjectAdmin(admin.ModelAdmin):
                     request,
                     f"⚠️ CẢNH BÁO XUNG ĐỘT LỢI ÍCH: {conflicts[0]['message']} trong {obj.council.council_name}."
                 )
+
+
+@admin.register(ProposedAllocation)
+class ProposedAllocationAdmin(admin.ModelAdmin):
+    list_display = ["batch", "student", "supervisor", "matched_preference", "match_score", "is_overridden"]
+    list_filter = ["batch", "is_overridden", "matched_preference"]
+    search_fields = ["student__registration_no", "student__user__first_name", "supervisor__user__first_name"]
+
+
+@admin.register(ThesisDeferralRequest)
+class ThesisDeferralRequestAdmin(admin.ModelAdmin):
+    list_display = ["student", "project", "status", "submitted_at", "reviewed_at"]
+    list_filter = ["status", "submitted_at"]
+    search_fields = ["student__registration_no", "reason"]
+
 

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { apiService } from '../services/api';
+import type { ThesisDeferralRequest } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
@@ -13,7 +15,10 @@ export const UTCStudentGraduationView: React.FC = () => {
   const [isInterning, setIsInterning] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [topicDirectionId, setTopicDirectionId] = useState<number | string>('');
-  const [preferredSupervisorId, setPreferredSupervisorId] = useState<number | string>('');
+  const [preference1Id, setPreference1Id] = useState<number | string>('');
+  const [preference2Id, setPreference2Id] = useState<number | string>('');
+  const [preference3Id, setPreference3Id] = useState<number | string>('');
+  const [secondaryCriteriaNote, setSecondaryCriteriaNote] = useState('');
   const [tentativeTitle, setTentativeTitle] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -23,11 +28,17 @@ export const UTCStudentGraduationView: React.FC = () => {
   // Project Data
   const [projectData, setProjectData] = useState<any>(null);
 
-  // Outline Form
+  // Outline Form & Phase 3 Topic Draft / PDF
   const [outlineTitleVi, setOutlineTitleVi] = useState('');
   const [outlineTitleEn, setOutlineTitleEn] = useState('');
   const [outlineFile, setOutlineFile] = useState<File | null>(null);
   const [outlineSubmitting, setOutlineSubmitting] = useState(false);
+  const [draftTopicVi, setDraftTopicVi] = useState('');
+  const [draftTopicEn, setDraftTopicEn] = useState('');
+  const [savingDraftTopic, setSavingDraftTopic] = useState(false);
+  const [generatingOutlinePdf, setGeneratingOutlinePdf] = useState(false);
+  const [signedOutlineFile, setSignedOutlineFile] = useState<File | null>(null);
+  const [uploadingSignedOutline, setUploadingSignedOutline] = useState(false);
 
   // Weekly Reports Data
   const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
@@ -49,6 +60,21 @@ export const UTCStudentGraduationView: React.FC = () => {
   const [studentNotesInput, setStudentNotesInput] = useState('');
   const [savingTaskNote, setSavingTaskNote] = useState(false);
 
+  // Phase 5: Task Deliverable Submission Modal State
+  const [selectedTaskForDeliverable, setSelectedTaskForDeliverable] = useState<any | null>(null);
+  const [deliverableFile, setDeliverableFile] = useState<File | null>(null);
+  const [deliverableUrl, setDeliverableUrl] = useState('');
+  const [deliverableNotes, setDeliverableNotes] = useState('');
+  const [submittingDeliverable, setSubmittingDeliverable] = useState(false);
+
+  // Deferral Request Modal (Nhánh bảo lưu)
+  const [showDeferralModal, setShowDeferralModal] = useState(false);
+  const [deferralReasonCategory, setDeferralReasonCategory] = useState<'HEALTH' | 'ACADEMIC' | 'FINANCIAL' | 'PERSONAL'>('ACADEMIC');
+  const [deferralReasonDetails, setDeferralReasonDetails] = useState('');
+  const [deferralEvidenceFile, setDeferralEvidenceFile] = useState<File | null>(null);
+  const [submittingDeferral, setSubmittingDeferral] = useState(false);
+  const [deferralRequests, setDeferralRequests] = useState<ThesisDeferralRequest[]>([]);
+
   const getHeaders = () => {
     const token = localStorage.getItem('access_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -57,12 +83,13 @@ export const UTCStudentGraduationView: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [surveyRes, projRes, weeklyRes, logsRes, tasksRes] = await Promise.all([
+      const [surveyRes, projRes, weeklyRes, logsRes, tasksRes, deferralRes] = await Promise.all([
         axios.get(`${API_BASE}/student/survey/`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/student/graduation-project/`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/student/weekly-reports/`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/student/supervision-logs/`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null),
+        apiService.getStudentDeferralRequests().catch(() => []),
       ]);
 
       if (surveyRes?.data) {
@@ -73,7 +100,11 @@ export const UTCStudentGraduationView: React.FC = () => {
           setIsInterning(surveyRes.data.survey.is_interning);
           setCompanyName(surveyRes.data.survey.company_name || '');
           setTopicDirectionId(surveyRes.data.survey.topic_direction || '');
-          setPreferredSupervisorId(surveyRes.data.survey.preferred_supervisor || '');
+          const p1 = surveyRes.data.survey.preference_1 || surveyRes.data.survey.preferred_supervisor || '';
+          setPreference1Id(p1);
+          setPreference2Id(surveyRes.data.survey.preference_2 || '');
+          setPreference3Id(surveyRes.data.survey.preference_3 || '');
+          setSecondaryCriteriaNote(surveyRes.data.survey.secondary_criteria_note || '');
           setTentativeTitle(surveyRes.data.survey.tentative_title || '');
         }
       }
@@ -82,6 +113,8 @@ export const UTCStudentGraduationView: React.FC = () => {
         setProjectData(projRes.data.project);
         setOutlineTitleVi(projRes.data.project.topic_title_vi || '');
         setOutlineTitleEn(projRes.data.project.topic_title_en || '');
+        setDraftTopicVi(projRes.data.project.topic_title_vi || '');
+        setDraftTopicEn(projRes.data.project.topic_title_en || '');
       }
 
       if (weeklyRes?.data) {
@@ -94,6 +127,10 @@ export const UTCStudentGraduationView: React.FC = () => {
 
       if (tasksRes?.data) {
         setTasksData(tasksRes.data);
+      }
+
+      if (deferralRes) {
+        setDeferralRequests(Array.isArray(deferralRes) ? deferralRes : []);
       }
     } catch (err) {
       console.error(err);
@@ -175,7 +212,11 @@ export const UTCStudentGraduationView: React.FC = () => {
           is_interning: isInterning,
           company_name: companyName,
           topic_direction: topicDirectionId || null,
-          preferred_supervisor: preferredSupervisorId || null,
+          preferred_supervisor: preference1Id || null,
+          preference_1: preference1Id || null,
+          preference_2: preference2Id || null,
+          preference_3: preference3Id || null,
+          secondary_criteria_note: secondaryCriteriaNote,
           tentative_title: tentativeTitle,
           phone_number: phone,
           email: email,
@@ -186,9 +227,133 @@ export const UTCStudentGraduationView: React.FC = () => {
       alert('Đã lưu thông tin khảo sát và nguyện vọng thành công!');
       fetchData();
     } catch (err: any) {
-      alert('Lỗi: ' + (err.response?.data?.company_name?.[0] || JSON.stringify(err.response?.data) || err.message));
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.detail ||
+        err.response?.data?.preference_1?.[0] ||
+        err.response?.data?.company_name?.[0] ||
+        JSON.stringify(err.response?.data) ||
+        err.message;
+      alert('Lỗi: ' + msg);
     } finally {
       setSurveySaving(false);
+    }
+  };
+
+  const handleSaveDraftTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectData?.id || !draftTopicVi.trim()) {
+      alert('Vui lòng nhập tên đề tài tiếng Việt.');
+      return;
+    }
+    try {
+      setSavingDraftTopic(true);
+      await apiService.submitTopicDraft({
+        project_id: projectData.id,
+        topic_title_vi: draftTopicVi.trim(),
+        topic_title_en: draftTopicEn.trim(),
+      });
+      alert('Đã cập nhật bản thảo đề tài (Draft)! Đang chờ GVHD xác nhận.');
+      fetchData();
+    } catch (err: any) {
+      alert('Lỗi lưu đề tài: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setSavingDraftTopic(false);
+    }
+  };
+
+  const handleExportOutlinePdf = async () => {
+    if (!projectData?.id) return;
+    try {
+      setGeneratingOutlinePdf(true);
+      const blob = await apiService.exportOutlinePdf(projectData.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `De_cuong_DATN_${projectData.student_reg_no || 'UTC'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert('Lỗi xuất PDF đề cương: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setGeneratingOutlinePdf(false);
+    }
+  };
+
+  const handleUploadSignedOutline = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectData?.id || !signedOutlineFile) {
+      alert('Vui lòng chọn file đề cương PDF đã có chữ ký.');
+      return;
+    }
+    try {
+      setUploadingSignedOutline(true);
+      await apiService.uploadSignedOutline(projectData.id, signedOutlineFile);
+      alert('Đã nộp đề cương có chữ ký thành công! Khoa đã lưu hồ sơ.');
+      setSignedOutlineFile(null);
+      fetchData();
+    } catch (err: any) {
+      alert('Lỗi nộp hồ sơ đề cương: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setUploadingSignedOutline(false);
+    }
+  };
+
+  const handleSubmitDeliverable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTaskForDeliverable) return;
+    if (!deliverableFile && !deliverableUrl.trim()) {
+      alert('Vui lòng đính kèm file kết quả hoặc nhập link URL sản phẩm (GitHub/Drive/Demo).');
+      return;
+    }
+    try {
+      setSubmittingDeliverable(true);
+      const fd = new FormData();
+      if (deliverableFile) fd.append('deliverable_file', deliverableFile);
+      if (deliverableUrl.trim()) fd.append('deliverable_url', deliverableUrl.trim());
+      if (deliverableNotes.trim()) fd.append('student_notes', deliverableNotes.trim());
+
+      await apiService.submitTaskDeliverable(selectedTaskForDeliverable.id, fd);
+      alert('Đã nộp kết quả thực hiện nhiệm vụ thành công! Đang chờ GVHD đánh giá.');
+      setSelectedTaskForDeliverable(null);
+      setDeliverableFile(null);
+      setDeliverableUrl('');
+      setDeliverableNotes('');
+      const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
+      if (refreshTasks?.data) setTasksData(refreshTasks.data);
+    } catch (err: any) {
+      alert('Lỗi nộp sản phẩm: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setSubmittingDeliverable(false);
+    }
+  };
+
+  const handleSubmitDeferral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deferralReasonDetails.trim()) {
+      alert('Vui lòng nhập lý do chi tiết xin bảo lưu đồ án.');
+      return;
+    }
+    try {
+      setSubmittingDeferral(true);
+      const fd = new FormData();
+      fd.append('reason_category', deferralReasonCategory);
+      fd.append('reason_details', deferralReasonDetails.trim());
+      if (deferralEvidenceFile) fd.append('evidence_file', deferralEvidenceFile);
+
+      await apiService.submitStudentDeferralRequest(fd);
+      alert('Đã gửi đơn xin bảo lưu đồ án thành công! Đang chờ Ban Chủ nhiệm Khoa xem xét.');
+      setDeferralReasonDetails('');
+      setDeferralEvidenceFile(null);
+      setShowDeferralModal(false);
+      const deferrals = await apiService.getStudentDeferralRequests().catch(() => []);
+      setDeferralRequests(Array.isArray(deferrals) ? deferrals : []);
+    } catch (err: any) {
+      alert('Lỗi nộp đơn bảo lưu: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setSubmittingDeferral(false);
     }
   };
 
@@ -290,17 +455,52 @@ export const UTCStudentGraduationView: React.FC = () => {
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6 shadow-xl">
           {projectData ? (
             <>
-              <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 pb-4">
                 <div>
-                  <span className="text-xs font-mono px-2.5 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                    Trạng thái: {projectData.status_display || projectData.status}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-mono px-2.5 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+                      Trạng thái: {projectData.status_display || projectData.status}
+                    </span>
+                    {projectData.is_force_approved && (
+                      <span className="text-xs px-2.5 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold">
+                        ⚡ Đã được duyệt ngoại lệ (Force Approved)
+                      </span>
+                    )}
+                    {projectData.academic_clearance_status === 'CLEARED' && (
+                      <span className="text-xs px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                        ✅ Đủ điều kiện học vụ
+                      </span>
+                    )}
+                    {projectData.academic_clearance_status === 'FAILED' && (
+                      <span className="text-xs px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold">
+                        ⚠️ Chưa đạt điều kiện học vụ
+                      </span>
+                    )}
+                  </div>
                   <h3 className="text-xl font-bold text-slate-100 mt-2">{projectData.topic_title_vi}</h3>
                   {projectData.topic_title_en && (
                     <p className="text-sm text-slate-400 italic mt-0.5">{projectData.topic_title_en}</p>
                   )}
                 </div>
+
+                <button
+                  onClick={() => setShowDeferralModal(true)}
+                  className="px-3.5 py-2 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-2 shadow"
+                >
+                  <span>📝</span>
+                  <span>Đơn xin bảo lưu ({deferralRequests.length})</span>
+                </button>
               </div>
+
+              {projectData.status === 'DISQUALIFIED' && (
+                <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs space-y-1">
+                  <h5 className="font-bold text-rose-200 text-sm">❌ Đồ án không đủ điều kiện làm trong đợt này (Bị loại khỏi đợt)</h5>
+                  <p>
+                    Hồ sơ học vụ chưa đáp ứng tiêu chuẩn tối thiểu (CPA &lt; 2.0 hoặc thiếu điều kiện tiên quyết).
+                    Sinh viên có thể nộp <b>Đơn xin bảo lưu</b> bằng nút phía trên để Ban Chủ nhiệm Khoa xem xét bảo lưu kết quả sang đợt kế tiếp.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-1">
@@ -347,12 +547,20 @@ export const UTCStudentGraduationView: React.FC = () => {
               <p className="text-sm text-slate-400 max-w-md mx-auto">
                 Hãy hoàn thành bước <b>"2. Khảo sát & Nguyện vọng"</b> để Ban chủ nhiệm Khoa CNTT tiến hành phân bổ GVHD theo thuật toán tối ưu MCMF.
               </p>
-              <button
-                onClick={() => setActiveTab('survey')}
-                className="mt-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition"
-              >
-                Điền khảo sát ngay
-              </button>
+              <div className="flex justify-center gap-3 pt-2">
+                <button
+                  onClick={() => setActiveTab('survey')}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition"
+                >
+                  Điền khảo sát ngay
+                </button>
+                <button
+                  onClick={() => setShowDeferralModal(true)}
+                  className="px-4 py-2.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg text-sm font-semibold transition"
+                >
+                  Nộp đơn bảo lưu
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -361,10 +569,42 @@ export const UTCStudentGraduationView: React.FC = () => {
       {/* Tab 2: Survey & Preferences */}
       {activeTab === 'survey' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6 shadow-xl max-w-3xl">
-          <div>
-            <h3 className="text-lg font-bold text-slate-100">Phiếu Khảo sát Thực tập & Đăng ký Nguyện vọng ĐATN</h3>
-            <p className="text-xs text-slate-400">Dữ liệu được dùng để phân GVHD tự động theo chỉ tiêu Quota và nguyện vọng chuyên môn</p>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-100">Phiếu Khảo sát Thực tập & Đăng ký Nguyện vọng ĐATN</h3>
+              <p className="text-xs text-slate-400">Dữ liệu được dùng để phân GVHD tự động theo chỉ tiêu Quota và nguyện vọng chuyên môn</p>
+            </div>
+            {surveyData?.student && (
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2.5 py-1 rounded font-bold border ${
+                  surveyData.student.degree_program === 'ENGINEER'
+                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                    : 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                }`}>
+                  {surveyData.student.degree_program === 'ENGINEER' ? '⚙️ CT Kỹ sư (Engineer)' : '🎓 CT Cử nhân (Bachelor)'}
+                </span>
+                {surveyData.student.cpa !== undefined && (
+                  <span className="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                    CPA: <b>{surveyData.student.cpa}</b>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Phase 2: Engineer Degree Requirement Warning */}
+          {surveyData?.student?.degree_program === 'ENGINEER' && (
+            <div className="p-4 rounded-xl bg-purple-950/40 border border-purple-500/40 text-purple-200 text-xs space-y-1">
+              <div className="flex items-center gap-2 font-bold text-sm text-purple-300">
+                <span>🛡️</span>
+                <span>Ràng buộc học vị tối thiểu đối với Chương trình Kỹ sư:</span>
+              </div>
+              <p className="leading-relaxed">
+                Theo quy định của Trường, sinh viên thuộc chương trình đào tạo <b>Kỹ sư</b> bắt buộc phải đăng ký Giảng viên hướng dẫn có học vị tối thiểu là <b>Tiến sĩ (TS, PGS, GS)</b>.
+                Hệ thống đã gắn nhãn <span className="font-semibold text-emerald-400">[TS / Đủ ĐK Kỹ sư]</span> ở danh sách giảng viên hợp lệ.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSaveSurvey} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -431,20 +671,84 @@ export const UTCStudentGraduationView: React.FC = () => {
               </select>
             </div>
 
+            {/* NV1 - Preference 1 */}
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Giảng viên hướng dẫn mong muốn (Nguyện vọng 1)</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-medium text-slate-300">
+                  Nguyện vọng 1 (NV1 - Trọng số 100 điểm) <span className="text-blue-400">*</span>
+                </label>
+                <span className="text-[10px] text-slate-400">Ưu tiên cao nhất</span>
+              </div>
               <select
-                value={preferredSupervisorId}
-                onChange={(e) => setPreferredSupervisorId(e.target.value)}
+                value={preference1Id}
+                onChange={(e) => setPreference1Id(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-blue-500"
               >
-                <option value="">-- Tùy chọn (Hệ thống tự động xếp theo chuyên môn) --</option>
+                <option value="">-- Chọn GVHD Nguyện vọng 1 --</option>
                 {surveyData?.supervisors?.map((s: any) => (
                   <option key={s.id} value={s.id}>
-                    {s.full_name} ({s.department})
+                    {s.full_name} ({s.department}) {s.is_eligible_for_engineer ? '— [TS / Đủ ĐK Kỹ sư]' : '— [ThS]'}
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* NV2 - Preference 2 */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-medium text-slate-300">
+                  Nguyện vọng 2 (NV2 - Trọng số 70 điểm)
+                </label>
+                <span className="text-[10px] text-slate-400">Tùy chọn</span>
+              </div>
+              <select
+                value={preference2Id}
+                onChange={(e) => setPreference2Id(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="">-- Chọn GVHD Nguyện vọng 2 (Không bắt buộc) --</option>
+                {surveyData?.supervisors?.map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    {s.full_name} ({s.department}) {s.is_eligible_for_engineer ? '— [TS / Đủ ĐK Kỹ sư]' : '— [ThS]'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* NV3 - Preference 3 */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-medium text-slate-300">
+                  Nguyện vọng 3 (NV3 - Trọng số 40 điểm)
+                </label>
+                <span className="text-[10px] text-slate-400">Tùy chọn</span>
+              </div>
+              <select
+                value={preference3Id}
+                onChange={(e) => setPreference3Id(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-blue-500"
+              >
+                <option value="">-- Chọn GVHD Nguyện vọng 3 (Không bắt buộc) --</option>
+                {surveyData?.supervisors?.map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    {s.full_name} ({s.department}) {s.is_eligible_for_engineer ? '— [TS / Đủ ĐK Kỹ sư]' : '— [ThS]'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Secondary Criteria Note */}
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">
+                Tiêu chí phụ & Ghi chú nguyện vọng bổ sung
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Ghi chú thêm về năng lực, điểm các học phần chuyên môn cao hoặc mong muốn đề tài gắn với doanh nghiệp..."
+                value={secondaryCriteriaNote}
+                onChange={(e) => setSecondaryCriteriaNote(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-blue-500"
+              />
             </div>
 
             <div>
@@ -482,18 +786,154 @@ export const UTCStudentGraduationView: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Outline Submission */}
+      {/* Tab 3: Outline Submission & Phase 3 Topic Draft */}
       {activeTab === 'outline' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6 shadow-xl max-w-3xl">
           <div>
-            <h3 className="text-lg font-bold text-slate-100">Nộp Đề cương Đồ án Tốt nghiệp</h3>
-            <p className="text-xs text-slate-400">Nộp file PDF đề cương chi tiết để GVHD và Nhóm chuyên môn duyệt</p>
+            <h3 className="text-lg font-bold text-slate-100">Xây dựng Đề tài & Nộp Đề cương ĐATN (Giai đoạn 3)</h3>
+            <p className="text-xs text-slate-400">Quy trình: Thảo luận Đề tài Draft → GVHD xác nhận → Khoa duyệt → Xuất PDF → Ký nộp lưu hồ sơ</p>
           </div>
 
+          {/* Phase 3: Draft Topic Section */}
+          <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-200">1. Bản thảo Đề tài (Topic Draft & Approval)</h4>
+                <p className="text-[11px] text-slate-400">GV và SV cùng xác định tên đề tài trước khi trình Khoa phê duyệt.</p>
+              </div>
+              <span className={`text-xs px-2.5 py-1 rounded font-bold border ${
+                projectData?.status === 'TOPIC_APPROVED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                projectData?.status === 'TOPIC_CONFIRMED' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                projectData?.status === 'TOPIC_REVISION' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' :
+                'bg-amber-500/20 text-amber-400 border-amber-500/30'
+              }`}>
+                {projectData?.status_display || projectData?.status || 'DRAFT'}
+              </span>
+            </div>
+
+            {projectData?.status === 'TOPIC_REVISION' && (
+              <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs">
+                ⚠️ <b>Yêu cầu chỉnh sửa:</b> Ban Chủ nhiệm Khoa yêu cầu sửa đổi lại đề tài. Vui lòng thống nhất lại với GVHD và cập nhật lại bản thảo.
+              </div>
+            )}
+
+            {projectData ? (
+              <form onSubmit={handleSaveDraftTopic} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Việt (Bản thảo) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={draftTopicVi}
+                    onChange={(e) => setDraftTopicVi(e.target.value)}
+                    disabled={projectData?.status === 'TOPIC_APPROVED'}
+                    placeholder="VD: Nghiên cứu xây dựng ứng dụng hỗ trợ phân luồng giao thông thông minh..."
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500 disabled:opacity-60"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Anh</label>
+                  <input
+                    type="text"
+                    value={draftTopicEn}
+                    onChange={(e) => setDraftTopicEn(e.target.value)}
+                    disabled={projectData?.status === 'TOPIC_APPROVED'}
+                    placeholder="VD: Research and development of an intelligent traffic routing application..."
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500 disabled:opacity-60"
+                  />
+                </div>
+
+                {projectData?.status !== 'TOPIC_APPROVED' && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={savingDraftTopic}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                    >
+                      {savingDraftTopic ? 'Đang lưu...' : '💾 Lưu bản thảo đề tài (Draft)'}
+                    </button>
+                  </div>
+                )}
+              </form>
+            ) : (
+              <p className="text-xs text-slate-400 italic">Chưa được khởi tạo đồ án trong đợt.</p>
+            )}
+          </div>
+
+          {/* Phase 3: Export Outline PDF & Upload Signed Copy */}
+          {projectData && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Step 24: Generate Outline PDF */}
+              <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+                <div className="space-y-1">
+                  <h4 className="font-bold text-slate-200 text-sm">2. Sinh đề cương & file PDF tự động</h4>
+                  <p className="text-slate-400">
+                    Hệ thống tự động xuất biểu mẫu Đề cương chi tiết ĐATN chuẩn UTC dưới định dạng PDF.
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleExportOutlinePdf}
+                    disabled={generatingOutlinePdf}
+                    className="w-full py-2.5 px-4 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <span>📄</span>
+                    <span>{generatingOutlinePdf ? 'Đang xuất PDF...' : 'Tải Đề Cương Tự Động (PDF)'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 25: Upload Signed Outline */}
+              <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+                <div className="space-y-1">
+                  <h4 className="font-bold text-slate-200 text-sm">3. Ký nộp & Lưu hồ sơ Đề cương</h4>
+                  <p className="text-slate-400">
+                    Sau khi in và có đầy đủ chữ ký của SV & GVHD, scan nộp file PDF để Khoa lưu hồ sơ.
+                  </p>
+                </div>
+
+                {projectData.signed_outline_file && (
+                  <div className="p-2 rounded bg-emerald-950/20 border border-emerald-500/20 text-emerald-300 flex items-center justify-between">
+                    <span>✅ Đã nộp bản ký:</span>
+                    <a
+                      href={projectData.signed_outline_file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline font-semibold text-emerald-400 hover:text-emerald-300"
+                    >
+                      Xem hồ sơ ↗
+                    </a>
+                  </div>
+                )}
+
+                <form onSubmit={handleUploadSignedOutline} className="space-y-2 pt-1">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    required
+                    onChange={(e) => setSignedOutlineFile(e.target.files?.[0] || null)}
+                    className="w-full text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-[11px] file:bg-slate-800 file:text-slate-200"
+                  />
+                  <button
+                    type="submit"
+                    disabled={uploadingSignedOutline}
+                    className="w-full py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition disabled:opacity-50"
+                  >
+                    {uploadingSignedOutline ? 'Đang tải lên...' : '📤 Nộp File Đề Cương Đã Ký'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Traditional Outline Review Status */}
           {projectData?.outline_review && (
             <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-300">Tình trạng xét duyệt đề cương:</span>
+                <span className="font-bold text-slate-300">Tình trạng xét duyệt đề cương chi tiết:</span>
                 <span className={`px-2.5 py-0.5 rounded font-bold ${
                   projectData.outline_review.verdict === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                   projectData.outline_review.verdict === 'REVISION_REQUIRED' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
@@ -511,7 +951,8 @@ export const UTCStudentGraduationView: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmitOutline} className="space-y-4">
+          <form onSubmit={handleSubmitOutline} className="space-y-4 pt-2 border-t border-slate-800">
+            <h4 className="font-bold text-slate-200 text-sm">Nộp / Cập nhật File Tài Liệu Đề Cương Chi Tiết</h4>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Tên đề tài tiếng Việt (*)</label>
               <input
@@ -543,13 +984,13 @@ export const UTCStudentGraduationView: React.FC = () => {
               />
             </div>
 
-            <div className="pt-4 flex justify-end">
+            <div className="pt-2 flex justify-end">
               <button
                 type="submit"
                 disabled={outlineSubmitting}
                 className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition shadow-lg shadow-blue-600/30 disabled:opacity-50"
               >
-                {outlineSubmitting ? 'Đang nộp đề cương...' : 'Nộp Đề cương'}
+                {outlineSubmitting ? 'Đang nộp đề cương...' : 'Nộp Đề cương Chi tiết'}
               </button>
             </div>
           </form>
@@ -824,6 +1265,19 @@ export const UTCStudentGraduationView: React.FC = () => {
                                 {task.status_display || 'Cần làm'}
                               </span>
                             )}
+
+                            {/* Phase 5: Task Review Verdict Badge */}
+                            {task.review_verdict && task.review_verdict !== 'NOT_SUBMITTED' && (
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                task.review_verdict === 'ACCEPTED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+                                task.review_verdict === 'REVISION_REQUIRED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
+                                'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              }`}>
+                                {task.review_verdict === 'ACCEPTED' ? '🎯 Đạt yêu cầu' :
+                                 task.review_verdict === 'REVISION_REQUIRED' ? '⚠️ Yêu cầu sửa lại' :
+                                 '⏳ Chờ GV đánh giá'}
+                              </span>
+                            )}
                           </div>
 
                           {task.description && (
@@ -847,24 +1301,68 @@ export const UTCStudentGraduationView: React.FC = () => {
                             )}
                           </div>
 
+                          {/* Phase 5: Deliverable display */}
+                          {(task.deliverable_file || task.deliverable_url) && (
+                            <div className="mt-2 p-2.5 rounded bg-slate-900 border border-slate-800 text-xs space-y-1">
+                              <span className="font-semibold text-emerald-400">📦 Sản phẩm / Báo cáo kết quả:</span>
+                              <div className="flex flex-wrap items-center gap-3">
+                                {task.deliverable_file && (
+                                  <a href={task.deliverable_file} target="_blank" rel="noreferrer" className="text-blue-400 underline font-medium hover:text-blue-300">
+                                    File đính kèm ↗
+                                  </a>
+                                )}
+                                {task.deliverable_url && (
+                                  <a href={task.deliverable_url} target="_blank" rel="noreferrer" className="text-blue-400 underline font-medium hover:text-blue-300">
+                                    Link sản phẩm (Git/Drive/Demo) ↗
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Phase 5: Supervisor review notes */}
+                          {task.supervisor_review_notes && (
+                            <div className={`mt-2 p-2.5 rounded border text-xs ${
+                              task.review_verdict === 'REVISION_REQUIRED'
+                                ? 'bg-rose-950/30 border-rose-500/30 text-rose-200'
+                                : 'bg-emerald-950/20 border-emerald-500/20 text-emerald-200'
+                            }`}>
+                              <span className="font-semibold">
+                                {task.review_verdict === 'REVISION_REQUIRED' ? '⚠️ Yêu cầu sửa từ GVHD:' : '💬 Nhận xét từ GVHD:'}
+                              </span>{' '}
+                              {task.supervisor_review_notes}
+                            </div>
+                          )}
+
                           {/* Student Notes Display */}
                           {task.student_notes && (
                             <div className="mt-2 p-2.5 rounded bg-blue-950/20 border border-blue-500/20 text-xs text-blue-200">
-                              <span className="font-semibold text-blue-400">📝 Ghi chú / Link kết quả SV:</span>{' '}
+                              <span className="font-semibold text-blue-400">📝 Ghi chú SV:</span>{' '}
                               {task.student_notes}
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Action: Add notes */}
-                      <div className="flex items-center gap-2 self-end md:self-center">
+                      {/* Action buttons */}
+                      <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
+                        <button
+                          onClick={() => {
+                            setSelectedTaskForDeliverable(task);
+                            setDeliverableUrl(task.deliverable_url || '');
+                            setDeliverableNotes(task.student_notes || '');
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition flex items-center gap-1.5"
+                        >
+                          <span>📤</span>
+                          <span>{task.deliverable_file || task.deliverable_url ? 'Nộp lại sản phẩm' : 'Nộp sản phẩm'}</span>
+                        </button>
                         <button
                           onClick={() => handleOpenNotesModal(task)}
                           className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5"
                         >
                           <span>✏️</span>
-                          <span>{task.student_notes ? 'Sửa ghi chú SV' : 'Ghi chú / Nộp link'}</span>
+                          <span>{task.student_notes ? 'Sửa ghi chú' : 'Ghi chú'}</span>
                         </button>
                       </div>
                     </div>
@@ -1100,6 +1598,201 @@ export const UTCStudentGraduationView: React.FC = () => {
                   className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 disabled:opacity-50"
                 >
                   {savingTaskNote ? 'Đang lưu...' : 'Lưu ghi chú'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Nộp sản phẩm / Deliverable cho nhiệm vụ */}
+      {selectedTaskForDeliverable && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-lg w-full shadow-2xl space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Giai đoạn 5: Nộp kết quả nhiệm vụ</span>
+              <h3 className="text-base font-bold text-slate-100 mt-1">{selectedTaskForDeliverable.title}</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Nộp file sản phẩm, mã nguồn nén hoặc link repo Git để GVHD đánh giá.</p>
+            </div>
+
+            <form onSubmit={handleSubmitDeliverable} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  Đính kèm File sản phẩm (Zip, PDF, Docs, tối đa 25MB):
+                </label>
+                <input
+                  type="file"
+                  onChange={(e) => setDeliverableFile(e.target.files?.[0] || null)}
+                  className="w-full text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-slate-800 file:text-slate-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  Link sản phẩm trực tuyến (GitHub / GitLab / Google Drive / Demo Web):
+                </label>
+                <input
+                  type="url"
+                  value={deliverableUrl}
+                  onChange={(e) => setDeliverableUrl(e.target.value)}
+                  placeholder="https://github.com/username/project hoặc https://drive.google.com/..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  Ghi chú tóm tắt kết quả gửi Giảng viên:
+                </label>
+                <textarea
+                  rows={3}
+                  value={deliverableNotes}
+                  onChange={(e) => setDeliverableNotes(e.target.value)}
+                  placeholder="Mô tả tóm tắt tính năng đã chạy, hướng dẫn cài đặt hoặc những điểm lưu ý..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTaskForDeliverable(null)}
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingDeliverable}
+                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
+                >
+                  {submittingDeliverable ? 'Đang nộp...' : 'Nộp sản phẩm'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Đơn xin bảo lưu đồ án tốt nghiệp */}
+      {showDeferralModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-xl w-full shadow-2xl space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                  <span>📝</span> Đơn Xin Bảo Lưu Đồ Án Tốt Nghiệp
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Dành cho trường hợp chưa đủ điều kiện học vụ hoặc lý do chính đáng cần bảo lưu kết quả.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDeferralModal(false)}
+                className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* List of existing requests */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Lịch sử đơn đã nộp</h4>
+              {deferralRequests.length === 0 ? (
+                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 text-xs text-center">
+                  Bạn chưa gửi đơn xin bảo lưu nào trong đợt này.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {deferralRequests.map((req) => (
+                    <div key={req.id} className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-200">
+                          Lý do: {req.reason_category_display || req.reason_category}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          req.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' :
+                          req.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' :
+                          'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                        }`}>
+                          {req.status_display || req.status}
+                        </span>
+                      </div>
+                      <p className="text-slate-300 whitespace-pre-line">{req.reason_details}</p>
+                      {req.evidence_file && (
+                        <p>
+                          <a href={req.evidence_file} target="_blank" rel="noreferrer" className="text-blue-400 underline font-medium hover:text-blue-300">
+                            Xem minh chứng đính kèm ↗
+                          </a>
+                        </p>
+                      )}
+                      {req.faculty_review_notes && (
+                        <div className="p-2 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                          <span className="font-semibold text-amber-400">Ý kiến Khoa:</span> {req.faculty_review_notes}
+                        </div>
+                      )}
+                      <div className="text-[10px] text-slate-500">
+                        Nộp lúc: {new Date(req.created_at).toLocaleString('vi-VN')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Form to submit new request */}
+            <form onSubmit={handleSubmitDeferral} className="space-y-3 pt-3 border-t border-slate-800 text-xs">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Nộp đơn xin bảo lưu mới</h4>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Phân loại lý do (*)</label>
+                <select
+                  value={deferralReasonCategory}
+                  onChange={(e) => setDeferralReasonCategory(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                >
+                  <option value="ACADEMIC">Học vụ (Chưa hoàn thành đủ tín chỉ / nợ môn tiên quyết)</option>
+                  <option value="HEALTH">Sức khỏe (Có chứng nhận y tế / điều trị)</option>
+                  <option value="FINANCIAL">Tài chính (Hoàn cảnh gia đình khó khăn)</option>
+                  <option value="PERSONAL">Cá nhân khác (Công tác đột xuất, lý do gia đình)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Chi tiết lý do & Đề xuất (*)</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={deferralReasonDetails}
+                  onChange={(e) => setDeferralReasonDetails(e.target.value)}
+                  placeholder="Trình bày chi tiết lý do và mong muốn được bảo lưu đề tài/kết quả sang đợt tiếp theo..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">File minh chứng đính kèm (Giấy tờ y tế / xác nhận, PDF/Ảnh):</label>
+                <input
+                  type="file"
+                  onChange={(e) => setDeferralEvidenceFile(e.target.files?.[0] || null)}
+                  className="w-full text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-[11px] file:bg-slate-800 file:text-slate-200"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeferralModal(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingDeferral}
+                  className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-md shadow-amber-600/30 disabled:opacity-50"
+                >
+                  {submittingDeferral ? 'Đang gửi...' : 'Gửi đơn bảo lưu'}
                 </button>
               </div>
             </form>

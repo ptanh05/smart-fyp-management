@@ -36,6 +36,7 @@ import type {
   ExternalEvaluationCreate,
   EvaluationSchedule,
   EvaluationScheduleCreate,
+  ThesisDeferralRequest,
 } from '../types';
 
 import { triggerGlobalToast } from '../contexts/ToastContext';
@@ -1164,6 +1165,64 @@ class ApiService {
       user_id: userId,
       role,
       force
+    });
+    return response.data;
+  }
+
+  // ==================== UTC Graduation Workflow API Methods ====================
+  async exportOutlinePdf(projectId: number): Promise<Blob> {
+    const response = await this.api.get(`/graduation-project/${projectId}/export-outline-pdf/`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  async uploadSignedOutline(projectId: number, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('signed_outline_file', file);
+    const response = await this.api.post(`/graduation-project/${projectId}/upload-signed-outline/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async submitTopicDraft(data: { project_id: number; topic_title_vi: string; topic_title_en?: string }): Promise<any> {
+    const response = await this.api.post('/graduation-project/topic-draft/', data);
+    return response.data;
+  }
+
+  async confirmTopicBySupervisor(data: { project_id: number; topic_title_vi?: string; topic_title_en?: string }): Promise<any> {
+    const response = await this.api.post('/graduation-project/confirm-topic/', data);
+    return response.data;
+  }
+
+  async submitTaskDeliverable(taskId: number, data: FormData): Promise<any> {
+    const response = await this.api.post(`/student/tasks/${taskId}/submit-deliverable/`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async supervisorReviewTask(taskId: number, data: { verdict: 'ACCEPTED' | 'REVISION_REQUIRED'; supervisor_notes?: string }): Promise<any> {
+    const response = await this.api.post(`/supervisor/tasks/${taskId}/review/`, data);
+    return response.data;
+  }
+
+  async getStudentDeferralRequests(): Promise<ThesisDeferralRequest[]> {
+    const response = await this.api.get<ThesisDeferralRequest[]>('/student/deferral-request/');
+    return response.data;
+  }
+
+  async submitStudentDeferralRequest(formData: FormData): Promise<ThesisDeferralRequest> {
+    const response = await this.api.post<ThesisDeferralRequest>('/student/deferral-request/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async exportCouncilMinutesPdf(councilId: number): Promise<Blob> {
+    const response = await this.api.get(`/council/${councilId}/export-minutes-pdf/`, {
+      responseType: 'blob',
     });
     return response.data;
   }
