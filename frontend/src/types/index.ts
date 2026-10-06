@@ -686,3 +686,28 @@ export interface EvaluationScheduleCreate {
   status?: EvaluationScheduleStatus;
   notes?: string;
 }
+
+// ==================== UTC Graduation Workflow Types ====================
+export type DegreeProgram = 'BACHELOR' | 'ENGINEER';
+export type TaskReviewVerdict = 'PENDING' | 'ACCEPTED' | 'REVISION_REQUIRED';
+export type DeferralReasonCategory = 'HEALTH' | 'ACADEMIC' | 'FINANCIAL' | 'PERSONAL';
+export type DeferralStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ThesisDeferralRequest {
+  id: number;
+  student: number;
+  student_name?: string;
+  student_reg_no?: string;
+  batch?: number;
+  batch_name?: string;
+  reason_category: DeferralReasonCategory;
+  reason_category_display?: string;
+  reason_details: string;
+  evidence_file?: string | null;
+  status: DeferralStatus;
+  status_display?: string;
+  admin_notes?: string;
+  faculty_review_notes?: string;
+  created_at: string;
+  reviewed_at?: string | null;
+}

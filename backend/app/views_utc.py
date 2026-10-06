@@ -36,8 +36,17 @@ from .models import (
     Group,
     GroupMember,
     SupervisorOfStudentGroup,
+    ProposedAllocation,
+    ThesisDeferralRequest,
 )
-from .services import NotificationService, CouncilConflictService
+from .services import (
+    NotificationService,
+    CouncilConflictService,
+    DegreeEligibilityService,
+    ThesisAllocationService,
+    AcademicClearanceService,
+    CouncilStructureService,
+)
 from .serializers.utc_graduation_serializers import (
     ProjectTopicAreaSerializer,
     SupervisorBriefSerializer,
@@ -49,6 +58,8 @@ from .serializers.utc_graduation_serializers import (
     CouncilLiveScoreSerializer,
     GraduationProjectDetailSerializer,
     FinalGradeSummarySerializer,
+    ProposedAllocationSerializer,
+    ThesisDeferralRequestSerializer,
 )
 from .validators import validate_uploaded_file
 from .concurrency import retry_on_db_lock
@@ -100,6 +111,11 @@ class StudentSurveyAPIView(APIView):
                 "email": user.email,
                 "phone_number": student.phone_number,
                 "department": student.department,
+                "degree_program": student.degree_program,
+                "degree_program_display": student.get_degree_program_display(),
+                "cpa": student.cpa,
+                "credits_accumulated": student.credits_accumulated,
+                "is_eligible_for_thesis": student.is_eligible_for_thesis,
                 "course_class": student.course_class.class_name if student.course_class else ""
             },
             "batch": {
@@ -129,7 +145,12 @@ class StudentSurveyAPIView(APIView):
         is_interning = str(data.get("is_interning", "false")).lower() in ["true", "1"]
         company_name = data.get("company_name", "").strip()
         topic_direction_id = data.get("topic_direction")
-        preferred_supervisor_id = data.get("preferred_supervisor")
+        
+        pref1_id = data.get("preference_1") or data.get("preferred_supervisor")
+        pref2_id = data.get("preference_2")
+        pref3_id = data.get("preference_3")
+        secondary_criteria_note = data.get("secondary_criteria_note", "").strip()
+
         tentative_title = data.get("tentative_title", "").strip()
         phone_number = data.get("phone_number", "").strip()
         email = data.get("email", "").strip()
@@ -140,7 +161,22 @@ class StudentSurveyAPIView(APIView):
             return Response({"company_name": ["Vui lòng nhập tên công ty/doanh nghiệp đang thực tập."]}, status=status.HTTP_400_BAD_REQUEST)
 
         topic_direction = ProjectTopicArea.objects.filter(id=topic_direction_id).first() if topic_direction_id else None
-        preferred_supervisor = Supervisor.objects.filter(id=preferred_supervisor_id).first() if preferred_supervisor_id else None
+        
+        sup1 = Supervisor.objects.filter(id=pref1_id).first() if pref1_id else None
+        sup2 = Supervisor.objects.filter(id=pref2_id).first() if pref2_id else None
+        sup3 = Supervisor.objects.filter(id=pref3_id).first() if pref3_id else None
+
+        # Check duplicate preferences
+        selected_sups = [s for s in [sup1, sup2, sup3] if s is not None]
+        selected_ids = [s.id for s in selected_sups]
+        if len(selected_ids) != len(set(selected_ids)):
+            return Response({"detail": "Các nguyện vọng NV1, NV2, NV3 không được trùng nhau. Vui lòng chọn các thầy cô khác nhau!"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Nút quyết định Giai đoạn 2: SV Kỹ sư -> Kiểm tra học vị GV tối thiểu (Tiến sĩ trở lên)
+        try:
+            DegreeEligibilityService.validate_preferences_for_student(student, selected_sups)
+        except ValueError as ve:
+            return Response({"detail": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             # Update student profile
@@ -162,7 +198,11 @@ class StudentSurveyAPIView(APIView):
                     "is_interning": is_interning,
                     "company_name": company_name if is_interning else "",
                     "topic_direction": topic_direction,
-                    "preferred_supervisor": preferred_supervisor,
+                    "preferred_supervisor": sup1,
+                    "preference_1": sup1,
+                    "preference_2": sup2,
+                    "preference_3": sup3,
+                    "secondary_criteria_note": secondary_criteria_note,
                     "tentative_title": tentative_title
                 }
             )
@@ -1825,3 +1865,767 @@ class GlobalSearchAPIView(APIView):
             "categories": categories_count,
             "results": results
         }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# PHASE 2: ALLOCATION OPTIMIZATION & OVERRIDE APIS
+# ==============================================================================
+
+class RunAllocationAlgorithmAPIView(APIView):
+    """Khoa / Admin chạy thuật toán tối ưu phân công nguyện vọng đồ án"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        batch_id = request.data.get("batch_id")
+        if batch_id:
+            batch = get_object_or_404(AcademicBatch, id=batch_id)
+        else:
+            batch = AcademicBatch.objects.filter(is_active=True).first()
+            if not batch:
+                return Response({"detail": "Không có đợt đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
+
+        stats = ThesisAllocationService.run_allocation(batch)
+        allocations = ProposedAllocation.objects.filter(batch=batch).select_related(
+            "student__user", "supervisor__user"
+        )
+        data = ProposedAllocationSerializer(allocations, many=True).data
+
+        return Response({
+            "success": True,
+            "message": f"Chạy thuật toán tối ưu phân công thành công cho đợt {batch.batch_code}!",
+            "stats": stats,
+            "allocations": data,
+        }, status=status.HTTP_200_OK)
+
+
+class ProposedAllocationListAPIView(APIView):
+    """Xem danh sách đề xuất phân công để Khoa review"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        batch_id = request.query_params.get("batch_id")
+        if batch_id:
+            batch = get_object_or_404(AcademicBatch, id=batch_id)
+        else:
+            batch = AcademicBatch.objects.filter(is_active=True).first()
+            if not batch:
+                return Response({"detail": "Không có đợt đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
+
+        allocations = ProposedAllocation.objects.filter(batch=batch).select_related(
+            "student__user", "supervisor__user"
+        )
+        return Response(ProposedAllocationSerializer(allocations, many=True).data, status=status.HTTP_200_OK)
+
+
+class OverrideAllocationAPIView(APIView):
+    """Khoa review / override: Điều chỉnh phân công thủ công"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        allocation_id = request.data.get("allocation_id")
+        supervisor_id = request.data.get("supervisor_id")
+        reason = request.data.get("reason", "Khoa điều chỉnh thủ công").strip()
+
+        if not allocation_id or not supervisor_id:
+            return Response({"detail": "allocation_id và supervisor_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+        alloc = get_object_or_404(ProposedAllocation, id=allocation_id)
+        supervisor = get_object_or_404(Supervisor, id=supervisor_id)
+
+        # Kiểm tra học vị Kỹ sư nếu SV thuộc CT Kỹ sư
+        if alloc.student.degree_program == "ENGINEER":
+            if not DegreeEligibilityService.is_doctoral_degree(supervisor.academic_title or ""):
+                return Response({
+                    "detail": f"Không thể phân công: SV {alloc.student.registration_no} thuộc CT Kỹ sư, GVHD bắt buộc có học vị Tiến sĩ trở lên."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        alloc.supervisor = supervisor
+        alloc.is_overridden = True
+        alloc.override_reason = reason
+        alloc.save(update_fields=["supervisor", "is_overridden", "override_reason"])
+
+        return Response({
+            "message": f"Khoa đã điều chỉnh GVHD thành công cho SV {alloc.student.registration_no}!",
+            "allocation": ProposedAllocationSerializer(alloc).data
+        }, status=status.HTTP_200_OK)
+
+
+class FinalizeAllocationAPIView(APIView):
+    """Khoa chốt phân công: Chuyển toàn bộ đề xuất thành GraduationProject và kích hoạt email"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        batch_id = request.data.get("batch_id")
+        if batch_id:
+            batch = get_object_or_404(AcademicBatch, id=batch_id)
+        else:
+            batch = AcademicBatch.objects.filter(is_active=True).first()
+            if not batch:
+                return Response({"detail": "Không có đợt đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
+
+        result = ThesisAllocationService.finalize_allocation(batch, user=request.user)
+        return Response({"success": True, **result}, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# PHASE 3: TOPIC FORMULATION (DRAFT -> CONFIRM -> APPROVE -> PDF)
+# ==============================================================================
+
+class TopicDraftAPIView(APIView):
+    """GV và SV cùng xác định đề tài (trạng thái Draft)"""
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        return self._update_topic_draft(request)
+
+    def post(self, request):
+        return self._update_topic_draft(request)
+
+    def _update_topic_draft(self, request):
+        user = request.user
+        project_id = request.data.get("project_id")
+        topic_title_vi = request.data.get("topic_title_vi", "").strip()
+        topic_title_en = request.data.get("topic_title_en", "").strip()
+
+        if not topic_title_vi:
+            return Response({"detail": "Tên đề tài tiếng Việt là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user.user_type == "student":
+            student = getattr(user, "student_profile", None)
+            project = get_object_or_404(GraduationProject, student=student)
+        elif user.user_type == "supervisor":
+            supervisor = getattr(user, "supervisor_profile", None)
+            project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+        else:
+            project = get_object_or_404(GraduationProject, id=project_id)
+
+        project.topic_title_vi = topic_title_vi
+        if topic_title_en:
+            project.topic_title_en = topic_title_en
+        project.status = "TOPIC_DRAFT"
+        project.save(update_fields=["topic_title_vi", "topic_title_en", "status"])
+
+        return Response({
+            "message": "Đã cập nhật tên đề tài (Trạng thái Draft).",
+            "project": GraduationProjectDetailSerializer(project).data
+        }, status=status.HTTP_200_OK)
+
+
+class SupervisorConfirmTopicAPIView(APIView):
+    """GV xác nhận đề tài (sau khi thống nhất với SV) để trình Khoa/Ban duyệt"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        supervisor = getattr(user, "supervisor_profile", None)
+        if not supervisor:
+            return Response({"detail": "Chỉ dành cho Giảng viên hướng dẫn."}, status=status.HTTP_403_FORBIDDEN)
+
+        project_id = request.data.get("project_id")
+        project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+
+        topic_title_vi = request.data.get("topic_title_vi", "").strip()
+        topic_title_en = request.data.get("topic_title_en", "").strip()
+        update_fields = ["status"]
+
+        if topic_title_vi:
+            project.topic_title_vi = topic_title_vi
+            update_fields.append("topic_title_vi")
+        if topic_title_en:
+            project.topic_title_en = topic_title_en
+            update_fields.append("topic_title_en")
+
+        project.status = "TOPIC_CONFIRMED"
+        project.save(update_fields=update_fields)
+
+        try:
+            NotificationService.create_notification(
+                user=project.student.user,
+                notification_type="general",
+                title="[Đề tài ĐATN] GVHD đã xác nhận đề tài",
+                message=f"GVHD {supervisor.user.get_full_name()} đã xác nhận đề tài: '{project.topic_title_vi}'. Đang trình Khoa/Bộ môn phê duyệt.",
+                action_url="/student/dashboard",
+                send_email=True,
+            )
+        except Exception as e:
+            logger.warning("Could not send notification: %s", e)
+
+        return Response({
+            "message": "GV đã xác nhận đề tài thành công! Đang trình Khoa/Ban duyệt.",
+            "project": GraduationProjectDetailSerializer(project).data
+        }, status=status.HTTP_200_OK)
+
+
+class AdminApproveTopicAPIView(APIView):
+    """Trình duyệt: Khoa/Ban duyệt đề tài (Approved hoặc Yêu cầu sửa quay về Draft)"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        project_id = request.data.get("project_id")
+        decision = request.data.get("decision", "APPROVED").upper()  # APPROVED or REVISION
+        notes = request.data.get("notes", "").strip()
+
+        project = get_object_or_404(GraduationProject, id=project_id)
+
+        if decision == "APPROVED":
+            project.status = "TOPIC_APPROVED"
+            msg = "Khoa đã phê duyệt đề tài chính thức!"
+        else:
+            project.status = "TOPIC_REVISION"
+            msg = f"Khoa yêu cầu chỉnh sửa đề tài: {notes or 'Vui lòng trao đổi lại với GVHD'}."
+
+        project.save(update_fields=["status"])
+
+        # Thông báo tới SV và GV
+        try:
+            for recipient in [project.student.user, project.supervisor.user]:
+                NotificationService.create_notification(
+                    user=recipient,
+                    notification_type="general",
+                    title="[Kết quả duyệt đề tài]",
+                    message=msg,
+                    action_url="/student/dashboard",
+                    send_email=True,
+                )
+        except Exception as e:
+            logger.warning("Could not send notification: %s", e)
+
+        return Response({
+            "message": msg,
+            "project": GraduationProjectDetailSerializer(project).data
+        }, status=status.HTTP_200_OK)
+
+
+class ExportOutlinePdfAPIView(APIView):
+    """Hệ thống sinh biểu mẫu đề cương đồ án tốt nghiệp ra file PDF chuẩn UTC"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        project = get_object_or_404(
+            GraduationProject.objects.select_related("student__user", "supervisor__user", "topic_category", "batch"),
+            id=pk
+        )
+
+        import io
+        import os
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+
+        font_name = "Helvetica"
+        if os.path.exists("C:\\Windows\\Fonts\\arial.ttf"):
+            try:
+                pdfmetrics.registerFont(TTFont("Arial", "C:\\Windows\\Fonts\\arial.ttf"))
+                font_name = "Arial"
+            except Exception:
+                pass
+
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+
+        # Header
+        p.setFont(font_name, 12)
+        p.drawString(50, height - 50, "BỘ GIÁO DỤC VÀ ĐÀO TẠO")
+        p.drawString(50, height - 68, "TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI")
+        p.drawString(50, height - 86, "KHOA CÔNG NGHỆ THÔNG TIN")
+
+        p.drawString(width - 240, height - 50, "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+        p.drawString(width - 200, height - 68, "Độc lập - Tự do - Hạnh phúc")
+
+        p.setFont(font_name, 16)
+        p.drawCentredString(width / 2, height - 130, "ĐỀ CƯƠNG CHI TIẾT ĐỒ ÁN TỐT NGHIỆP")
+
+        # Project Info
+        p.setFont(font_name, 11)
+        y = height - 170
+        p.drawString(60, y, f"1. Tên đề tài (Tiếng Việt): {project.topic_title_vi}")
+        y -= 25
+        p.drawString(60, y, f"   Tên đề tài (Tiếng Anh): {project.topic_title_en or 'N/A'}")
+        y -= 25
+        p.drawString(60, y, f"2. Sinh viên thực hiện: {project.student.user.get_full_name()} - MSSV: {project.student.registration_no}")
+        y -= 25
+        p.drawString(60, y, f"   Chương trình đào tạo: {project.student.get_degree_program_display()} - Lớp: {project.student.department or 'CNTT'}")
+        y -= 25
+        sup_name = project.supervisor.user.get_full_name()
+        sup_title = project.supervisor.academic_title or "GV"
+        p.drawString(60, y, f"3. Giảng viên hướng dẫn: {sup_title}. {sup_name}")
+        y -= 25
+        p.drawString(60, y, f"4. Hướng nghiên cứu: {project.topic_category.name if project.topic_category else 'Phát triển phần mềm'}")
+        y -= 25
+        p.drawString(60, y, f"5. Đợt làm đồ án: {project.batch.batch_name} ({project.batch.batch_code})")
+        y -= 35
+
+        p.drawString(60, y, "6. Mục tiêu và nội dung nghiên cứu chính:")
+        y -= 20
+        p.drawString(80, y, "- Khảo sát hiện trạng, phân tích nghiệp vụ và thu thập yêu cầu hệ thống.")
+        y -= 20
+        p.drawString(80, y, "- Thiết kế kiến trúc giải pháp, cơ sở dữ liệu và các giao diện người dùng.")
+        y -= 20
+        p.drawString(80, y, "- Lập trình thực nghiệm, kiểm thử chức năng và đánh giá hiệu năng.")
+        y -= 50
+
+        # Signature blocks
+        p.drawString(80, y, "GIẢNG VIÊN HƯỚNG DẪN")
+        p.drawString(80, y - 15, "(Ký và ghi rõ họ tên)")
+        p.drawString(width - 220, y, "SINH VIÊN THỰC HIỆN")
+        p.drawString(width - 220, y - 15, "(Ký và ghi rõ họ tên)")
+
+        p.showPage()
+        p.save()
+
+        buffer.seek(0)
+        filename = f"De_cuong_{project.student.registration_no}.pdf"
+        response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class UploadSignedOutlineAPIView(APIView):
+    """SV ký nộp bản đề cương đã ký, Khoa lưu hồ sơ"""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        user = request.user
+        student = getattr(user, "student_profile", None)
+        project = get_object_or_404(GraduationProject, id=pk)
+
+        signed_file = request.FILES.get("signed_outline_file")
+        if not signed_file:
+            return Response({"detail": "Vui lòng chọn file scan đề cương đã ký."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            validate_uploaded_file(signed_file, allowed_extensions=[".pdf"], max_size_bytes=25 * 1024 * 1024)
+        except Exception as e:
+            err_msg = getattr(e, "detail", str(e))
+            return Response({"signed_outline_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        project.signed_outline_file = signed_file
+        project.save(update_fields=["signed_outline_file"])
+
+        return Response({
+            "message": "Nộp bản đề cương có chữ ký thành công! Hồ sơ đã được lưu trữ.",
+            "signed_outline_file_url": project.signed_outline_file.url,
+            "project": GraduationProjectDetailSerializer(project).data
+        }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# PHASE 4: THESIS ELIGIBILITY CHECK & FORCE APPROVE APIS
+# ==============================================================================
+
+class CheckThesisEligibilityAPIView(APIView):
+    """Giai đoạn 4: Xét điều kiện làm đồ án (CPA >= 2.0, tín chỉ tích lũy)"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        project = get_object_or_404(GraduationProject, id=pk)
+        ok, msg = AcademicClearanceService.check_thesis_start_eligibility(project)
+        return Response({
+            "success": True,
+            "is_eligible": ok,
+            "message": msg,
+            "status": project.status,
+            "project": GraduationProjectDetailSerializer(project).data
+        }, status=status.HTTP_200_OK)
+
+
+class ForceApproveThesisAPIView(APIView):
+    """Giai đoạn 4: Nút quyết định Force Approve của Khoa (vẫn cho làm ĐA dù chưa đủ tiêu chí)"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        project = get_object_or_404(GraduationProject, id=pk)
+        force = request.data.get("force", True)
+        if isinstance(force, str):
+            force = force.lower() in ["true", "1"]
+
+        if force:
+            project.is_force_approved = True
+            project.status = "IN_PROGRESS"
+            msg = f"Khoa đã duyệt đặc cách (Force Approve) cho SV {project.student.registration_no} tiếp tục làm đồ án!"
+        else:
+            project.is_force_approved = False
+            project.status = "DISQUALIFIED"
+            msg = f"Không duyệt đặc cách. SV {project.student.registration_no} bị loại khỏi đợt đồ án."
+
+        project.save(update_fields=["is_force_approved", "status"])
+
+        return Response({
+            "success": True,
+            "message": msg,
+            "project": GraduationProjectDetailSerializer(project).data
+        }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# PHASE 5: TASK DELIVERABLES & SUPERVISOR REVIEW APIS
+# ==============================================================================
+
+class StudentTaskDeliverableSubmitAPIView(APIView):
+    """SV submit kết quả task (file báo cáo, link demo/commit, ghi chú)"""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def post(self, request, pk):
+        user = request.user
+        student = getattr(user, "student_profile", None)
+        if not student:
+            return Response({"detail": "Chỉ dành cho sinh viên."}, status=status.HTTP_403_FORBIDDEN)
+
+        task = get_object_or_404(SupervisionTask, id=pk, project__student=student)
+        deliverable_file = request.FILES.get("deliverable_file")
+        deliverable_url = request.data.get("deliverable_url", "").strip()
+        student_notes = request.data.get("student_notes", "").strip()
+
+        if deliverable_file:
+            try:
+                validate_uploaded_file(
+                    deliverable_file,
+                    allowed_extensions=[".pdf", ".zip", ".rar", ".docx", ".xlsx", ".pptx"],
+                    max_size_bytes=25 * 1024 * 1024
+                )
+                task.deliverable_file = deliverable_file
+            except Exception as e:
+                err_msg = getattr(e, "detail", str(e))
+                return Response({"deliverable_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        if deliverable_url:
+            task.deliverable_url = deliverable_url
+        if student_notes:
+            task.student_notes = student_notes
+
+        task.status = "IN_PROGRESS"
+        task.review_verdict = "PENDING"
+        task.save()
+
+        # Thông báo tới GVHD
+        try:
+            NotificationService.create_notification(
+                user=task.project.supervisor.user,
+                notification_type="general",
+                title="[Nộp kết quả nhiệm vụ]",
+                message=f"SV {student.user.get_full_name()} đã nộp kết quả cho nhiệm vụ: '{task.title}'. Đang chờ Thầy/Cô đánh giá.",
+                action_url="/supervisor/dashboard",
+                send_email=True,
+            )
+        except Exception as e:
+            logger.warning("Could not send notification: %s", e)
+
+        return Response({
+            "message": "Nộp kết quả nhiệm vụ thành công! Đang chờ GVHD đánh giá.",
+            "task": SupervisionTaskSerializer(task).data
+        }, status=status.HTTP_200_OK)
+
+
+class SupervisorReviewTaskAPIView(APIView):
+    """GV review kết quả task: Nút quyết định Đạt? (ACCEPTED: Đạt / REVISION_REQUIRED: Yêu cầu sửa)"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        user = request.user
+        supervisor = getattr(user, "supervisor_profile", None)
+        if not supervisor:
+            return Response({"detail": "Chỉ dành cho Giảng viên hướng dẫn."}, status=status.HTTP_403_FORBIDDEN)
+
+        task = get_object_or_404(SupervisionTask, id=pk, project__supervisor=supervisor)
+        verdict = request.data.get("verdict", "ACCEPTED").upper()  # ACCEPTED or REVISION_REQUIRED
+        notes = request.data.get("notes", "").strip()
+
+        if verdict == "ACCEPTED":
+            task.review_verdict = "ACCEPTED"
+            task.status = "COMPLETED"
+            task.is_completed = True
+            task.completed_at = timezone.now()
+            msg = f"GVHD đã đánh giá ĐẠT cho nhiệm vụ '{task.title}'!"
+        else:
+            task.review_verdict = "REVISION_REQUIRED"
+            task.status = "IN_PROGRESS"
+            task.is_completed = False
+            task.completed_at = None
+            msg = f"GVHD yêu cầu làm lại nhiệm vụ '{task.title}': {notes or 'Cần hoàn thiện thêm'}."
+
+        task.supervisor_review_notes = notes
+        task.reviewed_at = timezone.now()
+        task.save()
+
+        # Thông báo tới SV
+        try:
+            NotificationService.create_notification(
+                user=task.project.student.user,
+                notification_type="general",
+                title="[Đánh giá nhiệm vụ từ GVHD]",
+                message=msg,
+                action_url="/student/dashboard",
+                send_email=True,
+            )
+        except Exception as e:
+            logger.warning("Could not send notification: %s", e)
+
+        return Response({
+            "message": msg,
+            "task": SupervisionTaskSerializer(task).data
+        }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
+# PHASE 6: EXPORT MINUTES PDF & BATCH FINAL GRADES EXCEL APIS
+# ==============================================================================
+
+class CouncilMinutesPdfExportAPIView(APIView):
+    """Biên bản: Xuất biên bản họp bảo vệ PDF theo chuẩn UTC (1CT-2TK-2UV)"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, council_id):
+        council = get_object_or_404(
+            DefenseCouncil.objects.select_related("batch"),
+            id=council_id
+        )
+
+        import io
+        import os
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+
+        font_name = "Helvetica"
+        if os.path.exists("C:\\Windows\\Fonts\\arial.ttf"):
+            try:
+                pdfmetrics.registerFont(TTFont("Arial", "C:\\Windows\\Fonts\\arial.ttf"))
+                font_name = "Arial"
+            except Exception:
+                pass
+
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+
+        # Header
+        p.setFont(font_name, 11)
+        p.drawString(50, height - 50, "BỘ GIÁO DỤC VÀ ĐÀO TẠO")
+        p.drawString(50, height - 68, "TRƯỜNG ĐH GIAO THÔNG VẬN TẢI")
+        p.drawString(width - 240, height - 50, "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
+        p.drawString(width - 200, height - 68, "Độc lập - Tự do - Hạnh phúc")
+
+        p.setFont(font_name, 15)
+        p.drawCentredString(width / 2, height - 110, f"BIÊN BẢN HỌP HỘI ĐỒNG BẢO VỆ ĐỒ ÁN TỐT NGHIỆP #{council.council_number}")
+
+        p.setFont(font_name, 10)
+        y = height - 140
+        session_time_disp = council.get_session_time_display()
+        p.drawString(50, y, f"Hội đồng: {council.council_name} | Phòng: {council.defense_room or 'TBA'} | Ngày: {council.session_date or 'TBA'} ({session_time_disp})")
+        y -= 25
+
+        p.drawString(50, y, "I. THÀNH VIÊN HỘI ĐỒNG (Cơ cấu chuẩn 1CT - 2TK - 2UV):")
+        y -= 18
+        members = list(council.members.select_related("user").all())
+        for idx, m in enumerate(members, 1):
+            p.drawString(70, y, f"{idx}. {m.get_role_display()}: {m.user.get_full_name()} ({m.user.email})")
+            y -= 16
+
+        y -= 15
+        p.drawString(50, y, "II. KẾT QUẢ ĐÁNH GIÁ CỦA CÁC SINH VIÊN:")
+        y -= 20
+
+        # Projects and grades
+        projects = council.projects.select_related("student__user", "final_grade_summary").all()
+        p.drawString(50, y, "STT | MSSV | Họ và tên | Điểm GVHD | Điểm GVPB | Điểm TB HĐ | Tổng kết (Hệ 10 / Chữ)")
+        y -= 15
+
+        for idx, proj in enumerate(projects, 1):
+            summary = getattr(proj, "final_grade_summary", None)
+            sup_s = f"{proj.supervisor_score:.1f}" if proj.supervisor_score is not None else "--"
+            rev_s = f"{proj.reviewer_score:.1f}" if proj.reviewer_score is not None else "--"
+            cou_s = f"{summary.council_avg_score:.2f}" if summary and summary.council_avg_score is not None else "--"
+            fin_s = f"{summary.final_score_10:.2f} ({summary.final_letter_grade})" if summary and summary.final_score_10 is not None else "--"
+            s_name = proj.student.user.get_full_name()
+            p.drawString(50, y, f"{idx}. {proj.student.registration_no} - {s_name} | {sup_s}đ | {rev_s}đ | {cou_s}đ | {fin_s}")
+            y -= 16
+            if y < 100:
+                p.showPage()
+                y = height - 50
+
+        y -= 40
+        p.drawString(70, y, "CHỦ TỊCH HỘI ĐỒNG")
+        p.drawString(width - 220, y, "THƯ KÝ HỘI ĐỒNG")
+        p.drawString(70, y - 15, "(Ký và ghi rõ họ tên)")
+        p.drawString(width - 220, y - 15, "(Ký và ghi rõ họ tên)")
+
+        p.showPage()
+        p.save()
+
+        buffer.seek(0)
+        filename = f"Bien_ban_HD_{council.council_number}.pdf"
+        response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class BatchFinalGradesExcelExportAPIView(APIView):
+    """Xuất cuối kỳ: Xuất dữ liệu cuối kỳ toàn bộ đợt đồ án ra Excel (ký, lưu)"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, batch_id):
+        batch = get_object_or_404(AcademicBatch, id=batch_id)
+        from openpyxl import Workbook
+        import io
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Bảng điểm tốt nghiệp"
+
+        ws.append(["TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI - KHOA CÔNG NGHỆ THÔNG TIN"])
+        ws.append([f"BẢNG TỔNG HỢP KẾT QUẢ ĐỒ ÁN TỐT NGHIỆP: {batch.batch_name}"])
+        ws.append([])
+        ws.append([
+            "STT", "MSSV", "Họ và tên", "Chương trình", "Tên đề tài tiếng Việt", "GVHD",
+            "Hội đồng", "Điểm GVHD", "Điểm GVPB", "Điểm TB HĐ", "Điểm Tổng (10)",
+            "Điểm Hệ 4", "Điểm chữ", "Xếp loại", "Kết quả"
+        ])
+
+        projects = GraduationProject.objects.filter(batch=batch).select_related(
+            "student__user", "supervisor__user", "council", "final_grade_summary"
+        ).order_by("student__registration_no")
+
+        for idx, p in enumerate(projects, 1):
+            s = getattr(p, "final_grade_summary", None)
+            ws.append([
+                idx,
+                p.student.registration_no,
+                p.student.user.get_full_name(),
+                p.student.get_degree_program_display(),
+                p.topic_title_vi,
+                p.supervisor.user.get_full_name(),
+                p.council.council_name if p.council else "Chưa gán",
+                p.supervisor_score or "",
+                p.reviewer_score or "",
+                s.council_avg_score if s else "",
+                s.final_score_10 if s else "",
+                s.final_score_4 if s else "",
+                s.final_letter_grade if s else "",
+                s.classification if s else "",
+                "Đạt" if (s and s.is_passed) else ("Bảo lưu" if p.status == "DEFERRED" else "Không đạt")
+            ])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        filename = f"Bang_diem_tot_nghiep_{batch.batch_code}.xlsx"
+        response = HttpResponse(buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+# ==============================================================================
+# DEFERRED THESIS (NHÁNH BẢO LƯU) APIS
+# ==============================================================================
+
+class StudentDeferralRequestAPIView(APIView):
+    """Sinh viên nộp đơn xin bảo lưu đồ án khi không đủ điều kiện bảo vệ / học vụ"""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        user = request.user
+        student = getattr(user, "student_profile", None)
+        if not student:
+            return Response({"detail": "Chỉ dành cho sinh viên."}, status=status.HTTP_403_FORBIDDEN)
+
+        requests = ThesisDeferralRequest.objects.filter(student=student).order_by("-submitted_at")
+        return Response(ThesisDeferralRequestSerializer(requests, many=True).data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        user = request.user
+        student = getattr(user, "student_profile", None)
+        if not student:
+            return Response({"detail": "Chỉ dành cho sinh viên."}, status=status.HTTP_403_FORBIDDEN)
+
+        project = GraduationProject.objects.filter(student=student).first()
+        if not project:
+            batch = getattr(student, "academic_batch", None) or AcademicBatch.objects.filter(is_active=True).first()
+            if batch:
+                project = GraduationProject.objects.create(
+                    student=student,
+                    batch=batch,
+                    status="DISQUALIFIED"
+                )
+            else:
+                return Response({"detail": "Chưa có đồ án hoặc đợt hợp lệ để xin bảo lưu."}, status=status.HTTP_400_BAD_REQUEST)
+
+        reason = (request.data.get("reason", "") or request.data.get("reason_details", "")).strip()
+        evidence_file = request.FILES.get("evidence_file")
+
+        if not reason:
+            return Response({"detail": "Vui lòng nhập lý do xin bảo lưu đồ án."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if evidence_file:
+            try:
+                validate_uploaded_file(evidence_file, allowed_extensions=[".pdf", ".zip", ".docx", ".png", ".jpg"], max_size_bytes=25 * 1024 * 1024)
+            except Exception as e:
+                err_msg = getattr(e, "detail", str(e))
+                return Response({"evidence_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        deferral = ThesisDeferralRequest.objects.create(
+            project=project,
+            student=student,
+            reason=reason,
+            evidence_file=evidence_file,
+            status="PENDING",
+        )
+
+        return Response({
+            "success": True,
+            "message": "Nộp đơn xin bảo lưu đồ án thành công! Đang chờ Khoa phê duyệt.",
+            "deferral": ThesisDeferralRequestSerializer(deferral).data
+        }, status=status.HTTP_201_CREATED)
+
+
+class AdminReviewDeferralRequestAPIView(APIView):
+    """Khoa duyệt đơn bảo lưu: Có -> status='DEFERRED', lưu hồ sơ; Không -> loại khỏi đợt"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        deferral = get_object_or_404(ThesisDeferralRequest, id=pk)
+        decision = request.data.get("decision", "APPROVED").upper()  # APPROVED or REJECTED
+        admin_notes = request.data.get("admin_notes", "").strip()
+
+        with transaction.atomic():
+            deferral.status = decision
+            deferral.admin_notes = admin_notes
+            deferral.reviewed_at = timezone.now()
+            deferral.reviewed_by = request.user
+            deferral.save()
+
+            project = deferral.project
+            if decision == "APPROVED":
+                project.status = "DEFERRED"
+                msg = f"Khoa đã duyệt đơn bảo lưu đồ án cho sinh viên {project.student.registration_no}."
+            else:
+                project.status = "DISQUALIFIED"
+                msg = f"Khoa không duyệt đơn bảo lưu. Sinh viên {project.student.registration_no} bị loại khỏi đợt."
+
+            project.save(update_fields=["status"])
+
+        # Thông báo tới SV
+        try:
+            NotificationService.create_notification(
+                user=deferral.student.user,
+                notification_type="general",
+                title="[Kết quả duyệt đơn bảo lưu đồ án]",
+                message=msg,
+                action_url="/student/dashboard",
+                send_email=True,
+            )
+        except Exception as e:
+            logger.warning("Could not send notification: %s", e)
+
+        return Response({
+            "message": msg,
+            "deferral": ThesisDeferralRequestSerializer(deferral).data,
+            "project": GraduationProjectDetailSerializer(project).data
+        }, status=status.HTTP_200_OK)
+

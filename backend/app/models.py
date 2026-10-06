@@ -114,6 +114,11 @@ class CourseClass(models.Model):
         return f"{self.class_name} - {self.class_code} ({self.class_group})"
 
 
+class DegreeProgram(models.TextChoices):
+    BACHELOR = "BACHELOR", "Cử nhân"
+    ENGINEER = "ENGINEER", "Kỹ sư"
+
+
 class Student(models.Model):
     SEMESTER_CHOICES = (
         ("semester_6", "Semester 6"),
@@ -126,6 +131,12 @@ class Student(models.Model):
 
     registration_no = models.CharField(max_length=20, unique=True)
     department = models.CharField(max_length=100, blank=True, null=True)
+    degree_program = models.CharField(
+        max_length=20, choices=DegreeProgram.choices, default=DegreeProgram.BACHELOR
+    )
+    cpa = models.FloatField(default=0.0, help_text="Điểm trung bình tích lũy thang 4")
+    credits_accumulated = models.IntegerField(default=0, help_text="Số tín chỉ đã tích lũy")
+    is_eligible_for_thesis = models.BooleanField(default=True, help_text="Đủ điều kiện làm ĐA")
     semester = models.CharField(
         max_length=100, choices=SEMESTER_CHOICES, blank=True, null=True
     )
@@ -2032,11 +2043,46 @@ class InternshipInfo(models.Model):
     preferred_supervisor = models.ForeignKey(
         Supervisor, on_delete=models.SET_NULL, null=True, blank=True, related_name="preferred_by_students"
     )
+    preference_1 = models.ForeignKey(
+        Supervisor, on_delete=models.SET_NULL, null=True, blank=True, related_name="pref1_students"
+    )
+    preference_2 = models.ForeignKey(
+        Supervisor, on_delete=models.SET_NULL, null=True, blank=True, related_name="pref2_students"
+    )
+    preference_3 = models.ForeignKey(
+        Supervisor, on_delete=models.SET_NULL, null=True, blank=True, related_name="pref3_students"
+    )
+    secondary_criteria_note = models.TextField(blank=True, null=True, help_text="Tiêu chí phụ / Định hướng công nghệ")
     tentative_title = models.CharField(max_length=500, blank=True, null=True)
     submitted_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Khảo sát: {self.student} - Cty: {self.company_name or 'Chưa đi TT'}"
+        return f"Khảo sát & Nguyện vọng: {self.student} (NV1: {self.preference_1 or self.preferred_supervisor})"
+
+
+class ProposedAllocation(models.Model):
+    """Bảng đề xuất phân công hướng dẫn đồ án (hệ thống tính toán trước khi Khoa duyệt/override)"""
+    batch = models.ForeignKey(
+        AcademicBatch, on_delete=models.CASCADE, related_name="proposed_allocations"
+    )
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name="proposed_assignments"
+    )
+    supervisor = models.ForeignKey(
+        Supervisor, on_delete=models.CASCADE, related_name="proposed_students"
+    )
+    matched_preference = models.IntegerField(default=1, help_text="Khớp NV1 (1), NV2 (2), NV3 (3) hoặc Hệ thống gán (0)")
+    match_score = models.FloatField(default=0.0)
+    is_overridden = models.BooleanField(default=False)
+    override_reason = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("batch", "student")
+        ordering = ["student__registration_no"]
+
+    def __str__(self):
+        return f"Đề xuất: SV {self.student.registration_no} -> GV {self.supervisor} (NV{self.matched_preference})"
 
 
 class DefenseCouncil(models.Model):
@@ -2106,6 +2152,11 @@ class GraduationProject(models.Model):
     """Đồ án tốt nghiệp cá nhân (1 Sinh viên / 1 Đề tài / 1 GVHD)"""
     STATUS_CHOICES = (
         ("ALLOCATED", "Đã phân GVHD"),
+        ("TOPIC_DRAFT", "Đang xây dựng đề tài (Draft)"),
+        ("TOPIC_CONFIRMED", "GV đã xác nhận đề tài"),
+        ("TOPIC_REVISION", "Khoa yêu cầu sửa đề tài"),
+        ("TOPIC_APPROVED", "Đề tài đã duyệt"),
+        ("ELIGIBILITY_CHECK_PENDING", "Chờ xét điều kiện làm ĐA"),
         ("OUTLINE_PENDING", "Chờ duyệt đề cương"),
         ("OUTLINE_REVISION", "Yêu cầu sửa đề cương"),
         ("OUTLINE_APPROVED", "Đề cương đã duyệt"),
@@ -2115,6 +2166,7 @@ class GraduationProject(models.Model):
         ("PASSED", "Bảo vệ thành công - Đạt"),
         ("FAILED", "Không đạt"),
         ("DEFERRED", "Bảo lưu đồ án"),
+        ("DISQUALIFIED", "Loại khỏi đợt đồ án"),
     )
     DEFENSE_STATUS_CHOICES = (
         ("WAITING", "Chờ bảo vệ"),
@@ -2137,6 +2189,19 @@ class GraduationProject(models.Model):
     topic_title_en = models.CharField(max_length=500, blank=True, null=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="ALLOCATED")
     defense_status = models.CharField(max_length=50, choices=DEFENSE_STATUS_CHOICES, default="WAITING")
+    
+    # Eligibility & Approvals
+    is_force_approved = models.BooleanField(default=False, help_text="Khoa duyệt đặc cách cho làm ĐA")
+    academic_clearance_status = models.CharField(
+        max_length=20,
+        choices=(
+            ("PENDING", "Chờ kiểm tra"),
+            ("CLEARED", "Đạt điều kiện"),
+            ("NOT_CLEARED", "Chưa đạt"),
+        ),
+        default="CLEARED",
+    )
+    signed_outline_file = models.FileField(upload_to="signed_outlines/", null=True, blank=True)
     
     # Reviewer and Council
     reviewer = models.ForeignKey(
@@ -2307,6 +2372,19 @@ class SupervisionTask(models.Model):
     is_completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
     student_notes = models.TextField(blank=True, null=True, help_text="Ghi chú, link commit hoặc báo cáo kết quả của SV")
+    deliverable_file = models.FileField(upload_to="task_deliverables/", null=True, blank=True)
+    deliverable_url = models.URLField(max_length=500, blank=True, null=True)
+    review_verdict = models.CharField(
+        max_length=20,
+        choices=(
+            ("PENDING", "Chờ đánh giá"),
+            ("ACCEPTED", "Đạt"),
+            ("REVISION_REQUIRED", "Yêu cầu làm lại"),
+        ),
+        default="PENDING",
+    )
+    supervisor_review_notes = models.TextField(blank=True, null=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2314,7 +2392,37 @@ class SupervisionTask(models.Model):
         ordering = ["is_completed", "due_date", "-created_at"]
 
     def __str__(self):
-        return f"Task: {self.title} -> {self.project.student.registration_no} [{self.get_status_display()}]"
+        return f"Task: {self.title} -> {self.project.student.registration_no} [{self.get_status_display()}] ({self.get_review_verdict_display()})"
+
+
+class ThesisDeferralRequest(models.Model):
+    """Đơn xin bảo lưu đồ án tốt nghiệp của Sinh viên khi không đủ điều kiện bảo vệ/học vụ"""
+    STATUS_CHOICES = (
+        ("PENDING", "Chờ Khoa duyệt"),
+        ("APPROVED", "Đã duyệt bảo lưu"),
+        ("REJECTED", "Không chấp nhận / Loại khỏi đợt"),
+    )
+    project = models.ForeignKey(
+        GraduationProject, on_delete=models.CASCADE, related_name="deferral_requests"
+    )
+    student = models.ForeignKey(
+        Student, on_delete=models.CASCADE, related_name="deferral_requests"
+    )
+    reason = models.TextField(help_text="Lý do xin bảo lưu đồ án")
+    evidence_file = models.FileField(upload_to="deferral_evidence/", null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    admin_notes = models.TextField(blank=True, null=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name="reviewed_deferral_requests"
+    )
+
+    class Meta:
+        ordering = ["-submitted_at"]
+
+    def __str__(self):
+        return f"Đơn bảo lưu: SV {self.student.registration_no} ({self.get_status_display()})"
 
 
 class CouncilLiveScore(models.Model):

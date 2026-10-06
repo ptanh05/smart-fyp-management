@@ -43,6 +43,23 @@ from .views_utc import (
     CouncilAssignProjectAPIView,
     CouncilAssignMemberAPIView,
     GlobalSearchAPIView,
+    RunAllocationAlgorithmAPIView,
+    ProposedAllocationListAPIView,
+    OverrideAllocationAPIView,
+    FinalizeAllocationAPIView,
+    TopicDraftAPIView,
+    SupervisorConfirmTopicAPIView,
+    AdminApproveTopicAPIView,
+    ExportOutlinePdfAPIView,
+    UploadSignedOutlineAPIView,
+    CheckThesisEligibilityAPIView,
+    ForceApproveThesisAPIView,
+    StudentTaskDeliverableSubmitAPIView,
+    SupervisorReviewTaskAPIView,
+    CouncilMinutesPdfExportAPIView,
+    BatchFinalGradesExcelExportAPIView,
+    StudentDeferralRequestAPIView,
+    AdminReviewDeferralRequestAPIView,
 )
 from .views import (
     GroupRequestView,
@@ -565,6 +582,38 @@ urlpatterns = [
     path("council/conflicts/", CouncilConflictCheckAPIView.as_view(), name="utc-council-conflicts"),
     path("council/assign-project/", CouncilAssignProjectAPIView.as_view(), name="utc-council-assign-project"),
     path("council/assign-member/", CouncilAssignMemberAPIView.as_view(), name="utc-council-assign-member"),
+
+    # =========================================================================
+    # UTC 6-PHASE SPECIFICATION NEW WORKFLOW ENDPOINTS
+    # =========================================================================
+    # Phase 2: Allocation Optimization & Override
+    path("allocation/run-algorithm/", RunAllocationAlgorithmAPIView.as_view(), name="utc-allocation-run-algorithm"),
+    path("allocation/proposed-list/", ProposedAllocationListAPIView.as_view(), name="utc-allocation-proposed-list"),
+    path("allocation/override/", OverrideAllocationAPIView.as_view(), name="utc-allocation-override"),
+    path("allocation/finalize/", FinalizeAllocationAPIView.as_view(), name="utc-allocation-finalize"),
+
+    # Phase 3: Topic Draft & Outline PDF
+    path("graduation-project/topic-draft/", TopicDraftAPIView.as_view(), name="utc-topic-draft"),
+    path("graduation-project/confirm-topic/", SupervisorConfirmTopicAPIView.as_view(), name="utc-supervisor-confirm-topic"),
+    path("graduation-project/admin-approve-topic/", AdminApproveTopicAPIView.as_view(), name="utc-admin-approve-topic"),
+    path("graduation-project/<int:pk>/export-outline-pdf/", ExportOutlinePdfAPIView.as_view(), name="utc-export-outline-pdf"),
+    path("graduation-project/<int:pk>/upload-signed-outline/", UploadSignedOutlineAPIView.as_view(), name="utc-upload-signed-outline"),
+
+    # Phase 4: Thesis Eligibility & Force Approve
+    path("graduation-project/<int:pk>/check-eligibility/", CheckThesisEligibilityAPIView.as_view(), name="utc-check-thesis-eligibility"),
+    path("graduation-project/<int:pk>/force-approve/", ForceApproveThesisAPIView.as_view(), name="utc-force-approve-thesis"),
+
+    # Phase 5: Task Deliverables & Review
+    path("student/tasks/<int:pk>/submit-deliverable/", StudentTaskDeliverableSubmitAPIView.as_view(), name="utc-student-task-submit-deliverable"),
+    path("supervisor/tasks/<int:pk>/review/", SupervisorReviewTaskAPIView.as_view(), name="utc-supervisor-task-review"),
+
+    # Phase 6: Minutes PDF & Final Grades Excel Export
+    path("council/<int:council_id>/export-minutes-pdf/", CouncilMinutesPdfExportAPIView.as_view(), name="utc-council-export-minutes-pdf"),
+    path("batch/<int:batch_id>/export-final-grades-excel/", BatchFinalGradesExcelExportAPIView.as_view(), name="utc-batch-export-final-grades-excel"),
+
+    # Deferral Branch
+    path("student/deferral-request/", StudentDeferralRequestAPIView.as_view(), name="utc-student-deferral-request"),
+    path("admin/deferral-request/<int:pk>/review/", AdminReviewDeferralRequestAPIView.as_view(), name="utc-admin-review-deferral-request"),
 
     path("global-search/", GlobalSearchAPIView.as_view(), name="global-search"),
 ]

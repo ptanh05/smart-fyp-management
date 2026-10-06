@@ -1,4 +1,5 @@
 import io
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase, APIClient
 from django.contrib.auth import get_user_model
 from rest_framework import status
@@ -11,6 +12,9 @@ from app.models import (
     ProjectTopicArea,
     InternshipInfo,
     GraduationProject,
+    ProposedAllocation,
+    SupervisionTask,
+    ThesisDeferralRequest,
     OutlineReview,
     WeeklyProgressReport,
     DefenseCouncil,
@@ -20,6 +24,12 @@ from app.models import (
     FinalGradeSummary,
     AcademicBatch,
     CourseClass
+)
+from app.services import (
+    DegreeEligibilityService,
+    ThesisAllocationService,
+    AcademicClearanceService,
+    CouncilStructureService
 )
 
 class UTCGraduationSystemTests(APITestCase):
@@ -555,3 +565,336 @@ class UTCGraduationSystemTests(APITestCase):
         self.assertEqual(res_search_faculty.status_code, status.HTTP_200_OK)
         for item in res_search_faculty.data["results"]:
             self.assertEqual(item["type"], "faculty")
+
+    def test_phase2_engineer_supervisor_degree_requirement(self):
+        """Test quy tắc phân công CT Kỹ sư: Chỉ giảng viên học vị TS/PGS/GS mới được hướng dẫn"""
+        sup_ths_user = CustomUser.objects.create_user(
+            username="gv_ths_test",
+            email="ths_test@utc.edu.vn",
+            password="password123",
+            first_name="Thạc sĩ",
+            last_name="Nguyễn",
+            user_type="supervisor"
+        )
+        sup_ths = Supervisor.objects.create(
+            user=sup_ths_user,
+            supervisor_id="GV_THS_01",
+            academic_title="ThS",
+            department_name="CNTT"
+        )
+        SupervisorQuota.objects.create(
+            supervisor=sup_ths,
+            batch=self.batch,
+            viet_anh_quota=3,
+            general_cntt_quota=5,
+            max_total_quota=8
+        )
+
+        self.client.force_authenticate(user=self.student_user)
+
+        # 1. SV Kỹ sư (ENGINEER) chọn GV ThS -> Phải bị từ chối với HTTP 400
+        self.student.degree_program = 'ENGINEER'
+        self.student.save()
+
+        res_engineer_ths = self.client.post("/app/student/survey/", {
+            "is_interning": False,
+            "topic_direction": self.topic_software.id,
+            "preference_1": sup_ths.id,
+            "tentative_title": "Đề tài Kỹ sư"
+        }, format="json")
+        self.assertEqual(res_engineer_ths.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Kỹ sư", res_engineer_ths.data.get("detail", ""))
+
+        # 2. SV Cử nhân (BACHELOR) chọn GV ThS -> Cho phép hợp lệ HTTP 200
+        self.student.degree_program = 'BACHELOR'
+        self.student.save()
+
+        res_bachelor_ths = self.client.post("/app/student/survey/", {
+            "is_interning": False,
+            "topic_direction": self.topic_software.id,
+            "preference_1": sup_ths.id,
+            "tentative_title": "Đề tài Cử nhân"
+        }, format="json")
+        self.assertEqual(res_bachelor_ths.status_code, status.HTTP_200_OK)
+
+        # 3. SV Kỹ sư chọn GV TS (self.sup1) -> Hợp lệ HTTP 200
+        self.student.degree_program = 'ENGINEER'
+        self.student.save()
+
+        res_engineer_ts = self.client.post("/app/student/survey/", {
+            "is_interning": False,
+            "topic_direction": self.topic_software.id,
+            "preference_1": self.sup1.id,
+            "tentative_title": "Đề tài Kỹ sư với GV TS"
+        }, format="json")
+        self.assertEqual(res_engineer_ts.status_code, status.HTTP_200_OK)
+
+    def test_phase2_thesis_allocation_mcmf_and_finalize(self):
+        """Test thuật toán tối ưu phân bổ đề tài MCMF và chốt phân công (Allocation Finalize)"""
+        admin_user = CustomUser.objects.create_user(
+            username="admin_user_alloc",
+            email="admin_alloc@utc.edu.vn",
+            password="password123",
+            user_type="admin",
+            is_staff=True
+        )
+        self.client.force_authenticate(user=admin_user)
+
+        # Đăng ký nguyện vọng hợp lệ cho sinh viên
+        InternshipInfo.objects.update_or_create(
+            student=self.student,
+            defaults={
+                "batch": self.batch,
+                "topic_direction": self.topic_software,
+                "preference_1": self.sup1,
+                "preference_2": self.sup2,
+                "preferred_supervisor": self.sup1,
+                "secondary_criteria_note": "Mong muốn làm về web backend"
+            }
+        )
+
+        # 1. Chạy thuật toán đề xuất phân công MCMF
+        res_run = self.client.post("/app/allocation/run-algorithm/", {
+            "batch_id": self.batch.id
+        }, format="json")
+        self.assertEqual(res_run.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_run.data["success"])
+        self.assertGreaterEqual(len(res_run.data["allocations"]), 1)
+
+        # Kiểm tra bản ghi ProposedAllocation
+        proposals = ProposedAllocation.objects.filter(batch=self.batch, student=self.student)
+        self.assertTrue(proposals.exists())
+
+        # 2. Khoa chốt phân công (Finalize allocation) -> Chuyển thành GraduationProject
+        res_finalize = self.client.post("/app/allocation/finalize/", {
+            "batch_id": self.batch.id
+        }, format="json")
+        self.assertEqual(res_finalize.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_finalize.data["success"])
+        self.assertGreaterEqual(res_finalize.data["finalized_projects_count"], 1)
+
+        proj = GraduationProject.objects.filter(student=self.student, batch=self.batch).first()
+        self.assertIsNotNone(proj)
+        self.assertEqual(proj.status, 'TOPIC_DRAFT')
+
+    def test_phase3_topic_drafting_and_confirmation(self):
+        """Test quy trình bản thảo đề tài (Draft), GV xác nhận, sinh đề cương PDF và nộp bản ký"""
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            status='TOPIC_DRAFT'
+        )
+
+        # 1. Sinh viên cập nhật bản thảo đề tài (Draft)
+        self.client.force_authenticate(user=self.student_user)
+        res_draft = self.client.post("/app/graduation-project/topic-draft/", {
+            "project_id": proj.id,
+            "topic_title_vi": "Nghiên cứu ứng dụng Microservices trong quản lý ĐATN",
+            "topic_title_en": "Microservices Application in FYP Management"
+        }, format="json")
+        self.assertEqual(res_draft.status_code, status.HTTP_200_OK)
+        proj.refresh_from_db()
+        self.assertEqual(proj.topic_title_vi, "Nghiên cứu ứng dụng Microservices trong quản lý ĐATN")
+        self.assertEqual(proj.status, 'TOPIC_DRAFT')
+
+        # 2. GVHD xác nhận tên đề tài -> Trạng thái TOPIC_CONFIRMED
+        self.client.force_authenticate(user=self.sup1_user)
+        res_confirm = self.client.post("/app/graduation-project/confirm-topic/", {
+            "project_id": proj.id,
+            "topic_title_vi": "Nghiên cứu ứng dụng Microservices trong quản lý ĐATN (Chính thức)",
+            "topic_title_en": "Microservices Application in FYP Management (Official)"
+        }, format="json")
+        self.assertEqual(res_confirm.status_code, status.HTTP_200_OK)
+        proj.refresh_from_db()
+        self.assertEqual(proj.status, 'TOPIC_CONFIRMED')
+        self.assertIn("Chính thức", proj.topic_title_vi)
+
+        # 3. Sinh đề cương chi tiết định dạng PDF tự động
+        self.client.force_authenticate(user=self.student_user)
+        res_pdf = self.client.get(f"/app/graduation-project/{proj.id}/export-outline-pdf/")
+        self.assertEqual(res_pdf.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_pdf["Content-Type"], "application/pdf")
+        self.assertGreater(len(res_pdf.content), 500)
+
+        # 4. Sinh viên nộp file đề cương đã ký
+        sample_signed_file = SimpleUploadedFile("de_cuong_da_ky.pdf", b"%PDF-1.4 test signed outline content", content_type="application/pdf")
+        res_upload = self.client.post(
+            f"/app/graduation-project/{proj.id}/upload-signed-outline/",
+            {"signed_outline_file": sample_signed_file},
+            format="multipart"
+        )
+        self.assertEqual(res_upload.status_code, status.HTTP_200_OK)
+        proj.refresh_from_db()
+        self.assertTrue(bool(proj.signed_outline_file))
+
+    def test_phase4_academic_clearance_and_force_approve(self):
+        """Test xét điều kiện học vụ: CPA < 2.0 bị loại và tính năng Force Approve của Khoa"""
+        admin_user = CustomUser.objects.create_user(
+            username="admin_clearance",
+            email="admin_clearance@utc.edu.vn",
+            password="password123",
+            user_type="admin",
+            is_staff=True
+        )
+
+        # Sinh viên không đủ điều kiện (CPA = 1.7 < 2.0)
+        self.student.cpa = 1.7
+        self.student.credits_accumulated = 90
+        self.student.is_eligible_for_thesis = False
+        self.student.save()
+
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            topic_title_vi="Đề tài của sinh viên chưa đủ điều kiện",
+            status='TOPIC_APPROVED'
+        )
+
+        self.client.force_authenticate(user=admin_user)
+
+        # 1. Khoa quét điều kiện học vụ
+        res_check = self.client.post(f"/app/graduation-project/{proj.id}/check-eligibility/", format="json")
+        self.assertEqual(res_check.status_code, status.HTTP_200_OK)
+        proj.refresh_from_db()
+        self.assertEqual(proj.status, 'DISQUALIFIED')
+
+        # 2. Khoa duyệt ngoại lệ (Force Approve)
+        res_force = self.client.post(f"/app/graduation-project/{proj.id}/force-approve/", {
+            "reason": "Ban Chủ nhiệm Khoa đặc cách cho phép làm đồ án có điều kiện"
+        }, format="json")
+        self.assertEqual(res_force.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_force.data["success"])
+
+        proj.refresh_from_db()
+        self.assertTrue(proj.is_force_approved)
+        self.assertEqual(proj.status, 'IN_PROGRESS')
+
+    def test_phase5_task_deliverable_and_review(self):
+        """Test sinh viên nộp sản phẩm nhiệm vụ và GV review: Đạt hoặc Yêu cầu sửa lại"""
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            topic_title_vi="Hệ thống chấm thi trực tuyến",
+            status='IN_PROGRESS'
+        )
+
+        task = SupervisionTask.objects.create(
+            project=proj,
+            assigned_by=self.sup1,
+            title="Xây dựng API xác thực người dùng JWT",
+            description="Cài đặt refresh token và middleware phân quyền",
+            priority="HIGH",
+            status="TODO"
+        )
+
+        # 1. Sinh viên nộp sản phẩm kết quả (URL & ghi chú)
+        self.client.force_authenticate(user=self.student_user)
+        res_submit = self.client.post(f"/app/student/tasks/{task.id}/submit-deliverable/", {
+            "deliverable_url": "https://github.com/utc/jwt-auth/pull/1",
+            "student_notes": "Em đã hoàn thành các test case xác thực và gán role"
+        }, format="json")
+        self.assertEqual(res_submit.status_code, status.HTTP_200_OK)
+        task.refresh_from_db()
+        self.assertEqual(task.review_verdict, 'PENDING')
+        self.assertEqual(task.status, 'IN_PROGRESS')
+        self.assertEqual(task.deliverable_url, "https://github.com/utc/jwt-auth/pull/1")
+
+        # 2. GV đánh giá: Yêu cầu sửa lại (REVISION_REQUIRED)
+        self.client.force_authenticate(user=self.sup1_user)
+        res_review_rev = self.client.post(f"/app/supervisor/tasks/{task.id}/review/", {
+            "verdict": "REVISION_REQUIRED",
+            "supervisor_notes": "Cần bổ sung kiểm tra hết hạn của Refresh Token"
+        }, format="json")
+        self.assertEqual(res_review_rev.status_code, status.HTTP_200_OK)
+        task.refresh_from_db()
+        self.assertEqual(task.review_verdict, 'REVISION_REQUIRED')
+        self.assertFalse(task.is_completed)
+
+        # 3. GV đánh giá: Đạt yêu cầu (ACCEPTED)
+        res_review_acc = self.client.post(f"/app/supervisor/tasks/{task.id}/review/", {
+            "verdict": "ACCEPTED",
+            "supervisor_notes": "Đã sửa hoàn thiện, code sạch"
+        }, format="json")
+        self.assertEqual(res_review_acc.status_code, status.HTTP_200_OK)
+        task.refresh_from_db()
+        self.assertEqual(task.review_verdict, 'ACCEPTED')
+        self.assertTrue(task.is_completed)
+
+    def test_phase6_council_structure_1ct_2tk_2uv_and_minutes_pdf(self):
+        """Test cơ cấu hội đồng bảo vệ chuẩn UTC (1CT-2TK-2UV) và xuất biên bản PDF"""
+        council = DefenseCouncil.objects.create(
+            batch=self.batch,
+            council_number=99,
+            council_name="Hội đồng Bảo vệ CNTT Số 99",
+            defense_room="502-A9",
+            session_time="MORNING"
+        )
+
+        # Tạo 5 thành viên chuẩn UTC (1CT - 2TK - 2UV)
+        members_data = [
+            ("CHAIR", "Hội đồng Chủ tịch", "gv_ct", "TS"),
+            ("SECRETARY", "Thư ký 1", "gv_tk1", "ThS"),
+            ("SECRETARY", "Thư ký 2", "gv_tk2", "ThS"),
+            ("MEMBER", "Ủy viên 1", "gv_uv1", "TS"),
+            ("MEMBER", "Ủy viên 2", "gv_uv2", "TS"),
+        ]
+
+        for role, name, uname, title in members_data:
+            u = CustomUser.objects.create_user(username=uname, email=f"{uname}@utc.edu.vn", password="pw", user_type="supervisor")
+            sup = Supervisor.objects.create(user=u, supervisor_id=uname.upper(), academic_title=title, department_name="CNTT")
+            CouncilMember.objects.create(council=council, supervisor=sup, user=u, role=role)
+
+        # Kiểm tra cơ cấu qua Service
+        validation = CouncilStructureService.validate_utc_council_structure(council)
+        self.assertTrue(validation["is_valid"])
+        self.assertEqual(validation["chairs_count"], 1)
+        self.assertEqual(validation["secretaries_count"], 2)
+        self.assertEqual(validation["members_count"], 2)
+
+        # Test xuất biên bản PDF của hội đồng
+        admin_user = CustomUser.objects.create_user(
+            username="admin_minutes",
+            email="admin_minutes@utc.edu.vn",
+            password="password123",
+            user_type="admin",
+            is_staff=True
+        )
+        self.client.force_authenticate(user=admin_user)
+        res_minutes = self.client.get(f"/app/council/{council.id}/export-minutes-pdf/")
+        self.assertEqual(res_minutes.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_minutes["Content-Type"], "application/pdf")
+        self.assertGreater(len(res_minutes.content), 500)
+
+    def test_deferral_branch_workflow(self):
+        """Test nhánh Bảo lưu đồ án tốt nghiệp: SV nộp đơn và theo dõi trạng thái"""
+        GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            topic_title_vi="Đề tài xin bảo lưu",
+            status="DISQUALIFIED"
+        )
+        self.client.force_authenticate(user=self.student_user)
+
+        # 1. Sinh viên nộp đơn xin bảo lưu
+        res_defer = self.client.post("/app/student/deferral-request/", {
+            "reason_category": "ACADEMIC",
+            "reason_details": "Em bị thiếu 2 tín chỉ Tiếng Anh chuyên ngành nên xin bảo lưu kết quả sang đợt sau."
+        }, format="json")
+        self.assertIn(res_defer.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        self.assertTrue(res_defer.data["success"])
+
+        # 2. Sinh viên xem danh sách đơn bảo lưu
+        res_list = self.client.get("/app/student/deferral-request/")
+        self.assertEqual(res_list.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(res_list.data), 1)
+        self.assertIn("Tiếng Anh", res_list.data[0]["reason"])
+        self.assertEqual(res_list.data[0]["status"], "PENDING")
+
