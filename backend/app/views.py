@@ -816,6 +816,7 @@ class ListSuperisorAPIView(ListAPIView):
     def get_queryset(self):
         category = self.request.GET.get("category")
         search = self.request.GET.get("search")
+        role = self.request.GET.get("role") or self.request.GET.get("degree_program")
         queryset = super().get_queryset()
         
         if category:
@@ -830,6 +831,25 @@ class ListSuperisorAPIView(ListAPIView):
                 Q(research_interest__icontains=search) |
                 Q(supervisor_id__icontains=search)
             )
+
+        # Filter by Engineer degree program requirement (doctoral degree or higher: TS, PGS, GS)
+        is_engineer = False
+        if role and role.strip().upper() in ["ENGINEER", "KY_SU", "KYSU"]:
+            is_engineer = True
+        elif hasattr(self.request.user, "student_profile"):
+            student = self.request.user.student_profile
+            if getattr(student, "degree_program", "") == "ENGINEER":
+                is_engineer = True
+        elif Student.objects.filter(user=self.request.user, degree_program="ENGINEER").exists():
+            is_engineer = True
+
+        if is_engineer:
+            from .services import DegreeEligibilityService
+            eligible_ids = [
+                s.id for s in queryset
+                if DegreeEligibilityService.is_doctoral_degree(s.academic_title or "")
+            ]
+            queryset = queryset.filter(id__in=eligible_ids)
         
         return queryset.order_by('user__username')
 

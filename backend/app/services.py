@@ -1080,28 +1080,72 @@ class CouncilConflictService:
 
     @staticmethod
     def check_member_assignment(council, user, supervisor=None):
-        """Check potential conflict if a user/supervisor is added to a council."""
+        """
+        Check potential conflict if a user/supervisor is added to a council.
+        Quy chế: GV hướng dẫn KHÔNG được nằm trong hội đồng/phản biện của chính SV đó.
+        """
+        from .models import Supervisor, GraduationProject
         projects = council.projects.select_related("student__user", "supervisor__user", "reviewer__user").all()
         conflicts = []
         user_id = getattr(user, "id", None)
         sup_id = getattr(supervisor, "id", None) if supervisor else None
 
+        # Resolve supervisor if not provided
+        if not sup_id and user:
+            sup = getattr(user, "supervisor_profile", None)
+            if not sup:
+                sup = Supervisor.objects.filter(user=user).first()
+            if sup:
+                sup_id = sup.id
+                supervisor = sup
+
+        # Also resolve user if not provided
+        if not user_id and supervisor:
+            user = getattr(supervisor, "user", None)
+            if user:
+                user_id = user.id
+
         for p in projects:
-            s_name = p.student.user.get_full_name()
-            if (sup_id and p.supervisor_id == sup_id) or (p.supervisor and p.supervisor.user_id == user_id):
+            s_name = p.student.user.get_full_name() or p.student.registration_no
+
+            # 1. Cross-check Supervisor (GVHD):
+            # Member being assigned CANNOT be the supervisor of any project in this council
+            is_sup = False
+            if sup_id and p.supervisor_id and p.supervisor_id == sup_id:
+                is_sup = True
+            elif user_id and p.supervisor and p.supervisor.user_id == user_id:
+                is_sup = True
+            elif supervisor and p.supervisor and p.supervisor == supervisor:
+                is_sup = True
+
+            if is_sup:
                 conflicts.append({
                     "conflict_type": "SUPERVISOR",
                     "project_id": p.id,
                     "student_name": s_name,
-                    "message": f"Giảng viên này là GVHD của đề tài sinh viên {s_name} ({p.student.registration_no}) đang trong hội đồng."
+                    "student_reg_no": p.student.registration_no,
+                    "message": f"Thầy/Cô là GVHD của sinh viên {s_name} ({p.student.registration_no}). Quy chế quy định GVHD không được làm thành viên/phản biện trong hội đồng của chính sinh viên đó."
                 })
-            if (sup_id and p.reviewer_id == sup_id) or (p.reviewer and p.reviewer.user_id == user_id):
+
+            # 2. Cross-check Reviewer (GVPB):
+            # Member being assigned CANNOT be the reviewer of any project in this council
+            is_rev = False
+            if sup_id and p.reviewer_id and p.reviewer_id == sup_id:
+                is_rev = True
+            elif user_id and p.reviewer and p.reviewer.user_id == user_id:
+                is_rev = True
+            elif supervisor and p.reviewer and p.reviewer == supervisor:
+                is_rev = True
+
+            if is_rev:
                 conflicts.append({
                     "conflict_type": "REVIEWER",
                     "project_id": p.id,
                     "student_name": s_name,
+                    "student_reg_no": p.student.registration_no,
                     "message": f"Giảng viên này là GVPB của đề tài sinh viên {s_name} ({p.student.registration_no}) đang trong hội đồng."
                 })
+
         return conflicts
 
 
@@ -1164,6 +1208,33 @@ class ThesisAllocationService:
     """
 
     @classmethod
+    def get_capacity_multiplier(cls, supervisor) -> float:
+        """
+        Quy đổi hệ số Capacity theo học vị / chức danh:
+        - Thạc sĩ (ThS): 1.0 (baseline chuẩn)
+        - Tiến sĩ (TS): 1.5 (1 Tiến sĩ = 1.5 Thạc sĩ)
+        - Phó Giáo sư (PGS) / Giáo sư (GS): 2.0 (1 PGS = 2.0 Thạc sĩ)
+        """
+        if isinstance(supervisor, str):
+            title = supervisor.upper()
+        else:
+            title = (getattr(supervisor, "academic_title", None) or str(supervisor or "")).upper()
+        if any(marker in title for marker in ["PGS", "GS", "GIÁO SƯ", "GIAO SU", "PHÓ GIÁO SƯ"]):
+            return 2.0
+        elif any(marker in title for marker in ["TS", "TIẾN SĨ", "TIEN SI"]):
+            return 1.5
+        return 1.0
+
+    @classmethod
+    def calculate_capacity(cls, supervisor, base_capacity: int = 6) -> int:
+        """
+        Tính số lượng sinh viên tối đa theo công thức Capacity (1 TS = 1.5 ThS, 1 PGS = 2.0 ThS).
+        Kết quả luôn được làm tròn thành số nguyên int (tránh lỗi ValueError khi lưu vào DB IntegerField).
+        """
+        mult = cls.get_capacity_multiplier(supervisor)
+        return int(round(float(base_capacity) * mult))
+
+    @classmethod
     def run_allocation(cls, batch):
         """Chạy thuật toán đề xuất phân công cho một đợt đồ án"""
         from django.db import transaction
@@ -1175,21 +1246,22 @@ class ThesisAllocationService:
             .order_by("-student__cpa", "submitted_at")
         )
 
-        # 2. Lấy định mức Quota của GV trong batch
+        # 2. Lấy định mức Quota của GV trong batch (đảm bảo ép kiểu integer an toàn)
         quotas = {
             q.supervisor_id: {
-                "max": q.max_total_quota,
+                "max": int(round(float(q.max_total_quota))),
                 "assigned": 0,
                 "supervisor": q.supervisor,
             }
             for q in SupervisorQuota.objects.filter(batch=batch).select_related("supervisor__user")
         }
 
-        # Fallback: Nếu GV chưa có SupervisorQuota bản ghi riêng, tạo quota mặc định (10)
+        # Fallback: Nếu GV chưa có SupervisorQuota bản ghi riêng, tính quota theo công thức Capacity
         for s in Supervisor.objects.all():
             if s.id not in quotas:
+                calculated_max = cls.calculate_capacity(s, base_capacity=6)
                 quotas[s.id] = {
-                    "max": 10,
+                    "max": calculated_max,
                     "assigned": 0,
                     "supervisor": s,
                 }
@@ -1374,17 +1446,70 @@ class AcademicClearanceService:
     """Xét điều kiện làm đồ án (Giai đoạn 4) & Kiểm tra học vụ cuối trước bảo vệ (Giai đoạn 6)"""
 
     @staticmethod
-    def check_thesis_start_eligibility(project):
+    def check_thesis_start_eligibility(project, debt_credits=None, courses_data=None):
         """
         Giai đoạn 4: Xét điều kiện làm ĐA
         - Đủ: Tiếp tục làm đồ án (IN_PROGRESS)
         - Không đủ: Kiểm tra Force Approve
           + Có (is_force_approved=True): Tiếp tục (IN_PROGRESS)
           + Không: Loại khỏi đợt (DISQUALIFIED)
+        Boundary: Nợ 10 tín chỉ -> 'Không đủ điều kiện'
         """
         student = project.student
         cpa = getattr(student, "cpa", 0.0)
-        is_eligible = getattr(student, "is_eligible_for_thesis", True) and (cpa is None or cpa >= 2.0)
+
+        # Parse and calculate debt credits if courses_data or debt_credits provided
+        total_debt = debt_credits
+        if total_debt is None and courses_data:
+            total_debt = 0
+            try:
+                # Handle dict or list of courses
+                course_list = courses_data
+                if isinstance(courses_data, dict):
+                    course_list = courses_data.get("courses") or courses_data.get("mon_hoc") or []
+                    electives = courses_data.get("electives") or courses_data.get("tu_chon") or courses_data.get("diem_tu_chon") or []
+                    if isinstance(course_list, list) and isinstance(electives, list):
+                        course_list = list(course_list) + list(electives)
+
+                if isinstance(course_list, list):
+                    for item in course_list:
+                        if isinstance(item, dict):
+                            cr = item.get("credits") or item.get("tin_chi") or 0
+                            passed = item.get("is_passed")
+                            score = item.get("score") if item.get("score") is not None else item.get("diem")
+                            if passed is False or (score is not None and float(score) < 4.0):
+                                total_debt += int(cr)
+                        elif isinstance(item, (list, tuple)):
+                            if len(item) >= 2:
+                                cr = item[1]
+                                is_failed = False
+                                if len(item) >= 3:
+                                    val = item[2]
+                                    if isinstance(val, (int, float)) and float(val) < 4.0:
+                                        is_failed = True
+                                    elif isinstance(val, str) and val.upper() in ["F", "FAIL", "FAILED", "TRƯỢT", "TRUOT"]:
+                                        is_failed = True
+                                    elif isinstance(val, bool) and not val:
+                                        is_failed = True
+                                else:
+                                    is_failed = True
+                                if is_failed:
+                                    total_debt += int(cr)
+            except (IndexError, ValueError, TypeError, KeyError):
+                pass
+
+        # Determine debt credits from student attributes if not provided
+        if total_debt is None:
+            total_debt = getattr(student, "debt_credits", None) or getattr(student, "credits_debt", 0)
+
+        # Quy chế UTC: Nợ 10 tín chỉ trở lên -> Không đủ điều kiện làm ĐA
+        is_debt_ineligible = total_debt is not None and total_debt >= 10
+
+        is_eligible = (
+            getattr(student, "is_eligible_for_thesis", True)
+            and (cpa is None or cpa >= 2.0)
+            and not is_debt_ineligible
+        )
 
         if is_eligible or project.is_force_approved:
             project.status = "IN_PROGRESS"
@@ -1393,6 +1518,8 @@ class AcademicClearanceService:
         else:
             project.status = "DISQUALIFIED"
             project.save(update_fields=["status"])
+            if is_debt_ineligible:
+                return False, f"Không đủ điều kiện làm đồ án (Nợ {total_debt} tín chỉ, vượt quá/chạm giới hạn cho phép tối đa 10 tín chỉ)"
             return False, "Không đủ điều kiện làm đồ án (CPA < 2.0 hoặc vi phạm quy chế) và không được duyệt đặc cách"
 
     @staticmethod

@@ -166,10 +166,12 @@ class SupervisorProfileSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "supervisor_id",
+            "academic_title",
+            "department_name",
             "research_interest",
             "academic_background",
         ]
-        read_only_fields = ["id", "user", "supervisor_id"]
+        read_only_fields = ["id", "user", "supervisor_id", "academic_title", "department_name"]
 
 
 class CommitteeMemberProfileSerializer(serializers.ModelSerializer):

@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from .permissions import IsSupervisorOrCommitteeMember
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from .models import (
@@ -1199,11 +1200,14 @@ class CouncilLiveDefenseSessionAPIView(APIView):
 
 
 class CouncilSubmitScoreAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSupervisorOrCommitteeMember]
 
     @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def post(self, request):
         user = request.user
+        if getattr(user, "user_type", "") == "student":
+            return Response({"detail": "Sinh viên không có quyền truy cập hoặc tự nhập điểm Hội đồng bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
+
         council_member = CouncilMember.objects.filter(user=user).first()
         if not council_member:
             return Response({"detail": "Bạn không phải thành viên Hội đồng bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
@@ -1588,6 +1592,19 @@ class CouncilAssignProjectAPIView(APIView):
             }, status=status.HTTP_200_OK)
 
         council = get_object_or_404(DefenseCouncil, id=council_id)
+
+        # Boundary check: Quy chế UTC tối đa 12 sinh viên trong một buổi bảo vệ (max_limit=12)
+        current_assigned_count = council.projects.exclude(id=project.id).count()
+        if current_assigned_count >= 12:
+            return Response({
+                "success": False,
+                "error": "limit_exceeded",
+                "max_limit": 12,
+                "current_count": current_assigned_count,
+                "detail": f"Hội đồng '{council.council_name}' đã đạt giới hạn tối đa 12 sinh viên trong một buổi bảo vệ. Không thể xếp thêm sinh viên thứ {current_assigned_count + 1}.",
+                "message": f"Hội đồng '{council.council_name}' đã đạt giới hạn tối đa 12 sinh viên trong một buổi bảo vệ. Không thể xếp thêm sinh viên thứ {current_assigned_count + 1}."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         conflicts = CouncilConflictService.check_project_assignment(council, project)
 
         if conflicts and not force:
@@ -1599,8 +1616,16 @@ class CouncilAssignProjectAPIView(APIView):
                 "message": conflicts[0].get("message", f"Không thể xếp sinh viên vào Hội đồng có GVHD tham gia chấm. ({len(conflicts)} vi phạm)")
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        project.council = council
-        project.save(update_fields=["council"])
+        try:
+            project.council = council
+            project.save(update_fields=["council"])
+        except Exception as e:
+            return Response({
+                "success": False,
+                "error": "constraint_violation",
+                "detail": f"Lỗi ràng buộc CSDL: {str(e)}",
+                "message": f"Không thể xếp sinh viên vào hội đồng do vi phạm ràng buộc CSDL: {str(e)}"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         AuditLog.objects.create(
             user=request.user,
@@ -1622,12 +1647,14 @@ class CouncilAssignProjectAPIView(APIView):
 class CouncilAssignMemberAPIView(APIView):
     """
     API thêm hoặc cập nhật thành viên vào hội đồng bảo vệ có kiểm tra cảnh báo xung đột lợi ích.
+    Quy chế: GV hướng dẫn KHÔNG nằm trong hội đồng/phản biện của chính sinh viên đó.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         council_id = request.data.get("council_id")
         user_id = request.data.get("user_id")
+        supervisor_id = request.data.get("supervisor_id")
         role = request.data.get("role", "MEMBER")
         force = request.data.get("force", False)
         if isinstance(force, str):
@@ -1635,13 +1662,32 @@ class CouncilAssignMemberAPIView(APIView):
         else:
             force = bool(force)
 
-        if not council_id or not user_id:
-            return Response({"detail": "council_id và user_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+        if not council_id or (not user_id and not supervisor_id):
+            return Response({"detail": "council_id và user_id (hoặc supervisor_id) là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
 
         council = get_object_or_404(DefenseCouncil, id=council_id)
-        user = get_object_or_404(CustomUser, id=user_id)
-        supervisor = Supervisor.objects.filter(user=user).first()
 
+        # Flexible resolution: handle both user_id (CustomUser.id) and supervisor_id
+        user = None
+        supervisor = None
+        if supervisor_id:
+            supervisor = Supervisor.objects.filter(id=supervisor_id).first()
+            if supervisor:
+                user = supervisor.user
+
+        if not user and user_id:
+            user = CustomUser.objects.filter(id=user_id).first()
+            if user:
+                supervisor = Supervisor.objects.filter(user=user).first()
+            if not supervisor:
+                supervisor = Supervisor.objects.filter(id=user_id).first()
+                if supervisor and not user:
+                    user = supervisor.user
+
+        if not user:
+            return Response({"detail": "Không tìm thấy thông tin giảng viên/người dùng."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Cross-check conflict of interest: GVHD cannot evaluate/review their own students in council
         conflicts = CouncilConflictService.check_member_assignment(council, user, supervisor)
 
         if conflicts:
@@ -1650,7 +1696,7 @@ class CouncilAssignMemberAPIView(APIView):
                 "has_conflict": True,
                 "conflicts_count": len(conflicts),
                 "conflicts": conflicts,
-                "message": conflicts[0].get("message", f"Phát hiện {len(conflicts)} vi phạm quy chế độc lập hội đồng.")
+                "message": conflicts[0].get("message", f"Xung đột lợi ích: Giảng viên hướng dẫn không được làm thành viên/phản biện trong hội đồng của chính sinh viên đó.")
             }, status=status.HTTP_400_BAD_REQUEST)
 
         member, created = CouncilMember.objects.update_or_create(
@@ -2108,82 +2154,136 @@ class ExportOutlinePdfAPIView(APIView):
 
         import io
         import os
+        import unicodedata
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
 
+        # Try to register a TrueType font supporting UTF-8 Vietnamese
         font_name = "Helvetica"
-        if os.path.exists("C:\\Windows\\Fonts\\arial.ttf"):
-            try:
-                pdfmetrics.registerFont(TTFont("Arial", "C:\\Windows\\Fonts\\arial.ttf"))
-                font_name = "Arial"
-            except Exception:
-                pass
+        possible_fonts = [
+            "C:\\Windows\\Fonts\\arial.ttf",
+            "C:\\Windows\\Fonts\\times.ttf",
+            "C:\\Windows\\Fonts\\tahoma.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        ]
+        has_unicode_font = False
+        for fpath in possible_fonts:
+            if os.path.exists(fpath):
+                try:
+                    pdfmetrics.registerFont(TTFont("CustomFont", fpath))
+                    font_name = "CustomFont"
+                    has_unicode_font = True
+                    break
+                except Exception:
+                    pass
+
+        def clean_txt(text: str) -> str:
+            if not text:
+                return ""
+            if has_unicode_font:
+                return str(text)
+            # Normalize to ASCII fallback if only Type 1 Helvetica font is available
+            normalized = unicodedata.normalize('NFKD', str(text)).encode('ASCII', 'ignore').decode('ASCII')
+            return normalized or str(text)
 
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
 
-        # Header
-        p.setFont(font_name, 12)
-        p.drawString(50, height - 50, "BỘ GIÁO DỤC VÀ ĐÀO TẠO")
-        p.drawString(50, height - 68, "TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI")
-        p.drawString(50, height - 86, "KHOA CÔNG NGHỆ THÔNG TIN")
-
-        p.drawString(width - 240, height - 50, "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")
-        p.drawString(width - 200, height - 68, "Độc lập - Tự do - Hạnh phúc")
-
-        p.setFont(font_name, 16)
-        p.drawCentredString(width / 2, height - 130, "ĐỀ CƯƠNG CHI TIẾT ĐỒ ÁN TỐT NGHIỆP")
-
-        # Project Info
+        # 1. Header: Bộ GD&ĐT & Quốc hiệu tiêu ngữ chuẩn biểu mẫu UTC
         p.setFont(font_name, 11)
-        y = height - 170
-        p.drawString(60, y, f"1. Tên đề tài (Tiếng Việt): {project.topic_title_vi}")
-        y -= 25
-        p.drawString(60, y, f"   Tên đề tài (Tiếng Anh): {project.topic_title_en or 'N/A'}")
-        y -= 25
-        p.drawString(60, y, f"2. Sinh viên thực hiện: {project.student.user.get_full_name()} - MSSV: {project.student.registration_no}")
-        y -= 25
-        p.drawString(60, y, f"   Chương trình đào tạo: {project.student.get_degree_program_display()} - Lớp: {project.student.department or 'CNTT'}")
-        y -= 25
-        sup_name = project.supervisor.user.get_full_name()
-        sup_title = project.supervisor.academic_title or "GV"
-        p.drawString(60, y, f"3. Giảng viên hướng dẫn: {sup_title}. {sup_name}")
-        y -= 25
-        p.drawString(60, y, f"4. Hướng nghiên cứu: {project.topic_category.name if project.topic_category else 'Phát triển phần mềm'}")
-        y -= 25
-        p.drawString(60, y, f"5. Đợt làm đồ án: {project.batch.batch_name} ({project.batch.batch_code})")
-        y -= 35
+        p.drawString(50, height - 50, clean_txt("BỘ GIÁO DỤC VÀ ĐÀO TẠO"))
+        p.drawString(50, height - 66, clean_txt("TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI"))
+        p.drawString(50, height - 82, clean_txt("KHOA CÔNG NGHỆ THÔNG TIN"))
 
-        p.drawString(60, y, "6. Mục tiêu và nội dung nghiên cứu chính:")
-        y -= 20
-        p.drawString(80, y, "- Khảo sát hiện trạng, phân tích nghiệp vụ và thu thập yêu cầu hệ thống.")
-        y -= 20
-        p.drawString(80, y, "- Thiết kế kiến trúc giải pháp, cơ sở dữ liệu và các giao diện người dùng.")
-        y -= 20
-        p.drawString(80, y, "- Lập trình thực nghiệm, kiểm thử chức năng và đánh giá hiệu năng.")
-        y -= 50
+        p.drawString(width - 250, height - 50, clean_txt("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"))
+        p.drawString(width - 210, height - 66, clean_txt("Độc lập - Tự do - Hạnh phúc"))
+        p.setLineWidth(0.5)
+        p.line(width - 200, height - 74, width - 100, height - 74)
 
-        # Signature blocks
-        p.drawString(80, y, "GIẢNG VIÊN HƯỚNG DẪN")
-        p.drawString(80, y - 15, "(Ký và ghi rõ họ tên)")
-        p.drawString(width - 220, y, "SINH VIÊN THỰC HIỆN")
-        p.drawString(width - 220, y - 15, "(Ký và ghi rõ họ tên)")
+        # 2. Tiêu đề Đề cương chuẩn
+        p.setFont(font_name, 15)
+        p.drawCentredString(width / 2, height - 120, clean_txt("ĐỀ CƯƠNG CHI TIẾT ĐỒ ÁN TỐT NGHIỆP"))
+
+        # 3. Thông tin sinh viên & đề tài
+        p.setFont(font_name, 10)
+        y = height - 155
+
+        p.drawString(50, y, clean_txt(f"1. Tên đề tài (Tiếng Việt): {project.topic_title_vi}"))
+        y -= 20
+        p.drawString(50, y, clean_txt(f"   Tên đề tài (Tiếng Anh): {project.topic_title_en or 'N/A'}"))
+        y -= 20
+        st_name = project.student.user.get_full_name() if project.student and project.student.user else "N/A"
+        st_reg = project.student.registration_no if project.student else "N/A"
+        st_prog = project.student.get_degree_program_display() if project.student else "Cử nhân"
+        st_dept = project.student.department or "Công nghệ thông tin" if project.student else "CNTT"
+        p.drawString(50, y, clean_txt(f"2. Sinh viên thực hiện: {st_name} - MSSV: {st_reg}"))
+        y -= 20
+        p.drawString(50, y, clean_txt(f"   Chương trình đào tạo: {st_prog} - Ngành/Lớp: {st_dept}"))
+        y -= 20
+
+        sup_name = project.supervisor.user.get_full_name() if project.supervisor and project.supervisor.user else "N/A"
+        sup_title = project.supervisor.academic_title or "GV" if project.supervisor else "GV"
+        p.drawString(50, y, clean_txt(f"3. Giảng viên hướng dẫn: {sup_title}. {sup_name}"))
+        y -= 20
+        cat_name = project.topic_category.name if project.topic_category else "Công nghệ phần mềm & Trí tuệ nhân tạo"
+        batch_info = f"{project.batch.batch_name} ({project.batch.batch_code})" if project.batch else "Học kỳ tốt nghiệp"
+        p.drawString(50, y, clean_txt(f"4. Hướng nghiên cứu: {cat_name}"))
+        y -= 20
+        p.drawString(50, y, clean_txt(f"5. Đợt thực hiện: {batch_info}"))
+        y -= 28
+
+        # 4. Mục tiêu và nội dung nghiên cứu chính
+        p.drawString(50, y, clean_txt("6. Mục tiêu nghiên cứu:"))
+        y -= 16
+        p.drawString(65, y, clean_txt("- Khảo sát hiện trạng, phân tích nghiệp vụ và thu thập yêu cầu hệ thống."))
+        y -= 16
+        p.drawString(65, y, clean_txt("- Nghiên cứu các giải pháp công nghệ, thuật toán và mô hình kiến trúc phù hợp."))
+        y -= 16
+        p.drawString(65, y, clean_txt("- Thiết kế kiến trúc giải pháp, cơ sở dữ liệu và các giao diện người dùng."))
+        y -= 24
+
+        p.drawString(50, y, clean_txt("7. Kế hoạch và nội dung triển khai:"))
+        y -= 16
+        p.drawString(65, y, clean_txt("- Giai đoạn 1 (Tuần 1-4): Hoàn thành đề cương, khảo sát thực tế và phân tích yêu cầu."))
+        y -= 16
+        p.drawString(65, y, clean_txt("- Giai đoạn 2 (Tuần 5-10): Thiết kế hệ thống, xây dựng CSDL và lập trình các module."))
+        y -= 16
+        p.drawString(65, y, clean_txt("- Giai đoạn 3 (Tuần 11-14): Kiểm thử phần mềm, đánh giá hiệu năng và viết thuyết minh."))
+        y -= 16
+        p.drawString(65, y, clean_txt("- Giai đoạn 4 (Tuần 15): Báo cáo nghiệm thu trước Hội đồng chấm Đồ án tốt nghiệp."))
+        y -= 24
+
+        p.drawString(50, y, clean_txt("8. Dự kiến sản phẩm bàn giao:"))
+        y -= 16
+        p.drawString(65, y, clean_txt("- Quyển báo cáo thuyết minh Đồ án tốt nghiệp hoàn chỉnh và slide trình chiếu."))
+        y -= 16
+        p.drawString(65, y, clean_txt("- Mã nguồn chương trình (Source code) và phần mềm demo triển khai thực tế."))
+        y -= 45
+
+        # 5. Khối chữ ký xác nhận chuẩn
+        p.drawString(80, y, clean_txt("GIẢNG VIÊN HƯỚNG DẪN"))
+        p.drawString(80, y - 14, clean_txt("(Ký và ghi rõ họ tên)"))
+        p.drawString(width - 220, y, clean_txt("SINH VIÊN THỰC HIỆN"))
+        p.drawString(width - 220, y - 14, clean_txt("(Ký và ghi rõ họ tên)"))
 
         p.showPage()
         p.save()
 
         buffer.seek(0)
-        filename = f"De_cuong_{project.student.registration_no}.pdf"
+        filename = f"De_cuong_{st_reg}.pdf"
         response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["Content-Length"] = len(buffer.getvalue())
         return response
 
 
 class UploadSignedOutlineAPIView(APIView):
-    """SV ký nộp bản đề cương đã ký, Khoa lưu hồ sơ"""
+    """SV ký nộp bản đề cương đã ký, Khoa lưu hồ sơ (Giới hạn tối đa 5MB, chặn .exe và parse MIME type)"""
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -2196,8 +2296,63 @@ class UploadSignedOutlineAPIView(APIView):
         if not signed_file:
             return Response({"detail": "Vui lòng chọn file scan đề cương đã ký."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # 1. Kiểm tra kích thước tệp tối đa 5MB (5 * 1024 * 1024)
+        MAX_SIZE = 5 * 1024 * 1024
+        if signed_file.size > MAX_SIZE:
+            return Response(
+                {"signed_outline_file": ["Kích thước tệp vượt quá giới hạn 5MB. Vui lòng tải lên file nhỏ hơn hoặc bằng 5MB."]},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. Kiểm tra phần mở rộng tệp (chỉ cho phép .pdf)
+        import os
+        ext = os.path.splitext(signed_file.name)[1].lower()
+        if ext != ".pdf":
+            return Response(
+                {"signed_outline_file": [f"Định dạng tệp '{ext}' không hợp lệ. Chỉ chấp nhận tệp định dạng PDF (.pdf). Tuyệt đối không cho phép tệp thực thi (.exe)."]},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 3. Phân tích và kiểm tra MIME type từ request header / file metadata
+        content_type = getattr(signed_file, "content_type", "").lower()
+        blocked_mimes = [
+            "application/x-msdownload", "application/x-dosexec", "application/x-executable",
+            "application/x-msdos-program", "application/x-bat", "application/x-sh",
+            "application/x-sharedlib", "application/octet-stream"
+        ]
+        if any(bad_mime in content_type for bad_mime in ["x-msdownload", "dosexec", "x-executable"]):
+            return Response(
+                {"signed_outline_file": ["Phát hiện tệp thực thi nguy hiểm (.exe). Hệ thống từ chối lưu trữ."]},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if content_type and "pdf" not in content_type and content_type not in ["application/pdf", "application/x-pdf"]:
+            return Response(
+                {"signed_outline_file": [f"MIME type '{content_type}' không khớp với định dạng PDF hợp lệ."]},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 4. Kiểm tra Header Magic Bytes trong ruột tệp
         try:
-            validate_uploaded_file(signed_file, allowed_extensions=[".pdf"], max_size_bytes=25 * 1024 * 1024)
+            signed_file.seek(0)
+            header = signed_file.read(512)
+            signed_file.seek(0)
+            # Chặn triệt để tệp nhị phân PE / Windows executable (.exe header MZ)
+            if header.startswith(b"MZ"):
+                return Response(
+                    {"signed_outline_file": ["Phát hiện tệp thực thi Windows (.exe/MZ). Hệ thống từ chối lưu trữ vì lý do bảo mật."]},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if not header.startswith(b"%PDF"):
+                return Response(
+                    {"signed_outline_file": ["Tệp không đúng định dạng PDF hợp lệ (Magic bytes không bắt đầu bằng %PDF)."]},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception:
+            return Response({"signed_outline_file": ["Không thể đọc nội dung tệp tin."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 5. Chạy validator chuẩn hệ thống
+        try:
+            validate_uploaded_file(signed_file, allowed_extensions=[".pdf"], max_size_bytes=MAX_SIZE)
         except Exception as e:
             err_msg = getattr(e, "detail", str(e))
             return Response({"signed_outline_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
@@ -2217,12 +2372,27 @@ class UploadSignedOutlineAPIView(APIView):
 # ==============================================================================
 
 class CheckThesisEligibilityAPIView(APIView):
-    """Giai đoạn 4: Xét điều kiện làm đồ án (CPA >= 2.0, tín chỉ tích lũy)"""
+    """Giai đoạn 4: Xét điều kiện làm đồ án (CPA >= 2.0, nợ tín chỉ, môn học/tự chọn)"""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         project = get_object_or_404(GraduationProject, id=pk)
-        ok, msg = AcademicClearanceService.check_thesis_start_eligibility(project)
+        
+        # Hỗ trợ nhận thông tin nợ tín chỉ và dữ liệu môn học từ request body
+        debt_credits = request.data.get("debt_credits")
+        if debt_credits is None:
+            debt_credits = request.data.get("credits_debt") or request.data.get("no_tin_chi")
+        if debt_credits is not None:
+            try:
+                debt_credits = int(debt_credits)
+            except (ValueError, TypeError):
+                debt_credits = None
+
+        courses_data = request.data.get("courses") or request.data.get("mon_hoc") or request.data.get("transcript") or request.data.get("electives")
+
+        ok, msg = AcademicClearanceService.check_thesis_start_eligibility(
+            project, debt_credits=debt_credits, courses_data=courses_data
+        )
         return Response({
             "success": True,
             "is_eligible": ok,

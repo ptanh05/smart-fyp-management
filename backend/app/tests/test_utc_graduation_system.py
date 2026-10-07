@@ -29,7 +29,8 @@ from app.services import (
     DegreeEligibilityService,
     ThesisAllocationService,
     AcademicClearanceService,
-    CouncilStructureService
+    CouncilStructureService,
+    CouncilConflictService
 )
 
 class UTCGraduationSystemTests(APITestCase):
@@ -897,4 +898,279 @@ class UTCGraduationSystemTests(APITestCase):
         self.assertGreaterEqual(len(res_list.data), 1)
         self.assertIn("Tiếng Anh", res_list.data[0]["reason"])
         self.assertEqual(res_list.data[0]["status"], "PENDING")
+
+    def test_bug_fix_module1_engineer_supervisor_filtering(self):
+        """Module 1: Sinh viên Kỹ sư lọc giảng viên -> Chỉ trả về Tiến sĩ (TS) trở lên, loại Thạc sĩ (ThS)"""
+        # Create ThS supervisor
+        ths_user = CustomUser.objects.create_user(
+            username="gv_ths_filter",
+            email="ths_filter@utc.edu.vn",
+            password="password123",
+            first_name="Văn A",
+            last_name="Thạc sĩ",
+            user_type="supervisor"
+        )
+        Supervisor.objects.create(
+            user=ths_user,
+            supervisor_id="GV_THS_FILT",
+            academic_title="ThS",
+            department_name="CNTT"
+        )
+
+        self.client.force_authenticate(user=self.student_user)
+
+        # 1. Gọi với query ?role=ENGINEER
+        res_eng = self.client.get("/app/supervisor/list/?role=ENGINEER")
+        self.assertEqual(res_eng.status_code, status.HTTP_200_OK)
+        sup_titles = [s.get("academic_title") for s in res_eng.data.get("results", res_eng.data)]
+        self.assertNotIn("ThS", sup_titles)
+        self.assertIn("TS", sup_titles)
+
+        # 2. Gọi qua /api/v1/supervisor/list/?degree_program=ENGINEER
+        res_v1 = self.client.get("/api/v1/supervisor/list/?degree_program=ENGINEER")
+        self.assertEqual(res_v1.status_code, status.HTTP_200_OK)
+        titles_v1 = [s.get("academic_title") for s in res_v1.data.get("results", res_v1.data)]
+        self.assertNotIn("ThS", titles_v1)
+        self.assertIn("TS", titles_v1)
+
+        # 3. Student có degree_program='ENGINEER' không cần truyền query param
+        self.student.degree_program = "ENGINEER"
+        self.student.save()
+        res_student_eng = self.client.get("/app/supervisor/list/")
+        self.assertEqual(res_student_eng.status_code, status.HTTP_200_OK)
+        titles_student_eng = [s.get("academic_title") for s in res_student_eng.data.get("results", res_student_eng.data)]
+        self.assertNotIn("ThS", titles_student_eng)
+
+    def test_bug_fix_module2_capacity_float_and_quota_save(self):
+        """Module 2: Công thức Capacity (1 TS = 1.5 ThS, 1 PGS/GS = 2.0 ThS) và lưu SupervisorQuota không lỗi ValueError"""
+        # Multiplier check
+        self.assertEqual(ThesisAllocationService.get_capacity_multiplier("ThS"), 1.0)
+        self.assertEqual(ThesisAllocationService.get_capacity_multiplier("TS"), 1.5)
+        self.assertEqual(ThesisAllocationService.get_capacity_multiplier("PGS"), 2.0)
+        self.assertEqual(ThesisAllocationService.get_capacity_multiplier("GS"), 2.0)
+
+        # Calculate capacity returns integer rounded
+        cap_ts = ThesisAllocationService.calculate_capacity(self.sup1, base_capacity=5)
+        self.assertIsInstance(cap_ts, int)
+        self.assertEqual(cap_ts, 8)  # 5 * 1.5 = 7.5 -> round = 8
+
+        # DB save with float values should not raise ValueError
+        self.quota1.viet_anh_quota = 3.5
+        self.quota1.general_cntt_quota = 4.5
+        self.quota1.max_total_quota = 8.0
+        self.quota1.save()
+        self.quota1.refresh_from_db()
+        self.assertIsInstance(self.quota1.max_total_quota, int)
+        self.assertEqual(self.quota1.max_total_quota, 8)
+        self.assertEqual(self.quota1.viet_anh_quota, 4)
+        self.assertEqual(self.quota1.general_cntt_quota, 4)
+
+    def test_bug_fix_module3_export_outline_pdf_template(self):
+        """Module 3: Xuất đề cương PDF đạt chuẩn UTC, trả về HTTP 200 và nội dung PDF không rỗng"""
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            topic_title_vi="Nghiên cứu ứng dụng trí tuệ nhân tạo trong nhận diện",
+            topic_title_en="Research on AI application in recognition",
+            status="OUTLINE_APPROVED"
+        )
+        self.client.force_authenticate(user=self.student_user)
+
+        # Export qua endpoint /app/...
+        res = self.client.get(f"/app/project/{proj.id}/export-outline-pdf/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res["Content-Type"], "application/pdf")
+        self.assertTrue(res.content.startswith(b"%PDF"))
+        self.assertGreater(len(res.content), 500)
+
+        # Export qua endpoint /api/v1/...
+        res_v1 = self.client.get(f"/api/v1/project/{proj.id}/export-outline-pdf/")
+        self.assertEqual(res_v1.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_v1.content.startswith(b"%PDF"))
+
+    def test_bug_fix_module3_upload_signed_outline_validations(self):
+        """Module 3: Upload đề cương đã ký chặn file .exe, file giả mạo MIME type và file > 5MB"""
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            topic_title_vi="Đề cương kiểm tra upload",
+            status="OUTLINE_APPROVED"
+        )
+        self.client.force_authenticate(user=self.student_user)
+
+        # 1. Chặn file .exe
+        exe_file = SimpleUploadedFile("outline.exe", b"MZ\x90\x00executable content", content_type="application/x-msdownload")
+        res_exe = self.client.post(f"/app/project/{proj.id}/upload-signed-outline/", {"signed_outline_file": exe_file}, format="multipart")
+        self.assertEqual(res_exe.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 2. Chặn file đổi đuôi .pdf nhưng nội dung thực tế là Windows PE binary (magic byte MZ)
+        fake_pdf = SimpleUploadedFile("outline.pdf", b"MZ\x90\x00evil payload disguised as pdf", content_type="application/pdf")
+        res_fake = self.client.post(f"/app/project/{proj.id}/upload-signed-outline/", {"signed_outline_file": fake_pdf}, format="multipart")
+        self.assertEqual(res_fake.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 3. Chặn file vượt quá 5MB
+        big_content = b"%PDF-1.4 " + b"0" * (5 * 1024 * 1024 + 100)
+        large_file = SimpleUploadedFile("large_outline.pdf", big_content, content_type="application/pdf")
+        res_large = self.client.post(f"/app/project/{proj.id}/upload-signed-outline/", {"signed_outline_file": large_file}, format="multipart")
+        self.assertEqual(res_large.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 4. Hợp lệ: PDF chuẩn <= 5MB
+        valid_pdf = SimpleUploadedFile("signed_valid.pdf", b"%PDF-1.4\nValid signed outline content\n%%EOF", content_type="application/pdf")
+        res_valid = self.client.post(f"/app/project/{proj.id}/upload-signed-outline/", {"signed_outline_file": valid_pdf}, format="multipart")
+        self.assertEqual(res_valid.status_code, status.HTTP_200_OK)
+        proj.refresh_from_db()
+        self.assertTrue(bool(proj.signed_outline_file))
+
+    def test_bug_fix_module5_debt_10_credits_boundary_and_electives_safe(self):
+        """Module 5: Nợ 10 tín chỉ -> Không đủ điều kiện; không lỗi IndexError khi thiếu môn tự chọn"""
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            topic_title_vi="Đề tài xét điều kiện",
+            status="OUTLINE_SIGNED"
+        )
+        self.client.force_authenticate(user=self.student_user)
+
+        # Nợ 10 tín chỉ qua API -> is_eligible = False
+        res_debt10 = self.client.post(f"/app/project/{proj.id}/check-eligibility/", {
+            "debt_credits": 10,
+            "courses": [{"code": "IT101", "name": "Nhap mon"}]
+        }, format="json")
+        self.assertEqual(res_debt10.status_code, status.HTTP_200_OK)
+        self.assertFalse(res_debt10.data["is_eligible"])
+        self.assertIn("10", res_debt10.data["message"])
+
+        # Kiểm tra qua Service trực tiếp với cấu trúc môn học không có elective (tránh IndexError)
+        ok, msg = AcademicClearanceService.check_thesis_start_eligibility(
+            proj,
+            debt_credits=10,
+            courses_data=[("IT101", 3), {"code": "IT102"}]
+        )
+        self.assertFalse(ok)
+
+    def test_bug_fix_module6_council_member_cross_check_and_session_limit(self):
+        """Module 6: GVHD không được làm phản biện/ủy viên của chính SV đó; Không thể xếp SV thứ 13 vào hội đồng"""
+        council = DefenseCouncil.objects.create(
+            batch=self.batch,
+            council_number=88,
+            council_name="Hội đồng Bảo vệ Số 88",
+            defense_room="302-A9"
+        )
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            topic_title_vi="Đề tài kiểm tra hội đồng",
+            status="DEFENSE_READY"
+        )
+        # Gán đề tài vào hội đồng
+        proj.council = council
+        proj.save()
+
+        # 1. Thử gán GVHD (self.sup1) làm Ủy viên hội đồng -> Bị từ chối HTTP 400 và báo xung đột lợi ích
+        self.client.force_authenticate(user=self.sup1_user)
+        res_assign_gvhd = self.client.post("/app/council/assign-member/", {
+            "council_id": council.id,
+            "supervisor_id": self.sup1.id,
+            "role": "MEMBER"
+        }, format="json")
+        self.assertEqual(res_assign_gvhd.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(res_assign_gvhd.data["has_conflict"])
+
+        # 2. Xếp sinh viên thứ 13 vào hội đồng -> Báo lỗi giới hạn HTTP 400
+        # Tạo thêm 11 sinh viên và đề tài để council đạt đủ 12 đề tài
+        for i in range(11):
+            s_user = CustomUser.objects.create_user(
+                username=f"sv_limit_{i}",
+                email=f"sv_limit_{i}@utc.edu.vn",
+                password="password123",
+                user_type="student"
+            )
+            s_obj = Student.objects.create(
+                user=s_user,
+                registration_no=f"20120{i:04d}",
+                department="CNTT",
+                academic_batch=self.batch
+            )
+            GraduationProject.objects.create(
+                student=s_obj,
+                supervisor=self.sup2,
+                batch=self.batch,
+                topic_title_vi=f"Đề tài {i}",
+                status="DEFENSE_READY",
+                council=council
+            )
+
+        self.assertEqual(council.projects.count(), 12)
+
+        # Tạo sinh viên thứ 13
+        s13_user = CustomUser.objects.create_user(
+            username="sv_13",
+            email="sv_13@utc.edu.vn",
+            password="password123",
+            user_type="student"
+        )
+        s13 = Student.objects.create(user=s13_user, registration_no="201209999", department="CNTT", academic_batch=self.batch)
+        proj_13 = GraduationProject.objects.create(
+            student=s13,
+            supervisor=self.sup2,
+            batch=self.batch,
+            topic_title_vi="Đề tài thứ 13",
+            status="DEFENSE_READY"
+        )
+
+        res_13 = self.client.post("/app/council/assign-project/", {
+            "project_id": proj_13.id,
+            "council_id": council.id
+        }, format="json")
+        self.assertEqual(res_13.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_13.data.get("error"), "limit_exceeded")
+        self.assertIn("12", res_13.data.get("detail", ""))
+
+    def test_bug_fix_module7_council_submit_score_security_permission(self):
+        """Module 7: Sinh viên truy cập nhập điểm hội đồng bị chặn 403 Forbidden"""
+        council = DefenseCouncil.objects.create(
+            batch=self.batch,
+            council_number=77,
+            council_name="Hội đồng Bảo vệ Số 77",
+            defense_room="201-A9"
+        )
+        CouncilMember.objects.create(council=council, user=self.sup2_user, supervisor=self.sup2, role="MEMBER")
+        proj = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            topic_title_vi="Đề tài bảo vệ chấm điểm",
+            status="DEFENSE_READY",
+            council=council
+        )
+
+        score_payload = {
+            "project_id": proj.id,
+            "score_presentation": 8.5,
+            "score_content": 9.0,
+            "score_qa": 8.0,
+            "score_demo": 9.0,
+            "comments": "Đồ án tốt"
+        }
+
+        # 1. Sinh viên gọi API -> Bị chặn 403 Forbidden
+        self.client.force_authenticate(user=self.student_user)
+        res_student = self.client.post("/app/council/scores/submit/", score_payload, format="json")
+        self.assertEqual(res_student.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 2. Thành viên hội đồng (GV) gọi API -> Cho phép thành công HTTP 200
+        self.client.force_authenticate(user=self.sup2_user)
+        res_teacher = self.client.post("/app/council/scores/submit/", score_payload, format="json")
+        self.assertEqual(res_teacher.status_code, status.HTTP_200_OK)
+        self.assertIn("live_score", res_teacher.data)
+
 
