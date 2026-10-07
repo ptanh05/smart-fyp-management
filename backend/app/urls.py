@@ -60,6 +60,9 @@ from .views_utc import (
     BatchFinalGradesExcelExportAPIView,
     StudentDeferralRequestAPIView,
     AdminReviewDeferralRequestAPIView,
+    BatchCreateAPIView,
+    StudentImportAPIView,
+    AssignMemberAPIView,
 )
 from .views import (
     GroupRequestView,
@@ -583,10 +586,18 @@ urlpatterns = [
     path("council/conflicts/", CouncilConflictCheckAPIView.as_view(), name="utc-council-conflicts"),
     path("council/assign-project/", CouncilAssignProjectAPIView.as_view(), name="utc-council-assign-project"),
     path("council/assign-member/", CouncilAssignMemberAPIView.as_view(), name="utc-council-assign-member"),
+    path("council/assign-members/", CouncilAssignMemberAPIView.as_view(), name="utc-council-assign-members"),
+    path("council/assign-reviewer/", CouncilAssignMemberAPIView.as_view(), name="utc-council-assign-reviewer"),
 
     # =========================================================================
     # UTC 6-PHASE SPECIFICATION NEW WORKFLOW ENDPOINTS
     # =========================================================================
+    # Phase 1: Batch Setup & Student Import (TC_031, TC_032, TC_033)
+    path("batch/create/", BatchCreateAPIView.as_view(), name="utc-batch-create"),
+    path("batches/create/", BatchCreateAPIView.as_view(), name="utc-batches-create"),
+    path("students/import/", StudentImportAPIView.as_view(), name="utc-students-import"),
+    path("student/import/", StudentImportAPIView.as_view(), name="utc-student-import"),
+
     # Phase 2: Allocation Optimization & Override
     path("allocation/run-algorithm/", RunAllocationAlgorithmAPIView.as_view(), name="utc-allocation-run-algorithm"),
     path("allocation/proposed-list/", ProposedAllocationListAPIView.as_view(), name="utc-allocation-proposed-list"),

@@ -39,6 +39,7 @@ from .models import (
     SupervisorOfStudentGroup,
     ProposedAllocation,
     ThesisDeferralRequest,
+    DegreeProgram,
 )
 from .services import (
     NotificationService,
@@ -61,11 +62,384 @@ from .serializers.utc_graduation_serializers import (
     FinalGradeSummarySerializer,
     ProposedAllocationSerializer,
     ThesisDeferralRequestSerializer,
+    AcademicBatchSerializer,
 )
 from .validators import validate_uploaded_file
 from .concurrency import retry_on_db_lock
 
 logger = logging.getLogger(__name__)
+
+
+# ==============================================================================
+# MODULE 1: BATCH INITIALIZATION & STUDENT IMPORT APIS (TC_031, TC_032, TC_033)
+# ==============================================================================
+
+class BatchCreateAPIView(APIView):
+    """
+    Khoa khởi tạo đợt đồ án mới, thiết lập thời gian bắt đầu và kết thúc (TC_031).
+    Endpoint: /app/batch/create/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        batches = AcademicBatch.objects.all().order_by("-created_at")
+        serializer = AcademicBatchSerializer(batches, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        user = request.user
+        data = request.data
+        batch_code = str(data.get("batch_code", "")).strip()
+        batch_name = str(data.get("batch_name", "")).strip()
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        is_active = data.get("is_active", True)
+        if isinstance(is_active, str):
+            is_active = is_active.lower() in ("true", "1", "yes")
+
+        errors = {}
+        if not batch_code:
+            errors["batch_code"] = ["Mã đợt đồ án không được để trống."]
+        elif AcademicBatch.objects.filter(batch_code=batch_code).exists():
+            errors["batch_code"] = ["Mã đợt đồ án đã tồn tại. Vui lòng chọn mã khác."]
+
+        if not batch_name:
+            errors["batch_name"] = ["Tên đợt đồ án không được để trống."]
+
+        if start_date and end_date:
+            try:
+                import datetime
+                if isinstance(start_date, str):
+                    sd = datetime.date.fromisoformat(start_date)
+                else:
+                    sd = start_date
+                if isinstance(end_date, str):
+                    ed = datetime.date.fromisoformat(end_date)
+                else:
+                    ed = end_date
+                if sd > ed:
+                    errors["end_date"] = ["Thời gian kết thúc phải sau hoặc bằng thời gian bắt đầu."]
+            except (ValueError, TypeError):
+                errors["dates"] = ["Định dạng ngày tháng không hợp lệ (YYYY-MM-DD)."]
+
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            batch = AcademicBatch.objects.create(
+                batch_code=batch_code,
+                batch_name=batch_name,
+                start_date=start_date or None,
+                end_date=end_date or None,
+                is_active=is_active
+            )
+            # Ensure evaluation policy exists for batch
+            EvaluationPolicy.objects.get_or_create(
+                batch=batch,
+                defaults={
+                    "weight_supervisor": 0.4,
+                    "weight_reviewer": 0.2,
+                    "weight_council": 0.4,
+                }
+            )
+
+        AuditLog.objects.create(
+            user=user,
+            action_type="status_change",
+            description=f"Khoa khởi tạo đợt đồ án mới: {batch.batch_name} ({batch.batch_code})."
+        )
+
+        return Response({
+            "success": True,
+            "message": f"Khoa khởi tạo đợt đồ án '{batch.batch_name}' thành công.",
+            "batch": AcademicBatchSerializer(batch).data
+        }, status=status.HTTP_201_CREATED)
+
+
+class StudentImportAPIView(APIView):
+    """
+    Khoa Import danh sách sinh viên Cử nhân / Kỹ sư bằng file định dạng mẫu (Excel/CSV).
+    - TC_032 (Positive): Import danh sách sinh viên Cử nhân/Kỹ sư thành công từ file mẫu Excel (.xlsx, .xls) hoặc CSV (.csv).
+    - TC_033 (Negative): Bắt lỗi và từ chối khi file sai định dạng, thiếu cột bắt buộc, hoặc sai chuẩn dữ liệu (trả về HTTP 400).
+    Endpoint: /app/students/import/
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        file_obj = (
+            request.FILES.get("file")
+            or request.FILES.get("student_file")
+            or request.FILES.get("excel_file")
+            or request.FILES.get("csv_file")
+        )
+        if not file_obj:
+            return Response({
+                "success": False,
+                "error": "missing_file",
+                "detail": "Vui lòng chọn tệp danh sách sinh viên (.xlsx, .xls hoặc .csv) để tải lên."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Check file extension
+        import os
+        ext = os.path.splitext(file_obj.name)[1].lower()
+        if ext not in [".xlsx", ".xls", ".csv"]:
+            return Response({
+                "success": False,
+                "error": "invalid_file_format",
+                "detail": f"Định dạng tệp '{ext}' không được hỗ trợ. Hệ thống chỉ chấp nhận tệp Excel (.xlsx, .xls) hoặc CSV (.csv)."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2. Identify target AcademicBatch
+        batch_id = request.data.get("batch_id")
+        batch = None
+        if batch_id:
+            batch = AcademicBatch.objects.filter(id=batch_id).first()
+        if not batch:
+            batch = AcademicBatch.objects.filter(is_active=True).first() or AcademicBatch.objects.last()
+
+        # 3. Parse content
+        rows = []
+        raw_headers = []
+        try:
+            if ext in [".xlsx", ".xls"]:
+                import openpyxl
+                file_obj.seek(0)
+                wb = openpyxl.load_workbook(file_obj, data_only=True)
+                sheet = wb.active
+                all_rows = list(sheet.iter_rows(values_only=True))
+                if not all_rows or len(all_rows) < 2:
+                    return Response({
+                        "success": False,
+                        "error": "empty_file",
+                        "detail": "Tệp Excel không chứa dữ liệu hoặc chỉ có tiêu đề."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                raw_headers = [str(cell).strip() if cell is not None else "" for cell in all_rows[0]]
+                for r in all_rows[1:]:
+                    if any(cell is not None and str(cell).strip() != "" for cell in r):
+                        row_dict = {}
+                        for h_idx, h in enumerate(raw_headers):
+                            if h:
+                                val = r[h_idx] if h_idx < len(r) else None
+                                row_dict[h] = val
+                        rows.append(row_dict)
+            else:  # .csv
+                import csv
+                import io
+                file_obj.seek(0)
+                content = file_obj.read()
+                for enc in ["utf-8-sig", "utf-8", "latin-1"]:
+                    try:
+                        text_stream = io.StringIO(content.decode(enc))
+                        reader = csv.DictReader(text_stream)
+                        raw_headers = reader.fieldnames or []
+                        rows = [r for r in reader if any(v and v.strip() for v in r.values() if v is not None)]
+                        break
+                    except UnicodeDecodeError:
+                        continue
+
+                if not rows:
+                    return Response({
+                        "success": False,
+                        "error": "empty_file",
+                        "detail": "Tệp CSV không chứa dữ liệu hoặc chỉ có tiêu đề."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "error": "parse_error",
+                "detail": f"Không thể đọc nội dung tệp: {str(e)}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # 4. Normalize and validate required columns (TC_033)
+        def normalize_col_name(c):
+            import unicodedata
+            clean = str(c).replace("đ", "d").replace("Đ", "D")
+            norm = unicodedata.normalize('NFKD', clean).encode('ASCII', 'ignore').decode('utf-8')
+            return norm.lower().strip().replace(" ", "_").replace(".", "").replace("-", "_")
+
+        header_norm_map = {normalize_col_name(h): h for h in raw_headers if h}
+
+        # Match columns
+        reg_col = None
+        for candidate in ["registration_no", "student_id", "ma_sv", "mssv", "ma_sinh_vien", "masv"]:
+            if candidate in header_norm_map:
+                reg_col = header_norm_map[candidate]
+                break
+
+        name_col = None
+        for candidate in ["full_name", "ho_ten", "ho_va_ten", "ten_sinh_vien", "ho_ten_sinh_vien", "name", "ten"]:
+            if candidate in header_norm_map:
+                name_col = header_norm_map[candidate]
+                break
+
+        prog_col = None
+        for candidate in ["degree_program", "he_dao_tao", "he", "chuong_trinh", "chuong_trinh_dao_tao", "program", "program_type"]:
+            if candidate in header_norm_map:
+                prog_col = header_norm_map[candidate]
+                break
+
+        email_col = None
+        for candidate in ["email", "thu_dien_tu", "email_lms"]:
+            if candidate in header_norm_map:
+                email_col = header_norm_map[candidate]
+                break
+
+        class_col = None
+        for candidate in ["class_name", "lop", "lop_hoc_phan", "lop_sinh_hoat", "department", "khoa"]:
+            if candidate in header_norm_map:
+                class_col = header_norm_map[candidate]
+                break
+
+        missing_columns = []
+        if not reg_col:
+            missing_columns.append("Mã sinh viên (registration_no / ma_sv / mssv)")
+        if not name_col:
+            missing_columns.append("Họ và tên (full_name / ho_ten)")
+        if not prog_col:
+            missing_columns.append("Hệ đào tạo (degree_program / he_dao_tao)")
+
+        if missing_columns:
+            return Response({
+                "success": False,
+                "error": "missing_required_columns",
+                "detail": f"Tệp danh sách thiếu các cột bắt buộc: {', '.join(missing_columns)}. Vui lòng sử dụng file mẫu chuẩn.",
+                "missing_columns": missing_columns,
+                "found_columns": raw_headers
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # 5. Row-level data validation (TC_033)
+        row_errors = []
+        valid_records = []
+
+        for idx, row in enumerate(rows, start=2):
+            reg_val = str(row.get(reg_col) or "").strip()
+            name_val = str(row.get(name_col) or "").strip()
+            prog_val = str(row.get(prog_col) or "").strip()
+            email_val = str(row.get(email_col) or "").strip() if email_col else ""
+            dept_val = str(row.get(class_col) or "").strip() if class_col else "CNTT"
+
+            if not reg_val:
+                row_errors.append(f"Dòng {idx}: Mã sinh viên không được để trống.")
+                continue
+
+            if not name_val:
+                row_errors.append(f"Dòng {idx}: Họ và tên sinh viên không được để trống.")
+                continue
+
+            # Standardize degree program
+            import unicodedata
+            clean_prog = str(prog_val).replace("đ", "d").replace("Đ", "D")
+            norm_prog = unicodedata.normalize('NFKD', clean_prog).encode('ASCII', 'ignore').decode('utf-8').upper()
+            if any(k in norm_prog for k in ["KY SU", "ENGINEER", "KS"]):
+                degree_program = DegreeProgram.ENGINEER
+            elif any(k in norm_prog for k in ["CU NHAN", "BACHELOR", "CN"]):
+                degree_program = DegreeProgram.BACHELOR
+            else:
+                row_errors.append(f"Dòng {idx}: Hệ đào tạo '{prog_val}' không hợp lệ (Chỉ chấp nhận 'Kỹ sư' hoặc 'Cử nhân').")
+                continue
+
+            # Check email syntax if provided
+            if email_val:
+                if "@" not in email_val or "." not in email_val.split("@")[-1]:
+                    row_errors.append(f"Dòng {idx}: Email '{email_val}' không đúng định dạng.")
+                    continue
+            else:
+                email_val = f"{reg_val.lower()}@lms.utc.edu.vn"
+
+            valid_records.append({
+                "row_number": idx,
+                "registration_no": reg_val,
+                "full_name": name_val,
+                "degree_program": degree_program,
+                "email": email_val,
+                "department": dept_val,
+            })
+
+        # If there are data validation errors (TC_033), reject the import
+        if row_errors:
+            return Response({
+                "success": False,
+                "error": "data_validation_failed",
+                "detail": f"Dữ liệu trong tệp không đạt chuẩn ({len(row_errors)} lỗi phát hiện). Vui lòng kiểm tra lại dữ liệu.",
+                "errors_count": len(row_errors),
+                "errors": row_errors[:20]
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # 6. Execute Import (TC_032 - Positive)
+        imported_students = []
+        engineer_count = 0
+        bachelor_count = 0
+
+        with transaction.atomic():
+            for rec in valid_records:
+                reg_no = rec["registration_no"]
+                full_name = rec["full_name"]
+                email = rec["email"]
+                deg_prog = rec["degree_program"]
+                dept = rec["department"]
+
+                parts = full_name.split()
+                if len(parts) > 1:
+                    first_name = parts[-1]
+                    last_name = " ".join(parts[:-1])
+                else:
+                    first_name = full_name
+                    last_name = ""
+
+                user, u_created = CustomUser.objects.update_or_create(
+                    username=reg_no,
+                    defaults={
+                        "email": email,
+                        "first_name": first_name,
+                        "last_name": last_name,
+                        "user_type": "student",
+                    }
+                )
+                if u_created:
+                    user.set_password("Utc@123456")
+                    user.save()
+
+                student, s_created = Student.objects.update_or_create(
+                    user=user,
+                    defaults={
+                        "registration_no": reg_no,
+                        "degree_program": deg_prog,
+                        "department": dept,
+                        "academic_batch": batch,
+                    }
+                )
+
+                if deg_prog == DegreeProgram.ENGINEER:
+                    engineer_count += 1
+                else:
+                    bachelor_count += 1
+
+                imported_students.append({
+                    "registration_no": student.registration_no,
+                    "full_name": user.get_full_name() or full_name,
+                    "degree_program": student.degree_program,
+                    "degree_program_display": student.get_degree_program_display(),
+                    "email": user.email,
+                    "department": student.department,
+                    "batch": batch.batch_code if batch else None,
+                })
+
+        AuditLog.objects.create(
+            user=request.user,
+            action_type="status_change",
+            description=f"Khoa import thành công {len(imported_students)} sinh viên (Kỹ sư: {engineer_count}, Cử nhân: {bachelor_count})."
+        )
+
+        return Response({
+            "success": True,
+            "message": f"Khoa đã import thành công {len(imported_students)} sinh viên (Kỹ sư: {engineer_count}, Cử nhân: {bachelor_count}).",
+            "total_imported": len(imported_students),
+            "engineer_count": engineer_count,
+            "bachelor_count": bachelor_count,
+            "batch_code": batch.batch_code if batch else None,
+            "students": imported_students
+        }, status=status.HTTP_201_CREATED)
 
 
 # ==============================================================================
@@ -1646,46 +2020,129 @@ class CouncilAssignProjectAPIView(APIView):
 
 class CouncilAssignMemberAPIView(APIView):
     """
-    API thêm hoặc cập nhật thành viên vào hội đồng bảo vệ có kiểm tra cảnh báo xung đột lợi ích.
+    API thêm hoặc cập nhật thành viên vào hội đồng bảo vệ có kiểm tra cảnh báo xung đột lợi ích
+    và tối ưu hóa phân bổ hướng nghiên cứu (TC_039: Cân bằng Hội đồng: Ưu tiên gán phản biện có cùng lĩnh vực với Đề tài).
     Quy chế: GV hướng dẫn KHÔNG nằm trong hội đồng/phản biện của chính sinh viên đó.
     """
     permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Gợi ý danh sách giảng viên phản biện / ủy viên được tối ưu theo hướng nghiên cứu của các đề tài trong hội đồng"""
+        council_id = request.query_params.get("council_id")
+        if not council_id:
+            return Response({"detail": "council_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+        council = get_object_or_404(DefenseCouncil, id=council_id)
+        projects = list(council.projects.all().select_related("topic_category", "supervisor__user"))
+        supervisors = list(Supervisor.objects.all().select_related("user"))
+
+        existing_user_ids = set(council.members.values_list("user_id", flat=True))
+
+        recommendations = []
+        for s in supervisors:
+            # Check COI
+            conflicts = CouncilConflictService.check_member_assignment(council, s.user, s)
+            has_coi = len(conflicts) > 0
+
+            # Calculate match score across all projects in council
+            scores = [CouncilStructureService.calculate_topic_match_score(s, p) for p in projects]
+            avg_score = round(sum(scores) / len(scores), 1) if scores else 0.0
+            max_score = max(scores, default=0.0)
+
+            recommendations.append({
+                "supervisor_id": s.id,
+                "user_id": s.user.id,
+                "full_name": s.user.get_full_name() or s.user.username,
+                "academic_title": s.academic_title or "ThS",
+                "department": s.department_name,
+                "research_interest": s.research_interest,
+                "topic_match_score": max_score,
+                "avg_match_score": avg_score,
+                "is_topic_matched": max_score >= 3.0,
+                "has_coi": has_coi,
+                "is_already_member": s.user.id in existing_user_ids,
+                "conflicts": conflicts
+            })
+
+        recommendations.sort(key=lambda x: (not x["has_coi"], not x["is_already_member"], x["topic_match_score"]), reverse=True)
+
+        return Response({
+            "council_id": council.id,
+            "council_name": council.council_name,
+            "projects_count": len(projects),
+            "recommendations": recommendations[:20]
+        }, status=status.HTTP_200_OK)
 
     def post(self, request):
         council_id = request.data.get("council_id")
         user_id = request.data.get("user_id")
         supervisor_id = request.data.get("supervisor_id")
         role = request.data.get("role", "MEMBER")
-        force = request.data.get("force", False)
-        if isinstance(force, str):
-            force = force.lower() in ("true", "1")
-        else:
-            force = bool(force)
+        auto_assign = request.data.get("auto_assign", False)
+        optimize_topics = request.data.get("optimize_topics", False)
 
-        if not council_id or (not user_id and not supervisor_id):
-            return Response({"detail": "council_id và user_id (hoặc supervisor_id) là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+        if isinstance(auto_assign, str):
+            auto_assign = auto_assign.lower() in ("true", "1", "yes")
+        if isinstance(optimize_topics, str):
+            optimize_topics = optimize_topics.lower() in ("true", "1", "yes")
+
+        if not council_id:
+            return Response({"detail": "council_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
 
         council = get_object_or_404(DefenseCouncil, id=council_id)
+        council_projects = list(council.projects.all().select_related("topic_category", "supervisor__user"))
 
-        # Flexible resolution: handle both user_id (CustomUser.id) and supervisor_id
-        user = None
-        supervisor = None
-        if supervisor_id:
-            supervisor = Supervisor.objects.filter(id=supervisor_id).first()
-            if supervisor:
-                user = supervisor.user
+        # Thuật toán tự động tối ưu hóa gán phản biện theo hướng nghiên cứu (TC_039)
+        if (auto_assign or optimize_topics or not (user_id or supervisor_id)) and council_projects:
+            all_supervisors = list(Supervisor.objects.select_related("user").all())
+            existing_sup_ids = set(council.members.filter(supervisor__isnull=False).values_list("supervisor_id", flat=True))
 
-        if not user and user_id:
-            user = CustomUser.objects.filter(id=user_id).first()
-            if user:
-                supervisor = Supervisor.objects.filter(user=user).first()
-            if not supervisor:
-                supervisor = Supervisor.objects.filter(id=user_id).first()
-                if supervisor and not user:
+            best_sup = None
+            best_score = -1.0
+
+            for cand in all_supervisors:
+                if cand.id in existing_sup_ids:
+                    continue
+                coi = CouncilConflictService.check_member_assignment(council, cand.user, cand)
+                if coi:
+                    continue
+                cand_scores = [CouncilStructureService.calculate_topic_match_score(cand, p) for p in council_projects]
+                max_cand_score = max(cand_scores, default=0.0)
+                if max_cand_score > best_score:
+                    best_score = max_cand_score
+                    best_sup = cand
+
+            if best_sup:
+                user = best_sup.user
+                supervisor = best_sup
+                role = role or "REVIEWER"
+            else:
+                return Response({
+                    "success": False,
+                    "detail": "Không tìm thấy giảng viên phù hợp không có xung đột lợi ích để phân công."
+                }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            if not user_id and not supervisor_id:
+                return Response({"detail": "council_id và user_id (hoặc supervisor_id) là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = None
+            supervisor = None
+            if supervisor_id:
+                supervisor = Supervisor.objects.filter(id=supervisor_id).first()
+                if supervisor:
                     user = supervisor.user
 
-        if not user:
-            return Response({"detail": "Không tìm thấy thông tin giảng viên/người dùng."}, status=status.HTTP_404_NOT_FOUND)
+            if not user and user_id:
+                user = CustomUser.objects.filter(id=user_id).first()
+                if user:
+                    supervisor = Supervisor.objects.filter(user=user).first()
+                if not supervisor:
+                    supervisor = Supervisor.objects.filter(id=user_id).first()
+                    if supervisor and not user:
+                        user = supervisor.user
+
+            if not user:
+                return Response({"detail": "Không tìm thấy thông tin giảng viên/người dùng."}, status=status.HTTP_404_NOT_FOUND)
 
         # Cross-check conflict of interest: GVHD cannot evaluate/review their own students in council
         conflicts = CouncilConflictService.check_member_assignment(council, user, supervisor)
@@ -1698,6 +2155,19 @@ class CouncilAssignMemberAPIView(APIView):
                 "conflicts": conflicts,
                 "message": conflicts[0].get("message", f"Xung đột lợi ích: Giảng viên hướng dẫn không được làm thành viên/phản biện trong hội đồng của chính sinh viên đó.")
             }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Calculate topic match score (TC_039: Cân bằng hội đồng & Ưu tiên cùng lĩnh vực)
+        topic_match_score = 0.0
+        if supervisor and council_projects:
+            scores = [CouncilStructureService.calculate_topic_match_score(supervisor, p) for p in council_projects]
+            topic_match_score = max(scores, default=0.0)
+
+            # Gán làm GVPB (Reviewer) cho các đề tài trong hội đồng nếu vai trò là REVIEWER hoặc MEMBER
+            if role in ["REVIEWER", "MEMBER"]:
+                for p in council_projects:
+                    if not p.reviewer or CouncilStructureService.calculate_topic_match_score(supervisor, p) >= 3.0:
+                        p.reviewer = supervisor
+                        p.save(update_fields=["reviewer"])
 
         member, created = CouncilMember.objects.update_or_create(
             council=council,
@@ -1721,9 +2191,15 @@ class CouncilAssignMemberAPIView(APIView):
             "council_id": council.id,
             "role": member.role,
             "role_display": member.get_role_display(),
+            "topic_match_score": topic_match_score,
+            "is_topic_matched": topic_match_score >= 3.0,
             "has_conflict": len(conflicts) > 0,
             "conflicts": conflicts
         }, status=status.HTTP_200_OK)
+
+
+# Alias AssignMemberAPIView for TC_039
+AssignMemberAPIView = CouncilAssignMemberAPIView
 
 
 # ==============================================================================
