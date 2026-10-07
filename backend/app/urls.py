@@ -556,6 +556,7 @@ urlpatterns = [
 
     path("council/live-session/", CouncilLiveDefenseSessionAPIView.as_view(), name="utc-council-live-session"),
     path("council/submit-score/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-submit-score"),
+    path("council/scores/submit/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-scores-submit"),
     path("council/toggle-lock/", CouncilToggleLockAPIView.as_view(), name="utc-council-toggle-lock"),
 
     # =========================================================================
@@ -597,10 +598,13 @@ urlpatterns = [
     path("graduation-project/confirm-topic/", SupervisorConfirmTopicAPIView.as_view(), name="utc-supervisor-confirm-topic"),
     path("graduation-project/admin-approve-topic/", AdminApproveTopicAPIView.as_view(), name="utc-admin-approve-topic"),
     path("graduation-project/<int:pk>/export-outline-pdf/", ExportOutlinePdfAPIView.as_view(), name="utc-export-outline-pdf"),
+    path("project/<int:pk>/export-outline-pdf/", ExportOutlinePdfAPIView.as_view(), name="utc-project-export-outline-pdf"),
     path("graduation-project/<int:pk>/upload-signed-outline/", UploadSignedOutlineAPIView.as_view(), name="utc-upload-signed-outline"),
+    path("project/<int:pk>/upload-signed-outline/", UploadSignedOutlineAPIView.as_view(), name="utc-project-upload-signed-outline"),
 
     # Phase 4: Thesis Eligibility & Force Approve
     path("graduation-project/<int:pk>/check-eligibility/", CheckThesisEligibilityAPIView.as_view(), name="utc-check-thesis-eligibility"),
+    path("project/<int:pk>/check-eligibility/", CheckThesisEligibilityAPIView.as_view(), name="utc-project-check-thesis-eligibility"),
     path("graduation-project/<int:pk>/force-approve/", ForceApproveThesisAPIView.as_view(), name="utc-force-approve-thesis"),
 
     # Phase 5: Task Deliverables & Review

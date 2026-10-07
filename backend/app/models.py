@@ -2012,6 +2012,28 @@ class SupervisorQuota(models.Model):
     def __str__(self):
         return f"{self.supervisor} - Quota: {self.max_total_quota} (VA: {self.viet_anh_quota}, CNTT: {self.general_cntt_quota}) [{self.batch.batch_code}]"
 
+    def clean(self):
+        super().clean()
+        if self.max_total_quota is not None:
+            self.max_total_quota = int(round(float(self.max_total_quota)))
+        if self.viet_anh_quota is not None:
+            self.viet_anh_quota = int(round(float(self.viet_anh_quota)))
+        if self.general_cntt_quota is not None:
+            self.general_cntt_quota = int(round(float(self.general_cntt_quota)))
+        if self.current_assigned is not None:
+            self.current_assigned = int(round(float(self.current_assigned)))
+
+    def save(self, *args, **kwargs):
+        if self.max_total_quota is not None:
+            self.max_total_quota = int(round(float(self.max_total_quota)))
+        if self.viet_anh_quota is not None:
+            self.viet_anh_quota = int(round(float(self.viet_anh_quota)))
+        if self.general_cntt_quota is not None:
+            self.general_cntt_quota = int(round(float(self.general_cntt_quota)))
+        if self.current_assigned is not None:
+            self.current_assigned = int(round(float(self.current_assigned)))
+        super().save(*args, **kwargs)
+
 
 class ProjectTopicArea(models.Model):
     """8 Danh mục hướng nghiên cứu / làm đồ án chuẩn Khoa CNTT UTC"""
@@ -2240,6 +2262,18 @@ class GraduationProject(models.Model):
 
     def __str__(self):
         return f"{self.topic_title_vi} - SV: {self.student.user.get_full_name()} (GVHD: {self.supervisor})"
+
+    def clean(self):
+        super().clean()
+        if self.reviewer_id and self.supervisor_id and self.reviewer_id == self.supervisor_id:
+            from django.core.exceptions import ValidationError
+            raise ValidationError("Giảng viên hướng dẫn không được đồng thời là Giảng viên phản biện của chính sinh viên đó.")
+
+    def save(self, *args, **kwargs):
+        if self.reviewer_id and self.supervisor_id and self.reviewer_id == self.supervisor_id:
+            from django.core.exceptions import ValidationError
+            raise ValidationError("Giảng viên hướng dẫn không được đồng thời là Giảng viên phản biện của chính sinh viên đó.")
+        super().save(*args, **kwargs)
 
 
 class OutlineReviewGroup(models.Model):
