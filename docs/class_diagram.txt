@@ -1,0 +1,415 @@
+classDiagram
+    direction TB
+
+    %% ==========================================
+    %% 1. USER & ACTOR SUBSYSTEM
+    %% ==========================================
+    class CustomUser {
+        +BigInt id
+        +String username
+        +String email
+        +String first_name
+        +String last_name
+        +String user_type
+        +Boolean is_active
+        +Boolean is_staff
+        +DateTime date_joined
+    }
+
+    class Student {
+        +BigInt id
+        +String registration_no
+        +String department
+        +String degree_program
+        +Float cpa
+        +Integer credits_accumulated
+        +Boolean is_eligible_for_thesis
+        +String semester
+        +String batch_no
+        +String phone_number
+    }
+
+    class Supervisor {
+        +BigInt id
+        +String supervisor_id
+        +String academic_title
+        +String department_name
+        +String research_interest
+        +String academic_background
+        +String phone_number
+        +Boolean is_external
+    }
+
+    class CommitteeMember {
+        +BigInt id
+        +String committee_id
+    }
+
+    class ExternalExaminer {
+        +BigInt id
+        +String external_id
+        +String institution
+        +String designation
+        +String specialization
+        +Boolean is_active
+    }
+
+    class PasswordResetCode {
+        +BigInt id
+        +String code
+        +DateTime created_at
+        +DateTime expires_at
+        +Boolean is_used
+        +generate_code() String
+        +create_for_user(user, hours) PasswordResetCode
+        +is_valid() Boolean
+        +mark_as_used() void
+    }
+
+    %% ==========================================
+    %% 2. ACADEMIC & ALLOCATION CONFIGURATION
+    %% ==========================================
+    class AcademicBatch {
+        +BigInt id
+        +String batch_code
+        +String batch_name
+        +Date start_date
+        +Date end_date
+        +Boolean is_active
+        +DateTime created_at
+    }
+
+    class CourseClass {
+        +BigInt id
+        +String class_code
+        +String class_name
+        +String program_type
+        +String class_group
+    }
+
+    class ProjectTopicArea {
+        +BigInt id
+        +String name
+        +String code
+        +String description
+        +Boolean is_active
+    }
+
+    class SupervisorQuota {
+        +BigInt id
+        +String department
+        +Integer viet_anh_quota
+        +Integer general_cntt_quota
+        +Integer max_total_quota
+        +Integer current_assigned
+    }
+
+    class InternshipInfo {
+        +BigInt id
+        +Boolean is_interning
+        +String company_name
+        +String secondary_criteria_note
+        +String tentative_title
+        +DateTime submitted_at
+    }
+
+    class ProposedAllocation {
+        +BigInt id
+        +Integer matched_preference
+        +Float match_score
+        +Boolean is_overridden
+        +String override_reason
+        +DateTime created_at
+    }
+
+    class EvaluationPolicy {
+        +BigInt id
+        +Float weight_supervisor
+        +Float weight_reviewer
+        +Float weight_council
+    }
+
+    %% ==========================================
+    %% 3. GRADUATION PROJECT LIFECYCLE (UTC 6 PHASES)
+    %% ==========================================
+    class GraduationProject {
+        +BigInt id
+        +String topic_title_vi
+        +String topic_title_en
+        +String status
+        +String defense_status
+        +Boolean is_force_approved
+        +String academic_clearance_status
+        +String signed_outline_file
+        +Float supervisor_score
+        +String supervisor_feedback
+        +Boolean is_eligible_for_defense
+        +Boolean supervisor_score_is_draft
+        +Float reviewer_score
+        +String reviewer_feedback
+        +String reviewer_verdict
+        +DateTime created_at
+        +DateTime updated_at
+    }
+
+    class OutlineReviewGroup {
+        +BigInt id
+        +String name
+        +String department
+    }
+
+    class OutlineReview {
+        +BigInt id
+        +String outline_file
+        +String verdict
+        +String comments
+        +DateTime submitted_at
+        +DateTime reviewed_at
+    }
+
+    class WeeklyProgressReport {
+        +BigInt id
+        +Integer week_number
+        +String summary_content
+        +String planned_tasks
+        +String git_commit_link
+        +String attached_file
+        +String supervisor_feedback
+        +String supervisor_rating
+        +DateTime submitted_at
+        +DateTime reviewed_at
+    }
+
+    class SupervisionMeetingLog {
+        +BigInt id
+        +Date meeting_date
+        +String meeting_time
+        +String meeting_type
+        +String location_or_link
+        +String content_discussed
+        +String supervisor_notes
+        +String next_meeting_plan
+        +DateTime created_at
+        +DateTime updated_at
+    }
+
+    class SupervisionTask {
+        +BigInt id
+        +String title
+        +String description
+        +Date due_date
+        +String priority
+        +String status
+        +Boolean is_completed
+        +DateTime completed_at
+        +String student_notes
+        +String deliverable_file
+        +String deliverable_url
+        +String review_verdict
+        +String supervisor_review_notes
+        +DateTime reviewed_at
+        +DateTime created_at
+        +DateTime updated_at
+    }
+
+    class ThesisDeferralRequest {
+        +BigInt id
+        +String reason
+        +String evidence_file
+        +String status
+        +String admin_notes
+        +DateTime submitted_at
+        +DateTime reviewed_at
+    }
+
+    %% ==========================================
+    %% 4. DEFENSE COUNCIL & FINAL EVALUATION
+    %% ==========================================
+    class DefenseCouncil {
+        +BigInt id
+        +Integer council_number
+        +String council_name
+        +Date session_date
+        +String session_time
+        +String defense_room
+        +Boolean is_locked
+        +DateTime locked_at
+        +DateTime created_at
+    }
+
+    class CouncilMember {
+        +BigInt id
+        +String role
+        +String external_institution
+    }
+
+    class CouncilLiveScore {
+        +BigInt id
+        +Float score_presentation
+        +Float score_content
+        +Float score_qa
+        +Float score_demo
+        +Float total_score
+        +String comments
+        +DateTime created_at
+    }
+
+    class FinalGradeSummary {
+        +BigInt id
+        +Float supervisor_score
+        +Float reviewer_score
+        +Float council_avg_score
+        +Float final_score_10
+        +Float final_score_4
+        +String final_letter_grade
+        +String classification
+        +Boolean is_passed
+        +Boolean is_finalized
+        +String notes
+        +DateTime updated_at
+        +calculate_and_save(weights) void
+    }
+
+    %% ==========================================
+    %% 5. CAPSTONE GROUPS (LEGACY / COLLABORATION)
+    %% ==========================================
+    class Group {
+        +BigInt id
+        +String group_name
+        +Integer max_members
+        +Boolean is_recruiting
+        +String tentative_topic
+        +String status
+    }
+
+    class GroupMember {
+        +BigInt id
+        +String role
+        +DateTime joined_at
+    }
+
+    class GroupJoinRequest {
+        +BigInt id
+        +String message
+        +String status
+        +DateTime created_at
+    }
+
+    class SupervisorOfStudentGroup {
+        +BigInt id
+        +String status
+        +Boolean is_ready_for_external
+        +String external_evaluation_status
+        +DateTime created_at
+    }
+
+    %% ==========================================
+    %% 6. DOMAIN SERVICES LAYER
+    %% ==========================================
+    class ThesisAllocationService {
+        +get_capacity_multiplier(academic_title) Float
+        +calculate_capacity(supervisor, batch) Dict
+        +run_allocation(batch_id) Dict
+        +finalize_allocation(batch_id, allocations) List
+    }
+
+    class DegreeEligibilityService {
+        +is_doctoral_degree(supervisor) Boolean
+        +validate_preferences_for_student(student, preferences) Tuple
+    }
+
+    class AcademicClearanceService {
+        +check_thesis_start_eligibility(student) Dict
+        +check_final_academic_clearance(project) Dict
+    }
+
+    class CouncilStructureService {
+        +validate_utc_council_structure(council_id) Dict
+    }
+
+    class CouncilConflictService {
+        +check_council_conflicts(council_id) List
+        +check_project_assignment(council, project) List
+        +check_member_assignment(council, supervisor) List
+    }
+
+    class NotificationService {
+        +create_notification(user, type, title, msg) Notification
+        +send_utc_html_email(recipient, subject, template, ctx) void
+        +notify_defense_scheduled_emails(council) void
+    }
+
+    %% ==========================================
+    %% RELATIONSHIPS
+    %% ==========================================
+    CustomUser "1" -- "0..1" Student : has profile
+    CustomUser "1" -- "0..1" Supervisor : has profile
+    CustomUser "1" -- "0..1" CommitteeMember : has profile
+    CustomUser "1" -- "0..1" ExternalExaminer : has profile
+    CustomUser "1" -- "*" PasswordResetCode : requests
+
+    AcademicBatch "1" -- "*" CourseClass : contains
+    AcademicBatch "1" -- "*" Student : participates
+    CourseClass "1" -- "*" Student : enrolled_in
+    AcademicBatch "1" -- "*" SupervisorQuota : limits
+    Supervisor "1" -- "*" SupervisorQuota : holds
+    AcademicBatch "1" -- "0..1" EvaluationPolicy : configures
+
+    Student "1" -- "0..1" InternshipInfo : registers
+    ProjectTopicArea "1" -- "*" InternshipInfo : direction
+    Supervisor "1" -- "*" InternshipInfo : preferred_by
+    AcademicBatch "1" -- "*" ProposedAllocation : generates
+    Student "1" -- "*" ProposedAllocation : allocated_to
+    Supervisor "1" -- "*" ProposedAllocation : receives
+
+    Student "1" -- "1" GraduationProject : undertakes
+    Supervisor "1" -- "*" GraduationProject : supervises
+    Supervisor "0..1" -- "*" GraduationProject : reviews
+    AcademicBatch "1" -- "*" GraduationProject : conducts
+    ProjectTopicArea "0..1" -- "*" GraduationProject : belongs_to
+    DefenseCouncil "0..1" -- "*" GraduationProject : assigned_council
+
+    GraduationProject "1" -- "0..1" OutlineReview : submits
+    OutlineReviewGroup "0..1" -- "*" OutlineReview : evaluates
+    Supervisor "0..1" -- "*" OutlineReview : reviews_outline
+    OutlineReviewGroup "*" -- "*" Supervisor : members
+
+    GraduationProject "1" -- "*" WeeklyProgressReport : tracks
+    Student "1" -- "*" WeeklyProgressReport : reports
+
+    GraduationProject "1" -- "*" SupervisionMeetingLog : logs
+    GraduationProject "1" -- "*" SupervisionTask : schedules
+    SupervisionMeetingLog "0..1" -- "*" SupervisionTask : originates
+    Supervisor "1" -- "*" SupervisionTask : assigns
+
+    GraduationProject "1" -- "*" ThesisDeferralRequest : submits
+    Student "1" -- "*" ThesisDeferralRequest : requests
+    CustomUser "0..1" -- "*" ThesisDeferralRequest : reviews
+
+    AcademicBatch "1" -- "*" DefenseCouncil : organizes
+    DefenseCouncil "1" -- "5" CouncilMember : comprises
+    Supervisor "0..1" -- "*" CouncilMember : sits_on
+    CustomUser "0..1" -- "*" CouncilMember : delegates
+
+    DefenseCouncil "1" -- "*" CouncilLiveScore : scores_at
+    CouncilMember "1" -- "*" CouncilLiveScore : evaluates
+    GraduationProject "1" -- "*" CouncilLiveScore : scored_for
+
+    GraduationProject "1" -- "1" FinalGradeSummary : summarizes
+
+    Group "1" -- "*" GroupMember : has
+    Student "1" -- "*" GroupMember : member_of
+    Group "1" -- "*" GroupJoinRequest : receives
+    Student "1" -- "*" GroupJoinRequest : requests
+    Group "1" -- "*" SupervisorOfStudentGroup : guided_by
+    Supervisor "1" -- "*" SupervisorOfStudentGroup : mentors
+
+    %% Service dependencies
+    ThesisAllocationService ..> ProposedAllocation : solves
+    ThesisAllocationService ..> SupervisorQuota : reads
+    DegreeEligibilityService ..> Student : validates
+    AcademicClearanceService ..> Student : checks Phase 4
+    AcademicClearanceService ..> GraduationProject : checks Phase 6
+    CouncilStructureService ..> DefenseCouncil : validates (1CT-2TK-2UV)
+    CouncilConflictService ..> DefenseCouncil : detects conflicts
+    NotificationService ..> CustomUser : notifies

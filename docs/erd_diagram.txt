@@ -1,0 +1,399 @@
+erDiagram
+    %% ==========================================
+    %% 1. TÀI KHOẢN & HỌC VỤ CƠ BẢN
+    %% ==========================================
+    CUSTOM_USER {
+        bigint id PK
+        string username
+        string email
+        string first_name
+        string last_name
+        string password
+        string user_type
+        boolean is_active
+        boolean is_staff
+        boolean is_superuser
+        datetime last_login
+        datetime date_joined
+    }
+
+    PASSWORD_RESET_CODE {
+        bigint id PK
+        bigint user_id FK
+        string code
+        datetime created_at
+        datetime expires_at
+        boolean is_used
+    }
+
+    ACADEMIC_BATCH {
+        bigint id PK
+        string batch_code UK
+        string batch_name
+        date start_date
+        date end_date
+        boolean is_active
+        datetime created_at
+    }
+
+    COURSE_CLASS {
+        bigint id PK
+        bigint batch_id FK
+        string class_code
+        string class_name
+        string program_type
+        string class_group
+    }
+
+    STUDENT {
+        bigint id PK
+        bigint user_id FK
+        bigint course_class_id FK
+        bigint academic_batch_id FK
+        string registration_no UK
+        string department
+        string degree_program
+        float cpa
+        int credits_accumulated
+        boolean is_eligible_for_thesis
+        string semester
+        string batch_no
+        string phone_number
+    }
+
+    SUPERVISOR {
+        bigint id PK
+        bigint user_id FK
+        string supervisor_id UK
+        string academic_title
+        string department_name
+        string research_interest
+        string academic_background
+        string phone_number
+        boolean is_external
+    }
+
+    PROJECT_TOPIC_AREA {
+        bigint id PK
+        string name
+        string code UK
+        text description
+        boolean is_active
+    }
+
+    EVALUATION_POLICY {
+        bigint id PK
+        bigint batch_id FK
+        float weight_supervisor
+        float weight_reviewer
+        float weight_council
+    }
+
+    %% ==========================================
+    %% 2. HẠN NGẠCH, KHẢO SÁT & PHÂN BỔ (GIAI ĐOẠN 1-2)
+    %% ==========================================
+    SUPERVISOR_QUOTA {
+        bigint id PK
+        bigint supervisor_id FK
+        bigint batch_id FK
+        string department
+        int viet_anh_quota
+        int general_cntt_quota
+        int max_total_quota
+        int current_assigned
+    }
+
+    INTERNSHIP_INFO {
+        bigint id PK
+        bigint student_id FK
+        bigint batch_id FK
+        bigint topic_direction_id FK
+        bigint preferred_supervisor_id FK
+        bigint preference_1_id FK
+        bigint preference_2_id FK
+        bigint preference_3_id FK
+        boolean is_interning
+        string company_name
+        text secondary_criteria_note
+        string tentative_title
+        datetime submitted_at
+    }
+
+    PROPOSED_ALLOCATION {
+        bigint id PK
+        bigint batch_id FK
+        bigint student_id FK
+        bigint supervisor_id FK
+        int matched_preference
+        float match_score
+        boolean is_overridden
+        string override_reason
+        datetime created_at
+    }
+
+    %% ==========================================
+    %% 3. ĐỒ ÁN TỐT NGHIỆP & THEO DÕI HƯỚNG DẪN (GIAI ĐOẠN 3-5 & BẢO LƯU)
+    %% ==========================================
+    GRADUATION_PROJECT {
+        bigint id PK
+        bigint student_id FK
+        bigint supervisor_id FK
+        bigint reviewer_id FK
+        bigint council_id FK
+        bigint batch_id FK
+        bigint topic_category_id FK
+        string topic_title_vi
+        string topic_title_en
+        string status
+        string defense_status
+        boolean is_force_approved
+        string academic_clearance_status
+        string signed_outline_file
+        float supervisor_score
+        text supervisor_feedback
+        boolean is_eligible_for_defense
+        boolean supervisor_score_is_draft
+        float reviewer_score
+        text reviewer_feedback
+        string reviewer_verdict
+        datetime created_at
+        datetime updated_at
+    }
+
+    OUTLINE_REVIEW_GROUP {
+        bigint id PK
+        bigint batch_id FK
+        string name
+        string department
+    }
+
+    OUTLINE_REVIEW {
+        bigint id PK
+        bigint project_id FK
+        bigint review_group_id FK
+        bigint reviewer_id FK
+        string outline_file
+        string verdict
+        text comments
+        datetime submitted_at
+        datetime reviewed_at
+    }
+
+    WEEKLY_PROGRESS_REPORT {
+        bigint id PK
+        bigint project_id FK
+        bigint student_id FK
+        int week_number
+        text summary_content
+        text planned_tasks
+        string git_commit_link
+        string attached_file
+        text supervisor_feedback
+        string supervisor_rating
+        datetime submitted_at
+        datetime reviewed_at
+    }
+
+    SUPERVISION_MEETING_LOG {
+        bigint id PK
+        bigint project_id FK
+        date meeting_date
+        string meeting_time
+        string meeting_type
+        string location_or_link
+        text content_discussed
+        text supervisor_notes
+        text next_meeting_plan
+        datetime created_at
+        datetime updated_at
+    }
+
+    SUPERVISION_TASK {
+        bigint id PK
+        bigint project_id FK
+        bigint meeting_log_id FK
+        bigint assigned_by_id FK
+        string title
+        text description
+        date due_date
+        string priority
+        string status
+        boolean is_completed
+        datetime completed_at
+        text student_notes
+        string deliverable_file
+        string deliverable_url
+        string review_verdict
+        text supervisor_review_notes
+        datetime reviewed_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    THESIS_DEFERRAL_REQUEST {
+        bigint id PK
+        bigint project_id FK
+        bigint student_id FK
+        bigint reviewed_by_id FK
+        text reason
+        string evidence_file
+        string status
+        text admin_notes
+        datetime submitted_at
+        datetime reviewed_at
+    }
+
+    %% ==========================================
+    %% 4. HỘI ĐỒNG BẢO VỆ & ĐIỂM SỐ (GIAI ĐOẠN 6)
+    %% ==========================================
+    DEFENSE_COUNCIL {
+        bigint id PK
+        bigint batch_id FK
+        bigint locked_by_id FK
+        bigint current_defending_project_id FK
+        int council_number
+        string council_name
+        date session_date
+        string session_time
+        string defense_room
+        boolean is_locked
+        datetime locked_at
+        datetime created_at
+    }
+
+    COUNCIL_MEMBER {
+        bigint id PK
+        bigint council_id FK
+        bigint supervisor_id FK
+        bigint user_id FK
+        string role
+        string external_institution
+    }
+
+    COUNCIL_LIVE_SCORE {
+        bigint id PK
+        bigint council_id FK
+        bigint project_id FK
+        bigint member_id FK
+        float score_presentation
+        float score_content
+        float score_qa
+        float score_demo
+        float total_score
+        text comments
+        datetime created_at
+    }
+
+    FINAL_GRADE_SUMMARY {
+        bigint id PK
+        bigint project_id FK
+        float supervisor_score
+        float reviewer_score
+        float council_avg_score
+        float final_score_10
+        float final_score_4
+        string final_letter_grade
+        string classification
+        boolean is_passed
+        boolean is_finalized
+        text notes
+        datetime updated_at
+    }
+
+    %% ==========================================
+    %% 5. NHÓM SINH VIÊN (LEGACY/CAPSTONE COOPERATION)
+    %% ==========================================
+    STUDENT_GROUP {
+        bigint id PK
+        bigint academic_batch_id FK
+        bigint leader_id FK
+        bigint student_1_id FK
+        bigint student_2_id FK
+        string group_name
+        int max_members
+        boolean is_recruiting
+        string tentative_topic
+        string status
+    }
+
+    GROUP_MEMBER {
+        bigint id PK
+        bigint group_id FK
+        bigint student_id FK
+        string role
+        datetime joined_at
+    }
+
+    SUPERVISOR_OF_STUDENT_GROUP {
+        bigint id PK
+        bigint group_id FK
+        bigint supervisor_id FK
+        bigint created_by_id FK
+        string status
+        boolean is_ready_for_external
+        string external_evaluation_status
+        datetime created_at
+    }
+
+    %% ==========================================
+    %% ERD RELATIONSHIPS
+    %% ==========================================
+    CUSTOM_USER ||--o| STUDENT : "identifies"
+    CUSTOM_USER ||--o| SUPERVISOR : "identifies"
+    CUSTOM_USER ||--o{ PASSWORD_RESET_CODE : "requests"
+    
+    ACADEMIC_BATCH ||--o{ COURSE_CLASS : "divides into"
+    ACADEMIC_BATCH ||--o{ STUDENT : "manages"
+    ACADEMIC_BATCH ||--o{ SUPERVISOR_QUOTA : "allocates"
+    ACADEMIC_BATCH ||--o| EVALUATION_POLICY : "defines"
+    ACADEMIC_BATCH ||--o{ PROPOSED_ALLOCATION : "contains"
+    ACADEMIC_BATCH ||--o{ GRADUATION_PROJECT : "supervises"
+    ACADEMIC_BATCH ||--o{ DEFENSE_COUNCIL : "forms"
+    ACADEMIC_BATCH ||--o{ OUTLINE_REVIEW_GROUP : "appoints"
+
+    COURSE_CLASS ||--o{ STUDENT : "classifies"
+    SUPERVISOR ||--o{ SUPERVISOR_QUOTA : "assigned to"
+
+    STUDENT ||--o| INTERNSHIP_INFO : "submits"
+    PROJECT_TOPIC_AREA ||--o{ INTERNSHIP_INFO : "categorizes"
+    SUPERVISOR ||--o{ INTERNSHIP_INFO : "selected as pref"
+
+    STUDENT ||--o{ PROPOSED_ALLOCATION : "assigned"
+    SUPERVISOR ||--o{ PROPOSED_ALLOCATION : "guides"
+
+    STUDENT ||--|| GRADUATION_PROJECT : "undertakes"
+    SUPERVISOR ||--o{ GRADUATION_PROJECT : "guides primary"
+    SUPERVISOR ||--o{ GRADUATION_PROJECT : "reviews thesis"
+    PROJECT_TOPIC_AREA ||--o{ GRADUATION_PROJECT : "specifies"
+    DEFENSE_COUNCIL ||--o{ GRADUATION_PROJECT : "evaluates"
+
+    GRADUATION_PROJECT ||--o| OUTLINE_REVIEW : "reviewed by"
+    OUTLINE_REVIEW_GROUP ||--o{ OUTLINE_REVIEW : "evaluates"
+    SUPERVISOR ||--o{ OUTLINE_REVIEW : "assigned reviewer"
+
+    GRADUATION_PROJECT ||--o{ WEEKLY_PROGRESS_REPORT : "contains"
+    STUDENT ||--o{ WEEKLY_PROGRESS_REPORT : "authors"
+
+    GRADUATION_PROJECT ||--o{ SUPERVISION_MEETING_LOG : "logs"
+    GRADUATION_PROJECT ||--o{ SUPERVISION_TASK : "tracks"
+    SUPERVISION_MEETING_LOG ||--o{ SUPERVISION_TASK : "spawns"
+    SUPERVISOR ||--o{ SUPERVISION_TASK : "assigns"
+
+    GRADUATION_PROJECT ||--o{ THESIS_DEFERRAL_REQUEST : "initiates"
+    STUDENT ||--o{ THESIS_DEFERRAL_REQUEST : "submits"
+    CUSTOM_USER ||--o{ THESIS_DEFERRAL_REQUEST : "reviews"
+
+    DEFENSE_COUNCIL ||--|{ COUNCIL_MEMBER : "comprises 5 members"
+    SUPERVISOR ||--o{ COUNCIL_MEMBER : "participates"
+    CUSTOM_USER ||--o{ COUNCIL_MEMBER : "external member"
+
+    DEFENSE_COUNCIL ||--o{ COUNCIL_LIVE_SCORE : "hosts"
+    COUNCIL_MEMBER ||--o{ COUNCIL_LIVE_SCORE : "records"
+    GRADUATION_PROJECT ||--o{ COUNCIL_LIVE_SCORE : "evaluated"
+
+    GRADUATION_PROJECT ||--|| FINAL_GRADE_SUMMARY : "grades"
+
+    STUDENT_GROUP ||--o{ GROUP_MEMBER : "members"
+    STUDENT ||--o{ GROUP_MEMBER : "participates"
+    STUDENT_GROUP ||--o{ SUPERVISOR_OF_STUDENT_GROUP : "mentored by"
+    SUPERVISOR ||--o{ SUPERVISOR_OF_STUDENT_GROUP : "mentors"
