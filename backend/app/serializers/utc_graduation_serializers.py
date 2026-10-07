@@ -12,6 +12,7 @@ from ..models import (
     SupervisionTask,
     CouncilLiveScore,
     FinalGradeSummary,
+    AcademicBatch,
 )
 
 class ProjectTopicAreaSerializer(serializers.ModelSerializer):
@@ -481,4 +482,19 @@ class ThesisDeferralRequestSerializer(serializers.ModelSerializer):
         if obj.evidence_file:
             return obj.evidence_file.url
         return ""
+
+
+class AcademicBatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AcademicBatch
+        fields = [
+            "id",
+            "batch_code",
+            "batch_name",
+            "start_date",
+            "end_date",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
 

@@ -1566,4 +1566,144 @@ class CouncilStructureService:
             "message": "Cơ cấu hội đồng chuẩn 1CT-2TK-2UV (5 thành viên)" if is_valid else "; ".join(errors)
         }
 
+    @classmethod
+    def calculate_topic_match_score(cls, supervisor, project) -> float:
+        """
+        Tính điểm tương đồng hướng nghiên cứu giữa Giảng viên và Đề tài (0.0 đến 10.0).
+        Các tiêu chí đánh giá:
+        1. Trùng khớp danh mục hướng nghiên cứu (ProjectTopicArea)
+        2. Phù hợp bộ môn chuyên ngành (CNPM, HTTT, KHMT, ATTT, KTMT)
+        3. Trùng khớp từ khóa trong tên đề tài và hướng nghiên cứu (research_interest) của GV
+        """
+        if not supervisor or not project:
+            return 0.0
+
+        import unicodedata
+        def normalize_str(s):
+            if not s:
+                return ""
+            norm = unicodedata.normalize('NFKD', str(s)).encode('ASCII', 'ignore').decode('utf-8')
+            return norm.lower().strip()
+
+        score = 0.0
+        sup_interest = normalize_str(supervisor.research_interest or "")
+        sup_dept = normalize_str(supervisor.department_name or "")
+        topic_cat = getattr(project, "topic_category", None)
+        cat_name = normalize_str(topic_cat.name if topic_cat else "")
+        cat_code = normalize_str(topic_cat.code if topic_cat else "")
+        title = normalize_str(project.topic_title_vi or "")
+
+        # 1. Trùng khớp Category (Max 5.0)
+        if topic_cat:
+            if cat_code and (cat_code in sup_interest or cat_code in sup_dept):
+                score += 5.0
+            elif cat_name and any(word in sup_interest for word in cat_name.split() if len(word) > 2):
+                score += 4.5
+            elif hasattr(supervisor, "category"):
+                cat_names = [normalize_str(c.category_name) for c in supervisor.category.all()]
+                if any(c in cat_name or c in cat_code for c in cat_names):
+                    score += 4.0
+
+        # 2. Phù hợp bộ môn đào tạo (Max 3.0)
+        # Phát triển phần mềm / Web / Mobile -> CNPM
+        if any(w in cat_name or w in title for w in ["phan mem", "software", "web", "mobile", "app", "ung dung"]):
+            if any(d in sup_dept or d in sup_interest for d in ["cnpm", "phan mem", "software"]):
+                score += 3.0
+        # Dữ liệu & AI -> KHMT, HTTT, Dữ liệu
+        if any(w in cat_name or w in title for w in ["ai", "tri tue nhan tao", "du lieu", "data", "machine learning", "hoc may"]):
+            if any(d in sup_dept or d in sup_interest for d in ["ai", "khmt", "httt", "du lieu", "data", "tri tue nhan tao"]):
+                score += 3.0
+        # Mạng & An toàn thông tin -> ATTT, Mạng, Hệ thống
+        if any(w in cat_name or w in title for w in ["an toan", "bao mat", "mang", "security", "network", "cloud"]):
+            if any(d in sup_dept or d in sup_interest for d in ["attt", "mang", "security", "an toan", "network"]):
+                score += 3.0
+        # Hệ thống thông tin -> HTTT
+        if any(w in cat_name or w in title for w in ["httt", "he thong thong tin", "erp", "crm", "business"]):
+            if any(d in sup_dept or d in sup_interest for d in ["httt", "he thong", "thong tin"]):
+                score += 3.0
+
+        # 3. Trùng từ khóa tên đề tài (Max 2.0)
+        interest_words = [w for w in sup_interest.split() if len(w) > 3]
+        matched_words = [w for w in interest_words if w in title]
+        if matched_words:
+            score += min(2.0, len(matched_words) * 0.8)
+
+        # Baseline
+        if score == 0.0 and (sup_interest or sup_dept):
+            score = 1.0
+
+        return min(10.0, round(score, 1))
+
+    @classmethod
+    def find_best_matching_reviewer(cls, project, available_supervisors=None, exclude_supervisors=None):
+        """
+        Tìm Giảng viên phản biện (GVPB) tối ưu nhất theo hướng nghiên cứu của Đề tài.
+        Đảm bảo không vi phạm Xung đột lợi ích (không phải GVHD của chính sinh viên đó).
+        """
+        from .models import Supervisor
+
+        if available_supervisors is None:
+            available_supervisors = list(Supervisor.objects.select_related("user").all())
+
+        exclude_ids = set()
+        if exclude_supervisors:
+            for s in exclude_supervisors:
+                if hasattr(s, "id"):
+                    exclude_ids.add(s.id)
+                elif isinstance(s, int):
+                    exclude_ids.add(s)
+
+        if project.supervisor_id:
+            exclude_ids.add(project.supervisor_id)
+
+        candidates = []
+        for sup in available_supervisors:
+            if sup.id in exclude_ids:
+                continue
+            score = cls.calculate_topic_match_score(sup, project)
+            candidates.append((score, sup))
+
+        if not candidates:
+            return None, 0.0
+
+        # Ưu tiên ứng viên có điểm tương đồng hướng nghiên cứu cao nhất
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        best_score, best_sup = candidates[0]
+        return best_sup, best_score
+
+    @classmethod
+    def optimize_council_reviewers(cls, council, available_supervisors=None):
+        """
+        Tối ưu hóa và cân bằng phân bổ phản biện cho toàn bộ đề tài trong hội đồng.
+        Ưu tiên gán phản biện có cùng lĩnh vực với Đề tài và không có xung đột lợi ích.
+        """
+        from .models import Supervisor
+
+        if available_supervisors is None:
+            available_supervisors = list(Supervisor.objects.select_related("user").all())
+
+        projects = list(council.projects.all().select_related("topic_category", "supervisor__user"))
+        assigned_results = []
+
+        for p in projects:
+            best_sup, score = cls.find_best_matching_reviewer(
+                project=p,
+                available_supervisors=available_supervisors
+            )
+            if best_sup:
+                p.reviewer = best_sup
+                p.save(update_fields=["reviewer"])
+                assigned_results.append({
+                    "project_id": p.id,
+                    "student_name": p.student.user.get_full_name(),
+                    "topic_title": p.topic_title_vi,
+                    "topic_category": p.topic_category.name if p.topic_category else None,
+                    "reviewer_id": best_sup.id,
+                    "reviewer_name": best_sup.user.get_full_name(),
+                    "match_score": score,
+                    "is_topic_matched": score >= 3.0
+                })
+
+        return assigned_results
+
 

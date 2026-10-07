@@ -1173,4 +1173,209 @@ class UTCGraduationSystemTests(APITestCase):
         self.assertEqual(res_teacher.status_code, status.HTTP_200_OK)
         self.assertIn("live_score", res_teacher.data)
 
+    def test_tc031_batch_create_positive_and_negative(self):
+        """TC_031: Khoa khởi tạo đợt đồ án mới, thiết lập thời gian bắt đầu và kết thúc (Positive & Negative)"""
+        admin_user = CustomUser.objects.create_user(
+            username="admin_batch", email="admin_batch@utc.edu.vn", password="password123", user_type="admin", is_staff=True
+        )
+        self.client.force_authenticate(user=admin_user)
+
+        # 1. Positive: Khởi tạo đợt thành công
+        res_pos = self.client.post("/app/batch/create/", {
+            "batch_code": "2026_2027_HK2_TEST",
+            "batch_name": "Đợt ĐATN K60-K63 HK2 Năm học 2026-2027",
+            "start_date": "2027-02-01",
+            "end_date": "2027-06-30",
+            "is_active": True
+        }, format="json")
+        self.assertEqual(res_pos.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(res_pos.data["success"])
+        self.assertEqual(res_pos.data["batch"]["batch_code"], "2026_2027_HK2_TEST")
+        self.assertTrue(AcademicBatch.objects.filter(batch_code="2026_2027_HK2_TEST").exists())
+
+        # 2. Negative: Trùng mã đợt đồ án
+        res_dup = self.client.post("/app/batch/create/", {
+            "batch_code": "2026_2027_HK2_TEST",
+            "batch_name": "Trùng mã đợt",
+        }, format="json")
+        self.assertEqual(res_dup.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("batch_code", res_dup.data)
+
+        # 3. Negative: Thiếu tên đợt đồ án
+        res_no_name = self.client.post("/app/batch/create/", {
+            "batch_code": "NEW_CODE_01",
+            "batch_name": "",
+        }, format="json")
+        self.assertEqual(res_no_name.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # 4. Negative: Ngày kết thúc trước ngày bắt đầu
+        res_bad_dates = self.client.post("/app/batch/create/", {
+            "batch_code": "NEW_CODE_02",
+            "batch_name": "Sai thứ tự ngày",
+            "start_date": "2027-09-01",
+            "end_date": "2027-01-01"
+        }, format="json")
+        self.assertEqual(res_bad_dates.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_tc032_tc033_students_import_excel_and_csv(self):
+        """TC_032 & TC_033: Import danh sách sinh viên Cử nhân/Kỹ sư (Positive) & Bắt lỗi định dạng (Negative)"""
+        import openpyxl
+        admin_user = CustomUser.objects.create_user(
+            username="admin_import", email="admin_import@utc.edu.vn", password="password123", user_type="admin", is_staff=True
+        )
+        self.client.force_authenticate(user=admin_user)
+
+        # 1. TC_032 (Positive): Tạo file Excel chuẩn có cả Cử nhân và Kỹ sư
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "DanhSachSV"
+        ws.append(["Mã sinh viên", "Họ và tên", "Email", "Hệ đào tạo", "Lớp"])
+        ws.append(["201209001", "Nguyễn Văn Kỹ Sư", "201209001@lms.utc.edu.vn", "Kỹ sư", "CNTT K62"])
+        ws.append(["201209002", "Trần Thị Cử Nhân", "201209002@lms.utc.edu.vn", "Cử nhân", "CNTT K62"])
+
+        excel_io = io.BytesIO()
+        wb.save(excel_io)
+        excel_io.seek(0)
+
+        excel_file = SimpleUploadedFile("danh_sach_sinh_vien.xlsx", excel_io.read(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        res_import_excel = self.client.post("/app/students/import/", {"file": excel_file}, format="multipart")
+        self.assertEqual(res_import_excel.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(res_import_excel.data["success"])
+        self.assertEqual(res_import_excel.data["total_imported"], 2)
+        self.assertEqual(res_import_excel.data["engineer_count"], 1)
+        self.assertEqual(res_import_excel.data["bachelor_count"], 1)
+
+        # Kiểm tra CSDL
+        sv_ks = Student.objects.get(registration_no="201209001")
+        self.assertEqual(sv_ks.degree_program, "ENGINEER")
+        sv_cn = Student.objects.get(registration_no="201209002")
+        self.assertEqual(sv_cn.degree_program, "BACHELOR")
+
+        # 2. TC_032 (Positive): Import file CSV chuẩn
+        csv_content = (
+            "Mã SV,Họ và tên,Email,Hệ đào tạo,Lớp\n"
+            "201209003,Phạm Văn Ba,201209003@lms.utc.edu.vn,Kỹ sư,CNTT K62\n"
+        ).encode("utf-8-sig")
+        csv_file = SimpleUploadedFile("danh_sach.csv", csv_content, content_type="text/csv")
+        res_import_csv = self.client.post("/app/students/import/", {"file": csv_file}, format="multipart")
+        self.assertEqual(res_import_csv.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Student.objects.filter(registration_no="201209003", degree_program="ENGINEER").exists())
+
+        # 3. TC_033 (Negative): Thiếu cột bắt buộc (Hệ đào tạo)
+        wb_missing = openpyxl.Workbook()
+        ws_m = wb_missing.active
+        ws_m.append(["Mã sinh viên", "Họ và tên", "Email"])  # Thiếu cột 'Hệ đào tạo'
+        ws_m.append(["201209004", "Lê Văn Bốn", "201209004@lms.utc.edu.vn"])
+        missing_io = io.BytesIO()
+        wb_missing.save(missing_io)
+        missing_io.seek(0)
+
+        missing_file = SimpleUploadedFile("thieu_cot.xlsx", missing_io.read(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        res_missing = self.client.post("/app/students/import/", {"file": missing_file}, format="multipart")
+        self.assertEqual(res_missing.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_missing.data["error"], "missing_required_columns")
+
+        # 4. TC_033 (Negative): Dữ liệu dòng sai chuẩn (Hệ đào tạo không hợp lệ)
+        wb_invalid = openpyxl.Workbook()
+        ws_inv = wb_invalid.active
+        ws_inv.append(["Mã sinh viên", "Họ và tên", "Email", "Hệ đào tạo"])
+        ws_inv.append(["201209005", "Hoàng Văn Năm", "201209005@lms.utc.edu.vn", "Tiến sĩ"])  # Không phải Kỹ sư/Cử nhân
+        invalid_io = io.BytesIO()
+        wb_invalid.save(invalid_io)
+        invalid_io.seek(0)
+
+        invalid_file = SimpleUploadedFile("sai_du_lieu.xlsx", invalid_io.read(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        res_invalid = self.client.post("/app/students/import/", {"file": invalid_file}, format="multipart")
+        self.assertEqual(res_invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_invalid.data["error"], "data_validation_failed")
+
+        # 5. TC_033 (Negative): Định dạng tệp sai (.txt hoặc .exe)
+        bad_format_file = SimpleUploadedFile("danh_sach.txt", b"Du lieu text", content_type="text/plain")
+        res_bad_format = self.client.post("/app/students/import/", {"file": bad_format_file}, format="multipart")
+        self.assertEqual(res_bad_format.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_bad_format.data["error"], "invalid_file_format")
+
+    def test_tc039_council_balance_topic_matching_reviewer(self):
+        """TC_039: Cân bằng Hội đồng: Ưu tiên gán phản biện có cùng lĩnh vực với Đề tài"""
+        # Tạo hội đồng bảo vệ
+        council = DefenseCouncil.objects.create(
+            batch=self.batch,
+            council_number=66,
+            council_name="Hội đồng Bảo vệ CNTT Số 66",
+            defense_room="401-A9"
+        )
+
+        # Tạo đề tài AI
+        proj_ai = GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,  # GVHD: TS. Dư (CNPM)
+            batch=self.batch,
+            topic_category=self.topic_ai,  # AI_DATA
+            topic_title_vi="Nghiên cứu ứng dụng Deep Learning trong phân tích dữ liệu y tế",
+            status="DEFENSE_READY",
+            council=council
+        )
+
+        # Tạo GV Chuyên gia AI
+        ai_sup_user = CustomUser.objects.create_user(
+            username="gv_ai_specialist", email="gv_ai@utc.edu.vn", password="password123", user_type="supervisor"
+        )
+        ai_sup = Supervisor.objects.create(
+            user=ai_sup_user,
+            supervisor_id="GV_AI_01",
+            academic_title="TS",
+            department_name="KHMT",
+            research_interest="Trí tuệ nhân tạo, Deep Learning, Dữ liệu lớn"
+        )
+
+        # Tạo GV Chuyên gia Phần mềm
+        se_sup_user = CustomUser.objects.create_user(
+            username="gv_se_specialist", email="gv_se@utc.edu.vn", password="password123", user_type="supervisor"
+        )
+        se_sup = Supervisor.objects.create(
+            user=se_sup_user,
+            supervisor_id="GV_SE_01",
+            academic_title="TS",
+            department_name="CNPM",
+            research_interest="Phát triển phần mềm, Kiểm thử hệ thống, Web"
+        )
+
+        # 1. Kiểm tra tính toán điểm tương đồng hướng nghiên cứu
+        score_ai = CouncilStructureService.calculate_topic_match_score(ai_sup, proj_ai)
+        score_se = CouncilStructureService.calculate_topic_match_score(se_sup, proj_ai)
+        self.assertGreater(score_ai, score_se)
+        self.assertGreaterEqual(score_ai, 5.0)
+
+        # 2. Thuật toán tìm phản biện tối ưu cho đề tài AI -> Phải chọn ai_sup
+        best_reviewer, best_score = CouncilStructureService.find_best_matching_reviewer(
+            proj_ai, available_supervisors=[ai_sup, se_sup]
+        )
+        self.assertEqual(best_reviewer, ai_sup)
+
+        # 3. Gọi API gợi ý phản biện: GET /app/council/assign-member/?council_id=X
+        self.client.force_authenticate(user=self.sup1_user)
+        res_rec = self.client.get(f"/app/council/assign-member/?council_id={council.id}")
+        self.assertEqual(res_rec.status_code, status.HTTP_200_OK)
+        # Giảng viên AI phải đứng đầu danh sách gợi ý
+        rec_list = res_rec.data["recommendations"]
+        self.assertGreater(len(rec_list), 0)
+        self.assertEqual(rec_list[0]["supervisor_id"], ai_sup.id)
+        self.assertTrue(rec_list[0]["is_topic_matched"])
+
+        # 4. Gọi API tự động phân công phản biện tối ưu: POST /app/council/assign-member/ với auto_assign=True
+        res_auto = self.client.post("/app/council/assign-member/", {
+            "council_id": council.id,
+            "auto_assign": True,
+            "role": "REVIEWER"
+        }, format="json")
+        self.assertEqual(res_auto.status_code, status.HTTP_200_OK)
+        self.assertTrue(res_auto.data["success"])
+        self.assertEqual(res_auto.data["role"], "REVIEWER")
+        self.assertTrue(res_auto.data["is_topic_matched"])
+
+        # Kiểm tra đề tài trong hội đồng đã được gán phản biện đúng chuyên môn
+        proj_ai.refresh_from_db()
+        self.assertEqual(proj_ai.reviewer, ai_sup)
+
+
 
