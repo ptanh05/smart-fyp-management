@@ -351,85 +351,156 @@ const LoginPage: React.FC = () => {
           {/* Quick Demo Accounts Helper */}
           <div style={{
             display: 'flex',
+            flexDirection: 'column',
             gap: '8px',
-            flexWrap: 'wrap',
             marginBottom: '16px',
             padding: '10px 12px',
             background: 'rgba(0, 51, 102, 0.05)',
             borderRadius: '8px',
             border: '1px dashed #cbd5e1',
             fontSize: '0.82rem',
-            alignItems: 'center'
           }}>
-            <span style={{ fontWeight: 600, color: '#003366', marginRight: '2px' }}>
-              ⚡ Điền mẫu:
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setUserType('student');
-                setRegistrationNo('201200101');
-                setPassword('student123');
-                setFieldErrors({});
-                setError('');
-              }}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid #93c5fd',
-                background: userType === 'student' ? '#dbeafe' : '#fff',
-                cursor: 'pointer',
-                fontWeight: 500,
-                color: '#1e40af',
-                fontSize: '0.8rem'
-              }}
-            >
-              🎓 SV: 201200101
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setUserType('supervisor');
-                setEmail('supervisor1');
-                setPassword('supervisor123');
-                setFieldErrors({});
-                setError('');
-              }}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid #86efac',
-                background: userType === 'supervisor' ? '#dcfce7' : '#fff',
-                cursor: 'pointer',
-                fontWeight: 500,
-                color: '#166534',
-                fontSize: '0.8rem'
-              }}
-            >
-              👨‍🏫 GV: supervisor1
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setUserType('committee_member');
-                setEmail('committee1');
-                setPassword('committee123');
-                setFieldErrors({});
-                setError('');
-              }}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid #fde047',
-                background: userType === 'committee_member' ? '#fef9c3' : '#fff',
-                cursor: 'pointer',
-                fontWeight: 500,
-                color: '#854d0e',
-                fontSize: '0.8rem'
-              }}
-            >
-              🏛️ HĐ: committee1
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontWeight: 600, color: '#003366', marginRight: '2px' }}>
+                ⚡ Điền mẫu:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserType('student');
+                  setRegistrationNo('201200101');
+                  setPassword('student123');
+                  setTouched({ registrationNo: true, password: true });
+                  setFieldErrors({});
+                  setError('');
+                }}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #93c5fd',
+                  background: userType === 'student' && registrationNo === '201200101' ? '#bfdbfe' : '#dbeafe',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  color: '#1e40af',
+                  fontSize: '0.8rem'
+                }}
+                title="Tài khoản: 201200101 | MK: student123"
+              >
+                🎓 SV 1: 201200101
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserType('student');
+                  setRegistrationNo('201200999');
+                  setPassword('demo123');
+                  setTouched({ registrationNo: true, password: true });
+                  setFieldErrors({});
+                  setError('');
+                }}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #93c5fd',
+                  background: userType === 'student' && registrationNo === '201200999' ? '#bfdbfe' : '#e0e7ff',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  color: '#3730a3',
+                  fontSize: '0.8rem'
+                }}
+                title="Tài khoản: 201200999 (svdemo) | MK: demo123"
+              >
+                🎓 SV 2: 201200999
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserType('student');
+                  setRegistrationNo('201200200');
+                  setPassword('student123');
+                  setTouched({ registrationNo: true, password: true });
+                  setFieldErrors({});
+                  setError('');
+                }}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #93c5fd',
+                  background: userType === 'student' && registrationNo === '201200200' ? '#bfdbfe' : '#e0e7ff',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  color: '#1e40af',
+                  fontSize: '0.8rem'
+                }}
+                title="Tài khoản mới: 201200200 (sinhvien) | MK: student123"
+              >
+                🎓 SV 3: 201200200
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserType('supervisor');
+                  setEmail('supervisor1');
+                  setPassword('supervisor123');
+                  setTouched({ email: true, password: true });
+                  setFieldErrors({});
+                  setError('');
+                }}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #86efac',
+                  background: userType === 'supervisor' ? '#dcfce7' : '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  color: '#166534',
+                  fontSize: '0.8rem'
+                }}
+                title="Tài khoản: supervisor1 | MK: supervisor123"
+              >
+                👨‍🏫 GV: supervisor1
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserType('committee_member');
+                  setEmail('committee1');
+                  setPassword('committee123');
+                  setTouched({ email: true, password: true });
+                  setFieldErrors({});
+                  setError('');
+                }}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #fde047',
+                  background: userType === 'committee_member' ? '#fef9c3' : '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  color: '#854d0e',
+                  fontSize: '0.8rem'
+                }}
+                title="Tài khoản: committee1 | MK: committee123"
+              >
+                🏛️ HĐ: committee1
+              </button>
+            </div>
+            <div style={{
+              fontSize: '0.76rem',
+              color: '#475569',
+              background: '#f8fafc',
+              padding: '4px 8px',
+              borderRadius: '5px',
+              border: '1px solid #e2e8f0'
+            }}>
+              {userType === 'student' ? (
+                <>🔑 <strong>Sinh viên:</strong> MSSV <code>201200101</code> (MK: <code>student123</code> hoặc dùng chính MSSV <code>201200101</code>) • Demo 2: <code>201200999</code> (MK: <code>demo123</code>)</>
+              ) : userType === 'supervisor' ? (
+                <>🔑 <strong>Giảng viên:</strong> Email/User <code>supervisor1</code> • Mật khẩu: <code>supervisor123</code></>
+              ) : (
+                <>🔑 <strong>Hội đồng:</strong> Email/User <code>committee1</code> • Mật khẩu: <code>committee123</code></>
+              )}
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="utc-login-form" noValidate>
@@ -496,7 +567,7 @@ const LoginPage: React.FC = () => {
                     }
                   }}
                   onBlur={() => handleBlur('password')}
-                  placeholder={t('login.passwordPlaceholder', 'Nhập mật khẩu của bạn')}
+                  placeholder={userType === 'student' ? 'Nhập mật khẩu (Mặc định: student123 hoặc chính MSSV)' : t('login.passwordPlaceholder', 'Nhập mật khẩu của bạn')}
                 />
                 <button
                   type="button"
