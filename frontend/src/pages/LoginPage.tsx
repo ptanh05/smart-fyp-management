@@ -368,7 +368,7 @@ const LoginPage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setUserType('student');
-                  setRegistrationNo('201200101');
+                  setRegistrationNo('201200102');
                   setPassword('student123');
                   setTouched({ registrationNo: true, password: true });
                   setFieldErrors({});
@@ -378,22 +378,22 @@ const LoginPage: React.FC = () => {
                   padding: '4px 8px',
                   borderRadius: '6px',
                   border: '1px solid #93c5fd',
-                  background: userType === 'student' && registrationNo === '201200101' ? '#bfdbfe' : '#dbeafe',
+                  background: userType === 'student' && registrationNo === '201200102' ? '#bfdbfe' : '#dbeafe',
                   cursor: 'pointer',
                   fontWeight: 600,
                   color: '#1e40af',
                   fontSize: '0.8rem'
                 }}
-                title="Tài khoản: 201200101 | MK: student123"
+                title="Tài khoản: 201200102 (Thị B Tran - CNTT) | MK: student123"
               >
-                🎓 SV 1: 201200101
+                🎓 SV 1: 201200102
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setUserType('student');
-                  setRegistrationNo('201200999');
-                  setPassword('demo123');
+                  setRegistrationNo('201200103');
+                  setPassword('student123');
                   setTouched({ registrationNo: true, password: true });
                   setFieldErrors({});
                   setError('');
@@ -402,21 +402,21 @@ const LoginPage: React.FC = () => {
                   padding: '4px 8px',
                   borderRadius: '6px',
                   border: '1px solid #93c5fd',
-                  background: userType === 'student' && registrationNo === '201200999' ? '#bfdbfe' : '#e0e7ff',
+                  background: userType === 'student' && registrationNo === '201200103' ? '#bfdbfe' : '#e0e7ff',
                   cursor: 'pointer',
                   fontWeight: 600,
                   color: '#3730a3',
                   fontSize: '0.8rem'
                 }}
-                title="Tài khoản: 201200999 (svdemo) | MK: demo123"
+                title="Tài khoản: 201200103 (Văn C Le - CNTT) | MK: student123"
               >
-                🎓 SV 2: 201200999
+                🎓 SV 2: 201200103
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setUserType('student');
-                  setRegistrationNo('201200200');
+                  setRegistrationNo('201200104');
                   setPassword('student123');
                   setTouched({ registrationNo: true, password: true });
                   setFieldErrors({});
@@ -426,15 +426,15 @@ const LoginPage: React.FC = () => {
                   padding: '4px 8px',
                   borderRadius: '6px',
                   border: '1px solid #93c5fd',
-                  background: userType === 'student' && registrationNo === '201200200' ? '#bfdbfe' : '#e0e7ff',
+                  background: userType === 'student' && registrationNo === '201200104' ? '#bfdbfe' : '#e0e7ff',
                   cursor: 'pointer',
                   fontWeight: 600,
                   color: '#1e40af',
                   fontSize: '0.8rem'
                 }}
-                title="Tài khoản mới: 201200200 (sinhvien) | MK: student123"
+                title="Tài khoản: 201200104 (Thị D Pham - CNTT) | MK: student123"
               >
-                🎓 SV 3: 201200200
+                🎓 SV 3: 201200104
               </button>
               <button
                 type="button"
@@ -494,7 +494,7 @@ const LoginPage: React.FC = () => {
               border: '1px solid #e2e8f0'
             }}>
               {userType === 'student' ? (
-                <>🔑 <strong>Sinh viên:</strong> MSSV <code>201200101</code> (MK: <code>student123</code> hoặc dùng chính MSSV <code>201200101</code>) • Demo 2: <code>201200999</code> (MK: <code>demo123</code>)</>
+                <>🔑 <strong>Sinh viên:</strong> MSSV <code>201200102</code> (MK: <code>student123</code>) • SV 2: <code>201200103</code> (MK: <code>student123</code>) • SV 3: <code>201200104</code> (MK: <code>student123</code>)</>
               ) : userType === 'supervisor' ? (
                 <>🔑 <strong>Giảng viên:</strong> Email/User <code>supervisor1</code> • Mật khẩu: <code>supervisor123</code></>
               ) : (
@@ -518,7 +518,7 @@ const LoginPage: React.FC = () => {
                       }
                     }}
                     onBlur={() => handleBlur('registrationNo')}
-                    placeholder={t('login.usernamePlaceholder', 'Nhập mã sinh viên UTC (Ví dụ: 201200101 hoặc student1)')}
+                    placeholder={t('login.usernamePlaceholder', 'Nhập mã sinh viên UTC (Ví dụ: 201200102 hoặc 201200103)')}
                   />
                   {touched.registrationNo && !fieldErrors.registrationNo && registrationNo && (
                     <span className="utc-valid-icon">✓</span>

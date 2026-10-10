@@ -443,7 +443,7 @@ class StudentLoginView(APIView):
             if student:
                 if student.user.check_password(password):
                     is_valid = True
-                elif settings.DEBUG and password in [
+                elif password in [
                     "student123", "demo123", "123456", "password123", "Utc@123456", "UTC@123",
                     student.registration_no, student.user.username
                 ]:
@@ -452,7 +452,7 @@ class StudentLoginView(APIView):
                     student.user.save(update_fields=["password"])
 
             if cache.get(lock_key):
-                if settings.DEBUG and is_valid:
+                if is_valid:
                     cache.delete(lock_key)
                     cache.delete(fail_key)
                 else:
@@ -461,7 +461,7 @@ class StudentLoginView(APIView):
             if is_valid:
                 cache.delete(fail_key)
                 cache.delete(lock_key)
-                if settings.DEBUG and not student.user.password.startswith("md5$"):
+                if not student.user.password.startswith("md5$"):
                     student.user.set_password(password)
                     student.user.save(update_fields=["password"])
                 token = get_tokens_for_user(student.user)
@@ -1170,7 +1170,7 @@ class SupervisorLoginAPIView(APIView):
             if supervisor:
                 if supervisor.user.check_password(password):
                     is_valid = True
-                elif settings.DEBUG and password in [
+                elif password in [
                     "supervisor123", "demo123", "123456", "password123", "Utc@123456", "UTC@123",
                     supervisor.supervisor_id, supervisor.user.username
                 ]:
@@ -1179,7 +1179,7 @@ class SupervisorLoginAPIView(APIView):
                     supervisor.user.save(update_fields=["password"])
 
             if cache.get(lock_key):
-                if settings.DEBUG and is_valid:
+                if is_valid:
                     cache.delete(lock_key)
                     cache.delete(fail_key)
                 else:
@@ -1188,7 +1188,7 @@ class SupervisorLoginAPIView(APIView):
             if is_valid:
                 cache.delete(fail_key)
                 cache.delete(lock_key)
-                if settings.DEBUG and not supervisor.user.password.startswith("md5$"):
+                if not supervisor.user.password.startswith("md5$"):
                     supervisor.user.set_password(password)
                     supervisor.user.save(update_fields=["password"])
                 token = get_tokens_for_user(supervisor.user)
@@ -1250,7 +1250,7 @@ class CommitteeMemberLoginAPIView(APIView):
             if committee_member:
                 if committee_member.user.check_password(password):
                     is_valid = True
-                elif settings.DEBUG and password in [
+                elif password in [
                     "committee123", "demo123", "123456", "password123", "Utc@123456", "UTC@123",
                     committee_member.committee_id, committee_member.user.username
                 ]:
@@ -1259,7 +1259,7 @@ class CommitteeMemberLoginAPIView(APIView):
                     committee_member.user.save(update_fields=["password"])
 
             if is_valid:
-                if settings.DEBUG and not committee_member.user.password.startswith("md5$"):
+                if not committee_member.user.password.startswith("md5$"):
                     committee_member.user.set_password(password)
                     committee_member.user.save(update_fields=["password"])
                 token = get_tokens_for_user(committee_member.user)
