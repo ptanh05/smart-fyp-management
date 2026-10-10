@@ -9,10 +9,15 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
 
 export const UTCSupervisorGraduationView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'students' | 'outlines' | 'weekly' | 'eval' | 'reviewer'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'outlines' | 'weekly' | 'eval' | 'reviewer' | 'deferrals'>('students');
   const [projects, setProjects] = useState<any[]>([]);
   const [reviewerProjects, setReviewerProjects] = useState<any[]>([]);
   const [outlineReviews, setOutlineReviews] = useState<any[]>([]);
+  const [deferralRequests, setDeferralRequests] = useState<any[]>([]);
+  const [reviewingDeferral, setReviewingDeferral] = useState(false);
+  const [adminTopicModal, setAdminTopicModal] = useState<any>(null);
+  const [adminTopicNotes, setAdminTopicNotes] = useState('');
+  const [adminTopicSubmitting, setAdminTopicSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Sorting & Pagination for Students Table
@@ -189,14 +194,16 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [projRes, revRes, outRes] = await Promise.all([
+      const [projRes, revRes, outRes, defRes] = await Promise.all([
         axios.get(`${API_BASE}/supervisor/graduation-projects/`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/reviewer/assigned-projects/`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/supervisor/outline-group-reviews/`, { headers: getHeaders() }).catch(() => null),
+        apiService.getAdminDeferralRequests().catch(() => []),
       ]);
       if (projRes?.data) setProjects(projRes.data);
       if (revRes?.data) setReviewerProjects(revRes.data);
       if (outRes?.data) setOutlineReviews(outRes.data);
+      if (defRes) setDeferralRequests(Array.isArray(defRes) ? defRes : []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -359,6 +366,78 @@ export const UTCSupervisorGraduationView: React.FC = () => {
     }
   };
 
+  // FLOW_24: Khoa duyệt đơn xin bảo lưu đồ án
+  const handleReviewDeferral = async (reqId: number, decision: 'APPROVED' | 'REJECTED') => {
+    let notes = '';
+    if (decision === 'REJECTED') {
+      const promptNotes = window.prompt('Vui lòng nhập lý do từ chối bảo lưu:');
+      if (promptNotes === null) return;
+      notes = promptNotes.trim();
+    }
+    try {
+      setReviewingDeferral(true);
+      const res = await apiService.adminReviewDeferralRequest(reqId, {
+        decision,
+        admin_notes: notes || (decision === 'APPROVED' ? 'Khoa chấp thuận bảo lưu đồ án tốt nghiệp' : 'Không chấp thuận bảo lưu')
+      });
+      alert(res.message || 'Cập nhật trạng thái bảo lưu thành công! (Trạng thái đồ án: ' + (res.project?.status || 'DEFERRED') + ')');
+      fetchData();
+    } catch (err: any) {
+      alert('Lỗi duyệt bảo lưu: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setReviewingDeferral(false);
+    }
+  };
+
+  // FLOW_14 & TC_034: Khoa duyệt đề tài chính thức
+  const handleAdminApproveTopic = async (project: any, decision: 'APPROVED' | 'REJECTED') => {
+    if (decision === 'REJECTED') {
+      setAdminTopicModal(project);
+      setAdminTopicNotes('');
+      return;
+    }
+    if (!window.confirm(`Xác nhận Khoa phê duyệt chính thức đề tài cho sinh viên ${project.student_name}?`)) return;
+    try {
+      setAdminTopicSubmitting(true);
+      const res = await apiService.adminApproveTopic({
+        project_id: project.id,
+        decision: 'APPROVED'
+      });
+      alert(res.message || 'Khoa đã phê duyệt đề tài chính thức thành công!');
+      fetchData();
+    } catch (err: any) {
+      alert('Lỗi phê duyệt đề tài: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setAdminTopicSubmitting(false);
+    }
+  };
+
+  const handleSubmitAdminTopicReject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminTopicModal) return;
+    // FLOW_14: Frontend validation - bắt buộc có lý do từ chối
+    if (!adminTopicNotes.trim()) {
+      alert('Vui lòng nhập lý do từ chối hoặc yêu cầu chỉnh sửa đề tài! Không được để trống lý do.');
+      return;
+    }
+    try {
+      setAdminTopicSubmitting(true);
+      const res = await apiService.adminApproveTopic({
+        project_id: adminTopicModal.id,
+        decision: 'REJECTED',
+        notes: adminTopicNotes.trim()
+      });
+      alert(res.message || 'Khoa đã gửi yêu cầu chỉnh sửa đề tài thành công!');
+      setAdminTopicModal(null);
+      setAdminTopicNotes('');
+      fetchData();
+    } catch (err: any) {
+      alert('Lỗi từ chối đề tài: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setAdminTopicSubmitting(false);
+    }
+  };
+
   const handleOpenTaskReview = (task: any) => {
     setSelectedTaskForReview(task);
     setTaskReviewVerdict(task.review_verdict === 'REVISION_REQUIRED' ? 'REVISION_REQUIRED' : 'ACCEPTED');
@@ -496,6 +575,7 @@ export const UTCSupervisorGraduationView: React.FC = () => {
           { key: 'weekly', label: '3. Báo cáo tuần & Đánh giá', icon: '📅' },
           { key: 'eval', label: '4. Đánh giá sơ khảo GVHD', icon: '⭐' },
           { key: 'reviewer', label: `5. Đồ án Phản biện (${reviewerProjects.length})`, icon: '🔍' },
+          { key: 'deferrals', label: `6. Đơn Bảo lưu (Khoa duyệt) (${deferralRequests.length})`, icon: '📋' },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -603,6 +683,26 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                             >
                               <span>✏️</span> Xác nhận đề tài
                             </button>
+                          )}
+                          {(p.status === 'TOPIC_CONFIRMED' || p.status === 'PENDING_REVIEW') && (
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              <button
+                                onClick={() => handleAdminApproveTopic(p, 'APPROVED')}
+                                disabled={adminTopicSubmitting}
+                                className="px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition flex items-center gap-1"
+                                title="Khoa phê duyệt chính thức đề tài"
+                              >
+                                <span>✓</span> Khoa Duyệt
+                              </button>
+                              <button
+                                onClick={() => handleAdminApproveTopic(p, 'REJECTED')}
+                                disabled={adminTopicSubmitting}
+                                className="px-2 py-0.5 rounded bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 text-[11px] font-bold transition flex items-center gap-1"
+                                title="Khoa yêu cầu sửa / từ chối đề tài"
+                              >
+                                <span>✕</span> Từ chối
+                              </button>
+                            </div>
                           )}
                         </div>
                       </td>
@@ -1809,6 +1909,171 @@ export const UTCSupervisorGraduationView: React.FC = () => {
                   className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 disabled:opacity-50"
                 >
                   {reviewingTask ? 'Đang lưu...' : 'Lưu kết quả đánh giá'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Tab 6: Deferrals Management for Khoa / Ban Chu Nhiem (FLOW_24) */}
+      {activeTab === 'deferrals' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+                <span>📋</span> Quản lý Đơn Xin Bảo Lưu Đồ Án Tốt Nghiệp ({deferralRequests.length})
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Khoa phê duyệt chuyển trạng thái sang <b>DEFERRED (Bảo lưu)</b> hoặc từ chối loại khỏi đợt (DISQUALIFIED).
+              </p>
+            </div>
+            <button
+              onClick={() => fetchData()}
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+            >
+              🔄 Tải lại danh sách
+            </button>
+          </div>
+
+          {deferralRequests.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">
+              Hiện tại không có đơn xin bảo lưu đồ án nào cần xử lý.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950 text-slate-400 uppercase font-semibold">
+                  <tr>
+                    <th className="p-3">MSSV</th>
+                    <th className="p-3">Sinh viên</th>
+                    <th className="p-3">Phân loại lý do</th>
+                    <th className="p-3">Chi tiết lý do & Nguyện vọng</th>
+                    <th className="p-3">Minh chứng</th>
+                    <th className="p-3">Thời gian nộp</th>
+                    <th className="p-3">Trạng thái</th>
+                    <th className="p-3 text-right">Khoa duyệt bảo lưu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-slate-300">
+                  {deferralRequests.map((req) => (
+                    <tr key={req.id} className="hover:bg-slate-950/40">
+                      <td className="p-3 font-mono font-semibold text-blue-400">
+                        {req.student?.registration_no || req.student_registration_no || 'N/A'}
+                      </td>
+                      <td className="p-3 font-medium text-slate-100">
+                        {req.student?.full_name || req.student_name || 'Sinh viên'}
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
+                          {req.reason_category_display || req.reason_category || 'Bảo lưu'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-slate-300 max-w-xs whitespace-pre-line">
+                        {req.reason || req.reason_details}
+                      </td>
+                      <td className="p-3">
+                        {req.evidence_file ? (
+                          <a
+                            href={req.evidence_file}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-400 underline font-medium hover:text-blue-300 inline-flex items-center gap-1"
+                          >
+                            <span>📎</span> Xem file ↗
+                          </a>
+                        ) : (
+                          <span className="text-slate-500 italic">Không có</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-slate-400 whitespace-nowrap">
+                        {req.submitted_at || req.created_at ? new Date(req.submitted_at || req.created_at).toLocaleString('vi-VN') : 'N/A'}
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold border ${
+                          req.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' :
+                          req.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' :
+                          'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                        }`}>
+                          {req.status === 'APPROVED' ? 'Đã duyệt bảo lưu' :
+                           req.status === 'REJECTED' ? 'Bị từ chối' : 'Chờ Khoa duyệt'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleReviewDeferral(req.id, 'APPROVED')}
+                            disabled={reviewingDeferral}
+                            className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow shadow-emerald-600/30 flex items-center gap-1 disabled:opacity-50"
+                            title="Khoa chấp thuận bảo lưu đồ án (Chuyển sang DEFERRED)"
+                          >
+                            <span>✓</span> Duyệt Bảo lưu
+                          </button>
+                          <button
+                            onClick={() => handleReviewDeferral(req.id, 'REJECTED')}
+                            disabled={reviewingDeferral}
+                            className="px-2.5 py-1 rounded bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 font-bold text-xs transition flex items-center gap-1 disabled:opacity-50"
+                            title="Không duyệt bảo lưu (Sinh viên bị loại khỏi đợt)"
+                          >
+                            <span>✕</span> Từ chối
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal FLOW_14: Khoa từ chối đề tài bắt buộc nhập lý do */}
+      {adminTopicModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <span className="text-xs text-rose-400 font-semibold uppercase tracking-wider">Khoa từ chối / Yêu cầu sửa đề tài</span>
+              <h3 className="text-base font-bold text-slate-100 mt-1">
+                {adminTopicModal.student_name} ({adminTopicModal.student_reg_no})
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Đề tài: <b>{adminTopicModal.topic_title_vi}</b>
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmitAdminTopicReject} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  Lý do từ chối / Yêu cầu chỉnh sửa (*) <span className="text-rose-400 font-bold">(Bắt buộc)</span>
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={adminTopicNotes}
+                  onChange={(e) => setAdminTopicNotes(e.target.value)}
+                  placeholder="Ghi rõ lý do Khoa từ chối hoặc các điểm cần chỉnh sửa lại để SV và GVHD hoàn thiện..."
+                  className="w-full px-3 py-2 bg-slate-950 border border-rose-500/40 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-rose-400"
+                />
+              </div>
+
+              <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-500/30 text-rose-300 text-[11px]">
+                ⚠️ Chú ý: Hệ thống không cho phép để trống ô lý do khi từ chối đề tài.
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setAdminTopicModal(null)}
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={adminTopicSubmitting}
+                  className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-rose-600/30 disabled:opacity-50"
+                >
+                  {adminTopicSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu sửa đổi'}
                 </button>
               </div>
             </form>

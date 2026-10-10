@@ -1220,6 +1220,22 @@ class ApiService {
     return response.data;
   }
 
+  async adminApproveTopic(data: { project_id: number; decision: 'APPROVED' | 'REJECTED' | 'REVISION'; notes?: string }): Promise<any> {
+    const response = await this.api.post('/graduation-project/admin-approve-topic/', data);
+    return response.data;
+  }
+
+  async getAdminDeferralRequests(status?: string): Promise<ThesisDeferralRequest[]> {
+    const params = status ? { status } : {};
+    const response = await this.api.get<ThesisDeferralRequest[]>('/admin/deferral-request/list/', { params });
+    return response.data;
+  }
+
+  async adminReviewDeferralRequest(requestId: number, data: { decision: 'APPROVED' | 'REJECTED'; admin_notes?: string }): Promise<any> {
+    const response = await this.api.post(`/admin/deferral-request/${requestId}/review/`, data);
+    return response.data;
+  }
+
   async exportCouncilMinutesPdf(councilId: number): Promise<Blob> {
     const response = await this.api.get(`/council/${councilId}/export-minutes-pdf/`, {
       responseType: 'blob',

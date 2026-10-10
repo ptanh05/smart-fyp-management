@@ -1,4 +1,5 @@
 import logging
+import threading
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -3113,6 +3114,7 @@ class AdminApproveTopicAPIView(APIView):
     """Trình duyệt: Khoa/Ban duyệt đề tài (Approved hoặc Yêu cầu sửa quay về Draft)"""
     permission_classes = [IsAuthenticated]
 
+    @retry_on_db_lock(max_retries=5, initial_delay=0.05, backoff_factor=1.5)
     def post(self, request):
         user = request.user
         if getattr(user, "user_type", "") == "student":
@@ -3132,33 +3134,66 @@ class AdminApproveTopicAPIView(APIView):
             )
 
         project_id = request.data.get("project_id")
-        decision = request.data.get("decision", "APPROVED").upper()  # APPROVED or REVISION
-        notes = request.data.get("notes", "").strip()
+        decision = str(request.data.get("decision", "APPROVED")).upper().strip()  # APPROVED, REJECTED, REVISION
+        notes = str(request.data.get("notes", "")).strip()
 
-        project = get_object_or_404(GraduationProject, id=project_id)
+        # FLOW_14: Khoa ấn từ chối hoặc yêu cầu sửa nhưng để trống lý do -> Validate bắt buộc có lý do
+        if decision in ["REJECTED", "REVISION", "REVISION_REQUESTED"] and not notes:
+            return Response(
+                {
+                    "detail": "Vui lòng nhập lý do từ chối hoặc yêu cầu chỉnh sửa đề tài. Không được để trống lý do.",
+                    "message": "Không thể từ chối đề tài khi để trống lý do.",
+                    "error": "rejection_reason_required",
+                    "notes": ["Trường lý do từ chối không được để trống."]
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        if decision == "APPROVED":
-            project.status = "TOPIC_APPROVED"
-            msg = "Khoa đã phê duyệt đề tài chính thức!"
-        else:
-            project.status = "TOPIC_REVISION"
-            msg = f"Khoa yêu cầu chỉnh sửa đề tài: {notes or 'Vui lòng trao đổi lại với GVHD'}."
+        # TC_034: Database row-level lock với select_for_update ngăn Race condition khi 2 Admin duyệt cùng lúc
+        with transaction.atomic():
+            project = GraduationProject.objects.select_for_update().get(id=project_id)
 
-        project.save(update_fields=["status"])
+            if decision == "APPROVED":
+                project.status = "TOPIC_APPROVED"
+                msg = "Khoa đã phê duyệt đề tài chính thức!"
+            else:
+                project.status = "TOPIC_REVISION"
+                msg = f"Khoa yêu cầu chỉnh sửa đề tài: {notes}."
 
-        # Thông báo tới SV và GV
-        try:
-            for recipient in [project.student.user, project.supervisor.user]:
-                NotificationService.create_notification(
-                    user=recipient,
-                    notification_type="general",
-                    title="[Kết quả duyệt đề tài]",
-                    message=msg,
-                    action_url="/student/dashboard",
-                    send_email=True,
-                )
-        except Exception as e:
-            logger.warning("Could not send notification: %s", e)
+            project.save(update_fields=["status"])
+
+        # FLOW_15: Gửi email/thông báo công bố đề tài qua Background Thread Asynchronous
+        # Đảm bảo dù SMTP Server có chậm hay lag thì API vẫn phản hồi siêu tốc (<50ms), không bị Timeout 504
+        recipient_user_ids = []
+        if hasattr(project, "student") and project.student and project.student.user_id:
+            recipient_user_ids.append(project.student.user_id)
+        if hasattr(project, "supervisor") and project.supervisor and project.supervisor.user_id:
+            recipient_user_ids.append(project.supervisor.user_id)
+
+        def _send_approval_notifications_async(u_ids, approval_msg):
+            from django.db import connection
+            connection.close()
+            try:
+                users = list(CustomUser.objects.filter(id__in=u_ids))
+                for recipient in users:
+                    NotificationService.create_notification(
+                        user=recipient,
+                        notification_type="general",
+                        title="[Kết quả duyệt đề tài ĐATN]",
+                        message=approval_msg,
+                        action_url="/student/dashboard",
+                        send_email=True,
+                    )
+            except Exception as exc:
+                logger.warning("[ASYNC_NOTIF] Không thể gửi thông báo/email duyệt đề tài bất đồng bộ: %s", exc)
+            finally:
+                connection.close()
+
+        threading.Thread(
+            target=_send_approval_notifications_async,
+            args=(recipient_user_ids, msg),
+            daemon=True
+        ).start()
 
         return Response({
             "message": msg,
@@ -3475,7 +3510,74 @@ class StudentTaskDeliverableSubmitAPIView(APIView):
         student_notes = request.data.get("student_notes", "").strip()
 
         if deliverable_file:
+            import os
+            ext = os.path.splitext(deliverable_file.name)[1].lower() if deliverable_file.name else ""
+
+            # 1. Chặn đuôi file thực thi nguy hiểm
+            BLOCKED_EXTS = [".exe", ".bat", ".cmd", ".sh", ".bin", ".msi", ".dll", ".com", ".vbs", ".ps1", ".scr", ".jar"]
+            if ext in BLOCKED_EXTS:
+                return Response({
+                    "detail": f"Phát hiện tệp thực thi nguy hiểm ({ext}). Hệ thống từ chối lưu trữ vì lý do an toàn bảo mật.",
+                    "deliverable_file": [f"Định dạng tệp '{ext}' không được hỗ trợ. Tuyệt đối không cho phép tệp thực thi nguy hiểm (.exe)."],
+                    "error": "executable_file_forbidden"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # 2. Phân tích MIME Type từ request header/file metadata
+            content_type = getattr(deliverable_file, "content_type", "").lower()
+            if any(bad_mime in content_type for bad_mime in ["x-msdownload", "dosexec", "x-executable", "x-msdos-program"]):
+                return Response({
+                    "detail": "Phát hiện MIME type tệp thực thi nguy hiểm (.exe). Hệ thống từ chối lưu trữ.",
+                    "deliverable_file": ["Phát hiện tệp thực thi độc hại (.exe). Hệ thống từ chối lưu trữ vì lý do an toàn bảo mật."],
+                    "error": "executable_mime_forbidden"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # 3. FLOW_23: Kiểm tra trực tiếp ruột tệp Magic Bytes để chặn file .exe đổi tên giả mạo thành .zip/.pdf
             try:
+                if hasattr(deliverable_file, "seek"):
+                    deliverable_file.seek(0)
+                header = deliverable_file.read(512) if hasattr(deliverable_file, "read") else b""
+                if hasattr(deliverable_file, "seek"):
+                    deliverable_file.seek(0)
+
+                # Chặn mã nhị phân thực thi PE Windows (MZ header)
+                if header.startswith(b"MZ"):
+                    return Response({
+                        "detail": "Phát hiện tệp thực thi Windows (.exe/MZ) giả mạo. Hệ thống từ chối lưu trữ vì lý do an toàn bảo mật.",
+                        "deliverable_file": ["Phát hiện tệp thực thi độc hại (.exe) giả mạo dưới dạng tệp khác. Hệ thống từ chối lưu trữ."],
+                        "error": "malicious_executable_detected"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # Chặn mã nhị phân thực thi ELF Linux / Unix
+                if header.startswith(b"\x7fELF"):
+                    return Response({
+                        "detail": "Phát hiện tệp thực thi ELF giả mạo. Hệ thống từ chối lưu trữ.",
+                        "deliverable_file": ["Phát hiện tệp thực thi ELF độc hại. Hệ thống từ chối lưu trữ."],
+                        "error": "malicious_executable_detected"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # Kiểm tra tính toàn vẹn định dạng theo Magic Bytes tương ứng đuôi mở rộng
+                if ext == ".pdf" and not header.startswith(b"%PDF"):
+                    return Response({
+                        "detail": "Tệp không đúng định dạng PDF hợp lệ (Magic bytes không bắt đầu bằng %PDF).",
+                        "deliverable_file": ["Tệp PDF không đúng định dạng (Magic bytes không hợp lệ)."],
+                        "error": "invalid_magic_bytes"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                if ext in [".zip", ".docx", ".xlsx", ".pptx"] and not header.startswith(b"PK"):
+                    return Response({
+                        "detail": f"Tệp '{ext}' không đúng định dạng lưu trữ hợp lệ (Magic bytes không bắt đầu bằng PK).",
+                        "deliverable_file": [f"Tệp '{ext}' không đúng định dạng (Magic bytes không hợp lệ)."],
+                        "error": "invalid_magic_bytes"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                if ext == ".rar" and not (header.startswith(b"Rar!\x1a\x07\x00") or header.startswith(b"Rar!\x1a\x07\x01") or header.startswith(b"Rar!")):
+                    return Response({
+                        "detail": "Tệp không đúng định dạng RAR hợp lệ (Magic bytes không hợp lệ).",
+                        "deliverable_file": ["Tệp RAR không đúng định dạng (Magic bytes không hợp lệ)."],
+                        "error": "invalid_magic_bytes"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # 4. Kiểm tra qua validator chung của hệ thống
                 validate_uploaded_file(
                     deliverable_file,
                     allowed_extensions=[".pdf", ".zip", ".rar", ".docx", ".xlsx", ".pptx"],
@@ -3612,6 +3714,30 @@ class CouncilMinutesPdfExportAPIView(APIView):
             DefenseCouncil.objects.select_related("batch"),
             id=council_id
         )
+
+        # FLOW_33: Bắt buộc 100% thành viên Hội đồng nhập điểm đầy đủ cho toàn bộ SV mới cho phép xuất Biên bản PDF
+        council_members_count = council.members.count()
+        required_scorers = council_members_count if council_members_count >= 5 else (council_members_count or 5)
+        projects_in_council = list(council.projects.select_related("student__user").all())
+
+        if projects_in_council and required_scorers > 0:
+            incomplete_students = []
+            for proj in projects_in_council:
+                submitted_count = CouncilLiveScore.objects.filter(project=proj, council=council).count()
+                if submitted_count < required_scorers:
+                    st_name = proj.student.user.get_full_name() if (proj.student and proj.student.user) else proj.student.registration_no
+                    incomplete_students.append(f"SV {st_name} ({proj.student.registration_no}): {submitted_count}/{required_scorers} người")
+
+            if incomplete_students:
+                return Response(
+                    {
+                        "detail": f"Không thể xuất biên bản: Hội đồng chưa hoàn thành chấm điểm (Bắt buộc đủ 100% thành viên chấm điểm mới được xuất biên bản). Chưa đủ điểm: {'; '.join(incomplete_students)}.",
+                        "message": "Hội đồng mới có thành viên nhập điểm dở dang, chưa hoàn tất 100%.",
+                        "error": "incomplete_council_scores",
+                        "incomplete_students": incomplete_students
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         import io
         import os
@@ -3824,14 +3950,49 @@ class StudentDeferralRequestAPIView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class AdminDeferralRequestListAPIView(APIView):
+    """Khoa/Admin xem danh sách đơn xin bảo lưu đồ án của sinh viên"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if getattr(user, "user_type", "") == "student":
+            return Response(
+                {"detail": "Sinh viên không có quyền truy cập danh sách quản lý đơn bảo lưu."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        status_filter = request.query_params.get("status")
+        requests_qs = ThesisDeferralRequest.objects.select_related(
+            "student__user", "project__supervisor__user", "project__batch"
+        ).order_by("-submitted_at")
+        if status_filter:
+            requests_qs = requests_qs.filter(status=status_filter.upper())
+        return Response(ThesisDeferralRequestSerializer(requests_qs, many=True).data, status=status.HTTP_200_OK)
+
+
 class AdminReviewDeferralRequestAPIView(APIView):
-    """Khoa duyệt đơn bảo lưu: Có -> status='DEFERRED', lưu hồ sơ; Không -> loại khỏi đợt"""
+    """Khoa duyệt đơn bảo lưu: APPROVED -> project.status='DEFERRED', REJECTED -> project.status='DISQUALIFIED'"""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
+        user = request.user
+        if getattr(user, "user_type", "") == "student":
+            return Response(
+                {"detail": "Sinh viên không có quyền phê duyệt đơn bảo lưu đồ án (Chỉ dành cho Khoa/Ban quản trị)."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         deferral = get_object_or_404(ThesisDeferralRequest, id=pk)
-        decision = request.data.get("decision", "APPROVED").upper()  # APPROVED or REJECTED
-        admin_notes = request.data.get("admin_notes", "").strip()
+
+        raw_decision = request.data.get("decision") or request.data.get("status") or request.data.get("action") or "APPROVED"
+        raw_decision_str = str(raw_decision).upper().strip()
+        if raw_decision_str in ["APPROVE", "APPROVED", "ACCEPT", "ACCEPTED", "TRUE"]:
+            decision = "APPROVED"
+        else:
+            decision = "REJECTED"
+
+        admin_notes = request.data.get("admin_notes") or request.data.get("notes") or request.data.get("faculty_review_notes") or ""
+        admin_notes = str(admin_notes).strip()
 
         with transaction.atomic():
             deferral.status = decision
