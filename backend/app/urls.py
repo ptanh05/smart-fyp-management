@@ -36,6 +36,7 @@ from .views_utc import (
     CouncilLiveDefenseSessionAPIView,
     CouncilSubmitScoreAPIView,
     CouncilToggleLockAPIView,
+    CouncilFinalizeScoresAPIView,
     CouncilChairSetDefenseStatusAPIView,
     CouncilSecretaryRemindScoringAPIView,
     CouncilScheduleDefenseAPIView,
@@ -48,6 +49,7 @@ from .views_utc import (
     OverrideAllocationAPIView,
     FinalizeAllocationAPIView,
     TopicDraftAPIView,
+    TopicReSubmitAPIView,
     SupervisorConfirmTopicAPIView,
     AdminApproveTopicAPIView,
     ExportOutlinePdfAPIView,
@@ -62,6 +64,7 @@ from .views_utc import (
     AdminReviewDeferralRequestAPIView,
     BatchCreateAPIView,
     StudentImportAPIView,
+    AcademicGradesImportAPIView,
     AssignMemberAPIView,
 )
 from .views import (
@@ -561,6 +564,9 @@ urlpatterns = [
     path("council/submit-score/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-submit-score"),
     path("council/scores/submit/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-scores-submit"),
     path("council/toggle-lock/", CouncilToggleLockAPIView.as_view(), name="utc-council-toggle-lock"),
+    path("council/finalize-scores/", CouncilFinalizeScoresAPIView.as_view(), name="utc-council-finalize-scores"),
+    path("council/<int:council_id>/finalize-scores/", CouncilFinalizeScoresAPIView.as_view(), name="utc-council-finalize-scores-detail"),
+    path("council/scores/aggregate/", CouncilFinalizeScoresAPIView.as_view(), name="utc-council-scores-aggregate"),
 
     # =========================================================================
     # STUDENT CAPSTONE GROUP MANAGEMENT ENDPOINTS (15 FEATURES)
@@ -583,6 +589,7 @@ urlpatterns = [
     path("council/chair/set-defense-status/", CouncilChairSetDefenseStatusAPIView.as_view(), name="utc-council-chair-defense-status"),
     path("council/remind-scoring/", CouncilSecretaryRemindScoringAPIView.as_view(), name="utc-council-remind-scoring"),
     path("council/<int:council_id>/schedule/", CouncilScheduleDefenseAPIView.as_view(), name="utc-council-schedule-defense"),
+    path("council/schedule/", CouncilScheduleDefenseAPIView.as_view(), name="utc-council-schedule-defense-alias"),
     path("council/conflicts/", CouncilConflictCheckAPIView.as_view(), name="utc-council-conflicts"),
     path("council/assign-project/", CouncilAssignProjectAPIView.as_view(), name="utc-council-assign-project"),
     path("council/assign-member/", CouncilAssignMemberAPIView.as_view(), name="utc-council-assign-member"),
@@ -597,15 +604,22 @@ urlpatterns = [
     path("batches/create/", BatchCreateAPIView.as_view(), name="utc-batches-create"),
     path("students/import/", StudentImportAPIView.as_view(), name="utc-students-import"),
     path("student/import/", StudentImportAPIView.as_view(), name="utc-student-import"),
+    path("academic/grades/import/", AcademicGradesImportAPIView.as_view(), name="utc-academic-grades-import"),
+    path("students/grades/import/", AcademicGradesImportAPIView.as_view(), name="utc-students-grades-import"),
+    path("academic-clearance/import-grades/", AcademicGradesImportAPIView.as_view(), name="utc-academic-clearance-import-grades"),
 
     # Phase 2: Allocation Optimization & Override
     path("allocation/run-algorithm/", RunAllocationAlgorithmAPIView.as_view(), name="utc-allocation-run-algorithm"),
     path("allocation/proposed-list/", ProposedAllocationListAPIView.as_view(), name="utc-allocation-proposed-list"),
     path("allocation/override/", OverrideAllocationAPIView.as_view(), name="utc-allocation-override"),
+    path("graduation-project/allocation/override/", OverrideAllocationAPIView.as_view(), name="utc-grad-project-allocation-override"),
     path("allocation/finalize/", FinalizeAllocationAPIView.as_view(), name="utc-allocation-finalize"),
 
     # Phase 3: Topic Draft & Outline PDF
     path("graduation-project/topic-draft/", TopicDraftAPIView.as_view(), name="utc-topic-draft"),
+    path("graduation-project/re-submit/", TopicReSubmitAPIView.as_view(), name="utc-topic-resubmit"),
+    path("graduation-project/resubmit/", TopicReSubmitAPIView.as_view(), name="utc-topic-resubmit-alias"),
+    path("project/re-submit/", TopicReSubmitAPIView.as_view(), name="utc-project-resubmit"),
     path("graduation-project/confirm-topic/", SupervisorConfirmTopicAPIView.as_view(), name="utc-supervisor-confirm-topic"),
     path("graduation-project/admin-approve-topic/", AdminApproveTopicAPIView.as_view(), name="utc-admin-approve-topic"),
     path("graduation-project/<int:pk>/export-outline-pdf/", ExportOutlinePdfAPIView.as_view(), name="utc-export-outline-pdf"),

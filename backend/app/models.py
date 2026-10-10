@@ -2176,6 +2176,7 @@ class GraduationProject(models.Model):
         ("ALLOCATED", "Đã phân GVHD"),
         ("TOPIC_DRAFT", "Đang xây dựng đề tài (Draft)"),
         ("TOPIC_CONFIRMED", "GV đã xác nhận đề tài"),
+        ("PENDING_REVIEW", "Chờ duyệt đề tài"),
         ("TOPIC_REVISION", "Khoa yêu cầu sửa đề tài"),
         ("TOPIC_APPROVED", "Đề tài đã duyệt"),
         ("ELIGIBILITY_CHECK_PENDING", "Chờ xét điều kiện làm ĐA"),
@@ -2419,6 +2420,8 @@ class SupervisionTask(models.Model):
     )
     supervisor_review_notes = models.TextField(blank=True, null=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    is_late = models.BooleanField(default=False, help_text="Đánh dấu nộp muộn so với deadline (Late Submit)")
+    submitted_at = models.DateTimeField(null=True, blank=True, help_text="Thời điểm sinh viên nộp bài")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

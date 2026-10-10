@@ -224,10 +224,12 @@ class SupervisionTaskSerializer(serializers.ModelSerializer):
             "review_verdict_display",
             "supervisor_review_notes",
             "reviewed_at",
+            "is_late",
+            "submitted_at",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["assigned_by", "completed_at", "reviewed_at", "created_at", "updated_at"]
+        read_only_fields = ["assigned_by", "completed_at", "reviewed_at", "is_late", "submitted_at", "created_at", "updated_at"]
 
 
 class SupervisionMeetingLogSerializer(serializers.ModelSerializer):

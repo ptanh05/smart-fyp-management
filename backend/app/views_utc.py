@@ -442,6 +442,242 @@ class StudentImportAPIView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class AcademicGradesImportAPIView(APIView):
+    """
+    TC-032: Giáo vụ Import file điểm Excel/CSV tự động để xét điều kiện học vụ:
+    - Bắt lỗi chi tiết khi file bị sai định dạng / sai header (HTTP 400 kèm missing_columns).
+    - Báo lỗi chi tiết dòng lỗi (HTTP 400 kèm danh sách row_errors: dòng số mấy, trường nào, lỗi gì).
+    - Cập nhật CPA, tín chỉ tích lũy, nợ tín chỉ cho sinh viên khi hợp lệ.
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        user = request.user
+        if getattr(user, "user_type", "") == "student":
+            return Response(
+                {"detail": "Sinh viên không có quyền Import điểm học vụ (Chỉ dành cho Giáo vụ/Khoa).", "message": "Lỗi 403 Forbidden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        file_obj = (
+            request.FILES.get("file")
+            or request.FILES.get("grades_file")
+            or request.FILES.get("excel_file")
+            or request.FILES.get("transcript_file")
+        )
+        if not file_obj:
+            return Response({
+                "success": False,
+                "error": "missing_file",
+                "detail": "Vui lòng chọn tệp bảng điểm (.xlsx, .xls hoặc .csv) để tải lên."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        import os
+        ext = os.path.splitext(file_obj.name)[1].lower()
+        if ext not in [".xlsx", ".xls", ".csv"]:
+            return Response({
+                "success": False,
+                "error": "invalid_file_format",
+                "detail": f"Định dạng tệp '{ext}' không được hỗ trợ. Hệ thống chỉ chấp nhận tệp Excel (.xlsx, .xls) hoặc CSV (.csv)."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Parse file
+        rows = []
+        raw_headers = []
+        try:
+            if ext in [".xlsx", ".xls"]:
+                import openpyxl
+                file_obj.seek(0)
+                wb = openpyxl.load_workbook(file_obj, data_only=True)
+                sheet = wb.active
+                all_rows = list(sheet.iter_rows(values_only=True))
+                if not all_rows or len(all_rows) < 2:
+                    return Response({
+                        "success": False,
+                        "error": "empty_file",
+                        "detail": "Tệp Excel không chứa dữ liệu hoặc chỉ có tiêu đề."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                raw_headers = [str(c).strip() if c is not None else "" for c in all_rows[0]]
+                for r in all_rows[1:]:
+                    if any(cell is not None and str(cell).strip() != "" for cell in r):
+                        row_dict = {}
+                        for h_idx, h in enumerate(raw_headers):
+                            if h:
+                                val = r[h_idx] if h_idx < len(r) else None
+                                row_dict[h] = val
+                        rows.append(row_dict)
+            else:
+                import csv
+                import io
+                file_obj.seek(0)
+                content = file_obj.read()
+                for enc in ["utf-8-sig", "utf-8", "latin-1"]:
+                    try:
+                        text_stream = io.StringIO(content.decode(enc))
+                        reader = csv.DictReader(text_stream)
+                        raw_headers = reader.fieldnames or []
+                        rows = [r for r in reader if any(v and v.strip() for v in r.values() if v is not None)]
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                if not rows:
+                    return Response({
+                        "success": False,
+                        "error": "empty_file",
+                        "detail": "Tệp CSV không chứa dữ liệu hoặc chỉ có tiêu đề."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "error": "parse_error",
+                "detail": f"Không thể đọc nội dung tệp: {str(e)}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Header normalization and verification
+        def norm_header(h):
+            import unicodedata
+            clean = str(h).replace("đ", "d").replace("Đ", "D")
+            norm = unicodedata.normalize('NFKD', clean).encode('ASCII', 'ignore').decode('utf-8')
+            return norm.lower().strip().replace(" ", "_").replace(".", "").replace("-", "_")
+
+        header_norm_map = {norm_header(h): h for h in raw_headers if h}
+
+        # Check MSSV column
+        reg_col = None
+        for cand in ["registration_no", "student_id", "ma_sv", "mssv", "ma_sinh_vien", "masv"]:
+            if cand in header_norm_map:
+                reg_col = header_norm_map[cand]
+                break
+
+        # Check CPA column
+        cpa_col = None
+        for cand in ["cpa", "gpa", "diem_cpa", "diem_tb", "diem_tich_luy", "cpa_he_4"]:
+            if cand in header_norm_map:
+                cpa_col = header_norm_map[cand]
+                break
+
+        # Check Credits column
+        cred_col = None
+        for cand in ["credits", "credits_accumulated", "so_tin_chi", "tin_chi", "tin_chi_tich_luy"]:
+            if cand in header_norm_map:
+                cred_col = header_norm_map[cand]
+                break
+
+        # Optional debt credits
+        debt_col = None
+        for cand in ["debt_credits", "no_tin_chi", "tin_chi_no", "so_tin_chi_no"]:
+            if cand in header_norm_map:
+                debt_col = header_norm_map[cand]
+                break
+
+        missing_headers = []
+        if not reg_col:
+            missing_headers.append("Mã sinh viên (mssv / registration_no / ma_sv)")
+        if not cpa_col:
+            missing_headers.append("Điểm CPA (cpa / gpa / diem_cpa)")
+        if not cred_col:
+            missing_headers.append("Tín chỉ tích lũy (credits / tin_chi_tich_luy)")
+
+        if missing_headers:
+            return Response({
+                "success": False,
+                "error": "invalid_header",
+                "detail": f"File điểm Excel bị lỗi header / thiếu cột bắt buộc: {', '.join(missing_headers)}. Vui lòng kiểm tra lại cấu trúc file mẫu.",
+                "missing_columns": missing_headers,
+                "found_columns": raw_headers,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Row-level validation
+        row_errors = []
+        valid_updates = []
+
+        for idx, row in enumerate(rows, start=2):
+            reg_val = str(row.get(reg_col) or "").strip()
+            cpa_raw = row.get(cpa_col)
+            cred_raw = row.get(cred_col)
+            debt_raw = row.get(debt_col) if debt_col else None
+
+            if not reg_val:
+                row_errors.append(f"Dòng {idx}: Mã sinh viên không được để trống.")
+                continue
+
+            student = Student.objects.filter(registration_no=reg_val).first()
+            if not student:
+                row_errors.append(f"Dòng {idx}: Không tìm thấy sinh viên có MSSV '{reg_val}' trong hệ thống.")
+                continue
+
+            # Validate CPA
+            try:
+                cpa_val = float(str(cpa_raw).replace(",", ".").strip())
+                if cpa_val < 0.0 or cpa_val > 4.0:
+                    row_errors.append(f"Dòng {idx}: Điểm CPA '{cpa_raw}' không hợp lệ (Phải là số thực từ 0.0 đến 4.0).")
+                    continue
+            except (ValueError, TypeError):
+                row_errors.append(f"Dòng {idx}: Điểm CPA '{cpa_raw}' không đúng định dạng số thực.")
+                continue
+
+            # Validate Credits
+            try:
+                cred_val = int(float(str(cred_raw).strip()))
+                if cred_val < 0:
+                    row_errors.append(f"Dòng {idx}: Số tín chỉ tích lũy '{cred_raw}' không được là số âm.")
+                    continue
+            except (ValueError, TypeError):
+                row_errors.append(f"Dòng {idx}: Số tín chỉ tích lũy '{cred_raw}' không đúng định dạng số nguyên.")
+                continue
+
+            # Validate Debt Credits if present
+            debt_val = 0
+            if debt_raw is not None and str(debt_raw).strip() != "":
+                try:
+                    debt_val = int(float(str(debt_raw).strip()))
+                    if debt_val < 0:
+                        row_errors.append(f"Dòng {idx}: Số tín chỉ nợ '{debt_raw}' không được là số âm.")
+                        continue
+                except (ValueError, TypeError):
+                    row_errors.append(f"Dòng {idx}: Số tín chỉ nợ '{debt_raw}' không đúng định dạng số nguyên.")
+                    continue
+
+            valid_updates.append({
+                "student": student,
+                "cpa": cpa_val,
+                "credits": cred_val,
+                "debt_credits": debt_val,
+            })
+
+        if row_errors:
+            return Response({
+                "success": False,
+                "error": "invalid_rows_data",
+                "detail": f"Import file điểm thất bại: Phát hiện {len(row_errors)} dòng dữ liệu bị lỗi định dạng.",
+                "row_errors": row_errors,
+                "error_count": len(row_errors),
+                "total_rows": len(rows),
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Save valid records
+        with transaction.atomic():
+            for item in valid_updates:
+                std = item["student"]
+                std.cpa = item["cpa"]
+                std.credits_accumulated = item["credits"]
+                is_eligible = (item["cpa"] >= 2.0) and (item["debt_credits"] <= 8)
+                std.is_eligible_for_thesis = is_eligible
+                std.save(update_fields=["cpa", "credits_accumulated", "is_eligible_for_thesis"])
+
+                proj = getattr(std, "graduation_project", None)
+                if proj:
+                    proj.academic_clearance_status = "CLEARED" if is_eligible else "NOT_CLEARED"
+                    proj.save(update_fields=["academic_clearance_status"])
+
+        return Response({
+            "success": True,
+            "message": f"Import bảng điểm thành công cho {len(valid_updates)} sinh viên!",
+            "total_updated": len(valid_updates),
+        }, status=status.HTTP_200_OK)
+
+
 # ==============================================================================
 # STUDENT SURVEY & ONBOARDING API
 # ==============================================================================
@@ -854,9 +1090,13 @@ class StudentMarkTaskCompletedAPIView(APIView):
             task.student_notes = str(student_notes).strip()
 
         task.is_completed = is_completed
+        now = timezone.now()
         if is_completed:
             task.status = "COMPLETED"
-            task.completed_at = timezone.now()
+            task.completed_at = now
+            task.submitted_at = now
+            if task.due_date and now.date() > task.due_date:
+                task.is_late = True
         else:
             task.status = "IN_PROGRESS"
             task.completed_at = None
@@ -1599,10 +1839,19 @@ class CouncilSubmitScoreAPIView(APIView):
         d_score = float(request.data.get("score_demo", 0.0))
         comments = request.data.get("comments", "").strip()
 
-        # Strict checks: Supervisor cannot grade their own student in council
+        # Strict checks (TC-034): Supervisor cannot grade their own student in council -> 403 Forbidden
         project = get_object_or_404(GraduationProject, id=project_id, council=council_member.council)
-        if council_member.supervisor and project.supervisor == council_member.supervisor:
-            return Response({"detail": "Vi phạm quy chế: Giảng viên hướng dẫn không được chấm điểm Hội đồng cho sinh viên của mình."}, status=status.HTTP_400_BAD_REQUEST)
+        is_gvhd = (
+            (council_member.supervisor and project.supervisor == council_member.supervisor)
+            or (project.supervisor and project.supervisor.user == user)
+            or (hasattr(user, "supervisor_profile") and project.supervisor == user.supervisor_profile)
+            or (council_member.user == project.supervisor.user)
+        )
+        if is_gvhd:
+            return Response(
+                {"detail": "Vi phạm quy chế: Giảng viên hướng dẫn không được phép chấm điểm Hội đồng cho chính sinh viên của mình.", "error": "supervisor_self_scoring_forbidden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         with transaction.atomic():
             project = GraduationProject.objects.select_for_update().get(id=project_id, council=council_member.council)
@@ -1691,6 +1940,22 @@ class CouncilToggleLockAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        if lock:
+            # TC-033: Bắt buộc 5/5 người chấm mới cho phép chốt
+            council_members_count = council.members.count()
+            required_scorers = council_members_count if council_members_count >= 5 else 5
+            projects = GraduationProject.objects.filter(council=council)
+            for proj in projects:
+                submitted_count = CouncilLiveScore.objects.filter(project=proj, council=council).count()
+                if submitted_count < required_scorers:
+                    return Response({
+                        "detail": f"Báo lỗi: Bắt buộc {required_scorers}/{required_scorers} người chấm mới cho phép chốt.",
+                        "error": "incomplete_scoring",
+                        "submitted_count": submitted_count,
+                        "required_count": required_scorers,
+                        "student": proj.student.registration_no,
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
         council.is_locked = bool(lock)
         council.locked_at = timezone.now() if lock else None
         council.locked_by = user if lock else None
@@ -1702,6 +1967,68 @@ class CouncilToggleLockAPIView(APIView):
             "is_locked": council.is_locked,
             "locked_at": council.locked_at,
             "locked_by": user.get_full_name() or user.username if lock else None
+        }, status=status.HTTP_200_OK)
+
+
+class CouncilFinalizeScoresAPIView(APIView):
+    """
+    TC-033: Hàm tổng hợp và chốt điểm Hội đồng:
+    - Bắt buộc 5/5 người chấm mới cho phép chốt.
+    - Nếu chỉ có 4/5 người chấm -> Báo lỗi: Bắt buộc 5/5 người chấm mới cho phép chốt (HTTP 400).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, council_id=None):
+        user = request.user
+        cid = council_id or request.data.get("council_id")
+        project_id = request.data.get("project_id")
+
+        if not cid and project_id:
+            proj = GraduationProject.objects.filter(id=project_id).first()
+            if proj and proj.council:
+                cid = proj.council.id
+
+        council = get_object_or_404(DefenseCouncil, id=cid)
+        membership = CouncilMember.objects.filter(council=council, user=user).first()
+        is_chair_or_secretary = membership and membership.role in ["CHAIR", "SECRETARY"]
+        is_admin = user.is_staff or getattr(user, "user_type", None) in ["admin", "committee_member"]
+
+        if not is_chair_or_secretary and not is_admin:
+            return Response(
+                {"detail": "Chỉ Chủ tịch hoặc Thư ký hội đồng mới có quyền tổng hợp và chốt điểm."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        council_members_count = council.members.count()
+        required_scorers = council_members_count if council_members_count >= 5 else 5
+
+        if project_id:
+            projects = GraduationProject.objects.filter(id=project_id, council=council)
+        else:
+            projects = GraduationProject.objects.filter(council=council)
+
+        for proj in projects:
+            submitted_count = CouncilLiveScore.objects.filter(project=proj, council=council).count()
+            if submitted_count < required_scorers:
+                return Response({
+                    "detail": f"Báo lỗi: Bắt buộc {required_scorers}/{required_scorers} người chấm mới cho phép chốt.",
+                    "error": "incomplete_scoring",
+                    "submitted_count": submitted_count,
+                    "required_count": required_scorers,
+                    "project_id": proj.id,
+                    "student": proj.student.registration_no,
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        council.is_locked = True
+        council.locked_at = timezone.now()
+        council.locked_by = user
+        council.save(update_fields=["is_locked", "locked_at", "locked_by"])
+
+        return Response({
+            "success": True,
+            "message": f"Tổng hợp và chốt điểm thành công cho Hội đồng {council.council_name}!",
+            "is_locked": True,
+            "total_projects": projects.count(),
         }, status=status.HTTP_200_OK)
 
 
@@ -1853,21 +2180,100 @@ class CouncilSecretaryRemindScoringAPIView(APIView):
 
 class CouncilScheduleDefenseAPIView(APIView):
     """
-    API for Committee / Admin to schedule defense session for a council.
-    Updates session_date, session_time, defense_room, and dispatches UTC HTML email
-    notifications to students, supervisors, and council members.
+    TC-036: Xếp lịch bảo vệ cho Hội đồng:
+    - Kiểm tra và ngăn chặn Overlapping Schedule (trùng giờ bảo vệ của Giảng viên/Phản biện trong 2 Hội đồng khác nhau).
+    - Báo lỗi xung đột lịch (Conflict Schedule).
     """
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, council_id):
+    def post(self, request, council_id=None):
         user = request.user
-        if not (user.is_staff or getattr(user, "user_type", None) in ["admin", "committee"]):
+        if not (user.is_staff or user.is_superuser or getattr(user, "user_type", None) in ["admin", "committee", "faculty_admin"]):
             return Response({"detail": "Chỉ Ban chủ nhiệm hoặc Admin mới có quyền xếp lịch bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
 
-        council = get_object_or_404(DefenseCouncil, id=council_id)
+        cid = council_id or request.data.get("council_id")
+        if not cid:
+            return Response({"detail": "council_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+        council = get_object_or_404(DefenseCouncil, id=cid)
         session_date = request.data.get("session_date")
         session_time = request.data.get("session_time")
         defense_room = request.data.get("defense_room", "").strip()
+        force = request.data.get("force") or request.data.get("override")
+        if isinstance(force, str):
+            force = force.lower() in ["true", "1"]
+
+        target_date = session_date or council.session_date
+        target_time = session_time or council.session_time
+        target_room = defense_room or council.defense_room
+
+        # TC-036: Overlapping Schedule Validation
+        if target_date and target_time and not force:
+            other_councils = DefenseCouncil.objects.filter(
+                session_date=target_date,
+                session_time=target_time
+            ).exclude(id=council.id)
+
+            if other_councils.exists():
+                # Get all member users and supervisors of current council
+                current_members = list(council.members.select_related("user", "supervisor").all())
+                current_user_ids = {m.user_id for m in current_members if m.user_id}
+                current_supervisor_ids = {m.supervisor_id for m in current_members if m.supervisor_id}
+
+                # Also get reviewers of projects in current council
+                current_projects = list(GraduationProject.objects.filter(council=council).select_related("reviewer__user"))
+                for p in current_projects:
+                    if p.reviewer:
+                        current_supervisor_ids.add(p.reviewer.id)
+                        if p.reviewer.user_id:
+                            current_user_ids.add(p.reviewer.user_id)
+
+                conflicts = []
+                for other in other_councils:
+                    other_members = list(other.members.select_related("user", "supervisor").all())
+                    for om in other_members:
+                        if (om.user_id and om.user_id in current_user_ids) or (om.supervisor_id and om.supervisor_id in current_supervisor_ids):
+                            m_name = om.user.get_full_name() or om.user.username if om.user else "Giảng viên"
+                            conflicts.append({
+                                "member_name": m_name,
+                                "role": om.get_role_display(),
+                                "other_council_id": other.id,
+                                "other_council_name": other.council_name or f"HĐ #{other.council_number}",
+                                "conflict_type": "MEMBER_OVERLAP"
+                            })
+
+                    # Check reviewer of projects in other council
+                    other_projects = list(GraduationProject.objects.filter(council=other).select_related("reviewer__user"))
+                    for op in other_projects:
+                        if op.reviewer and (op.reviewer.id in current_supervisor_ids or (op.reviewer.user_id and op.reviewer.user_id in current_user_ids)):
+                            r_name = op.reviewer.user.get_full_name() if op.reviewer.user else "GV Phản biện"
+                            conflicts.append({
+                                "member_name": r_name,
+                                "role": "Giảng viên phản biện",
+                                "other_council_id": other.id,
+                                "other_council_name": other.council_name or f"HĐ #{other.council_number}",
+                                "conflict_type": "REVIEWER_OVERLAP"
+                            })
+
+                    # Check room conflict
+                    if target_room and other.defense_room and target_room.lower() == other.defense_room.lower():
+                        conflicts.append({
+                            "member_name": f"Phòng bảo vệ {target_room}",
+                            "role": "Phòng bảo vệ",
+                            "other_council_id": other.id,
+                            "other_council_name": other.council_name or f"HĐ #{other.council_number}",
+                            "conflict_type": "ROOM_OVERLAP"
+                        })
+
+                if conflicts:
+                    first_conf = conflicts[0]
+                    return Response({
+                        "detail": f"Báo lỗi xung đột lịch (Conflict Schedule): {first_conf['role']} {first_conf['member_name']} bị trùng giờ trong 2 Hội đồng khác nhau ({council.council_name} và {first_conf['other_council_name']}) vào ngày {target_date} ({target_time}).",
+                        "error": "conflict_schedule",
+                        "conflicts": conflicts,
+                        "session_date": str(target_date),
+                        "session_time": target_time,
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
         if session_date:
             council.session_date = session_date
@@ -1878,7 +2284,7 @@ class CouncilScheduleDefenseAPIView(APIView):
 
         council.save()
 
-        # Send UTC branded email notifications to all parties (students, supervisors, members)
+        # Send UTC branded email notifications to all parties
         NotificationService.notify_defense_scheduled_emails(council)
 
         return Response({
@@ -2461,15 +2867,53 @@ class OverrideAllocationAPIView(APIView):
                     "detail": f"Không thể phân công: SV {alloc.student.registration_no} thuộc CT Kỹ sư, GVHD bắt buộc có học vị Tiến sĩ trở lên."
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+        force = request.data.get("force") or request.data.get("override") or request.data.get("force_assign")
+        if isinstance(force, str):
+            force = force.lower() in ["true", "1"]
+
+        # TC-037: Quota / Capacity Check & Warning for Force Assign / Override
+        q = SupervisorQuota.objects.filter(supervisor=supervisor, batch=alloc.batch).first()
+        if q:
+            max_quota = int(round(float(q.max_total_quota)))
+        else:
+            max_quota = ThesisAllocationService.calculate_capacity(supervisor, base_capacity=6)
+
+        current_assigned = ProposedAllocation.objects.filter(
+            supervisor=supervisor, batch=alloc.batch
+        ).exclude(id=alloc.id).count()
+
+        is_quota_full = current_assigned >= max_quota
+        warning_msg = None
+
+        if is_quota_full:
+            if not force:
+                return Response({
+                    "detail": f"Cảnh báo: Giảng viên {supervisor.user.get_full_name()} đã đạt định mức tối đa ({current_assigned}/{max_quota} Slot). Vui lòng xác nhận Override / Force Assign để tiếp tục gán.",
+                    "warning": f"Giảng viên đã đầy chỉ tiêu ({current_assigned}/{max_quota} Slot).",
+                    "error": "supervisor_quota_exceeded",
+                    "is_quota_exceeded": True,
+                    "can_override": True,
+                    "current_assigned": current_assigned,
+                    "max_quota": max_quota,
+                }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                warning_msg = f"Cảnh báo: Giảng viên {supervisor.user.get_full_name()} đã đạt định mức tối đa ({current_assigned}/{max_quota} Slot). Hệ thống đã ghi nhận điều chỉnh đặc cách (Force Assign/Override)."
+
         alloc.supervisor = supervisor
         alloc.is_overridden = True
-        alloc.override_reason = reason
+        alloc.override_reason = reason or ("Force Assign vượt chỉ tiêu" if is_quota_full else "Khoa điều chỉnh thủ công")
         alloc.save(update_fields=["supervisor", "is_overridden", "override_reason"])
 
-        return Response({
+        resp_data = {
             "message": f"Khoa đã điều chỉnh GVHD thành công cho SV {alloc.student.registration_no}!",
-            "allocation": ProposedAllocationSerializer(alloc).data
-        }, status=status.HTTP_200_OK)
+            "allocation": ProposedAllocationSerializer(alloc).data,
+            "is_overridden": True,
+        }
+        if warning_msg:
+            resp_data["warning"] = warning_msg
+            resp_data["is_quota_exceeded"] = True
+
+        return Response(resp_data, status=status.HTTP_200_OK)
 
 
 class FinalizeAllocationAPIView(APIView):
@@ -2524,11 +2968,20 @@ class TopicDraftAPIView(APIView):
         project.topic_title_vi = topic_title_vi
         if topic_title_en:
             project.topic_title_en = topic_title_en
-        project.status = "TOPIC_DRAFT"
+        
+        is_resubmit = request.data.get("is_resubmit") or request.data.get("action") == "resubmit"
+        if is_resubmit:
+            project.status = "PENDING_REVIEW"
+            msg = "Đã chỉnh sửa và nộp lại đề tài (Re-Submit thành công). Trạng thái chuyển thành 'Chờ duyệt đề tài'."
+        else:
+            project.status = "TOPIC_DRAFT"
+            msg = "Đã cập nhật tên đề tài (Trạng thái Draft)."
+
         project.save(update_fields=["topic_title_vi", "topic_title_en", "status"])
 
         return Response({
-            "message": "Đã cập nhật tên đề tài (Trạng thái Draft).",
+            "message": msg,
+            "status": project.status,
             "project": GraduationProjectDetailSerializer(project).data
         }, status=status.HTTP_200_OK)
 
@@ -2578,11 +3031,106 @@ class SupervisorConfirmTopicAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+class TopicReSubmitAPIView(APIView):
+    """
+    TC-030: Sau khi bị Khoa 'Từ chối' hoặc 'Yêu cầu sửa' (TOPIC_REVISION, TOPIC_DRAFT, REJECTED),
+    GV/SV chỉnh sửa lại nội dung và Re-Submit -> Trạng thái chuyển lại thành 'Pending Review' (PENDING_REVIEW).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        project_id = request.data.get("project_id")
+        topic_title_vi = request.data.get("topic_title_vi", "").strip()
+        topic_title_en = request.data.get("topic_title_en", "").strip()
+        description = request.data.get("description", "").strip() or request.data.get("topic_description", "").strip()
+
+        # Find target project
+        if getattr(user, "user_type", "") == "student":
+            student = getattr(user, "student_profile", None)
+            if not student:
+                return Response({"detail": "Hồ sơ sinh viên không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
+            project = GraduationProject.objects.filter(student=student).first()
+            if not project and project_id:
+                project = GraduationProject.objects.filter(id=project_id, student=student).first()
+        elif getattr(user, "user_type", "") == "supervisor":
+            supervisor = getattr(user, "supervisor_profile", None)
+            if not supervisor:
+                return Response({"detail": "Hồ sơ giảng viên không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
+            project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+        else:
+            project = get_object_or_404(GraduationProject, id=project_id)
+
+        if not project:
+            return Response({"detail": "Không tìm thấy đồ án tốt nghiệp cần nộp lại đề tài."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not topic_title_vi:
+            topic_title_vi = project.topic_title_vi
+
+        project.topic_title_vi = topic_title_vi
+        if topic_title_en:
+            project.topic_title_en = topic_title_en
+
+        # Chuyển trạng thái lại thành PENDING_REVIEW (Chờ duyệt đề tài)
+        project.status = "PENDING_REVIEW"
+        project.save(update_fields=["topic_title_vi", "topic_title_en", "status"])
+
+        # Đồng bộ trạng thái nhóm nếu có
+        try:
+            from app.models import GroupMember
+            membership = GroupMember.objects.filter(student=project.student).select_related("group").first()
+            if membership and membership.group:
+                group = membership.group
+                group.tentative_topic = topic_title_vi
+                if description:
+                    group.tentative_description = description
+                group.topic_status = "PENDING_REVIEW"
+                group.save(update_fields=["tentative_topic", "tentative_description", "topic_status"])
+        except Exception:
+            pass
+
+        # Gửi thông báo
+        try:
+            NotificationService.create_notification(
+                user=project.supervisor.user,
+                notification_type="general",
+                title="[Đề tài ĐATN] Đề tài đã được Re-Submit",
+                message=f"Đề tài '{project.topic_title_vi}' đã được cập nhật và Re-Submit. Trạng thái chuyển lại thành Chờ duyệt đề tài (Pending Review).",
+                action_url="/supervisor/dashboard",
+                send_email=True,
+            )
+        except Exception:
+            pass
+
+        return Response({
+            "message": "Nộp lại đề tài (Re-Submit) thành công! Trạng thái đã chuyển thành 'Chờ duyệt đề tài' (Pending Review).",
+            "status": "PENDING_REVIEW",
+            "project": GraduationProjectDetailSerializer(project).data
+        }, status=status.HTTP_200_OK)
+
+
 class AdminApproveTopicAPIView(APIView):
     """Trình duyệt: Khoa/Ban duyệt đề tài (Approved hoặc Yêu cầu sửa quay về Draft)"""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        user = request.user
+        if getattr(user, "user_type", "") == "student":
+            return Response(
+                {"detail": "Sinh viên không có quyền phê duyệt đề tài (Chỉ dành cho Khoa/Ban quản trị).", "message": "Lỗi 403 Forbidden (Không có quyền)"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        is_admin_or_staff = (
+            user.is_staff
+            or user.is_superuser
+            or getattr(user, "user_type", "") in ["admin", "faculty_admin", "department_admin"]
+        )
+        if not is_admin_or_staff:
+            return Response(
+                {"detail": "Chỉ Ban chủ nhiệm Khoa hoặc Quản trị viên mới có quyền phê duyệt đề tài.", "message": "Lỗi 403 Forbidden (Không có quyền)"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         project_id = request.data.get("project_id")
         decision = request.data.get("decision", "APPROVED").upper()  # APPROVED or REVISION
         notes = request.data.get("notes", "").strip()
@@ -2945,6 +3493,27 @@ class StudentTaskDeliverableSubmitAPIView(APIView):
 
         task.status = "IN_PROGRESS"
         task.review_verdict = "PENDING"
+        now = timezone.now()
+        task.submitted_at = now
+
+        # Validate deadline (TC-031)
+        is_late = False
+        if task.due_date and now.date() > task.due_date:
+            is_late = True
+
+        strict_mode = request.data.get("strict") or request.data.get("block_late")
+        if isinstance(strict_mode, str):
+            strict_mode = strict_mode.lower() in ["true", "1"]
+
+        if strict_mode and is_late:
+            return Response({
+                "detail": f"Đã quá hạn nộp bài (Deadline: {task.due_date}). Hệ thống chặn nộp do quá thời hạn quy định.",
+                "error": "deadline_exceeded",
+                "is_late": True,
+                "due_date": str(task.due_date)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        task.is_late = is_late
         task.save()
 
         # Thông báo tới GVHD
@@ -2952,16 +3521,19 @@ class StudentTaskDeliverableSubmitAPIView(APIView):
             NotificationService.create_notification(
                 user=task.project.supervisor.user,
                 notification_type="general",
-                title="[Nộp kết quả nhiệm vụ]",
-                message=f"SV {student.user.get_full_name()} đã nộp kết quả cho nhiệm vụ: '{task.title}'. Đang chờ Thầy/Cô đánh giá.",
+                title="[Nộp kết quả nhiệm vụ]" + (" (Nộp muộn - Late Submit)" if is_late else ""),
+                message=f"SV {student.user.get_full_name()} đã nộp kết quả cho nhiệm vụ: '{task.title}'" + (" [Ghi nhận nộp muộn]." if is_late else "."),
                 action_url="/supervisor/dashboard",
                 send_email=True,
             )
         except Exception as e:
             logger.warning("Could not send notification: %s", e)
 
+        msg = "Nộp bài thành công (Hệ thống gắn flag 'Late Submit' do quá deadline)!" if is_late else "Nộp kết quả nhiệm vụ thành công! Đang chờ GVHD đánh giá."
         return Response({
-            "message": "Nộp kết quả nhiệm vụ thành công! Đang chờ GVHD đánh giá.",
+            "message": msg,
+            "is_late": is_late,
+            "submission_status": "LATE_SUBMIT" if is_late else "ON_TIME",
             "task": SupervisionTaskSerializer(task).data
         }, status=status.HTTP_200_OK)
 
@@ -3025,6 +3597,17 @@ class CouncilMinutesPdfExportAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, council_id):
+        user = request.user
+        if getattr(user, "user_type", "") == "student" or (not user.is_staff and not user.is_superuser and getattr(user, "user_type", "") not in ["admin", "supervisor"]):
+            return Response(
+                {
+                    "detail": "Sinh viên không có quyền truy cập hoặc tải về Biên bản họp Hội đồng bảo vệ.",
+                    "message": "Sinh viên không có quyền truy cập hoặc tải về Biên bản họp Hội đồng bảo vệ.",
+                    "error": "FORBIDDEN"
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         council = get_object_or_404(
             DefenseCouncil.objects.select_related("batch"),
             id=council_id
@@ -3115,6 +3698,17 @@ class BatchFinalGradesExcelExportAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, batch_id):
+        user = request.user
+        if getattr(user, "user_type", "") == "student" or (not user.is_staff and not user.is_superuser and getattr(user, "user_type", "") not in ["admin", "supervisor"]):
+            return Response(
+                {
+                    "detail": "Sinh viên không có quyền truy cập hoặc tải về Bảng điểm tốt nghiệp.",
+                    "message": "Sinh viên không có quyền truy cập hoặc tải về Bảng điểm tốt nghiệp.",
+                    "error": "FORBIDDEN"
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         batch = get_object_or_404(AcademicBatch, id=batch_id)
         from openpyxl import Workbook
         import io
