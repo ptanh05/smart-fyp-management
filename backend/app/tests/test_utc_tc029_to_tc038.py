@@ -571,3 +571,232 @@ class TC029toTC038GraduationSystemTests(APITestCase):
         res_admin_pdf = self.client.get(f"/app/council/{council.id}/export-minutes-pdf/")
         self.assertEqual(res_admin_pdf.status_code, status.HTTP_200_OK)
         self.assertEqual(res_admin_pdf["Content-Type"], "application/pdf")
+
+    # --------------------------------------------------------------------------
+    # FLOW_14: Khoa ấn từ chối nhưng để trống lý do -> Validate 400 Bad Request
+    # --------------------------------------------------------------------------
+    def test_flow14_admin_reject_topic_without_notes_fails_400(self):
+        """FLOW_14: Khoa từ chối đề tài nhưng để trống ô lý do -> Bắt buộc 400 Bad Request"""
+        self.client.force_authenticate(user=self.admin_user)
+
+        # 1. Reject without notes -> 400 Bad Request
+        res_fail = self.client.post("/app/graduation-project/admin-approve-topic/", {
+            "project_id": self.project.id,
+            "decision": "REJECTED",
+            "notes": "   "
+        })
+        self.assertEqual(res_fail.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_fail.data.get("error"), "rejection_reason_required")
+        self.assertIn("Không thể từ chối đề tài khi để trống lý do", res_fail.data.get("message", ""))
+
+        # 2. Reject with notes -> 200 OK and status updated to TOPIC_REVISION
+        res_ok = self.client.post("/app/graduation-project/admin-approve-topic/", {
+            "project_id": self.project.id,
+            "decision": "REJECTED",
+            "notes": "Cần làm rõ phạm vi nghiên cứu và công nghệ sử dụng"
+        })
+        self.assertEqual(res_ok.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, "TOPIC_REVISION")
+
+    # --------------------------------------------------------------------------
+    # TC_034: Hai Admin duyệt cùng 1 đề tài cùng lúc -> DB Row Lock & Concurrency
+    # --------------------------------------------------------------------------
+    def test_tc034_concurrency_lock_on_admin_approve_topic(self):
+        """TC_034: Hai Admin duyệt đề tài đồng thời -> Có Row lock select_for_update an toàn"""
+        self.client.force_authenticate(user=self.admin_user)
+        res1 = self.client.post("/app/graduation-project/admin-approve-topic/", {
+            "project_id": self.project.id,
+            "decision": "APPROVED"
+        })
+        self.assertEqual(res1.status_code, status.HTTP_200_OK)
+
+        # Admin 2 gửi tiếp yêu cầu sửa
+        res2 = self.client.post("/app/graduation-project/admin-approve-topic/", {
+            "project_id": self.project.id,
+            "decision": "REVISION",
+            "notes": "Admin 2 cập nhật yêu cầu chỉnh sửa"
+        })
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, "TOPIC_REVISION")
+
+    # --------------------------------------------------------------------------
+    # FLOW_15: Asynchronous notification / email sending avoids timeout 504
+    # --------------------------------------------------------------------------
+    def test_flow15_admin_approve_topic_async_email(self):
+        """FLOW_15: Gửi email khi duyệt đề tài chạy bất đồng bộ để tránh treo timeout 504"""
+        self.client.force_authenticate(user=self.admin_user)
+        import time
+        start_t = time.time()
+        res = self.client.post("/app/graduation-project/admin-approve-topic/", {
+            "project_id": self.project.id,
+            "decision": "APPROVED"
+        })
+        duration = time.time() - start_t
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertLess(duration, 1.5)  # API responds quickly without waiting for slow SMTP
+
+    # --------------------------------------------------------------------------
+    # FLOW_23: Student task deliverable submit blocks disguised .exe files
+    # --------------------------------------------------------------------------
+    def test_flow23_task_deliverable_blocks_disguised_exe_file(self):
+        """FLOW_23: SV upload file kết quả giả mạo .exe thay vì .zip/.pdf -> Chặn bằng Magic Bytes"""
+        task = SupervisionTask.objects.create(
+            project=self.project,
+            assigned_by=self.sup1,
+            title="Nộp báo cáo thử nghiệm",
+            due_date=timezone.now().date() + timedelta(days=7),
+            status="NOT_STARTED"
+        )
+
+        self.client.force_authenticate(user=self.student_user)
+
+        # 1. File có đuôi .pdf nhưng ruột là header MZ (DOS/PE Executable)
+        disguised_exe_in_pdf = SimpleUploadedFile(
+            "report.pdf",
+            b"MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xff\xff\x00\x00This is a fake windows binary payload",
+            content_type="application/pdf"
+        )
+        res_disguised = self.client.post(
+            f"/app/student/tasks/{task.id}/submit-deliverable/",
+            {"deliverable_file": disguised_exe_in_pdf},
+            format="multipart"
+        )
+        self.assertEqual(res_disguised.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_disguised.data.get("error"), "malicious_executable_detected")
+
+        # 2. File có đuôi .zip nhưng ruột là header MZ
+        disguised_exe_in_zip = SimpleUploadedFile(
+            "source_code.zip",
+            b"MZ\x90\x00fake_zip_binary",
+            content_type="application/zip"
+        )
+        res_disguised_zip = self.client.post(
+            f"/app/student/tasks/{task.id}/submit-deliverable/",
+            {"deliverable_file": disguised_exe_in_zip},
+            format="multipart"
+        )
+        self.assertEqual(res_disguised_zip.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_disguised_zip.data.get("error"), "malicious_executable_detected")
+
+        # 3. File có đuôi .exe trực tiếp
+        direct_exe = SimpleUploadedFile(
+            "setup.exe",
+            b"MZ\x90\x00direct_exe",
+            content_type="application/x-msdownload"
+        )
+        res_direct_exe = self.client.post(
+            f"/app/student/tasks/{task.id}/submit-deliverable/",
+            {"deliverable_file": direct_exe},
+            format="multipart"
+        )
+        self.assertEqual(res_direct_exe.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn(res_direct_exe.data.get("error"), ["executable_file_forbidden", "executable_mime_forbidden"])
+
+        # 4. File PDF chuẩn hợp lệ -> 200 OK
+        valid_pdf = SimpleUploadedFile(
+            "report_clean.pdf",
+            b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF",
+            content_type="application/pdf"
+        )
+        res_valid = self.client.post(
+            f"/app/student/tasks/{task.id}/submit-deliverable/",
+            {"deliverable_file": valid_pdf},
+            format="multipart"
+        )
+        self.assertEqual(res_valid.status_code, status.HTTP_200_OK)
+
+    # --------------------------------------------------------------------------
+    # FLOW_24: Deferral request approved by Khoa updates project status to DEFERRED
+    # --------------------------------------------------------------------------
+    def test_flow24_deferral_request_admin_review_updates_project_to_deferred(self):
+        """FLOW_24: SV xin bảo lưu -> Khoa duyệt bảo lưu -> CSDL chuyển sang DEFERRED"""
+        # SV gửi đơn xin bảo lưu
+        self.client.force_authenticate(user=self.student_user)
+        res_submit = self.client.post("/app/student/deferral-request/", {
+            "reason_category": "ACADEMIC",
+            "reason_details": "Em xin bảo lưu kết quả đồ án do chưa hoàn thành chứng chỉ ngoại ngữ."
+        })
+        self.assertEqual(res_submit.status_code, status.HTTP_201_CREATED)
+        deferral_id = res_submit.data["deferral"]["id"]
+
+        # Khoa lấy danh sách đơn bảo lưu
+        self.client.force_authenticate(user=self.admin_user)
+        res_list = self.client.get("/app/admin/deferral-request/list/")
+        self.assertEqual(res_list.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(res_list.data), 1)
+
+        # Khoa duyệt đơn bảo lưu -> APPROVED -> CSDL chuyển thành DEFERRED
+        res_review = self.client.post(f"/app/admin/deferral-request/{deferral_id}/review/", {
+            "decision": "APPROVED",
+            "admin_notes": "Khoa chấp thuận bảo lưu đồ án 1 học kỳ theo đơn."
+        })
+        self.assertEqual(res_review.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.status, "DEFERRED")
+        self.assertEqual(res_review.data["deferral"]["status"], "APPROVED")
+
+    # --------------------------------------------------------------------------
+    # FLOW_33: Council Minutes PDF Export requires 100% scores (blocks when 4/5)
+    # --------------------------------------------------------------------------
+    def test_flow33_council_minutes_pdf_export_blocks_when_not_100_percent_scores(self):
+        """FLOW_33: Hội đồng mới có 4/5 người chấm -> Bị chặn 400 Bad Request; Đủ 5/5 -> Cho phép xuất PDF"""
+        council = DefenseCouncil.objects.create(
+            batch=self.batch,
+            council_number=88,
+            council_name="Hội đồng Bảo vệ 88",
+            defense_room="P.501"
+        )
+        self.project.council = council
+        self.project.save(update_fields=["council"])
+
+        # Tạo 5 thành viên hội đồng
+        members = []
+        roles = ["CHAIR", "SECRETARY", "MEMBER", "MEMBER", "EXTERNAL_MEMBER"]
+        for i, role in enumerate(roles):
+            u = CustomUser.objects.create_user(
+                username=f"flow33_mem_{i}",
+                password="password123",
+                user_type="supervisor",
+                email=f"mem{i}@utc.edu.vn"
+            )
+            m = CouncilMember.objects.create(council=council, user=u, role=role)
+            members.append(m)
+
+        # 4/5 thành viên nhập điểm (chưa đủ 100%)
+        for i in range(4):
+            CouncilLiveScore.objects.create(
+                council=council,
+                project=self.project,
+                member=members[i],
+                score_presentation=2.0,
+                score_content=2.0,
+                score_qa=2.0,
+                score_demo=2.0
+            )
+
+        # Khoa bấm xuất PDF khi mới có 4/5 người chấm -> Chặn 400 Bad Request
+        self.client.force_authenticate(user=self.admin_user)
+        res_blocked = self.client.get(f"/app/council/{council.id}/export-minutes-pdf/")
+        self.assertEqual(res_blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_blocked.data.get("error"), "incomplete_council_scores")
+        self.assertIn("Hội đồng chưa hoàn thành chấm điểm", res_blocked.data.get("detail", ""))
+
+        # Thành viên thứ 5 (100%) nhập điểm
+        CouncilLiveScore.objects.create(
+            council=council,
+            project=self.project,
+            member=members[4],
+            score_presentation=2.5,
+            score_content=2.0,
+            score_qa=2.0,
+            score_demo=2.0
+        )
+
+        # Xuất lại PDF khi đã đủ 5/5 (100%) -> 200 OK
+        res_ok = self.client.get(f"/app/council/{council.id}/export-minutes-pdf/")
+        self.assertEqual(res_ok.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_ok["Content-Type"], "application/pdf")
+        self.assertGreater(len(res_ok.content), 500)
+

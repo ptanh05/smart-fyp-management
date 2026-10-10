@@ -62,6 +62,7 @@ from .views_utc import (
     BatchFinalGradesExcelExportAPIView,
     StudentDeferralRequestAPIView,
     AdminReviewDeferralRequestAPIView,
+    AdminDeferralRequestListAPIView,
     BatchCreateAPIView,
     StudentImportAPIView,
     AcademicGradesImportAPIView,
@@ -640,9 +641,13 @@ urlpatterns = [
     path("council/<int:council_id>/export-minutes-pdf/", CouncilMinutesPdfExportAPIView.as_view(), name="utc-council-export-minutes-pdf"),
     path("batch/<int:batch_id>/export-final-grades-excel/", BatchFinalGradesExcelExportAPIView.as_view(), name="utc-batch-export-final-grades-excel"),
 
-    # Deferral Branch
+    # Deferral Branch (FLOW_24)
     path("student/deferral-request/", StudentDeferralRequestAPIView.as_view(), name="utc-student-deferral-request"),
+    path("admin/deferral-request/list/", AdminDeferralRequestListAPIView.as_view(), name="utc-admin-deferral-request-list"),
+    path("admin/deferral-requests/", AdminDeferralRequestListAPIView.as_view(), name="utc-admin-deferral-requests"),
     path("admin/deferral-request/<int:pk>/review/", AdminReviewDeferralRequestAPIView.as_view(), name="utc-admin-review-deferral-request"),
+    path("deferral-request/<int:pk>/review/", AdminReviewDeferralRequestAPIView.as_view(), name="utc-deferral-request-review-alias"),
+    path("faculty/deferral-request/<int:pk>/review/", AdminReviewDeferralRequestAPIView.as_view(), name="utc-faculty-deferral-request-review"),
 
     path("global-search/", GlobalSearchAPIView.as_view(), name="global-search"),
 ]
