@@ -313,7 +313,7 @@ class UTCGraduationSystemTests(APITestCase):
             "score_qa": 2.0,
             "score_demo": 2.0
         })
-        self.assertEqual(res_conflict.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_conflict.status_code, status.HTTP_403_FORBIDDEN)
         self.assertIn("Vi phạm quy chế", res_conflict.data["detail"])
 
         # 2. Sup2 (independent committee member) grades student -> SUCCESS
