@@ -2,18 +2,21 @@
 
 ### 1. Tài khoản Sinh viên (Tab: Sinh Viên UTC)
 Đăng nhập bằng MSSV (hoặc Username) và Mật khẩu:
-- **Tài khoản 1 (Chính)**: 
-  - MSSV: `201200101` (hoặc Username: `student1`)
-  - Mật khẩu: `student123` (hoặc có thể dùng chính MSSV `201200101`)
-  - Họ tên: Nguyễn Văn A - Lớp K61 CNTT
-- **Tài khoản 2 (Demo UTC)**: 
-  - MSSV: `201200999` (hoặc Username: `svdemo`)
-  - Mật khẩu: `demo123` (hoặc `student123`)
-  - Họ tên: Sinh viên Demo - Khoa CNTT
-- **Tài khoản 3 (Mẫu mới tạo)**: 
-  - MSSV: `201200200` (hoặc Username: `sinhvien`)
-  - Mật khẩu: `student123` (hoặc `123456`)
-  - Họ tên: Nguyễn Hoàng Long - Đã gán Đợt đồ án K62 CNTT
+- **Tài khoản SV 1 (Đã kiểm tra hoạt động 100% trên Deploy & Local)**: 
+  - MSSV: `201200102` (hoặc Username: `student2`, Email: `201200102@sv.utc.edu.vn`)
+  - Mật khẩu: `student123`
+  - Họ tên: Thị B Tran - Khoa Công nghệ Thông tin (K61)
+- **Tài khoản SV 2 (Đã kiểm tra hoạt động 100% trên Deploy & Local)**: 
+  - MSSV: `201200103` (hoặc Username: `student3`, Email: `201200103@sv.utc.edu.vn`)
+  - Mật khẩu: `student123`
+  - Họ tên: Văn C Le - Khoa Công nghệ Thông tin (K61)
+- **Tài khoản SV 3 (Đã kiểm tra hoạt động 100% trên Deploy & Local)**: 
+  - MSSV: `201200104` (hoặc Username: `student4`, Email: `201200104@sv.utc.edu.vn`)
+  - Mật khẩu: `student123`
+  - Họ tên: Thị D Pham - Khoa Công nghệ Thông tin (K61)
+- **Các tài khoản sinh viên khác**:
+  - `201200105`, `201200106`, `201200107` (Mật khẩu: `student123`)
+  - `201200101` / `201200999` (Mật khẩu: `student123` / `demo123`)
 
 ---
 
