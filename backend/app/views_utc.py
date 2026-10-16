@@ -664,14 +664,23 @@ class AcademicGradesImportAPIView(APIView):
                 std = item["student"]
                 std.cpa = item["cpa"]
                 std.credits_accumulated = item["credits"]
-                is_eligible = (item["cpa"] >= 2.0) and (item["debt_credits"] <= 8)
+                is_eligible = (item["debt_credits"] < 10)
                 std.is_eligible_for_thesis = is_eligible
                 std.save(update_fields=["cpa", "credits_accumulated", "is_eligible_for_thesis"])
 
                 proj = getattr(std, "graduation_project", None)
                 if proj:
+                    proj.debt_credits = item["debt_credits"]
+                    proj.initial_eligibility = "ELIGIBLE" if is_eligible else "INELIGIBLE"
                     proj.academic_clearance_status = "CLEARED" if is_eligible else "NOT_CLEARED"
-                    proj.save(update_fields=["academic_clearance_status"])
+                    if is_eligible:
+                        proj.status = "IN_PROGRESS"
+                        proj.ineligibility_reason = f"Đủ điều kiện làm đồ án (Nợ {item['debt_credits']} TC < 10 TC)"
+                    else:
+                        if proj.status == "IN_PROGRESS":
+                            proj.status = "OUTLINE_APPROVED"
+                        proj.ineligibility_reason = f"Nợ {item['debt_credits']} tín chỉ (>= 10 TC theo quy định), chờ Ban Chủ nhiệm Khoa xét Force Approve hoặc Loại khỏi đợt"
+                    proj.save(update_fields=["debt_credits", "initial_eligibility", "academic_clearance_status", "status", "ineligibility_reason"])
 
         return Response({
             "success": True,
