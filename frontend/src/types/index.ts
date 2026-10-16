@@ -53,7 +53,33 @@ export interface Student {
   groupmate_id?: number;
   has_group?: boolean;
   my_group_name?: string;
+  timeline_step?: number;
+  academic_batch?: {
+    id: number;
+    batch_code: string;
+    batch_name: string;
+    current_stage: string;
+    is_active: boolean;
+  };
+  graduation_project?: {
+    id: number;
+    topic_title_vi: string;
+    topic_title_en?: string;
+    status: string;
+    status_display?: string;
+    topic_review_status?: string;
+    topic_review_status_display?: string;
+    topic_revision_notes?: string;
+    initial_eligibility?: string;
+    initial_eligibility_display?: string;
+    ineligibility_reason?: string;
+    final_academic_eligibility?: string;
+    supervisor_name?: string;
+    supervisor_email?: string;
+    is_eligible_for_defense?: boolean;
+  };
 }
+
 
 export interface Supervisor {
   id: number;
@@ -61,6 +87,7 @@ export interface Supervisor {
   supervisor_id: string;
   research_interest?: string;
   academic_background?: string;
+  timeline_step?: number;
 }
 
 export interface CommitteeMember {

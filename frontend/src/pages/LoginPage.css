@@ -1,4 +1,4 @@
-/* UTC Portal Login Page CSS - Matching Official UTC Theme */
+  /* UTC Portal Login Page CSS - Matching Official UTC Theme */
 
 .utc-portal-wrapper {
   min-height: 100vh;
@@ -908,3 +908,118 @@
     min-width: 65px;
   }
 }
+
+/* ==============================================================================
+   INTERACTIVE QUICK DEMO ACCOUNT CHIPS
+   ============================================================================== */
+.utc-demo-interactive-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px dashed #94a3b8;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.utc-demo-interactive-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.utc-demo-badge {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #003366;
+  letter-spacing: 0.5px;
+}
+
+.utc-demo-hint {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.utc-demo-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.utc-demo-pill {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.utc-demo-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+.utc-demo-pill.primary {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.utc-demo-pill.primary:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+}
+
+.utc-demo-pill.warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.utc-demo-pill.warn:hover {
+  background: #fef3c7;
+}
+
+.utc-demo-pill.default {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.utc-demo-pill.default:hover {
+  background: #e2e8f0;
+}
+
+.utc-demo-alert-success {
+  margin-top: 4px;
+  padding: 6px 10px;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
+  animation: fadeInDown 0.25s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

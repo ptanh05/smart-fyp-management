@@ -1,14 +1,70 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { apiService } from '../services/api';
 import type { ThesisDeferralRequest } from '../types';
+import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
+import './UTCStudentGraduationView.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
 
-export const UTCStudentGraduationView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade'>('project');
+export interface UTCStudentGraduationViewProps {
+  initialTab?: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade';
+  onSubtabChange?: (tab: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => void;
+}
+
+export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> = ({
+  initialTab,
+  onSubtabChange,
+}) => {
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade'>(initialTab || 'project');
   const [loading, setLoading] = useState(true);
+
+  // Project Data
+  const [projectData, setProjectData] = useState<any>(null);
+
+  const currentStageNum = getProjectStageNumber(projectData);
+
+  const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
+    const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
+    if (targetStage && targetStage.number > currentStageNum) {
+      alert(`⚠️ Bạn hiện đang ở Giai đoạn ${currentStageNum}. Cần được Giảng viên hướng dẫn duyệt các bước trước để mở ${targetStage.label}!`);
+      return;
+    }
+    setActiveTab(tabKey);
+    if (onSubtabChange) {
+      onSubtabChange(tabKey);
+    }
+  };
+
+  // Sync subtab from initialTab prop
+  useEffect(() => {
+    if (initialTab && ['project', 'survey', 'outline', 'weekly', 'supervision', 'grade'].includes(initialTab)) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  // Sync subtab from searchParams or global event
+  useEffect(() => {
+    const subtab = searchParams.get('subtab');
+    if (subtab && ['project', 'survey', 'outline', 'weekly', 'supervision', 'grade'].includes(subtab)) {
+      setActiveTab(subtab as any);
+      if (onSubtabChange) onSubtabChange(subtab as any);
+    }
+
+    const handleSwitchSubtab = (e: any) => {
+      const st = e.detail?.subtab;
+      if (st && ['project', 'survey', 'outline', 'weekly', 'supervision', 'grade'].includes(st)) {
+        setActiveTab(st as any);
+        if (onSubtabChange) onSubtabChange(st as any);
+      }
+    };
+
+    window.addEventListener('app:switch-subtab', handleSwitchSubtab);
+    return () => window.removeEventListener('app:switch-subtab', handleSwitchSubtab);
+  }, [searchParams, onSubtabChange]);
 
   // Survey Data
   const [surveyData, setSurveyData] = useState<any>(null);
@@ -24,9 +80,6 @@ export const UTCStudentGraduationView: React.FC = () => {
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [surveySaving, setSurveySaving] = useState(false);
-
-  // Project Data
-  const [projectData, setProjectData] = useState<any>(null);
 
   // Outline Form & Phase 3 Topic Draft / PDF
   const [outlineTitleVi, setOutlineTitleVi] = useState('');
@@ -425,29 +478,61 @@ export const UTCStudentGraduationView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-700/60 pb-3">
-        {[
-          { key: 'project', label: '1. Đồ án & GVHD', icon: '🎓' },
-          { key: 'survey', label: '2. Khảo sát & Nguyện vọng', icon: '📝' },
-          { key: 'outline', label: '3. Đề cương ĐATN', icon: '📄' },
-          { key: 'weekly', label: '4. Báo cáo tiến độ tuần', icon: '📅' },
-          { key: 'supervision', label: '5. Nhật ký & Task Board', icon: '📋' },
-          { key: 'grade', label: '6. Bảng điểm tổng kết UTC', icon: '🏆' },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${
-              activeTab === tab.key
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            <span>{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+      {/* 6-Stage Workflow Stepper Bar */}
+      <div className="utc-stepper-bar">
+        <div className="utc-stepper-label">
+          <span className="utc-stepper-pulse"></span>
+          <span>Tiến trình 6 Giai Đoạn ĐATN:</span>
+        </div>
+        <div className="utc-stepper-group">
+          {GRADUATION_STAGES.map((tab) => {
+            const isCurrent = tab.number === currentStageNum;
+            const isCompleted = tab.number < currentStageNum;
+            const isLocked = tab.number > currentStageNum;
+
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => handleSelectTab(tab.key)}
+                className={`utc-stepper-item ${activeTab === tab.key ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
+                style={{
+                  cursor: isLocked ? 'not-allowed' : 'pointer',
+                  opacity: isLocked ? 0.55 : 1,
+                  position: 'relative',
+                }}
+                title={
+                  isLocked
+                    ? `Chờ GVHD duyệt để mở Giai đoạn ${tab.number}`
+                    : isCurrent
+                    ? `Giai đoạn hiện tại (${tab.number}/6) - Đang thực hiện`
+                    : `Giai đoạn ${tab.number} (Đã hoàn thành)`
+                }
+              >
+                <span>{isLocked ? '🔒' : tab.icon}</span>
+                <span>{tab.shortLabel}</span>
+                {isCurrent && (
+                  <span
+                    style={{
+                      background: '#0284c7',
+                      color: '#fff',
+                      fontSize: '0.65rem',
+                      fontWeight: 800,
+                      padding: '1px 5px',
+                      borderRadius: '8px',
+                      marginLeft: '4px',
+                    }}
+                  >
+                    Đang làm
+                  </span>
+                )}
+                {isCompleted && (
+                  <span style={{ color: '#10b981', fontSize: '0.75rem', marginLeft: '2px', fontWeight: 'bold' }}>✓</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Tab 1: Project Overview */}
@@ -461,17 +546,34 @@ export const UTCStudentGraduationView: React.FC = () => {
                     <span className="text-xs font-mono px-2.5 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
                       Trạng thái: {projectData.status_display || projectData.status}
                     </span>
-                    {projectData.is_force_approved && (
-                      <span className="text-xs px-2.5 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold">
-                        ⚡ Đã được duyệt ngoại lệ (Force Approved)
+                    {/* Phê duyệt đề tài từ Khoa */}
+                    {(projectData.topic_review_status === 'APPROVED' || projectData.status === 'TOPIC_APPROVED') && (
+                      <span className="text-xs px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                        ✅ Khoa đã phê duyệt đề tài
                       </span>
                     )}
-                    {projectData.academic_clearance_status === 'CLEARED' && (
+                    {(projectData.topic_review_status === 'REVISION_REQUIRED' || projectData.status === 'TOPIC_REVISION') && (
+                      <span className="text-xs px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold animate-pulse">
+                        ⚠️ Khoa yêu cầu sửa đề tài
+                      </span>
+                    )}
+                    {projectData.topic_review_status === 'GV_CONFIRMED' && (
+                      <span className="text-xs px-2.5 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 font-medium">
+                        ⏳ Chờ Khoa phê duyệt đề tài
+                      </span>
+                    )}
+                    {/* Xét duyệt điều kiện học vụ */}
+                    {(projectData.initial_eligibility === 'FORCE_APPROVED' || projectData.is_force_approved) && (
+                      <span className="text-xs px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                        ⚡ Duyệt đặc cách (Force Approved)
+                      </span>
+                    )}
+                    {(projectData.initial_eligibility === 'ELIGIBLE' || projectData.final_academic_eligibility === 'ELIGIBLE' || projectData.academic_clearance_status === 'ELIGIBLE' || projectData.academic_clearance_status === 'CLEARED') && (
                       <span className="text-xs px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
                         ✅ Đủ điều kiện học vụ
                       </span>
                     )}
-                    {projectData.academic_clearance_status === 'FAILED' && (
+                    {(projectData.initial_eligibility === 'INELIGIBLE' || projectData.final_academic_eligibility === 'INELIGIBLE' || projectData.academic_clearance_status === 'FAILED') && !projectData.is_force_approved && (
                       <span className="text-xs px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold">
                         ⚠️ Chưa đạt điều kiện học vụ
                       </span>
@@ -484,13 +586,82 @@ export const UTCStudentGraduationView: React.FC = () => {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => setShowDeferralModal(true)}
-                  className="px-3.5 py-2 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-2 shadow"
+                  className="utc-btn utc-btn-deferral"
+                  title="Nộp hoặc xem tiến độ đơn xin hoãn / bảo lưu ĐATN"
                 >
                   <span>📝</span>
-                  <span>Đơn xin bảo lưu ({deferralRequests.length})</span>
+                  <span>Đơn xin bảo lưu</span>
+                  <span className="utc-deferral-count">{deferralRequests.length}</span>
                 </button>
               </div>
+
+              {/* Action Banner: Khi Khoa yêu cầu sửa đề tài */}
+              {(projectData.topic_review_status === 'REVISION_REQUIRED' || projectData.status === 'TOPIC_REVISION') && (
+                <div className="utc-action-banner-revision">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🚨</span>
+                      <div>
+                        <h4 className="font-bold text-sm text-rose-100">Khoa CNTT Yêu Cầu Chỉnh Sửa Lại Đề Tài</h4>
+                        <p className="text-xs text-rose-300/80">Bạn cần trao đổi với GVHD, điều chỉnh lại đề tài và nộp lại bản thảo.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTab('outline')}
+                      className="utc-btn utc-btn-topic-revision"
+                    >
+                      <span>✏️ Chỉnh sửa đề tài ngay</span>
+                      <span>➔</span>
+                    </button>
+                  </div>
+                  <div className="p-3 mt-3 rounded-lg bg-black/40 border border-rose-500/30 text-rose-200 text-xs">
+                    <span className="font-semibold text-rose-300">Ý kiến nhận xét từ Ban Chủ nhiệm Khoa: </span>
+                    <strong className="text-white">"{projectData.topic_revision_notes || 'Cần điều chỉnh nội dung theo góp ý của Khoa'}"</strong>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Banner: Khi Khoa đã phê duyệt đề tài */}
+              {(projectData.topic_review_status === 'APPROVED' || projectData.status === 'TOPIC_APPROVED') && (
+                <div className="utc-action-banner-approved">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🎉</span>
+                      <div>
+                        <h4 className="font-bold text-sm text-emerald-100">Đề Tài Đã Được Khoa Phê Duyệt Chính Thức</h4>
+                        <p className="text-xs text-emerald-300/80">Đề tài đã hoàn tất phê duyệt. Sinh viên tiến hành bước kế tiếp: Xuất & Ký nộp Đề cương.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTab('outline')}
+                      className="utc-btn utc-btn-topic-approved"
+                    >
+                      <span>📄 Xuất Đề Cương & Nộp Bản Ký</span>
+                      <span>➔</span>
+                    </button>
+                  </div>
+                  <p className="text-slate-300 text-xs mt-2">
+                    Hãy vào mục <b>"3. Đề cương ĐATN"</b> để tải file PDF đề cương chi tiết chuẩn UTC, lấy chữ ký GVHD và tải bản scan lên hệ thống để lưu trữ.
+                  </p>
+                </div>
+              )}
+
+              {/* Notification: Khoa Force Approve đặc cách */}
+              {projectData.initial_eligibility === 'FORCE_APPROVED' && (
+                <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs space-y-1">
+                  <div className="flex items-center gap-2 font-bold text-amber-100">
+                    <span>⚡</span>
+                    <span>Quyết định Đặc cách (Force Approve) từ Ban Chủ nhiệm Khoa:</span>
+                  </div>
+                  <p className="text-slate-300">
+                    {projectData.ineligibility_reason || 'Khoa phê duyệt đặc cách theo đơn giải trình và cho phép sinh viên tiếp tục làm ĐATN.'}
+                  </p>
+                </div>
+              )}
 
               {projectData.status === 'DISQUALIFIED' && (
                 <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs space-y-1">
@@ -549,16 +720,21 @@ export const UTCStudentGraduationView: React.FC = () => {
               </p>
               <div className="flex justify-center gap-3 pt-2">
                 <button
-                  onClick={() => setActiveTab('survey')}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition"
+                  type="button"
+                  onClick={() => handleSelectTab('survey')}
+                  className="utc-btn utc-btn-survey-now"
                 >
-                  Điền khảo sát ngay
+                  <span>📋</span>
+                  <span>Điền khảo sát ngay</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowDeferralModal(true)}
-                  className="px-4 py-2.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg text-sm font-semibold transition"
+                  className="utc-btn utc-btn-deferral-large"
                 >
-                  Nộp đơn bảo lưu
+                  <span>📝</span>
+                  <span>Nộp đơn bảo lưu</span>
+                  <span className="utc-deferral-count">{deferralRequests.length}</span>
                 </button>
               </div>
             </div>
@@ -777,9 +953,10 @@ export const UTCStudentGraduationView: React.FC = () => {
               <button
                 type="submit"
                 disabled={surveySaving}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition shadow-lg shadow-blue-600/30 disabled:opacity-50"
+                className="utc-btn utc-btn-survey-submit"
               >
-                {surveySaving ? 'Đang lưu...' : 'Lưu thông tin khảo sát'}
+                <span>💾</span>
+                <span>{surveySaving ? 'Đang lưu...' : 'Lưu thông tin khảo sát'}</span>
               </button>
             </div>
           </form>
@@ -801,19 +978,53 @@ export const UTCStudentGraduationView: React.FC = () => {
                 <h4 className="text-sm font-bold text-slate-200">1. Bản thảo Đề tài (Topic Draft & Approval)</h4>
                 <p className="text-[11px] text-slate-400">GV và SV cùng xác định tên đề tài trước khi trình Khoa phê duyệt.</p>
               </div>
-              <span className={`text-xs px-2.5 py-1 rounded font-bold border ${
-                projectData?.status === 'TOPIC_APPROVED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                projectData?.status === 'TOPIC_CONFIRMED' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                projectData?.status === 'TOPIC_REVISION' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' :
-                'bg-amber-500/20 text-amber-400 border-amber-500/30'
-              }`}>
-                {projectData?.status_display || projectData?.status || 'DRAFT'}
-              </span>
+              {(() => {
+                const isTopicApproved = projectData?.topic_review_status === 'APPROVED' || projectData?.status === 'TOPIC_APPROVED';
+                const isTopicRevision = projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION';
+                const isTopicConfirmed = projectData?.topic_review_status === 'GV_CONFIRMED' || projectData?.status === 'TOPIC_CONFIRMED' || projectData?.status === 'PENDING_REVIEW';
+
+                return (
+                  <span className={`text-xs px-2.5 py-1 rounded font-bold border ${
+                    isTopicApproved ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' :
+                    isTopicRevision ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold animate-pulse' :
+                    isTopicConfirmed ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 font-medium' :
+                    'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                  }`}>
+                    {isTopicApproved ? '✅ Khoa đã phê duyệt đề tài' :
+                     isTopicRevision ? '⚠️ Khoa yêu cầu sửa đề tài' :
+                     isTopicConfirmed ? '⏳ GV đã xác nhận / Chờ Khoa duyệt' :
+                     'Bản thảo (Draft)'}
+                  </span>
+                );
+              })()}
             </div>
 
-            {projectData?.status === 'TOPIC_REVISION' && (
-              <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs">
-                ⚠️ <b>Yêu cầu chỉnh sửa:</b> Ban Chủ nhiệm Khoa yêu cầu sửa đổi lại đề tài. Vui lòng thống nhất lại với GVHD và cập nhật lại bản thảo.
+            {/* Banner: Khoa yêu cầu sửa đề tài */}
+            {(projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION') && (
+              <div className="p-4 rounded-xl bg-gradient-to-r from-rose-950/60 to-slate-900 border border-rose-500/50 text-rose-200 text-xs space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🚨</span>
+                  <span className="font-bold text-sm text-rose-100">Khoa CNTT Yêu Cầu Chỉnh Sửa Lại Đề Tài:</span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-black/40 border border-rose-500/30 text-rose-200 font-mono text-xs">
+                  "{projectData?.topic_revision_notes || 'Cần điều chỉnh nội dung nghiên cứu theo góp ý của Khoa'}"
+                </div>
+                <p className="text-slate-300 text-[11px]">
+                  Vui lòng điều chỉnh lại tên đề tài bên dưới, trao đổi với GVHD và bấm <b>"Lưu & Nộp Lại Bản Thảo"</b> để gửi lại cho Khoa xét duyệt.
+                </p>
+              </div>
+            )}
+
+            {/* Banner: Khoa đã duyệt đề tài */}
+            {(projectData?.topic_review_status === 'APPROVED' || projectData?.status === 'TOPIC_APPROVED') && (
+              <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/60 to-slate-900 border border-emerald-500/50 text-emerald-200 text-xs space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🎉</span>
+                  <span className="font-bold text-sm text-emerald-100">Đề Tài Đã Được Khoa Phê Duyệt Chính Thức</span>
+                </div>
+                <p className="text-slate-300 text-[11px]">
+                  Tên đề tài đã được chốt và khóa chỉnh sửa. Vui lòng chuyển xuống <b>Mục 2 (Tải Đề Cương Tự Động)</b> để xuất PDF, in lấy chữ ký GVHD và tải bản scan lên <b>Mục 3 (Ký Nộp Đề Cương)</b>.
+                </p>
               </div>
             )}
 
@@ -826,7 +1037,7 @@ export const UTCStudentGraduationView: React.FC = () => {
                     required
                     value={draftTopicVi}
                     onChange={(e) => setDraftTopicVi(e.target.value)}
-                    disabled={projectData?.status === 'TOPIC_APPROVED'}
+                    disabled={projectData?.topic_review_status === 'APPROVED' || projectData?.status === 'TOPIC_APPROVED'}
                     placeholder="VD: Nghiên cứu xây dựng ứng dụng hỗ trợ phân luồng giao thông thông minh..."
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500 disabled:opacity-60"
                   />
@@ -838,20 +1049,35 @@ export const UTCStudentGraduationView: React.FC = () => {
                     type="text"
                     value={draftTopicEn}
                     onChange={(e) => setDraftTopicEn(e.target.value)}
-                    disabled={projectData?.status === 'TOPIC_APPROVED'}
+                    disabled={projectData?.topic_review_status === 'APPROVED' || projectData?.status === 'TOPIC_APPROVED'}
                     placeholder="VD: Research and development of an intelligent traffic routing application..."
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500 disabled:opacity-60"
                   />
                 </div>
 
-                {projectData?.status !== 'TOPIC_APPROVED' && (
+                {projectData?.topic_review_status !== 'APPROVED' && projectData?.status !== 'TOPIC_APPROVED' && (
                   <div className="flex justify-end pt-1">
                     <button
                       type="submit"
                       disabled={savingDraftTopic}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                      className={
+                        projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION'
+                          ? 'utc-btn utc-btn-topic-save-revision'
+                          : 'utc-btn utc-btn-topic-save'
+                      }
                     >
-                      {savingDraftTopic ? 'Đang lưu...' : '💾 Lưu bản thảo đề tài (Draft)'}
+                      <span>
+                        {projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION'
+                          ? '🚀'
+                          : '💾'}
+                      </span>
+                      <span>
+                        {savingDraftTopic
+                          ? 'Đang lưu...'
+                          : projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION'
+                          ? 'Lưu & Nộp Lại Bản Thảo Đề Tài'
+                          : 'Lưu Bản Thảo Đề Tài (Draft)'}
+                      </span>
                     </button>
                   </div>
                 )}
@@ -878,7 +1104,7 @@ export const UTCStudentGraduationView: React.FC = () => {
                     type="button"
                     onClick={handleExportOutlinePdf}
                     disabled={generatingOutlinePdf}
-                    className="w-full py-2.5 px-4 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="utc-btn utc-btn-export-pdf"
                   >
                     <span>📄</span>
                     <span>{generatingOutlinePdf ? 'Đang xuất PDF...' : 'Tải Đề Cương Tự Động (PDF)'}</span>
@@ -920,9 +1146,10 @@ export const UTCStudentGraduationView: React.FC = () => {
                   <button
                     type="submit"
                     disabled={uploadingSignedOutline}
-                    className="w-full py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition disabled:opacity-50"
+                    className="utc-btn utc-btn-upload-outline"
                   >
-                    {uploadingSignedOutline ? 'Đang tải lên...' : '📤 Nộp File Đề Cương Đã Ký'}
+                    <span>📤</span>
+                    <span>{uploadingSignedOutline ? 'Đang tải lên...' : 'Nộp File Đề Cương Đã Ký'}</span>
                   </button>
                 </form>
               </div>
@@ -988,9 +1215,10 @@ export const UTCStudentGraduationView: React.FC = () => {
               <button
                 type="submit"
                 disabled={outlineSubmitting}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition shadow-lg shadow-blue-600/30 disabled:opacity-50"
+                className="utc-btn utc-btn-topic-save"
               >
-                {outlineSubmitting ? 'Đang nộp đề cương...' : 'Nộp Đề cương Chi tiết'}
+                <span>🚀</span>
+                <span>{outlineSubmitting ? 'Đang nộp đề cương...' : 'Nộp Đề cương Chi tiết'}</span>
               </button>
             </div>
           </form>
@@ -1065,9 +1293,11 @@ export const UTCStudentGraduationView: React.FC = () => {
               <button
                 type="submit"
                 disabled={reportSubmitting}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                className="utc-btn utc-btn-weekly-submit"
+                style={{ width: '100%' }}
               >
-                {reportSubmitting ? 'Đang nộp...' : `Nộp Báo cáo Tuần ${selectedWeek}`}
+                <span>📊</span>
+                <span>{reportSubmitting ? 'Đang nộp...' : `Nộp Báo cáo Tuần ${selectedWeek}`}</span>
               </button>
             </form>
           </div>
@@ -1347,19 +1577,21 @@ export const UTCStudentGraduationView: React.FC = () => {
                       {/* Action buttons */}
                       <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
                         <button
+                          type="button"
                           onClick={() => {
                             setSelectedTaskForDeliverable(task);
                             setDeliverableUrl(task.deliverable_url || '');
                             setDeliverableNotes(task.student_notes || '');
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition flex items-center gap-1.5"
+                          className="utc-btn utc-btn-deliverable"
                         >
                           <span>📤</span>
                           <span>{task.deliverable_file || task.deliverable_url ? 'Nộp lại sản phẩm' : 'Nộp sản phẩm'}</span>
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleOpenNotesModal(task)}
-                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5"
+                          className="utc-btn utc-btn-task-note"
                         >
                           <span>✏️</span>
                           <span>{task.student_notes ? 'Sửa ghi chú' : 'Ghi chú'}</span>
@@ -1552,6 +1784,23 @@ export const UTCStudentGraduationView: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Deferral Quick Action Banner in Tab 6 */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-slate-950 border border-slate-800">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-200">Đơn Xin Hoãn / Bảo Lưu Đồ Án Tốt Nghiệp</h4>
+                  <p className="text-xs text-slate-400">Trường hợp chưa đủ điều kiện bảo vệ hoặc lý do học vụ cần bảo lưu kết quả sang đợt sau.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDeferralModal(true)}
+                  className="utc-btn utc-btn-deferral"
+                >
+                  <span>📝</span>
+                  <span>Đơn xin bảo lưu</span>
+                  <span className="utc-deferral-count">{deferralRequests.length}</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="text-center py-12 text-slate-400 text-sm">
@@ -1563,11 +1812,20 @@ export const UTCStudentGraduationView: React.FC = () => {
 
       {/* Modal: Ghi chú & Nộp link kết quả nhiệm vụ của sinh viên */}
       {selectedTaskForNotes && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl space-y-4">
-            <div>
-              <span className="text-xs text-blue-400 font-semibold">Cập nhật tiến độ nhiệm vụ</span>
-              <h3 className="text-base font-bold text-slate-100 mt-1">{selectedTaskForNotes.title}</h3>
+        <div className="utc-modal-overlay">
+          <div className="utc-modal-card" style={{ maxWidth: 480 }}>
+            <div className="utc-modal-header">
+              <div>
+                <span className="text-xs text-blue-400 font-semibold">Cập nhật tiến độ nhiệm vụ</span>
+                <h3 className="utc-modal-title mt-1">{selectedTaskForNotes.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedTaskForNotes(null)}
+                className="utc-modal-close-btn"
+              >
+                ✕
+              </button>
             </div>
 
             <form onSubmit={handleSaveStudentNotes} className="space-y-4">
@@ -1580,24 +1838,25 @@ export const UTCStudentGraduationView: React.FC = () => {
                   value={studentNotesInput}
                   onChange={(e) => setStudentNotesInput(e.target.value)}
                   placeholder="Ví dụ: Đã hoàn thành các chức năng theo yêu cầu, link demo: https://... hoặc commit hash: abc1234"
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="utc-modal-textarea"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="utc-modal-footer">
                 <button
                   type="button"
                   onClick={() => setSelectedTaskForNotes(null)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="utc-btn utc-btn-ghost"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={savingTaskNote}
-                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 disabled:opacity-50"
+                  className="utc-btn utc-btn-topic-save"
                 >
-                  {savingTaskNote ? 'Đang lưu...' : 'Lưu ghi chú'}
+                  <span>💾</span>
+                  <span>{savingTaskNote ? 'Đang lưu...' : 'Lưu ghi chú'}</span>
                 </button>
               </div>
             </form>
@@ -1607,12 +1866,21 @@ export const UTCStudentGraduationView: React.FC = () => {
 
       {/* Modal: Nộp sản phẩm / Deliverable cho nhiệm vụ */}
       {selectedTaskForDeliverable && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-lg w-full shadow-2xl space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Giai đoạn 5: Nộp kết quả nhiệm vụ</span>
-              <h3 className="text-base font-bold text-slate-100 mt-1">{selectedTaskForDeliverable.title}</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Nộp file sản phẩm, mã nguồn nén hoặc link repo Git để GVHD đánh giá.</p>
+        <div className="utc-modal-overlay">
+          <div className="utc-modal-card">
+            <div className="utc-modal-header">
+              <div>
+                <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Giai đoạn 5: Nộp kết quả nhiệm vụ</span>
+                <h3 className="utc-modal-title mt-1">{selectedTaskForDeliverable.title}</h3>
+                <p className="utc-modal-subtitle">Nộp file sản phẩm, mã nguồn nén hoặc link repo Git để GVHD đánh giá.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedTaskForDeliverable(null)}
+                className="utc-modal-close-btn"
+              >
+                ✕
+              </button>
             </div>
 
             <form onSubmit={handleSubmitDeliverable} className="space-y-4 text-xs">
@@ -1636,7 +1904,7 @@ export const UTCStudentGraduationView: React.FC = () => {
                   value={deliverableUrl}
                   onChange={(e) => setDeliverableUrl(e.target.value)}
                   placeholder="https://github.com/username/project hoặc https://drive.google.com/..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="utc-modal-input"
                 />
               </div>
 
@@ -1649,24 +1917,25 @@ export const UTCStudentGraduationView: React.FC = () => {
                   value={deliverableNotes}
                   onChange={(e) => setDeliverableNotes(e.target.value)}
                   placeholder="Mô tả tóm tắt tính năng đã chạy, hướng dẫn cài đặt hoặc những điểm lưu ý..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="utc-modal-textarea"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className="utc-modal-footer">
                 <button
                   type="button"
                   onClick={() => setSelectedTaskForDeliverable(null)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="utc-btn utc-btn-ghost"
                 >
                   Đóng
                 </button>
                 <button
                   type="submit"
                   disabled={submittingDeliverable}
-                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
+                  className="utc-btn utc-btn-topic-approved"
                 >
-                  {submittingDeliverable ? 'Đang nộp...' : 'Nộp sản phẩm'}
+                  <span>📤</span>
+                  <span>{submittingDeliverable ? 'Đang nộp...' : 'Nộp sản phẩm'}</span>
                 </button>
               </div>
             </form>
@@ -1676,20 +1945,22 @@ export const UTCStudentGraduationView: React.FC = () => {
 
       {/* Modal: Đơn xin bảo lưu đồ án tốt nghiệp */}
       {showDeferralModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-xl w-full shadow-2xl space-y-5 my-8">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="utc-modal-overlay">
+          <div className="utc-modal-card">
+            <div className="utc-modal-header">
               <div>
-                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                <h3 className="utc-modal-title">
                   <span>📝</span> Đơn Xin Bảo Lưu Đồ Án Tốt Nghiệp
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Dành cho trường hợp chưa đủ điều kiện học vụ hoặc lý do chính đáng cần bảo lưu kết quả.
+                <p className="utc-modal-subtitle">
+                  Dành cho trường hợp chưa đủ điều kiện học vụ hoặc lý do chính đáng cần bảo lưu kết quả sang đợt tiếp theo.
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowDeferralModal(false)}
-                className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center text-sm font-bold"
+                className="utc-modal-close-btn"
+                title="Đóng"
               >
                 ✕
               </button>
@@ -1749,7 +2020,7 @@ export const UTCStudentGraduationView: React.FC = () => {
                 <select
                   value={deferralReasonCategory}
                   onChange={(e) => setDeferralReasonCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="utc-modal-select"
                 >
                   <option value="ACADEMIC">Học vụ (Chưa hoàn thành đủ tín chỉ / nợ môn tiên quyết)</option>
                   <option value="HEALTH">Sức khỏe (Có chứng nhận y tế / điều trị)</option>
@@ -1766,7 +2037,7 @@ export const UTCStudentGraduationView: React.FC = () => {
                   value={deferralReasonDetails}
                   onChange={(e) => setDeferralReasonDetails(e.target.value)}
                   placeholder="Trình bày chi tiết lý do và mong muốn được bảo lưu đề tài/kết quả sang đợt tiếp theo..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="utc-modal-textarea"
                 />
               </div>
 
@@ -1779,20 +2050,21 @@ export const UTCStudentGraduationView: React.FC = () => {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="utc-modal-footer">
                 <button
                   type="button"
                   onClick={() => setShowDeferralModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="utc-btn utc-btn-ghost"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={submittingDeferral}
-                  className="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-md shadow-amber-600/30 disabled:opacity-50"
+                  className="utc-btn utc-btn-deferral-submit"
                 >
-                  {submittingDeferral ? 'Đang gửi...' : 'Gửi đơn bảo lưu'}
+                  <span>{submittingDeferral ? '⏳' : '📨'}</span>
+                  <span>{submittingDeferral ? 'Đang gửi...' : 'Gửi đơn bảo lưu'}</span>
                 </button>
               </div>
             </form>

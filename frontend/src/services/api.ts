@@ -798,6 +798,74 @@ class ApiService {
     await this.api.delete(`/chatroom/${messageId}/`);
   }
 
+  // UTC Supervisor Advising Group & Group Chat
+  async getSupervisorGroupInfo(): Promise<{
+    has_group: boolean;
+    group_name?: string;
+    message?: string;
+    supervisor?: {
+      id: number;
+      user_id: number;
+      name: string;
+      academic_title: string;
+      department: string;
+      email: string;
+      research_interest?: string;
+    };
+    members?: Array<{
+      student_id: number;
+      user_id: number;
+      username: string;
+      full_name: string;
+      registration_no: string;
+      department: string;
+      email: string;
+      phone?: string;
+      topic_title: string;
+      status: string;
+      review_status?: string;
+      is_current_user: boolean;
+    }>;
+    total_members?: number;
+  }> {
+    const response = await this.api.get('/supervisor-group/info/');
+    return response.data;
+  }
+
+  async getSupervisorGroupMessages(): Promise<Array<{
+    id: number;
+    sender_id: number;
+    sender_username: string;
+    sender_name: string;
+    sender_role: string;
+    sender_role_label: string;
+    message: string;
+    attachment?: string | null;
+    attachment_name?: string | null;
+    attachment_type?: string | null;
+    attachment_size?: number | null;
+    created_at: string;
+    is_me: boolean;
+  }>> {
+    const response = await this.api.get('/supervisor-group/messages/');
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  async sendSupervisorGroupMessage(payload: FormData | { message: string }): Promise<any> {
+    if (payload instanceof FormData) {
+      const response = await this.api.post('/supervisor-group/messages/', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data;
+    }
+    const response = await this.api.post('/supervisor-group/messages/', payload);
+    return response.data;
+  }
+
+  async deleteSupervisorGroupMessage(messageId: number): Promise<void> {
+    await this.api.delete(`/supervisor-group/messages/${messageId}/`);
+  }
+
   // Templates
   async getTemplates(templateType: string, semester?: string): Promise<any[]> {
     const params = semester ? { semester } : {};

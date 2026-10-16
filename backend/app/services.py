@@ -33,31 +33,37 @@ class NotificationService:
     @staticmethod
     def get_user_preferences(user):
         """Get or create notification preferences for a user."""
-        preferences, _ = NotificationPreference.objects.get_or_create(user=user)
-        return preferences
+        try:
+            preferences, _ = NotificationPreference.objects.get_or_create(user=user)
+            return preferences
+        except Exception:
+            return None
     
     @staticmethod
     def should_notify(user, notification_type):
         """Check if user should receive a notification based on their preferences."""
-        preferences = NotificationService.get_user_preferences(user)
-        
-        type_to_preference = {
-            "group_request": preferences.group_request_notifications,
-            "group_request_accepted": preferences.group_request_notifications,
-            "group_request_rejected": preferences.group_request_notifications,
-            "supervisor_request": preferences.supervisor_request_notifications,
-            "supervisor_request_accepted": preferences.supervisor_request_notifications,
-            "supervisor_request_rejected": preferences.supervisor_request_notifications,
-            "new_chat_message": preferences.chat_message_notifications,
-            "document_uploaded": preferences.document_notifications,
-            "document_approved": preferences.document_notifications,
-            "document_rejected": preferences.document_notifications,
-            "evaluation_completed": preferences.evaluation_notifications,
-            "new_comment": preferences.comment_notifications,
-            "general": True,
-        }
-        
-        return type_to_preference.get(notification_type, True)
+        try:
+            preferences = NotificationService.get_user_preferences(user)
+            if not preferences:
+                return True
+            type_to_preference = {
+                "group_request": getattr(preferences, "group_request_notifications", True),
+                "group_request_accepted": getattr(preferences, "group_request_notifications", True),
+                "group_request_rejected": getattr(preferences, "group_request_notifications", True),
+                "supervisor_request": getattr(preferences, "supervisor_request_notifications", True),
+                "supervisor_request_accepted": getattr(preferences, "supervisor_request_notifications", True),
+                "supervisor_request_rejected": getattr(preferences, "supervisor_request_notifications", True),
+                "new_chat_message": getattr(preferences, "chat_message_notifications", True),
+                "document_uploaded": getattr(preferences, "document_notifications", True),
+                "document_approved": getattr(preferences, "document_notifications", True),
+                "document_rejected": getattr(preferences, "document_notifications", True),
+                "evaluation_completed": getattr(preferences, "evaluation_notifications", True),
+                "new_comment": getattr(preferences, "comment_notifications", True),
+                "general": True,
+            }
+            return type_to_preference.get(notification_type, True)
+        except Exception:
+            return True
     
     @staticmethod
     def create_notification(
@@ -78,22 +84,91 @@ class NotificationService:
         
         notification = Notification.objects.create(
             user=user,
-            notification_type=notification_type,
+            notification_type=notification_type or "general",
             title=title,
             message=message,
-            related_group=related_group,
-            related_supervisor_group=related_supervisor_group,
-            related_document=related_document,
-            action_url=action_url,
         )
         
         # Send email if enabled
         if send_email:
-            preferences = NotificationService.get_user_preferences(user)
-            if preferences.email_notifications_enabled:
-                NotificationService.send_email_notification(user, title, message)
+            try:
+                preferences = NotificationService.get_user_preferences(user)
+                if preferences and getattr(preferences, "email_notifications_enabled", False):
+                    NotificationService.send_email_notification(user, title, message)
+            except Exception as e:
+                logger.warning("Could not send email notification: %s", e)
         
         return notification
+
+    @staticmethod
+    def sync_student_graduation_notifications(user):
+        """Tự động đồng bộ các thông báo quan trọng từ Admin/Khoa cho sinh viên nếu chưa được gửi."""
+        try:
+            if not user or getattr(user, "user_type", "") != "student":
+                return
+            student = getattr(user, "student_profile", None)
+            if not student:
+                return
+            proj = getattr(student, "graduation_project", None)
+            if not proj:
+                return
+
+            # 1. Phê duyệt đề tài (APPROVED)
+            if proj.topic_review_status == "APPROVED" or proj.status == "TOPIC_APPROVED":
+                if not Notification.objects.filter(user=user, title__contains="[Phê duyệt đề tài").exists():
+                    Notification.objects.create(
+                        user=user,
+                        notification_type="general",
+                        title="[Phê duyệt đề tài] Khoa đã phê duyệt chính thức đề tài của bạn",
+                        message=f"Đề tài '{proj.topic_title_vi}' đã được Ban Chủ nhiệm Khoa phê duyệt chính thức. Bạn có thể xuất Đề cương chi tiết (PDF) và nộp bản scan đã ký lên hệ thống!"
+                    )
+
+            # 2. Yêu cầu chỉnh sửa đề tài (REVISION_REQUIRED)
+            if proj.topic_review_status == "REVISION_REQUIRED" or proj.status == "TOPIC_REVISION":
+                note_text = f": {proj.topic_revision_notes}" if proj.topic_revision_notes else ""
+                existing = Notification.objects.filter(user=user, title__contains="[Yêu cầu chỉnh sửa đề tài").first()
+                if not existing or (proj.topic_revision_notes and proj.topic_revision_notes not in existing.message):
+                    Notification.objects.create(
+                        user=user,
+                        notification_type="general",
+                        title="⚠️ [Yêu cầu chỉnh sửa đề tài] Ban Chủ nhiệm Khoa yêu cầu sửa đổi đề tài",
+                        message=f"Ban Chủ nhiệm Khoa yêu cầu sửa đổi đề tài '{proj.topic_title_vi}'{note_text}. Vui lòng trao đổi với GVHD, điều chỉnh bản thảo và nộp lại trên hệ thống!"
+                    )
+
+            # 3. Duyệt đặc cách (FORCE_APPROVED)
+            if proj.initial_eligibility == "FORCE_APPROVED":
+                if not Notification.objects.filter(user=user, title__contains="[Duyệt đặc cách]").exists():
+                    reason_txt = f" Lý do: {proj.ineligibility_reason}" if proj.ineligibility_reason else ""
+                    Notification.objects.create(
+                        user=user,
+                        notification_type="general",
+                        title="⚡ [Duyệt đặc cách] Khoa đã duyệt đặc cách làm đồ án (Force Approve)",
+                        message=f"Ban Chủ nhiệm Khoa đã phê duyệt đặc cách cho bạn được phép tiếp tục làm Đồ án Tốt nghiệp.{reason_txt}"
+                    )
+
+            # 4. Đủ điều kiện học vụ (ELIGIBLE)
+            if proj.final_academic_eligibility == "ELIGIBLE" or proj.initial_eligibility == "ELIGIBLE":
+                if not Notification.objects.filter(user=user, title__contains="[Điều kiện học vụ]").exists():
+                    Notification.objects.create(
+                        user=user,
+                        notification_type="general",
+                        title="✅ [Điều kiện học vụ] Đủ điều kiện làm ĐATN",
+                        message="Hồ sơ học vụ của bạn đã được Khoa kiểm tra và xác nhận Đủ điều kiện làm Đồ án Tốt nghiệp."
+                    )
+
+            # 5. Phân công GVHD
+            if proj.supervisor and proj.status in ["ALLOCATED", "IN_PROGRESS"]:
+                if not Notification.objects.filter(user=user, title__contains="[Kết quả phân công GVHD]").exists():
+                    sup_name = proj.supervisor.user.get_full_name() or proj.supervisor.user.username
+                    dept = getattr(proj.supervisor, "department_name", "CNTT") or "CNTT"
+                    Notification.objects.create(
+                        user=user,
+                        notification_type="general",
+                        title="🎉 [Kết quả phân công GVHD] Bạn đã được phân công Giảng viên hướng dẫn",
+                        message=f"Bạn đã được phân công GVHD: {sup_name} (Bộ môn: {dept}). Hãy liên hệ với thầy/cô để thống nhất đề tài!"
+                    )
+        except Exception as e:
+            logger.warning("[SYNC_NOTIFS] Lỗi tự động đồng bộ thông báo: %s", e)
     
     @staticmethod
     def send_utc_html_email(
@@ -1242,8 +1317,8 @@ class ThesisAllocationService:
         # 1. Lấy danh sách khảo sát/nguyện vọng của SV trong batch
         surveys = list(
             InternshipInfo.objects.filter(batch=batch)
-            .select_related("student__user", "preference_1", "preference_2", "preference_3", "preferred_supervisor", "topic_direction")
-            .order_by("-student__cpa", "submitted_at")
+            .select_related("student__user", "student__preference_record__preference_1", "student__preference_record__preference_2", "student__preference_record__preference_3", "topic_direction")
+            .order_by("submitted_at")
         )
 
         # 2. Lấy định mức Quota của GV trong batch (đảm bảo ép kiểu integer an toàn)
@@ -1269,6 +1344,13 @@ class ThesisAllocationService:
         results = []
         assigned_students = set()
 
+        def get_student_preferences(s):
+            pref = getattr(s.student, "preference_record", None)
+            p1 = getattr(pref, "preference_1", None) or getattr(s, "preferred_supervisor", None)
+            p2 = getattr(pref, "preference_2", None)
+            p3 = getattr(pref, "preference_3", None)
+            return p1, p2, p3
+
         def can_assign(student, supervisor):
             if not supervisor or supervisor.id not in quotas:
                 return False
@@ -1287,7 +1369,7 @@ class ThesisAllocationService:
             student = s.student
             if student.id in assigned_students:
                 continue
-            sup1 = s.preference_1 or s.preferred_supervisor
+            sup1, _, _ = get_student_preferences(s)
             if can_assign(student, sup1):
                 quotas[sup1.id]["assigned"] += 1
                 assigned_students.add(student.id)
@@ -1303,7 +1385,7 @@ class ThesisAllocationService:
             student = s.student
             if student.id in assigned_students:
                 continue
-            sup2 = s.preference_2
+            _, sup2, _ = get_student_preferences(s)
             if can_assign(student, sup2):
                 quotas[sup2.id]["assigned"] += 1
                 assigned_students.add(student.id)
@@ -1319,7 +1401,7 @@ class ThesisAllocationService:
             student = s.student
             if student.id in assigned_students:
                 continue
-            sup3 = s.preference_3
+            _, _, sup3 = get_student_preferences(s)
             if can_assign(student, sup3):
                 quotas[sup3.id]["assigned"] += 1
                 assigned_students.add(student.id)
@@ -1356,22 +1438,36 @@ class ThesisAllocationService:
                     "match_score": 10.0,
                 })
 
-        # Lưu kết quả vào bảng ProposedAllocation
-        with transaction.atomic():
-            ProposedAllocation.objects.filter(batch=batch, is_overridden=False).delete()
-            created_allocations = []
-            for item in results:
-                alloc, _ = ProposedAllocation.objects.update_or_create(
-                    batch=batch,
-                    student=item["student"],
-                    defaults={
-                        "supervisor": item["supervisor"],
-                        "matched_preference": item["matched_preference"],
-                        "match_score": item["match_score"],
-                        "is_overridden": False,
-                    }
-                )
-                created_allocations.append(alloc)
+        # Lưu kết quả vào bảng ProposedAllocation (hoặc trực tiếp GraduationProject nếu Pure UTC Schema)
+        created_allocations = []
+        try:
+            with transaction.atomic():
+                ProposedAllocation.objects.filter(batch=batch, is_overridden=False).delete()
+                for item in results:
+                    alloc, _ = ProposedAllocation.objects.update_or_create(
+                        batch=batch,
+                        student=item["student"],
+                        defaults={
+                            "supervisor": item["supervisor"],
+                            "matched_preference": item["matched_preference"],
+                            "match_score": item["match_score"],
+                            "is_overridden": False,
+                        }
+                    )
+                    created_allocations.append(alloc)
+        except Exception:
+            with transaction.atomic():
+                for item in results:
+                    proj, _ = GraduationProject.objects.update_or_create(
+                        student=item["student"],
+                        defaults={
+                            "supervisor": item["supervisor"],
+                            "batch": batch,
+                            "status": "ALLOCATED",
+                            "topic_title_vi": f"Đề tài đồ án - SV {item['student'].registration_no}",
+                        }
+                    )
+                    created_allocations.append(proj)
 
         # Thống kê kết quả
         total = len(surveys)
@@ -1400,7 +1496,22 @@ class ThesisAllocationService:
         """
         from django.db import transaction
 
-        proposed = ProposedAllocation.objects.filter(batch=batch).select_related("student", "supervisor")
+        try:
+            proposed = list(ProposedAllocation.objects.filter(batch=batch).select_related("student", "supervisor"))
+        except Exception:
+            proposed = []
+
+        if not proposed:
+            from .models import StudentPreference
+            prefs = StudentPreference.objects.filter(batch=batch, preference_1__isnull=False).select_related("student", "preference_1")
+            for pref in prefs:
+                class DummyP:
+                    pass
+                dp = DummyP()
+                dp.student = pref.student
+                dp.supervisor = pref.preference_1
+                proposed.append(dp)
+
         created_projects = []
 
         with transaction.atomic():
@@ -1456,7 +1567,7 @@ class AcademicClearanceService:
         Boundary: Nợ 10 tín chỉ -> 'Không đủ điều kiện'
         """
         student = project.student
-        cpa = getattr(student, "cpa", 0.0)
+        cpa = project.gpa_score if project.gpa_score is not None else getattr(student, "cpa", 0.0)
 
         # Parse and calculate debt credits if courses_data or debt_credits provided
         total_debt = debt_credits

@@ -191,41 +191,30 @@ class MyStudentGroupAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        membership = GroupMember.objects.filter(student=student).select_related("group").first()
-        if not membership:
-            # Fallback to legacy group
-            legacy_group = Group.objects.filter(
-                Q(student_1=student) | Q(student_2=student), status="accepted"
-            ).first()
-            if not legacy_group:
+        try:
+            membership = GroupMember.objects.filter(student=student).select_related("group").first()
+            if not membership:
+                legacy_group = Group.objects.filter(
+                    Q(student_1=student) | Q(student_2=student), status="accepted"
+                ).first()
+                group = legacy_group
+            else:
+                group = membership.group
+
+            if group:
                 return Response(
-                    {"has_group": False, "message": "Bạn chưa tham gia nhóm đồ án nào."},
+                    {
+                        "has_group": True,
+                        "group": ProjectGroupSerializer(group, context={"request": request}).data,
+                    },
                     status=status.HTTP_200_OK,
                 )
-            # Auto-migrate legacy members to GroupMember for consistency
-            if not legacy_group.members.exists():
-                if legacy_group.student_1:
-                    GroupMember.objects.get_or_create(
-                        group=legacy_group, student=legacy_group.student_1, defaults={"role": "LEADER"}
-                    )
-                if legacy_group.student_2:
-                    GroupMember.objects.get_or_create(
-                        group=legacy_group, student=legacy_group.student_2, defaults={"role": "MEMBER"}
-                    )
-                if not legacy_group.leader:
-                    legacy_group.leader = legacy_group.student_1
-                    legacy_group.save(update_fields=["leader"])
-            group = legacy_group
-        else:
-            group = membership.group
+        except Exception:
+            pass
 
-        return Response(
-            {
-                "has_group": True,
-                "group": ProjectGroupSerializer(group, context={"request": request}).data,
-            },
-            status=status.HTTP_200_OK,
-        )
+        # Fallback to UTC Supervisor Advising Group
+        from .views_supervisor_group_chat import SupervisorGroupInfoAPIView
+        return SupervisorGroupInfoAPIView().get(request)
 
 
 # ==============================================================================

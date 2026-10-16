@@ -145,90 +145,134 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
       }
     }
 
-    // Navigate if action URL exists
-    if (notification.action_url) {
-      if (onNavigate) {
-        onNavigate(notification.action_url);
-      } else {
-        navigate(notification.action_url);
+    // Determine target actionable URL based on notification content
+    const determineTargetUrl = (notif: Notification, currentRole: string | null): string => {
+      if (notif.action_url && notif.action_url !== '/student/dashboard' && notif.action_url !== '/supervisor/dashboard') {
+        return notif.action_url;
       }
-      setIsOpen(false);
-      return;
+
+      const titleLower = (notif.title || '').toLowerCase();
+      const msgLower = (notif.message || '').toLowerCase();
+      const type = notif.notification_type || '';
+
+      // 1. Chỉnh sửa đề tài / Phê duyệt đề tài / Đề cương
+      if (
+        titleLower.includes('chỉnh sửa đề tài') ||
+        titleLower.includes('sửa đổi đề tài') ||
+        titleLower.includes('phê duyệt đề tài') ||
+        titleLower.includes('đề cương') ||
+        msgLower.includes('chỉnh sửa đề tài') ||
+        msgLower.includes('sửa đổi đề tài') ||
+        msgLower.includes('phê duyệt đề tài')
+      ) {
+        if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation&subtab=outline';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation&subtab=outlines';
+      }
+
+      // 2. Nhiệm vụ / Giao việc / Task / Tiến độ
+      if (
+        titleLower.includes('nhiệm vụ') ||
+        titleLower.includes('giao việc') ||
+        titleLower.includes('tiến độ') ||
+        titleLower.includes('task') ||
+        msgLower.includes('nhiệm vụ') ||
+        msgLower.includes('giao việc')
+      ) {
+        if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation&subtab=supervision';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation&subtab=students';
+      }
+
+      // 3. Tin nhắn / Chat / Trao đổi nhóm
+      if (
+        type === 'new_chat_message' ||
+        titleLower.includes('tin nhắn') ||
+        titleLower.includes('chat') ||
+        titleLower.includes('trao đổi') ||
+        msgLower.includes('nhắn trong nhóm')
+      ) {
+        if (currentRole === 'student') return '/student/dashboard?tab=chat';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=chat';
+      }
+
+      // 4. Nhóm đồ án
+      if (type.includes('group_request') || titleLower.includes('nhóm đồ án')) {
+        if (currentRole === 'student') return '/student/dashboard?tab=groups';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=my_groups';
+      }
+
+      // 5. Điều kiện học vụ / Duyệt đặc cách / Tham gia đợt / Khảo sát
+      if (
+        titleLower.includes('điều kiện') ||
+        titleLower.includes('đặc cách') ||
+        titleLower.includes('khảo sát') ||
+        titleLower.includes('nguyện vọng') ||
+        (type as string) === 'batch_added' ||
+        titleLower.includes('đợt đồ án')
+      ) {
+        if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation&subtab=survey';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation&subtab=students';
+      }
+
+      // 6. Phân công GVHD
+      if (titleLower.includes('phân công gvhd') || titleLower.includes('kết quả phân công')) {
+        if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation&subtab=project';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation&subtab=students';
+      }
+
+      // 7. Bảo lưu đồ án
+      if (titleLower.includes('bảo lưu') || msgLower.includes('bảo lưu')) {
+        if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation&subtab=project';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation&subtab=deferrals';
+      }
+
+      // 8. Báo cáo tuần
+      if (titleLower.includes('báo cáo') || titleLower.includes('tuần') || type.includes('weekly')) {
+        if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation&subtab=weekly';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation&subtab=weekly';
+      }
+
+      // 9. Điểm / Bảo vệ / Đánh giá
+      if (
+        isGradeNotification(notif) ||
+        type === 'evaluation_completed' ||
+        type.includes('external_')
+      ) {
+        if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation&subtab=grade';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation&subtab=eval';
+        if (currentRole === 'committee_member') return '/committee_member/dashboard';
+        if (currentRole === 'external_examiner') return '/external_examiner/dashboard';
+      }
+
+      // 10. Fallbacks
+      if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation';
+      if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation';
+      if (currentRole === 'committee_member') return '/committee_member/dashboard';
+      if (currentRole === 'external_examiner') return '/external_examiner/dashboard';
+
+      return '/';
+    };
+
+    const targetUrl = determineTargetUrl(notification, userType);
+
+    // Extract parameters
+    const [, queryString] = targetUrl.split('?');
+    const searchParams = new URLSearchParams(queryString || '');
+    const tab = searchParams.get('tab');
+    const subtab = searchParams.get('subtab');
+
+    if (onNavigate) {
+      onNavigate(targetUrl);
+    } else {
+      navigate(targetUrl);
     }
 
-    // Handle navigation based on notification type
-    let targetUrl = '';
-    switch (notification.notification_type) {
-      case 'external_assignment':
-      case 'external_evaluation':
-        if (userType === 'external_examiner') {
-          targetUrl = '/external_examiner/dashboard';
-        } else if (userType === 'student') {
-          targetUrl = '/student/dashboard';
-        }
-        break;
-      case 'external_schedule':
-        if (userType === 'external_examiner') {
-          targetUrl = '/external_examiner/dashboard';
-        } else if (userType === 'student') {
-          targetUrl = '/student/dashboard';
-        } else if (userType === 'committee_member') {
-          targetUrl = '/committee_member/dashboard';
-        }
-        break;
-      case 'group_request':
-      case 'group_request_accepted':
-      case 'group_request_rejected':
-        if (userType === 'student') {
-          targetUrl = '/student/dashboard';
-        }
-        break;
-      case 'supervisor_request':
-      case 'supervisor_request_accepted':
-      case 'supervisor_request_rejected':
-        if (userType === 'student') {
-          targetUrl = '/student/dashboard';
-        } else if (userType === 'supervisor') {
-          targetUrl = '/supervisor/dashboard';
-        }
-        break;
-      case 'new_chat_message':
-        if (userType === 'student') {
-          targetUrl = '/student/dashboard';
-        } else if (userType === 'supervisor') {
-          targetUrl = '/supervisor/dashboard';
-        }
-        break;
-      case 'document_uploaded':
-      case 'document_approved':
-      case 'document_rejected':
-        if (userType === 'student') {
-          targetUrl = '/student/dashboard';
-        } else if (userType === 'supervisor') {
-          targetUrl = '/supervisor/dashboard';
-        }
-        break;
-      case 'evaluation_completed':
-        if (userType === 'student') {
-          targetUrl = '/student/dashboard';
-        } else if (userType === 'supervisor') {
-          targetUrl = '/supervisor/dashboard';
-        } else if (userType === 'committee_member') {
-          targetUrl = '/committee_member/dashboard';
-        }
-        break;
-      default:
-        break;
+    // Broadcast event for current active views to switch tab/subtab immediately
+    window.dispatchEvent(new CustomEvent('app:switch-tab', { detail: { targetUrl, tab, subtab } }));
+    if (subtab) {
+      window.dispatchEvent(new CustomEvent('app:switch-subtab', { detail: { subtab } }));
     }
 
-    if (targetUrl) {
-      if (onNavigate) {
-        onNavigate(targetUrl);
-      } else {
-        navigate(targetUrl);
-      }
-      setIsOpen(false);
-    }
+    setIsOpen(false);
   };
 
   // Mark all as read

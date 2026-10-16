@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
 import type { Supervisor, SupervisorOfStudentGroup } from '../types';
 import Navbar from '../components/Navbar';
 import UTCAppLayout from '../components/UTCAppLayout';
-import ChatRoom from '../components/ChatRoom';
 import DocumentReview from '../components/DocumentReview';
 import EvaluationForm, { supervisorEvaluationConfigs } from '../components/EvaluationForm';
 import type { EvaluationType } from '../components/EvaluationForm';
@@ -16,11 +16,16 @@ import AuditLogViewer from '../components/AuditLogViewer';
 import UTCFypTimeline from '../components/UTCFypTimeline';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { UTCSupervisorGraduationView } from '../components/UTCSupervisorGraduationView';
+import { UTCSupervisorGroupChatView } from '../components/UTCSupervisorGroupChatView';
 import SupervisorOfferedTopics from '../components/SupervisorOfferedTopics';
 import { SkeletonProfile, SkeletonEvaluationGrid } from '../components/SkeletonLoader';
 import { TablePagination } from '../components/TablePagination';
 import { getRelativeTime } from '../utils/dateUtils';
 import { useModalGuard } from '../utils/modalHooks';
+import axios from 'axios';
+import { calculateStageCounts } from '../utils/graduationStages';
+import type { SupervisorGradTab } from '../components/UTCSupervisorGraduationView';
+import StudentTemplatesView from '../components/StudentTemplatesView';
 import './Dashboard.css';
 import '../components/EvaluationForm.css';
 import '../components/DocumentReview.css';
@@ -30,14 +35,80 @@ import '../components/CommentsSection.css';
 const SupervisorDashboard: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
+  const [searchParams] = useSearchParams();
   const supervisor = user as Supervisor;
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Sync activeTab with URL search params and global notification events
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    }
+
+    const handleSwitchTab = (e: any) => {
+      const targetTab = e.detail?.tab;
+      if (targetTab) {
+        setActiveTab(targetTab);
+      }
+    };
+
+    window.addEventListener('app:switch-tab', handleSwitchTab);
+    return () => window.removeEventListener('app:switch-tab', handleSwitchTab);
+  }, [searchParams]);
   const [profile, setProfile] = useState<Supervisor | null>(null);
+  const [graduationProjects, setGraduationProjects] = useState<any[]>([]);
   const [supervisorRequests, setSupervisorRequests] = useState<SupervisorOfStudentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState<SupervisorOfStudentGroup | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showUTCSheet, setShowUTCSheet] = useState(false);
+
+  const stageCounts = useMemo(() => calculateStageCounts(graduationProjects), [graduationProjects]);
+
+  const isGraduationStageTab =
+    activeTab.startsWith('stage_') ||
+    [
+      'students',
+      'survey',
+      'outlines',
+      'weekly',
+      'supervision',
+      'eval',
+      'reviewer',
+      'deferrals',
+      'utc_graduation',
+    ].includes(activeTab);
+
+  const getSupervisorGraduationSubtab = (tab: string): SupervisorGradTab => {
+    switch (tab) {
+      case 'stage_1':
+      case 'students':
+      case 'utc_graduation':
+        return 'students';
+      case 'stage_2':
+      case 'survey':
+        return 'survey';
+      case 'stage_3':
+      case 'outlines':
+        return 'outlines';
+      case 'stage_4':
+      case 'weekly':
+        return 'weekly';
+      case 'stage_5':
+      case 'supervision':
+        return 'supervision';
+      case 'stage_6':
+      case 'eval':
+        return 'eval';
+      case 'reviewer':
+        return 'reviewer';
+      case 'deferrals':
+        return 'deferrals';
+      default:
+        return 'students';
+    }
+  };
   
   // Profile edit state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -124,8 +195,17 @@ const SupervisorDashboard: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const profileData = await apiService.getSupervisorProfile();
+      const token = localStorage.getItem('access_token');
+      const [profileData, projRes] = await Promise.all([
+        apiService.getSupervisorProfile(),
+        axios.get(`${import.meta.env.VITE_API_BASE_URL || '/app'}/supervisor/graduation-projects/`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        }).catch(() => null),
+      ]);
       setProfile(profileData);
+      if (projRes?.data && Array.isArray(projRes.data)) {
+        setGraduationProjects(projRes.data);
+      }
       await loadSupervisorRequests();
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -246,7 +326,13 @@ const SupervisorDashboard: React.FC = () => {
   }
 
   return (
-    <UTCAppLayout user={supervisor} onLogout={logout} activeTab={activeTab} onTabChange={setActiveTab}>
+    <UTCAppLayout
+      user={supervisor}
+      onLogout={logout}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      stageCounts={stageCounts}
+    >
       <div className="container">
         <div className="dashboard-header">
           <div>
@@ -331,11 +417,17 @@ const SupervisorDashboard: React.FC = () => {
         </div>
 
         <div className="tab-content">
-          {activeTab === 'utc_graduation' && <UTCSupervisorGraduationView />}
+          {isGraduationStageTab && (
+            <UTCSupervisorGraduationView
+              initialTab={getSupervisorGraduationSubtab(activeTab)}
+              onSubtabChange={(st) => setActiveTab(st)}
+              onProjectsLoaded={(projs) => setGraduationProjects(projs)}
+            />
+          )}
 
           {activeTab === 'overview' && (
             <>
-              <UTCFypTimeline currentStep={3} />
+              <UTCFypTimeline currentStep={profile?.timeline_step || 3} />
 
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -700,18 +792,11 @@ const SupervisorDashboard: React.FC = () => {
           )}
 
           {activeTab === 'chat' && (
-            <div>
-              {selectedGroup ? (
-                <ChatRoom groupId={selectedGroup.id} />
-              ) : (
-                <div className="card">
-                  <h2>Chat Room</h2>
-                  <div className="empty-state">
-                    Please select a group from the "My Groups" tab to start chatting with students.
-                  </div>
-                </div>
-              )}
-            </div>
+            <UTCSupervisorGroupChatView isSupervisorView={true} supervisorProfile={supervisor} />
+          )}
+
+          {activeTab === 'templates' && (
+            <StudentTemplatesView />
           )}
 
           {activeTab === 'audit' && (

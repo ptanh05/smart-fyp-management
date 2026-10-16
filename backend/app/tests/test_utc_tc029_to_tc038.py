@@ -495,11 +495,11 @@ class TC029toTC038GraduationSystemTests(APITestCase):
                 academic_batch=self.batch,
                 degree_program="ENGINEER"
             )
-            ProposedAllocation.objects.create(
+            GraduationProject.objects.create(
                 student=st,
                 supervisor=self.sup1,
                 batch=self.batch,
-                is_overridden=False
+                topic_title_vi=f"Đề tài Extra {i}"
             )
 
         # Another student to assign to sup1
@@ -515,10 +515,11 @@ class TC029toTC038GraduationSystemTests(APITestCase):
             academic_batch=self.batch,
             degree_program="ENGINEER"
         )
-        alloc = ProposedAllocation.objects.create(
+        alloc = GraduationProject.objects.create(
             student=st_new,
             supervisor=self.sup2,
-            batch=self.batch
+            batch=self.batch,
+            topic_title_vi="Đề tài cần phân công lại"
         )
 
         self.client.force_authenticate(user=self.admin_user)

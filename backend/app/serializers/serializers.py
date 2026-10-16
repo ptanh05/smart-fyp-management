@@ -73,72 +73,107 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     has_group = serializers.SerializerMethodField(read_only=True)
     my_group_name = serializers.SerializerMethodField(read_only=True)
     external_evaluation = serializers.SerializerMethodField(read_only=True)
+    academic_batch = serializers.SerializerMethodField(read_only=True)
+    graduation_project = serializers.SerializerMethodField(read_only=True)
+    timeline_step = serializers.SerializerMethodField(read_only=True)
 
     def get_group_id(self, obj):
-        # Check supervisor group via GroupMember
-        membership = GroupMember.objects.filter(student=obj).first()
-        if membership:
-            sg = SupervisorOfStudentGroup.objects.filter(group=membership.group, status="accepted").first()
-            if sg:
-                return sg.id
-        group = SupervisorOfStudentGroup.objects.filter(
-            Q(group__student_1=obj) | Q(group__student_2=obj),
-            status="accepted",
-        ).first()
-        return group.id if group else None
+        proj = getattr(obj, "graduation_project", None)
+        return proj.id if proj else None
 
     def get_groupmate_id(self, obj):
-        # Check if student is in any active group via GroupMember
-        membership = GroupMember.objects.filter(student=obj).first()
-        if membership:
-            return membership.group.id
-        group = Group.objects.filter(
-            Q(student_1=obj) | Q(student_2=obj),
-            status="accepted",
-        ).first()
-        return group.id if group else None
+        proj = getattr(obj, "graduation_project", None)
+        return proj.id if proj else None
 
     def get_has_group(self, obj):
-        return bool(self.get_groupmate_id(obj))
+        return bool(getattr(obj, "graduation_project", None))
 
     def get_my_group_name(self, obj):
-        membership = GroupMember.objects.filter(student=obj).select_related("group").first()
-        if membership:
-            return membership.group.group_name or f"Nhóm #{membership.group.id}"
-        group = Group.objects.filter(
-            Q(student_1=obj) | Q(student_2=obj),
-            status="accepted",
-        ).first()
-        if group:
-            return group.group_name or f"Nhóm #{group.id}"
+        proj = getattr(obj, "graduation_project", None)
+        if proj:
+            return proj.topic_title_vi or f"Đồ án tốt nghiệp: {obj.registration_no}"
         return None
 
     def get_external_evaluation(self, obj):
-        """Get external evaluation status if exists."""
-        supervisor_group = SupervisorOfStudentGroup.objects.filter(
-            Q(group__student_1=obj) | Q(group__student_2=obj),
-            status='accepted'
-        ).first()
-        
-        if not supervisor_group:
-            return None
-        
-        try:
-            assignment = supervisor_group.external_assignment
-            if hasattr(assignment, 'evaluation') and assignment.evaluation:
-                return {
-                    'status': 'evaluated',
-                    'grade': assignment.evaluation.grade,
-                    'total_marks': assignment.evaluation.total_marks,
-                    'is_pass': assignment.evaluation.is_pass
-                }
+        return None
+
+    def get_academic_batch(self, obj):
+        batch = getattr(obj, "academic_batch", None)
+        if not batch:
+            from ..models import AcademicBatch
+            batch = AcademicBatch.objects.filter(is_active=True).first()
+        if batch:
             return {
-                'status': 'assigned',
-                'external_group': assignment.external_group.name,
-                'external_examiner': assignment.external_group.external_examiner.user.get_full_name()
+                "id": batch.id,
+                "batch_code": batch.batch_code,
+                "batch_name": batch.batch_name,
+                "current_stage": getattr(batch, "current_stage", "PHASE_1_SETUP"),
+                "is_active": batch.is_active,
             }
-        except Exception:
-            return {'status': 'not_assigned'}
+        return None
+
+    def get_graduation_project(self, obj):
+        proj = getattr(obj, "graduation_project", None)
+        if proj:
+            sup = getattr(proj, "supervisor", None)
+            sup_name = (sup.user.get_full_name() or sup.user.username) if (sup and sup.user) else None
+            sup_email = sup.user.email if (sup and sup.user) else None
+            return {
+                "id": proj.id,
+                "topic_title_vi": proj.topic_title_vi,
+                "topic_title_en": proj.topic_title_en,
+                "status": proj.status,
+                "status_display": proj.get_status_display() if hasattr(proj, "get_status_display") else proj.status,
+                "topic_review_status": proj.topic_review_status,
+                "topic_review_status_display": proj.get_topic_review_status_display() if hasattr(proj, "get_topic_review_status_display") else proj.topic_review_status,
+                "topic_revision_notes": proj.topic_revision_notes,
+                "initial_eligibility": proj.initial_eligibility,
+                "initial_eligibility_display": proj.get_initial_eligibility_display() if hasattr(proj, "get_initial_eligibility_display") else proj.initial_eligibility,
+                "ineligibility_reason": proj.ineligibility_reason,
+                "final_academic_eligibility": proj.final_academic_eligibility,
+                "supervisor_name": sup_name,
+                "supervisor_email": sup_email,
+                "is_eligible_for_defense": getattr(proj, "is_eligible_for_defense", False),
+            }
+        return None
+
+    def get_timeline_step(self, obj):
+        batch = getattr(obj, "academic_batch", None)
+        if not batch:
+            from app.models import AcademicBatch
+            batch = AcademicBatch.objects.filter(is_active=True).first()
+
+        batch_step = 1
+        if batch:
+            stage = getattr(batch, "current_stage", "")
+            if stage in ["PHASE_6_DEFENSE", "COMPLETED"]:
+                batch_step = 5
+            elif stage in ["PHASE_4_ELIGIBILITY", "PHASE_5_IN_PROGRESS"]:
+                batch_step = 4
+            elif stage == "PHASE_3_TOPIC":
+                batch_step = 3
+            elif stage == "PHASE_2_LOCKED":
+                batch_step = 2
+            elif stage in ["PHASE_1_SETUP", "PHASE_2_ALLOCATING"]:
+                batch_step = 1
+
+        proj = getattr(obj, "graduation_project", None)
+        project_step = 1
+        if proj:
+            status = getattr(proj, "status", "")
+            review_status = getattr(proj, "topic_review_status", "")
+            if status in ["DEFENSE_READY", "DEFENSE_PASSED", "PASSED"]:
+                project_step = 5
+            elif status in ["SUBMITTED", "FINAL_SUBMISSION"]:
+                project_step = 4
+            elif status in ["IN_PROGRESS", "OUTLINE_APPROVED", "MIDTERM_EVALUATED"] or review_status == "APPROVED":
+                project_step = 3
+            elif status in ["ALLOCATED", "TOPIC_CONFIRMED", "OUTLINE_PENDING"] or review_status in ["GV_CONFIRMED", "REVISION_REQUIRED"]:
+                project_step = 2
+            else:
+                project_step = 1
+
+        return max(batch_step, project_step)
 
     class Meta:
         model = Student
@@ -154,11 +189,31 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             "has_group",
             "my_group_name",
             "external_evaluation",
+            "academic_batch",
+            "graduation_project",
+            "timeline_step",
         ]
 
 
 class SupervisorProfileSerializer(serializers.ModelSerializer):
     user = CustomUserSerializer(read_only=True)
+    timeline_step = serializers.SerializerMethodField(read_only=True)
+
+    def get_timeline_step(self, obj):
+        from app.models import AcademicBatch
+        batch = AcademicBatch.objects.filter(is_active=True).first()
+        if not batch:
+            return 3
+        stage = getattr(batch, "current_stage", "")
+        if stage in ["PHASE_6_DEFENSE", "COMPLETED"]:
+            return 5
+        elif stage in ["PHASE_4_ELIGIBILITY", "PHASE_5_IN_PROGRESS"]:
+            return 4
+        elif stage == "PHASE_3_TOPIC":
+            return 3
+        elif stage == "PHASE_2_LOCKED":
+            return 2
+        return 1
 
     class Meta:
         model = Supervisor
@@ -170,8 +225,9 @@ class SupervisorProfileSerializer(serializers.ModelSerializer):
             "department_name",
             "research_interest",
             "academic_background",
+            "timeline_step",
         ]
-        read_only_fields = ["id", "user", "supervisor_id", "academic_title", "department_name"]
+        read_only_fields = ["id", "user", "supervisor_id", "academic_title", "department_name", "timeline_step"]
 
 
 class CommitteeMemberProfileSerializer(serializers.ModelSerializer):
@@ -1098,10 +1154,6 @@ class NotificationSerializer(serializers.ModelSerializer):
             "message",
             "is_read",
             "created_at",
-            "related_group",
-            "related_supervisor_group",
-            "related_document",
-            "action_url",
         ]
         read_only_fields = [
             "id",
@@ -1109,10 +1161,6 @@ class NotificationSerializer(serializers.ModelSerializer):
             "title",
             "message",
             "created_at",
-            "related_group",
-            "related_supervisor_group",
-            "related_document",
-            "action_url",
         ]
 
 

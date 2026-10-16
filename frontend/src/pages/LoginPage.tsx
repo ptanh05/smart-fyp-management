@@ -15,6 +15,7 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [filledAccountInfo, setFilledAccountInfo] = useState<string | null>(null);
   
   // Validation States
   const [fieldErrors, setFieldErrors] = useState<{ registrationNo?: string; email?: string; password?: string }>({});
@@ -23,6 +24,39 @@ const LoginPage: React.FC = () => {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const handleFillStudent = (mssv: string, pass: string, name: string) => {
+    setUserType('student');
+    setRegistrationNo(mssv);
+    setPassword(pass);
+    setTouched({ registrationNo: true, password: true });
+    setFieldErrors({});
+    setError('');
+    setFilledAccountInfo(`✓ Đã điền SV: ${name} (${mssv}) • Mật khẩu: ${pass}`);
+    setTimeout(() => setFilledAccountInfo(null), 4000);
+  };
+
+  const handleFillSupervisor = (loginId: string, pass: string, name: string) => {
+    setUserType('supervisor');
+    setEmail(loginId);
+    setPassword(pass);
+    setTouched({ email: true, password: true });
+    setFieldErrors({});
+    setError('');
+    setFilledAccountInfo(`✓ Đã điền GV: ${name} (${loginId}) • Mật khẩu: ${pass}`);
+    setTimeout(() => setFilledAccountInfo(null), 4000);
+  };
+
+  const handleFillCommittee = (loginId: string, pass: string, name: string) => {
+    setUserType('committee_member');
+    setEmail(loginId);
+    setPassword(pass);
+    setTouched({ email: true, password: true });
+    setFieldErrors({});
+    setError('');
+    setFilledAccountInfo(`✓ Đã điền Hội đồng: ${name} (${loginId}) • Mật khẩu: ${pass}`);
+    setTimeout(() => setFilledAccountInfo(null), 4000);
+  };
 
   const toggleLanguage = () => {
     const nextLng = i18n.language.startsWith('vi') ? 'en' : 'vi';
@@ -348,159 +382,133 @@ const LoginPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Quick Demo Accounts Helper */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            marginBottom: '16px',
-            padding: '10px 12px',
-            background: 'rgba(0, 51, 102, 0.05)',
-            borderRadius: '8px',
-            border: '1px dashed #cbd5e1',
-            fontSize: '0.82rem',
-          }}>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, color: '#003366', marginRight: '2px' }}>
-                ⚡ Điền mẫu:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setUserType('student');
-                  setRegistrationNo('201200102');
-                  setPassword('student123');
-                  setTouched({ registrationNo: true, password: true });
-                  setFieldErrors({});
-                  setError('');
-                }}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #93c5fd',
-                  background: userType === 'student' && registrationNo === '201200102' ? '#bfdbfe' : '#dbeafe',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  color: '#1e40af',
-                  fontSize: '0.8rem'
-                }}
-                title="Tài khoản: 201200102 (Thị B Tran - CNTT) | MK: student123"
-              >
-                🎓 SV 1: 201200102
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUserType('student');
-                  setRegistrationNo('201200103');
-                  setPassword('student123');
-                  setTouched({ registrationNo: true, password: true });
-                  setFieldErrors({});
-                  setError('');
-                }}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #93c5fd',
-                  background: userType === 'student' && registrationNo === '201200103' ? '#bfdbfe' : '#e0e7ff',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  color: '#3730a3',
-                  fontSize: '0.8rem'
-                }}
-                title="Tài khoản: 201200103 (Văn C Le - CNTT) | MK: student123"
-              >
-                🎓 SV 2: 201200103
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUserType('student');
-                  setRegistrationNo('201200104');
-                  setPassword('student123');
-                  setTouched({ registrationNo: true, password: true });
-                  setFieldErrors({});
-                  setError('');
-                }}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #93c5fd',
-                  background: userType === 'student' && registrationNo === '201200104' ? '#bfdbfe' : '#e0e7ff',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  color: '#1e40af',
-                  fontSize: '0.8rem'
-                }}
-                title="Tài khoản: 201200104 (Thị D Pham - CNTT) | MK: student123"
-              >
-                🎓 SV 3: 201200104
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUserType('supervisor');
-                  setEmail('supervisor1');
-                  setPassword('supervisor123');
-                  setTouched({ email: true, password: true });
-                  setFieldErrors({});
-                  setError('');
-                }}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #86efac',
-                  background: userType === 'supervisor' ? '#dcfce7' : '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  color: '#166534',
-                  fontSize: '0.8rem'
-                }}
-                title="Tài khoản: supervisor1 | MK: supervisor123"
-              >
-                👨‍🏫 GV: supervisor1
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUserType('committee_member');
-                  setEmail('committee1');
-                  setPassword('committee123');
-                  setTouched({ email: true, password: true });
-                  setFieldErrors({});
-                  setError('');
-                }}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #fde047',
-                  background: userType === 'committee_member' ? '#fef9c3' : '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  color: '#854d0e',
-                  fontSize: '0.8rem'
-                }}
-                title="Tài khoản: committee1 | MK: committee123"
-              >
-                🏛️ HĐ: committee1
-              </button>
+          {/* Quick Demo Accounts Interactive Helper */}
+          <div className="utc-demo-interactive-card">
+            <div className="utc-demo-interactive-header">
+              <span className="utc-demo-badge">⚡ ĐIỀN MẪU TEST NHANH</span>
+              <span className="utc-demo-hint">Click 1 chạm để tự điền thông tin</span>
             </div>
-            <div style={{
-              fontSize: '0.76rem',
-              color: '#475569',
-              background: '#f8fafc',
-              padding: '4px 8px',
-              borderRadius: '5px',
-              border: '1px solid #e2e8f0'
-            }}>
-              {userType === 'student' ? (
-                <>🔑 <strong>Sinh viên:</strong> MSSV <code>201200102</code> (MK: <code>student123</code>) • SV 2: <code>201200103</code> (MK: <code>student123</code>) • SV 3: <code>201200104</code> (MK: <code>student123</code>)</>
-              ) : userType === 'supervisor' ? (
-                <>🔑 <strong>Giảng viên:</strong> Email/User <code>supervisor1</code> • Mật khẩu: <code>supervisor123</code></>
-              ) : (
-                <>🔑 <strong>Hội đồng:</strong> Email/User <code>committee1</code> • Mật khẩu: <code>committee123</code></>
-              )}
-            </div>
+
+            {/* Student Demo Options */}
+            {userType === 'student' && (
+              <div className="utc-demo-chips-container">
+                <button
+                  type="button"
+                  className="utc-demo-pill primary"
+                  onClick={() => handleFillStudent('201200001', 'Sv@123456', 'Nguyễn Văn An (Cử nhân)')}
+                  title="Cử nhân - Đủ điều kiện bảo vệ, có Task & Điểm HĐ"
+                >
+                  🎓 <strong>An (201200001)</strong>: Cử nhân Đủ ĐK
+                </button>
+                <button
+                  type="button"
+                  className="utc-demo-pill"
+                  onClick={() => handleFillStudent('201200011', 'Sv@123456', 'Vũ Mạnh Hùng (Kỹ sư)')}
+                  title="Kỹ sư - Đồ án Kỹ sư Đủ ĐK, GVHD TS. Thắng"
+                >
+                  🎓 <strong>Hùng (201200011)</strong>: Kỹ sư Đủ ĐK
+                </button>
+                <button
+                  type="button"
+                  className="utc-demo-pill warn"
+                  onClick={() => handleFillStudent('201200012', 'Sv@123456', 'Bùi Nam Khánh (Nợ 14 tín)')}
+                  title="Nợ 14 tín - Dùng test Force Approve"
+                >
+                  ⚠️ <strong>Khánh (201200012)</strong>: Nợ 14 tín
+                </button>
+                <button
+                  type="button"
+                  className="utc-demo-pill default"
+                  onClick={() => handleFillStudent('201200102', 'student123', 'Trần Thị Bích')}
+                  title="Tài khoản demo mẫu: 201200102 / student123"
+                >
+                  🎓 <strong>201200102</strong> (Demo)
+                </button>
+              </div>
+            )}
+
+            {/* Supervisor Demo Options */}
+            {userType === 'supervisor' && (
+              <div className="utc-demo-chips-container">
+                <button
+                  type="button"
+                  className="utc-demo-pill primary"
+                  onClick={() => handleFillSupervisor('ts_thang', 'Gv@123456', 'TS. Vũ Bá Thắng')}
+                  title="TS. Thắng - Hướng dẫn SV An & SV Hùng, giao task, chấm điểm"
+                >
+                  👨‍🏫 <strong>TS. Thắng</strong> (ts_thang)
+                </button>
+                <button
+                  type="button"
+                  className="utc-demo-pill"
+                  onClick={() => handleFillSupervisor('pgs_ha', 'Gv@123456', 'PGS.TS. Đỗ Thị Hà')}
+                  title="PGS.TS. Hà - Chủ tịch Hội đồng 01 & GVHD"
+                >
+                  👨‍🏫 <strong>PGS. Hà</strong> (pgs_ha)
+                </button>
+                <button
+                  type="button"
+                  className="utc-demo-pill"
+                  onClick={() => handleFillSupervisor('ths_linh', 'Gv@123456', 'ThS. Nguyễn Thùy Linh')}
+                  title="ThS. Linh - Hướng dẫn Cử nhân & Thư ký Hội đồng 01"
+                >
+                  👩‍🏫 <strong>ThS. Linh</strong> (ths_linh)
+                </button>
+                <button
+                  type="button"
+                  className="utc-demo-pill default"
+                  onClick={() => handleFillSupervisor('supervisor1', 'supervisor123', 'GVC. Nguyễn Hướng Dẫn')}
+                  title="Tài khoản demo mẫu: supervisor1 / supervisor123"
+                >
+                  👨‍🏫 <strong>supervisor1</strong> (Demo)
+                </button>
+              </div>
+            )}
+
+            {/* Committee Member Demo Options */}
+            {userType === 'committee_member' && (
+              <div className="utc-demo-chips-container">
+                <button
+                  type="button"
+                  className="utc-demo-pill primary"
+                  onClick={() => handleFillCommittee('pgs_ha', 'Gv@123456', 'Chủ tịch HĐ: PGS.TS. Đỗ Thị Hà')}
+                  title="Chủ tịch Hội đồng 01 - Chấm điểm bảo vệ"
+                >
+                  🏛️ <strong>Chủ tịch HĐ</strong> (pgs_ha)
+                </button>
+                <button
+                  type="button"
+                  className="utc-demo-pill"
+                  onClick={() => handleFillCommittee('ths_linh', 'Gv@123456', 'Thư ký: ThS. Nguyễn Thùy Linh')}
+                  title="Thư ký Hội đồng 01 - Chấm điểm & lập biên bản"
+                >
+                  📝 <strong>Thư ký 1</strong> (ths_linh)
+                </button>
+                <button
+                  type="button"
+                  className="utc-demo-pill"
+                  onClick={() => handleFillCommittee('ts_nam', 'Gv@123456', 'Ủy viên: TS. Trần Hoài Nam')}
+                  title="Ủy viên Hội đồng 01 - Chấm điểm & hỏi đáp"
+                >
+                  ⚖️ <strong>Ủy viên</strong> (ts_nam)
+                </button>
+                <button
+                  type="button"
+                  className="utc-demo-pill default"
+                  onClick={() => handleFillCommittee('committee1', 'committee123', 'PGS.TS. Nguyễn Chủ Tịch HĐ')}
+                  title="Tài khoản demo mẫu: committee1 / committee123"
+                >
+                  🏛️ <strong>committee1</strong> (Demo)
+                </button>
+              </div>
+            )}
+
+            {/* Success notification banner */}
+            {filledAccountInfo && (
+              <div className="utc-demo-alert-success">
+                {filledAccountInfo}
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="utc-login-form" noValidate>

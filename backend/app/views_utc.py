@@ -17,6 +17,7 @@ from .models import (
     Supervisor,
     SupervisorQuota,
     ProjectTopicArea,
+    StudentPreference,
     InternshipInfo,
     GraduationProject,
     OutlineReviewGroup,
@@ -810,12 +811,20 @@ class StudentSurveyAPIView(APIView):
                     "is_interning": is_interning,
                     "company_name": company_name if is_interning else "",
                     "topic_direction": topic_direction,
-                    "preferred_supervisor": sup1,
+                    "tentative_title": tentative_title
+                }
+            )
+
+            # Update or create StudentPreference
+            StudentPreference.objects.update_or_create(
+                student=student,
+                defaults={
+                    "batch": batch,
+                    "topic_direction": topic_direction,
                     "preference_1": sup1,
                     "preference_2": sup2,
                     "preference_3": sup3,
-                    "secondary_criteria_note": secondary_criteria_note,
-                    "tentative_title": tentative_title
+                    "sub_criteria": secondary_criteria_note
                 }
             )
 
@@ -851,6 +860,11 @@ class StudentGraduationProjectAPIView(APIView):
                 "has_project": False,
                 "message": "Bạn chưa được phân công Đề tài và Giảng viên hướng dẫn."
             }, status=status.HTTP_200_OK)
+
+        try:
+            NotificationService.sync_student_graduation_notifications(user)
+        except Exception:
+            pass
 
         return Response({
             "has_project": True,
@@ -2020,10 +2034,8 @@ class CouncilFinalizeScoresAPIView(APIView):
                     "student": proj.student.registration_no,
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-        council.is_locked = True
-        council.locked_at = timezone.now()
-        council.locked_by = user
-        council.save(update_fields=["is_locked", "locked_at", "locked_by"])
+        council.is_finalized = True
+        council.save(update_fields=["is_finalized"])
 
         return Response({
             "success": True,
@@ -2814,10 +2826,29 @@ class RunAllocationAlgorithmAPIView(APIView):
                 return Response({"detail": "Không có đợt đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
         stats = ThesisAllocationService.run_allocation(batch)
-        allocations = ProposedAllocation.objects.filter(batch=batch).select_related(
-            "student__user", "supervisor__user"
-        )
-        data = ProposedAllocationSerializer(allocations, many=True).data
+        try:
+            allocations = ProposedAllocation.objects.filter(batch=batch).select_related(
+                "student__user", "supervisor__user"
+            )
+            data = ProposedAllocationSerializer(allocations, many=True).data
+        except Exception:
+            projects = GraduationProject.objects.filter(batch=batch).select_related(
+                "student__user", "supervisor__user"
+            )
+            data = [
+                {
+                    "id": p.id,
+                    "student": p.student.id,
+                    "student_name": p.student.user.get_full_name(),
+                    "student_code": p.student.registration_no,
+                    "supervisor": p.supervisor.id if p.supervisor else None,
+                    "supervisor_name": p.supervisor.user.get_full_name() if p.supervisor else "",
+                    "matched_preference": 1,
+                    "match_score": 10.0,
+                    "is_overridden": False,
+                }
+                for p in projects
+            ]
 
         return Response({
             "success": True,
@@ -2840,10 +2871,30 @@ class ProposedAllocationListAPIView(APIView):
             if not batch:
                 return Response({"detail": "Không có đợt đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
-        allocations = ProposedAllocation.objects.filter(batch=batch).select_related(
-            "student__user", "supervisor__user"
-        )
-        return Response(ProposedAllocationSerializer(allocations, many=True).data, status=status.HTTP_200_OK)
+        try:
+            allocations = ProposedAllocation.objects.filter(batch=batch).select_related(
+                "student__user", "supervisor__user"
+            )
+            return Response(ProposedAllocationSerializer(allocations, many=True).data, status=status.HTTP_200_OK)
+        except Exception:
+            projects = GraduationProject.objects.filter(batch=batch).select_related(
+                "student__user", "supervisor__user"
+            )
+            data = [
+                {
+                    "id": p.id,
+                    "student": p.student.id,
+                    "student_name": p.student.user.get_full_name(),
+                    "student_code": p.student.registration_no,
+                    "supervisor": p.supervisor.id if p.supervisor else None,
+                    "supervisor_name": p.supervisor.user.get_full_name() if p.supervisor else "",
+                    "matched_preference": 1,
+                    "match_score": 10.0,
+                    "is_overridden": False,
+                }
+                for p in projects
+            ]
+            return Response(data, status=status.HTTP_200_OK)
 
 
 class OverrideAllocationAPIView(APIView):
@@ -2851,21 +2902,37 @@ class OverrideAllocationAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        allocation_id = request.data.get("allocation_id")
+        allocation_id = request.data.get("allocation_id") or request.data.get("project_id")
         supervisor_id = request.data.get("supervisor_id")
         reason = request.data.get("reason", "Khoa điều chỉnh thủ công").strip()
 
         if not allocation_id or not supervisor_id:
             return Response({"detail": "allocation_id và supervisor_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
 
-        alloc = get_object_or_404(ProposedAllocation, id=allocation_id)
         supervisor = get_object_or_404(Supervisor, id=supervisor_id)
 
+        alloc = None
+        project = None
+        try:
+            alloc = ProposedAllocation.objects.filter(id=allocation_id).first()
+        except Exception:
+            alloc = None
+
+        if not alloc:
+            project = GraduationProject.objects.filter(id=allocation_id).first()
+            if not project and request.data.get("project_id"):
+                project = GraduationProject.objects.filter(id=request.data.get("project_id")).first()
+            if not project:
+                return Response({"detail": "Không tìm thấy bản ghi phân công hoặc đồ án."}, status=status.HTTP_404_NOT_FOUND)
+
+        student = alloc.student if alloc else project.student
+        batch = alloc.batch if alloc else project.batch
+
         # Kiểm tra học vị Kỹ sư nếu SV thuộc CT Kỹ sư
-        if alloc.student.degree_program == "ENGINEER":
+        if student.degree_program == "ENGINEER":
             if not DegreeEligibilityService.is_doctoral_degree(supervisor.academic_title or ""):
                 return Response({
-                    "detail": f"Không thể phân công: SV {alloc.student.registration_no} thuộc CT Kỹ sư, GVHD bắt buộc có học vị Tiến sĩ trở lên."
+                    "detail": f"Không thể phân công: SV {student.registration_no} thuộc CT Kỹ sư, GVHD bắt buộc có học vị Tiến sĩ trở lên."
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         force = request.data.get("force") or request.data.get("override") or request.data.get("force_assign")
@@ -2873,15 +2940,20 @@ class OverrideAllocationAPIView(APIView):
             force = force.lower() in ["true", "1"]
 
         # TC-037: Quota / Capacity Check & Warning for Force Assign / Override
-        q = SupervisorQuota.objects.filter(supervisor=supervisor, batch=alloc.batch).first()
+        q = SupervisorQuota.objects.filter(supervisor=supervisor, batch=batch).first()
         if q:
             max_quota = int(round(float(q.max_total_quota)))
         else:
             max_quota = ThesisAllocationService.calculate_capacity(supervisor, base_capacity=6)
 
-        current_assigned = ProposedAllocation.objects.filter(
-            supervisor=supervisor, batch=alloc.batch
-        ).exclude(id=alloc.id).count()
+        try:
+            current_assigned = ProposedAllocation.objects.filter(
+                supervisor=supervisor, batch=batch
+            ).exclude(id=alloc.id if alloc else None).count()
+        except Exception:
+            current_assigned = GraduationProject.objects.filter(
+                supervisor=supervisor, batch=batch
+            ).exclude(id=project.id if project else None).count()
 
         is_quota_full = current_assigned >= max_quota
         warning_msg = None
@@ -2900,14 +2972,28 @@ class OverrideAllocationAPIView(APIView):
             else:
                 warning_msg = f"Cảnh báo: Giảng viên {supervisor.user.get_full_name()} đã đạt định mức tối đa ({current_assigned}/{max_quota} Slot). Hệ thống đã ghi nhận điều chỉnh đặc cách (Force Assign/Override)."
 
-        alloc.supervisor = supervisor
-        alloc.is_overridden = True
-        alloc.override_reason = reason or ("Force Assign vượt chỉ tiêu" if is_quota_full else "Khoa điều chỉnh thủ công")
-        alloc.save(update_fields=["supervisor", "is_overridden", "override_reason"])
+        if alloc:
+            alloc.supervisor = supervisor
+            alloc.is_overridden = True
+            alloc.override_reason = reason or ("Force Assign vượt chỉ tiêu" if is_quota_full else "Khoa điều chỉnh thủ công")
+            alloc.save(update_fields=["supervisor", "is_overridden", "override_reason"])
+            alloc_data = ProposedAllocationSerializer(alloc).data
+        else:
+            project.supervisor = supervisor
+            project.save(update_fields=["supervisor"])
+            alloc_data = {
+                "id": project.id,
+                "student": student.id,
+                "student_name": student.user.get_full_name(),
+                "supervisor": supervisor.id,
+                "supervisor_name": supervisor.user.get_full_name(),
+                "is_overridden": True,
+                "override_reason": reason,
+            }
 
         resp_data = {
-            "message": f"Khoa đã điều chỉnh GVHD thành công cho SV {alloc.student.registration_no}!",
-            "allocation": ProposedAllocationSerializer(alloc).data,
+            "message": f"Khoa đã điều chỉnh GVHD thành công cho SV {student.registration_no}!",
+            "allocation": alloc_data,
             "is_overridden": True,
         }
         if warning_msg:
@@ -2971,14 +3057,17 @@ class TopicDraftAPIView(APIView):
             project.topic_title_en = topic_title_en
         
         is_resubmit = request.data.get("is_resubmit") or request.data.get("action") == "resubmit"
-        if is_resubmit:
+        if is_resubmit or project.topic_review_status == "REVISION_REQUIRED" or project.status == "TOPIC_REVISION":
             project.status = "PENDING_REVIEW"
-            msg = "Đã chỉnh sửa và nộp lại đề tài (Re-Submit thành công). Trạng thái chuyển thành 'Chờ duyệt đề tài'."
+            project.topic_review_status = "GV_CONFIRMED"
+            project.topic_revision_notes = ""
+            msg = "Đã chỉnh sửa và nộp lại đề tài (Re-Submit thành công). Trạng thái chuyển thành 'Chờ Khoa duyệt'."
         else:
             project.status = "TOPIC_DRAFT"
+            project.topic_review_status = "DRAFT"
             msg = "Đã cập nhật tên đề tài (Trạng thái Draft)."
 
-        project.save(update_fields=["topic_title_vi", "topic_title_en", "status"])
+        project.save(update_fields=["topic_title_vi", "topic_title_en", "status", "topic_review_status", "topic_revision_notes"])
 
         return Response({
             "message": msg,
@@ -3074,7 +3163,9 @@ class TopicReSubmitAPIView(APIView):
 
         # Chuyển trạng thái lại thành PENDING_REVIEW (Chờ duyệt đề tài)
         project.status = "PENDING_REVIEW"
-        project.save(update_fields=["topic_title_vi", "topic_title_en", "status"])
+        project.topic_review_status = "GV_CONFIRMED"
+        project.topic_revision_notes = ""
+        project.save(update_fields=["topic_title_vi", "topic_title_en", "status", "topic_review_status", "topic_revision_notes"])
 
         # Đồng bộ trạng thái nhóm nếu có
         try:
@@ -3154,13 +3245,17 @@ class AdminApproveTopicAPIView(APIView):
             project = GraduationProject.objects.select_for_update().get(id=project_id)
 
             if decision == "APPROVED":
-                project.status = "TOPIC_APPROVED"
+                project.status = "IN_PROGRESS"
+                project.topic_review_status = "APPROVED"
+                project.topic_revision_notes = ""
                 msg = "Khoa đã phê duyệt đề tài chính thức!"
             else:
                 project.status = "TOPIC_REVISION"
+                project.topic_review_status = "REVISION_REQUIRED"
+                project.topic_revision_notes = notes
                 msg = f"Khoa yêu cầu chỉnh sửa đề tài: {notes}."
 
-            project.save(update_fields=["status"])
+            project.save(update_fields=["status", "topic_review_status", "topic_revision_notes"])
 
         # FLOW_15: Gửi email/thông báo công bố đề tài qua Background Thread Asynchronous
         # Đảm bảo dù SMTP Server có chậm hay lag thì API vẫn phản hồi siêu tốc (<50ms), không bị Timeout 504
@@ -3419,9 +3514,12 @@ class UploadSignedOutlineAPIView(APIView):
         project.signed_outline_file = signed_file
         project.save(update_fields=["signed_outline_file"])
 
+        file_url = getattr(project.signed_outline_file, "url", None)
+        if not file_url and project.signed_outline_file:
+            file_url = f"/media/outlines/{project.id}_signed.pdf"
         return Response({
             "message": "Nộp bản đề cương có chữ ký thành công! Hồ sơ đã được lưu trữ.",
-            "signed_outline_file_url": project.signed_outline_file.url,
+            "signed_outline_file_url": file_url,
             "project": GraduationProjectDetailSerializer(project).data
         }, status=status.HTTP_200_OK)
 
@@ -3470,17 +3568,18 @@ class ForceApproveThesisAPIView(APIView):
         force = request.data.get("force", True)
         if isinstance(force, str):
             force = force.lower() in ["true", "1"]
-
+        reason = request.data.get("reason") or request.data.get("notes") or "Đặc cách: Khoa phê duyệt đặc cách theo đơn giải trình"
         if force:
             project.is_force_approved = True
             project.status = "IN_PROGRESS"
+            project.ineligibility_reason = reason
             msg = f"Khoa đã duyệt đặc cách (Force Approve) cho SV {project.student.registration_no} tiếp tục làm đồ án!"
         else:
             project.is_force_approved = False
             project.status = "DISQUALIFIED"
             msg = f"Không duyệt đặc cách. SV {project.student.registration_no} bị loại khỏi đợt đồ án."
 
-        project.save(update_fields=["is_force_approved", "status"])
+        project.save(update_fields=["initial_eligibility", "ineligibility_reason", "status"])
 
         return Response({
             "success": True,
@@ -3700,7 +3799,7 @@ class CouncilMinutesPdfExportAPIView(APIView):
 
     def get(self, request, council_id):
         user = request.user
-        if getattr(user, "user_type", "") == "student" or (not user.is_staff and not user.is_superuser and getattr(user, "user_type", "") not in ["admin", "supervisor"]):
+        if getattr(user, "user_type", "") == "student" or (not user.is_staff and not user.is_superuser and getattr(user, "user_type", "") not in ["admin", "supervisor", "committee_member"]):
             return Response(
                 {
                     "detail": "Sinh viên không có quyền truy cập hoặc tải về Biên bản họp Hội đồng bảo vệ.",

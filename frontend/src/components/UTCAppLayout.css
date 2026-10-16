@@ -11,7 +11,7 @@
 
 /* 1. Left Sidebar Styling */
 .utc-sidebar {
-  width: 250px;
+  width: 260px;
   background: #001f3f; /* Dark UTC Navy */
   color: #ffffff;
   display: flex;
@@ -22,7 +22,7 @@
   bottom: 0;
   left: 0;
   z-index: 100;
-  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.18);
   transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -60,55 +60,104 @@
 }
 
 .utc-school-title {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 800;
-  color: #fef08a;
+  color: #38bdf8;
   letter-spacing: 0.5px;
 }
 
 .utc-school-title-sub {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  color: #ffffff;
+  color: #94a3b8;
   letter-spacing: 0.3px;
 }
 
 .utc-sidebar-nav {
-  padding: 16px 10px;
+  padding: 12px 10px;
   flex: 1;
   overflow-y: auto;
+}
+
+/* Sidebar Section Headers */
+.utc-sidebar-section-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #64748b;
+  padding: 14px 10px 6px;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+
+.utc-dashboard-wrapper.sidebar-collapsed .utc-sidebar-section-title {
+  display: none;
 }
 
 .utc-nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 10px 12px;
   border-radius: 8px;
   color: #cbd5e1;
   font-weight: 600;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   cursor: pointer;
-  margin-bottom: 4px;
-  transition: all 0.2s ease;
+  margin-bottom: 3px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
+  user-select: none;
+  position: relative;
 }
 
 .utc-nav-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
+  transform: translateX(2px);
 }
 
 .utc-nav-item.active {
-  background: #0f4c81;
+  background: #0284c7; /* Vibrant Admin Portal Blue */
   color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
 }
 
 .utc-nav-icon {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+}
+
+.utc-nav-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.utc-nav-badge {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+
+.utc-nav-item.active .utc-nav-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 .utc-arrow {
@@ -117,7 +166,7 @@
 }
 
 .utc-sub-nav {
-  margin-left: 36px;
+  margin-left: 32px;
   margin-bottom: 8px;
   display: flex;
   flex-direction: column;
@@ -146,9 +195,23 @@
   color: #64748b;
 }
 
+.utc-dashboard-wrapper.sidebar-collapsed .utc-logo-text-group,
+.utc-dashboard-wrapper.sidebar-collapsed .utc-nav-label,
+.utc-dashboard-wrapper.sidebar-collapsed .utc-nav-badge,
+.utc-dashboard-wrapper.sidebar-collapsed .utc-arrow,
+.utc-dashboard-wrapper.sidebar-collapsed .utc-sub-nav,
+.utc-dashboard-wrapper.sidebar-collapsed .utc-system-version {
+  display: none;
+}
+
+.utc-dashboard-wrapper.sidebar-collapsed .utc-nav-item {
+  justify-content: center;
+  padding: 10px 0;
+}
+
 /* 2. Main Content & Topbar Styling */
 .utc-main-container {
-  margin-left: 250px;
+  margin-left: 260px;
   flex: 1;
   display: flex;
   flex-direction: column;

@@ -4,6 +4,7 @@ import utcLogo from '../asset/images/utc_logo.webp';
 import type { Student, Supervisor, CommitteeMember } from '../types';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
+import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
 import GlobalSearchBar from './GlobalSearchBar';
@@ -15,6 +16,8 @@ interface UTCAppLayoutProps {
   children: React.ReactNode;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
+  currentStageNumber?: number; // 1 to 6 (for student)
+  stageCounts?: Record<number, number>; // { 1: count, 2: count, ... 6: count } (for supervisor)
 }
 
 const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
@@ -23,6 +26,8 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   children,
   activeTab = 'overview',
   onTabChange,
+  currentStageNumber,
+  stageCounts,
 }) => {
   const { t, i18n } = useTranslation();
   const { toggleTheme, isDark } = useTheme();
@@ -30,7 +35,6 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [expandedMenu, setExpandedMenu] = useState<string | null>('academic');
 
   // Format dynamic greeting based on current hour
   const getGreeting = () => {
@@ -85,12 +89,42 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
     return 'Thành Viên UTC';
   };
 
+  const getUserType = () => {
+    if (!user) return 'student';
+    if ('user' in user && user.user) {
+      return user.user.user_type;
+    }
+    return 'student';
+  };
+  const userType = getUserType();
+
+  // For Student: Determine the single current active stage to display on the sidebar
+  const studentProject = (user as any)?.graduation_project;
+  const effectiveStageNumber = currentStageNumber || getProjectStageNumber(studentProject);
+  const currentStage = GRADUATION_STAGES.find((s) => s.number === effectiveStageNumber) || GRADUATION_STAGES[0];
+
   const handleNotificationNavigate = (url: string) => {
     const [path, queryString] = url.split('?');
+    const searchParams = new URLSearchParams(queryString || '');
+    const tab = searchParams.get('tab');
+    const subtab = searchParams.get('subtab');
+
+    if (onTabChange) {
+      if (subtab) {
+        onTabChange(subtab);
+      } else if (tab) {
+        onTabChange(tab === 'utc_graduation' ? 'project' : tab);
+      }
+    }
+
     if (queryString) {
       navigate(`${path}?${queryString}`);
     } else {
       navigate(path);
+    }
+
+    if (subtab) {
+      window.dispatchEvent(new CustomEvent('app:switch-subtab', { detail: { subtab } }));
     }
   };
 
@@ -103,83 +137,193 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             <img src={utcLogo} alt="UTC Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} />
           </span>
           <div className="utc-logo-text-group">
-            <span className="utc-school-title">TRƯỜNG ĐẠI HỌC</span>
-            <span className="utc-school-title-sub">GIAO THÔNG VẬN TẢI</span>
+            <span className="utc-school-title">SMART FYP UTC</span>
+            <span className="utc-school-title-sub">
+              {userType === 'student' ? 'CỔNG SINH VIÊN' : userType === 'supervisor' ? 'CỔNG GIẢNG VIÊN' : 'HỘI ĐỒNG ĐÁNH GIÁ'}
+            </span>
           </div>
         </div>
 
         <nav className="utc-sidebar-nav">
-          <div
-            className={`utc-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => onTabChange && onTabChange('overview')}
-          >
-            <span className="utc-nav-icon">🏠</span>
-            <span className="utc-nav-label">{t('nav.overview', 'Trang chủ')}</span>
-          </div>
+          {userType === 'student' ? (
+            <>
+              {/* 1. TỔNG QUAN HỆ THỐNG */}
+              <div className="utc-sidebar-section-title">TỔNG QUAN HỆ THỐNG</div>
+              <div
+                className={`utc-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('overview')}
+                title="Tổng Quan Dashboard & Tiến Độ Học Vụ"
+              >
+                <span className="utc-nav-icon">📊</span>
+                <span className="utc-nav-label">Tổng Quan Dashboard</span>
+              </div>
 
-          <div
-            className={`utc-nav-item ${expandedMenu === 'academic' ? 'expanded' : ''}`}
-            onClick={() => setExpandedMenu(expandedMenu === 'academic' ? null : 'academic')}
-          >
-            <span className="utc-nav-icon">📚</span>
-            <span className="utc-nav-label">Góc học tập & Đồ án</span>
-            <span className="utc-arrow">{expandedMenu === 'academic' ? '▾' : '▸'}</span>
-          </div>
+              {/* 2. QUY TRÌNH ĐỒ ÁN UTC (CHỈ HIỂN THỊ GIAI ĐOẠN HIỆN TẠI) */}
+              <div className="utc-sidebar-section-title">
+                GIAI ĐOẠN HIỆN TẠI ({currentStage.number}/6)
+              </div>
+              <div
+                className={`utc-nav-item ${
+                  activeTab === currentStage.key ||
+                  (currentStage.number === 1 && (activeTab === 'project' || activeTab === 'utc_graduation'))
+                    ? 'active'
+                    : ''
+                }`}
+                onClick={() => onTabChange && onTabChange(currentStage.key)}
+                title={`${currentStage.label} - Giai đoạn bạn đang thực hiện. Khi GVHD duyệt sẽ mở giai đoạn tiếp theo`}
+              >
+                <span className="utc-nav-icon">{currentStage.icon}</span>
+                <span className="utc-nav-label">{currentStage.label}</span>
+                <span
+                  className="utc-nav-badge"
+                  style={{
+                    background: '#0284c7',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    borderRadius: '12px',
+                    padding: '2px 8px',
+                    fontSize: '0.72rem',
+                  }}
+                >
+                  GĐ {currentStage.number}
+                </span>
+              </div>
 
-          {expandedMenu === 'academic' && (
-            <div className="utc-sub-nav">
+              {/* 3. TRAO ĐỔI & THẢO LUẬN */}
+              <div className="utc-sidebar-section-title">TRAO ĐỔI & THẢO LUẬN</div>
               <div
-                className={`utc-sub-item ${activeTab === 'groups' || activeTab === 'project' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('project')}
+                className={`utc-nav-item ${activeTab === 'chat' || activeTab === 'groups' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('chat')}
+                title="Nhóm Đồ Án & Kênh Chat Trực Tiếp GVHD"
               >
-                {t('nav.project', 'Tra cứu đề tài & Nhóm')}
+                <span className="utc-nav-icon">💬</span>
+                <span className="utc-nav-label">Nhóm Đồ Án & Chat GVHD</span>
+              </div>
+
+              {/* 4. TÀI NGUYÊN & TIỆN ÍCH */}
+              <div className="utc-sidebar-section-title">TÀI NGUYÊN & TIỆN ÍCH</div>
+              <div
+                className={`utc-nav-item ${activeTab === 'templates' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('templates')}
+                title="Kho Biểu Mẫu Chuẩn & Quy Định ĐATN UTC"
+              >
+                <span className="utc-nav-icon">📑</span>
+                <span className="utc-nav-label">Biểu Mẫu Chuẩn UTC</span>
+              </div>
+
+              {((user as any)?.semester === '8' || activeTab === 'external') && (
+                <div
+                  className={`utc-nav-item ${activeTab === 'external' ? 'active' : ''}`}
+                  onClick={() => onTabChange && onTabChange('external')}
+                  title="Hội Đồng Đánh Giá & Phản Biện"
+                >
+                  <span className="utc-nav-icon">🏛️</span>
+                  <span className="utc-nav-label">Hội Đồng & Phản Biện</span>
+                </div>
+              )}
+            </>
+          ) : (
+            // Supervisor & Committee navigation (Hiện TẤT CẢ các giai đoạn ở bên cạnh + số sinh viên ở giai đoạn đó)
+            <>
+              {/* 1. TỔNG QUAN */}
+              <div className="utc-sidebar-section-title">TỔNG QUAN HỆ THỐNG</div>
+              <div
+                className={`utc-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('overview')}
+                title="Trang Chủ & Thống Kê Giảng Viên"
+              >
+                <span className="utc-nav-icon">🏠</span>
+                <span className="utc-nav-label">Tổng Quan Dashboard</span>
+              </div>
+
+              {/* 2. QUY TRÌNH HƯỚNG DẪN ĐATN (HIỂN THỊ TẤT CẢ 6 GIAI ĐOẠN + SỐ SINH VIÊN CÒN LẠI) */}
+              <div className="utc-sidebar-section-title">QUY TRÌNH HƯỚNG DẪN ĐATN</div>
+              {GRADUATION_STAGES.map((st) => {
+                const count = stageCounts?.[st.number] ?? 0;
+                const isTabActive =
+                  activeTab === `stage_${st.number}` ||
+                  activeTab === st.key ||
+                  (st.number === 1 && (activeTab === 'students' || activeTab === 'project' || activeTab === 'utc_graduation')) ||
+                  (st.number === 2 && activeTab === 'survey') ||
+                  (st.number === 3 && activeTab === 'outlines') ||
+                  (st.number === 4 && activeTab === 'weekly') ||
+                  (st.number === 5 && activeTab === 'supervision') ||
+                  (st.number === 6 && activeTab === 'eval');
+
+                return (
+                  <div
+                    key={st.number}
+                    className={`utc-nav-item ${isTabActive ? 'active' : ''}`}
+                    onClick={() => onTabChange && onTabChange(`stage_${st.number}`)}
+                    title={`${st.sidebarLabel} - Hiện có ${count} sinh viên đang ở giai đoạn này`}
+                  >
+                    <span className="utc-nav-icon">{st.icon}</span>
+                    <span className="utc-nav-label">{st.sidebarLabel}</span>
+                    <span
+                      className="utc-nav-badge"
+                      style={{
+                        background: count > 0 ? '#0284c7' : 'rgba(255, 255, 255, 0.12)',
+                        color: count > 0 ? '#ffffff' : '#94a3b8',
+                        fontWeight: 700,
+                        borderRadius: '12px',
+                        padding: '2px 8px',
+                        fontSize: '0.72rem',
+                        boxShadow: count > 0 ? '0 0 8px rgba(2, 132, 199, 0.35)' : 'none',
+                      }}
+                    >
+                      {count} SV
+                    </span>
+                  </div>
+                );
+              })}
+
+              {/* 3. ĐÁNH GIÁ & BẢO LƯU */}
+              <div className="utc-sidebar-section-title">ĐÁNH GIÁ & BẢO LƯU</div>
+              <div
+                className={`utc-nav-item ${activeTab === 'reviewer' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('reviewer')}
+                title="Đồ Án Phản Biện Độc Lập"
+              >
+                <span className="utc-nav-icon">🔍</span>
+                <span className="utc-nav-label">Đồ Án Phản Biện</span>
               </div>
               <div
-                className={`utc-sub-item ${activeTab === 'evaluations' || activeTab === 'external' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('evaluations')}
+                className={`utc-nav-item ${activeTab === 'deferrals' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('deferrals')}
+                title="Đơn Xin Hoãn / Bảo Lưu Đồ Án Tốt Nghiệp"
               >
-                {t('nav.evaluations', 'Tra cứu điểm & Đánh giá')}
+                <span className="utc-nav-icon">📋</span>
+                <span className="utc-nav-label">Đơn Xin Bảo Lưu</span>
+              </div>
+
+              {/* 4. TRAO ĐỔI & TIỆN ÍCH */}
+              <div className="utc-sidebar-section-title">TRAO ĐỔI & TIỆN ÍCH</div>
+              <div
+                className={`utc-nav-item ${activeTab === 'chat' || activeTab === 'groups' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('chat')}
+                title="Nhóm Đồ Án & Kênh Chat Trực Tiếp Sinh Viên"
+              >
+                <span className="utc-nav-icon">💬</span>
+                <span className="utc-nav-label">Nhóm Đồ Án & Chat</span>
               </div>
               <div
-                className={`utc-sub-item ${activeTab === 'documents' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('documents')}
+                className={`utc-nav-item ${activeTab === 'templates' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('templates')}
+                title="Kho Biểu Mẫu Chuẩn & Quy Định ĐATN UTC"
               >
-                {t('nav.documents', 'Tài liệu & Đề cương')}
+                <span className="utc-nav-icon">📑</span>
+                <span className="utc-nav-label">Biểu Mẫu Chuẩn UTC</span>
               </div>
-            </div>
+              <div
+                className={`utc-nav-item ${activeTab === 'audit' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('audit')}
+                title="Nhật Ký Hoạt Động & Thống Kê"
+              >
+                <span className="utc-nav-icon">📈</span>
+                <span className="utc-nav-label">Nhật Ký Hệ Thống</span>
+              </div>
+            </>
           )}
-
-          <div
-            className={`utc-nav-item ${activeTab === 'requests' || activeTab === 'supervisor' ? 'active' : ''}`}
-            onClick={() => onTabChange && onTabChange('requests')}
-          >
-            <span className="utc-nav-icon">📝</span>
-            <span className="utc-nav-label">{t('nav.requests', 'Đăng ký trực tuyến')}</span>
-          </div>
-
-          <div
-            className={`utc-nav-item ${activeTab === 'templates' ? 'active' : ''}`}
-            onClick={() => onTabChange && onTabChange('templates')}
-          >
-            <span className="utc-nav-icon">📅</span>
-            <span className="utc-nav-label">{t('nav.templates', 'Biểu mẫu & Lịch bảo vệ')}</span>
-          </div>
-
-          <div
-            className={`utc-nav-item ${activeTab === 'chat' ? 'active' : ''}`}
-            onClick={() => onTabChange && onTabChange('chat')}
-          >
-            <span className="utc-nav-icon">💬</span>
-            <span className="utc-nav-label">{t('nav.chat', 'Trao đổi & Thảo luận')}</span>
-          </div>
-
-          <div
-            className={`utc-nav-item ${activeTab === 'audit' ? 'active' : ''}`}
-            onClick={() => onTabChange && onTabChange('audit')}
-          >
-            <span className="utc-nav-icon">📊</span>
-            <span className="utc-nav-label">{t('nav.auditLogs', 'Nhật ký & Thống kê')}</span>
-          </div>
         </nav>
 
         <div className="utc-sidebar-footer">

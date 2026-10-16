@@ -68,6 +68,11 @@ from .views_utc import (
     AcademicGradesImportAPIView,
     AssignMemberAPIView,
 )
+from .views_supervisor_group_chat import (
+    SupervisorGroupInfoAPIView,
+    SupervisorGroupChatMessagesAPIView,
+    SupervisorGroupChatMessageDeleteAPIView,
+)
 from .views import (
     GroupRequestView,
     StudentLoginView,
@@ -334,6 +339,9 @@ urlpatterns = [
         name="document-requirements-detail",
     ),
     path("chatroom/", ChatRoomAPIView.as_view(), name="chatroom-detail"),
+    path("supervisor-group/info/", SupervisorGroupInfoAPIView.as_view(), name="supervisor-group-info"),
+    path("supervisor-group/messages/", SupervisorGroupChatMessagesAPIView.as_view(), name="supervisor-group-messages"),
+    path("supervisor-group/messages/<int:pk>/", SupervisorGroupChatMessageDeleteAPIView.as_view(), name="supervisor-group-message-delete"),
     path("export/report/", ExportReportAPIView.as_view(), name="export-report"),
     path("export/consolidated-report/", ConsolidatedEvaluationExportAPIView.as_view(), name="export-consolidated-report"),
     # Delete endpoints

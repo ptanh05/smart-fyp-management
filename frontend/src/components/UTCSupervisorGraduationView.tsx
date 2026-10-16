@@ -4,12 +4,25 @@ import { TablePagination } from './TablePagination';
 import { getRelativeTime } from '../utils/dateUtils';
 import { useModalGuard } from '../utils/modalHooks';
 import { apiService } from '../services/api';
+import { calculateStageCounts } from '../utils/graduationStages';
+import { SupervisorOfferedTopics } from './SupervisorOfferedTopics';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
+export type SupervisorGradTab = 'students' | 'survey' | 'outlines' | 'weekly' | 'supervision' | 'eval' | 'reviewer' | 'deferrals';
 
-export const UTCSupervisorGraduationView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'students' | 'outlines' | 'weekly' | 'eval' | 'reviewer' | 'deferrals'>('students');
+export interface UTCSupervisorGraduationViewProps {
+  initialTab?: SupervisorGradTab;
+  onSubtabChange?: (tab: SupervisorGradTab) => void;
+  onProjectsLoaded?: (projects: any[]) => void;
+}
+
+export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewProps> = ({
+  initialTab,
+  onSubtabChange,
+  onProjectsLoaded,
+}) => {
+  const [activeTab, setActiveTab] = useState<SupervisorGradTab>(initialTab || 'students');
   const [projects, setProjects] = useState<any[]>([]);
   const [reviewerProjects, setReviewerProjects] = useState<any[]>([]);
   const [outlineReviews, setOutlineReviews] = useState<any[]>([]);
@@ -19,6 +32,22 @@ export const UTCSupervisorGraduationView: React.FC = () => {
   const [adminTopicNotes, setAdminTopicNotes] = useState('');
   const [adminTopicSubmitting, setAdminTopicSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Sync with initialTab prop if changed from outside
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const handleSelectTab = (tab: SupervisorGradTab) => {
+    setActiveTab(tab);
+    if (onSubtabChange) {
+      onSubtabChange(tab);
+    }
+  };
+
+  const stageCounts = useMemo(() => calculateStageCounts(projects), [projects]);
 
   // Sorting & Pagination for Students Table
   const [sortField, setSortField] = useState<'student_name' | 'created_at' | 'supervisor_score' | null>(null);
@@ -200,7 +229,12 @@ export const UTCSupervisorGraduationView: React.FC = () => {
         axios.get(`${API_BASE}/supervisor/outline-group-reviews/`, { headers: getHeaders() }).catch(() => null),
         apiService.getAdminDeferralRequests().catch(() => []),
       ]);
-      if (projRes?.data) setProjects(projRes.data);
+      if (projRes?.data) {
+        setProjects(projRes.data);
+        if (onProjectsLoaded) {
+          onProjectsLoaded(projRes.data);
+        }
+      }
       if (revRes?.data) setReviewerProjects(revRes.data);
       if (outRes?.data) setOutlineReviews(outRes.data);
       if (defRes) setDeferralRequests(Array.isArray(defRes) ? defRes : []);
@@ -567,19 +601,21 @@ export const UTCSupervisorGraduationView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Navigation Tabs */}
+      {/* Navigation Tabs (Aligned with 6 UTC Stages + Student Counts) */}
       <div className="flex flex-wrap gap-2 border-b border-slate-700/60 pb-3">
         {[
-          { key: 'students', label: `1. Sinh viên hướng dẫn (${projects.length})`, icon: '👨‍🎓' },
-          { key: 'outlines', label: '2. Duyệt Đề cương', icon: '📝' },
-          { key: 'weekly', label: '3. Báo cáo tuần & Đánh giá', icon: '📅' },
-          { key: 'eval', label: '4. Đánh giá sơ khảo GVHD', icon: '⭐' },
-          { key: 'reviewer', label: `5. Đồ án Phản biện (${reviewerProjects.length})`, icon: '🔍' },
-          { key: 'deferrals', label: `6. Đơn Bảo lưu (Khoa duyệt) (${deferralRequests.length})`, icon: '📋' },
+          { key: 'students' as SupervisorGradTab, label: `GĐ 1: Đề tài & Phân công (${stageCounts[1] || 0} SV)`, icon: '🎓' },
+          { key: 'survey' as SupervisorGradTab, label: `GĐ 2: Khảo sát & Đề tài gợi ý (${stageCounts[2] || 0} SV)`, icon: '📝' },
+          { key: 'outlines' as SupervisorGradTab, label: `GĐ 3: Duyệt Đề cương & Ký số (${stageCounts[3] || 0} SV)`, icon: '📄' },
+          { key: 'weekly' as SupervisorGradTab, label: `GĐ 4: Báo cáo tuần (${stageCounts[4] || 0} SV)`, icon: '📅' },
+          { key: 'supervision' as SupervisorGradTab, label: `GĐ 5: Task board & Nhật ký (${stageCounts[5] || 0} SV)`, icon: '📋' },
+          { key: 'eval' as SupervisorGradTab, label: `GĐ 6: Đánh giá & Bảo vệ (${stageCounts[6] || 0} SV)`, icon: '🏆' },
+          { key: 'reviewer' as SupervisorGradTab, label: `Đồ án Phản biện (${reviewerProjects.length})`, icon: '🔍' },
+          { key: 'deferrals' as SupervisorGradTab, label: `Đơn Bảo lưu (${deferralRequests.length})`, icon: '📋' },
         ].map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => handleSelectTab(tab.key)}
             className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${
               activeTab === tab.key
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
@@ -736,7 +772,30 @@ export const UTCSupervisorGraduationView: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 2: Outlines Review */}
+      {/* Tab 2: Survey & Offered Topics */}
+      {activeTab === 'survey' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+                  <span>📝</span>
+                  <span>Giai Đoạn 2: Khảo Sát Nguyện Vọng & Đề Tài Gợi Ý Của Giảng Viên</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Đề xuất các hướng nghiên cứu và đề tài gợi ý để sinh viên đăng ký trong đợt khảo sát nguyện vọng ban đầu.
+                </p>
+              </div>
+              <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+                Hiện có {stageCounts[2] || 0} sinh viên ở giai đoạn này
+              </span>
+            </div>
+            <SupervisorOfferedTopics onTopicChanged={fetchData} />
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Outlines Review */}
       {activeTab === 'outlines' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
           <h3 className="font-bold text-base text-slate-100">Danh sách Đề cương được phân công thẩm định</h3>
@@ -834,7 +893,91 @@ export const UTCSupervisorGraduationView: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 4: Final Supervisor Evaluation */}
+      {/* Tab 5: Supervision Tasks & Meeting Logs */}
+      {activeTab === 'supervision' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+                <span>📋</span>
+                <span>Giai Đoạn 5: Quản Lý Nhiệm Vụ (Task Board) & Nhật Ký Hướng Dẫn</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Theo dõi tiến độ hoàn thành nhiệm vụ, sản phẩm sinh viên nộp và biên bản họp hướng dẫn định kỳ.
+              </p>
+            </div>
+            <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+              Hiện có {stageCounts[5] || 0} sinh viên ở giai đoạn này
+            </span>
+          </div>
+
+          {projects.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào được phân công.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {projects.map((p) => {
+                const totalTasks = p.tasks?.length || 0;
+                const completedTasks = p.tasks?.filter((t: any) => t.is_completed).length || 0;
+                const percent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                const meetingsCount = p.meeting_logs?.length || 0;
+                const pendingDeliverables = p.tasks?.filter((t: any) => (t.deliverable_file || t.deliverable_url) && (!t.review_verdict || t.review_verdict === 'NOT_SUBMITTED' || t.review_verdict === 'PENDING')).length || 0;
+
+                return (
+                  <div key={p.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 hover:border-slate-700 transition">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-blue-400">{p.student_reg_no}</span>
+                          <span className="font-bold text-sm text-slate-100">{p.student_name}</span>
+                        </div>
+                        <p className="text-xs text-slate-300 mt-1 line-clamp-1"><b>Đề tài:</b> {p.topic_title_vi}</p>
+                      </div>
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap">
+                        {p.student_class}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] text-slate-400">
+                        <span>Tiến độ nhiệm vụ: <b>{completedTasks}/{totalTasks}</b> đã xong</span>
+                        <span className="font-bold text-blue-400">{percent}%</span>
+                      </div>
+                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-300"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-900 text-xs text-slate-400">
+                      <div className="flex items-center gap-3">
+                        <span>🗓️ <b>{meetingsCount}</b> buổi họp</span>
+                        {pendingDeliverables > 0 && (
+                          <span className="text-amber-400 font-bold animate-pulse">
+                            📦 {pendingDeliverables} sản phẩm chờ duyệt
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => handleOpenSupervision(p)}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                      >
+                        <span>📋</span>
+                        <span>Quản lý nhiệm vụ & Nhật ký ➔</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 6: Final Supervisor Evaluation */}
       {activeTab === 'eval' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
           <h3 className="font-bold text-base text-slate-100">Đánh giá Sơ khảo & Chấm điểm GVHD (40%)</h3>
