@@ -4,7 +4,7 @@ import { TablePagination } from './TablePagination';
 import { getRelativeTime } from '../utils/dateUtils';
 import { useModalGuard } from '../utils/modalHooks';
 import { apiService } from '../services/api';
-import { calculateStageCounts } from '../utils/graduationStages';
+import { calculateStageCounts, getProjectStageNumber } from '../utils/graduationStages';
 import { SupervisorOfferedTopics } from './SupervisorOfferedTopics';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
@@ -42,12 +42,50 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
   const handleSelectTab = (tab: SupervisorGradTab) => {
     setActiveTab(tab);
+    setStudentPage(1);
     if (onSubtabChange) {
       onSubtabChange(tab);
     }
   };
 
   const stageCounts = useMemo(() => calculateStageCounts(projects), [projects]);
+
+  // Each stage tab must only list the students that are actually in that stage.
+  const projectsByStage = useMemo(() => {
+    const map: Record<number, any[]> = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    projects.forEach((p) => {
+      const stage = getProjectStageNumber(p);
+      if (!map[stage]) map[stage] = [];
+      map[stage].push(p);
+    });
+    return map;
+  }, [projects]);
+
+  const stage1Projects = projectsByStage[1] || [];
+  const stage4Projects = projectsByStage[4] || [];
+  const stage5Projects = projectsByStage[5] || [];
+  const stage6Projects = projectsByStage[6] || [];
+
+  // Outline reviews for MY OWN students must follow the same stage rule: only show
+  // students currently in GĐ 3. Reviews assigned for students of other supervisors
+  // cannot have their stage resolved from my project list, so keep the active ones.
+  const stage3ProjectIds = useMemo(
+    () => new Set((projectsByStage[3] || []).map((p) => Number(p.id))),
+    [projectsByStage]
+  );
+  const ownProjectIds = useMemo(
+    () => new Set(projects.map((p) => Number(p.id))),
+    [projects]
+  );
+  const stage3OutlineReviews = useMemo(
+    () =>
+      outlineReviews.filter((r) => {
+        const pid = Number(r.project);
+        if (ownProjectIds.has(pid)) return stage3ProjectIds.has(pid);
+        return !r.verdict || r.verdict === 'PENDING';
+      }),
+    [outlineReviews, stage3ProjectIds, ownProjectIds]
+  );
 
   // Sorting & Pagination for Students Table
   const [sortField, setSortField] = useState<'student_name' | 'created_at' | 'supervisor_score' | null>(null);
@@ -182,8 +220,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   };
 
   const sortedProjects = useMemo(() => {
-    if (!sortField) return projects;
-    return [...projects].sort((a, b) => {
+    if (!sortField) return stage1Projects;
+    return [...stage1Projects].sort((a, b) => {
       let valA = a[sortField];
       let valB = b[sortField];
 
@@ -208,7 +246,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       return 0;
     });
-  }, [projects, sortField, sortDirection]);
+  }, [stage1Projects, sortField, sortDirection]);
 
   const paginatedProjects = useMemo(() => {
     const start = (studentPage - 1) * studentPageSize;
@@ -633,15 +671,15 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h3 className="font-bold text-base text-slate-100">
-              Danh sách Sinh viên đang hướng dẫn ĐATN ({projects.length})
+              Danh sách Sinh viên Giai đoạn 1 - Đề tài & Phân công ({stage1Projects.length})
             </h3>
             <span className="text-xs text-slate-400">
               💡 Bấm vào tiêu đề cột <b>"Tên"</b>, <b>"Ngày tạo"</b>, <b>"Điểm số"</b> để sắp xếp Tăng dần / Giảm dần.
             </span>
           </div>
 
-          {projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào được phân công.</div>
+          {stage1Projects.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào ở Giai đoạn 1.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -798,12 +836,19 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 3: Outlines Review */}
       {activeTab === 'outlines' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-          <h3 className="font-bold text-base text-slate-100">Danh sách Đề cương được phân công thẩm định</h3>
-          {outlineReviews.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có đề cương nào được phân công cho Nhóm của Thầy/Cô.</div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-bold text-base text-slate-100">
+              Danh sách Đề cương Giai đoạn 3 được phân công thẩm định ({stage3OutlineReviews.length})
+            </h3>
+            <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+              Hiện có {stageCounts[3] || 0} sinh viên ở giai đoạn này
+            </span>
+          </div>
+          {stage3OutlineReviews.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">Chưa có đề cương nào của sinh viên Giai đoạn 3 được phân công cho Nhóm của Thầy/Cô.</div>
           ) : (
             <div className="space-y-3">
-              {outlineReviews.map((r) => (
+              {stage3OutlineReviews.map((r) => (
                 <div key={r.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -845,9 +890,17 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 3: Weekly Reports */}
       {activeTab === 'weekly' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-          <h3 className="font-bold text-base text-slate-100">Đánh giá Báo cáo tiến độ tuần (1 - 15)</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-bold text-base text-slate-100">Đánh giá Báo cáo tiến độ tuần - Giai đoạn 4 ({stage4Projects.length} SV)</h3>
+            <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+              Hiện có {stageCounts[4] || 0} sinh viên ở giai đoạn này
+            </span>
+          </div>
+          {stage4Projects.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào ở Giai đoạn 4.</div>
+          ) : (
           <div className="space-y-4">
-            {projects.map((p) => (
+            {stage4Projects.map((p) => (
               <div key={p.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <div>
@@ -890,6 +943,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
 
@@ -911,11 +965,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             </span>
           </div>
 
-          {projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào được phân công.</div>
+          {stage5Projects.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào ở Giai đoạn 5.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {projects.map((p) => {
+              {stage5Projects.map((p) => {
                 const totalTasks = p.tasks?.length || 0;
                 const completedTasks = p.tasks?.filter((t: any) => t.is_completed).length || 0;
                 const percent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -980,9 +1034,17 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 6: Final Supervisor Evaluation */}
       {activeTab === 'eval' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-          <h3 className="font-bold text-base text-slate-100">Đánh giá Sơ khảo & Chấm điểm GVHD (40%)</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-bold text-base text-slate-100">Đánh giá Sơ khảo & Chấm điểm GVHD (40%) - Giai đoạn 6 ({stage6Projects.length} SV)</h3>
+            <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+              Hiện có {stageCounts[6] || 0} sinh viên ở giai đoạn này
+            </span>
+          </div>
+          {stage6Projects.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào ở Giai đoạn 6.</div>
+          ) : (
           <div className="space-y-3">
-            {projects.map((p) => (
+            {stage6Projects.map((p) => (
               <div key={p.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -1028,6 +1090,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
 

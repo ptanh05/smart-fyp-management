@@ -597,7 +597,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pt-1">
                       <span>GVHD: <b className="text-slate-300">{p.supervisor?.full_name}</b> ({p.supervisor_score !== null ? `${p.supervisor_score}đ` : 'Chưa điểm'})</span>
                       <span>GVPB: <b className="text-slate-300">{p.reviewer?.full_name}</b> ({p.reviewer_score !== null ? `${p.reviewer_score}đ` : 'Chưa điểm'})</span>
-                      {p.final_grade?.final_score_10 !== null && (
+                      {p.final_grade?.final_score_10 != null && (
                         <span className="text-amber-400 font-bold">
                           Điểm Tổng kết: {p.final_grade.final_score_10}đ ({p.final_grade.final_letter_grade})
                         </span>

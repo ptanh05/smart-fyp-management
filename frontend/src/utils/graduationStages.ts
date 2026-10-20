@@ -76,14 +76,30 @@ export const GRADUATION_STAGES: StageInfo[] = [
 export function getProjectStageNumber(project: any): number {
   if (!project) return 2; // Chưa được phân công đồ án -> Bước khảo sát nguyện vọng
 
+  const tasks = Array.isArray(project.tasks) ? project.tasks : [];
+  const weeklyReports = Array.isArray(project.weekly_reports) ? project.weekly_reports : [];
+  const finalGrade = project.final_grade || project.final_grade_summary || null;
+  const supervisorScore =
+    project.supervisor_score !== null && project.supervisor_score !== undefined && project.supervisor_score !== ''
+      ? Number(project.supervisor_score)
+      : null;
+  const reviewerScore =
+    project.reviewer_score !== null && project.reviewer_score !== undefined && project.reviewer_score !== ''
+      ? Number(project.reviewer_score)
+      : null;
+
   // Giai đoạn 6: GVHD đã đánh giá bảo vệ hoặc đủ điều kiện hoặc DEFENSE_READY / PASSED / FAILED / DEFENDING
   if (
     project.is_eligible_for_defense ||
+    project.supervisor_defense_confirmed ||
+    supervisorScore !== null ||
+    reviewerScore !== null ||
+    finalGrade?.is_finalized ||
+    (finalGrade?.final_score_10 !== null && finalGrade?.final_score_10 !== undefined) ||
     project.status === 'DEFENSE_READY' ||
     project.status === 'PASSED' ||
     project.status === 'FAILED' ||
-    project.status === 'DEFENDING' ||
-    (project.supervisor_score !== null && project.supervisor_score !== undefined && Number(project.supervisor_score) > 0)
+    project.status === 'DEFENDING'
   ) {
     return 6;
   }
@@ -94,8 +110,7 @@ export function getProjectStageNumber(project: any): number {
     project.outline_review?.verdict === 'APPROVED';
 
   if (isOutlineApproved) {
-    const hasTasks = Array.isArray(project.tasks) && project.tasks.length > 0;
-    const weeklyReports = Array.isArray(project.weekly_reports) ? project.weekly_reports : [];
+    const hasTasks = tasks.length > 0;
     const hasReviewedWeekly = weeklyReports.some((r: any) => r.supervisor_rating || r.supervisor_feedback);
 
     // Nếu đã giao tasks hoặc đã có báo cáo tuần được GVHD đánh giá nhận xét -> Sang Giai đoạn 5: Task board & Nhật ký

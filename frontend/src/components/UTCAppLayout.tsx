@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import utcLogo from '../asset/images/utc_logo.webp';
-import type { Student, Supervisor, CommitteeMember } from '../types';
+import type { Student, Supervisor, CommitteeMember, UserType } from '../types';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
@@ -18,6 +18,12 @@ interface UTCAppLayoutProps {
   onTabChange?: (tab: string) => void;
   currentStageNumber?: number; // 1 to 6 (for student)
   stageCounts?: Record<number, number>; // { 1: count, 2: count, ... 6: count } (for supervisor)
+  /**
+   * Portal to render, independent of the account's primary user_type.
+   * Needed for dual-role accounts (e.g. a supervisor who is also a committee member):
+   * the committee portal must still render only the committee navigation.
+   */
+  portalRole?: UserType;
 }
 
 const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
@@ -28,6 +34,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   onTabChange,
   currentStageNumber,
   stageCounts,
+  portalRole,
 }) => {
   const { t, i18n } = useTranslation();
   const { toggleTheme, isDark } = useTheme();
@@ -81,6 +88,9 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   };
 
   const getUserRoleLabel = () => {
+    if (portalRole) {
+      return t(`roles.${portalRole}`, portalRole);
+    }
     if (!user) return 'UTC Member';
     if ('user' in user && user.user) {
       const type = user.user.user_type;
@@ -89,7 +99,8 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
     return 'Thành Viên UTC';
   };
 
-  const getUserType = () => {
+  const getUserType = (): UserType => {
+    if (portalRole) return portalRole;
     if (!user) return 'student';
     if ('user' in user && user.user) {
       return user.user.user_type;
@@ -222,8 +233,37 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                 </div>
               )}
             </>
+          ) : userType === 'committee_member' ? (
+            // Committee member navigation: ONLY defense schedule, students/projects and grading
+            <>
+              <div className="utc-sidebar-section-title">HỘI ĐỒNG ĐÁNH GIÁ</div>
+              <div
+                className={`utc-nav-item ${activeTab === 'utc_live_defense' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('utc_live_defense')}
+                title="Lịch bảo vệ, phòng/ca bảo vệ và chấm điểm trực tiếp"
+              >
+                <span className="utc-nav-icon">🏛️</span>
+                <span className="utc-nav-label">Lịch Bảo Vệ</span>
+              </div>
+              <div
+                className={`utc-nav-item ${activeTab === 'groups' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('groups')}
+                title="Sinh viên và đồ án thuộc Hội đồng của bạn"
+              >
+                <span className="utc-nav-icon">👥</span>
+                <span className="utc-nav-label">Sinh Viên & Đồ Án</span>
+              </div>
+              <div
+                className={`utc-nav-item ${activeTab === 'evaluations' ? 'active' : ''}`}
+                onClick={() => onTabChange && onTabChange('evaluations')}
+                title="Chấm điểm Hội đồng cho sinh viên"
+              >
+                <span className="utc-nav-icon">📝</span>
+                <span className="utc-nav-label">Chấm Điểm</span>
+              </div>
+            </>
           ) : (
-            // Supervisor & Committee navigation (Hiện TẤT CẢ các giai đoạn ở bên cạnh + số sinh viên ở giai đoạn đó)
+            // Supervisor navigation (Hiện TẤT CẢ các giai đoạn ở bên cạnh + số sinh viên ở giai đoạn đó)
             <>
               {/* 1. TỔNG QUAN */}
               <div className="utc-sidebar-section-title">TỔNG QUAN HỆ THỐNG</div>
@@ -407,7 +447,9 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
           </div>
         </section>
 
-        {/* 4. 4 Quick Action Cards Grid (Exact UTC Vibe) */}
+        {/* 4. Quick actions & news are student/supervisor oriented — hidden in the committee portal */}
+        {userType !== 'committee_member' && (
+          <>
         <section className="utc-quick-actions-grid">
           <div className="utc-quick-card action-blue" onClick={() => onTabChange && onTabChange('project')}>
             <div className="qc-icon icon-bg-blue">📘</div>
@@ -516,6 +558,8 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             </ul>
           </div>
         </section>
+          </>
+        )}
 
         {/* 6. Children Inner Content (Dynamic Dashboard Tabs) */}
         <main className="utc-dashboard-body-content">
