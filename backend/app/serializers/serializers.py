@@ -13,6 +13,7 @@ from app.models import (
     GroupCreationComment,
     AcademicBatch,
     ProjectCategories,
+    ProjectTopicArea,
     Project,
     SupervisorStudentComments,
     SupervisorOfStudentGroup,
@@ -118,6 +119,30 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             sup = getattr(proj, "supervisor", None)
             sup_name = (sup.user.get_full_name() or sup.user.username) if (sup and sup.user) else None
             sup_email = sup.user.email if (sup and sup.user) else None
+
+            # Stage-relevant nested data so the student sidebar can determine the
+            # exact 1 -> 6 stage without falling back to an outdated value.
+            outline_review = getattr(proj, "outline_review", None)
+            final_grade = getattr(proj, "final_grade_summary", None)
+            try:
+                tasks = [
+                    {"id": t.id, "status": t.status, "is_completed": t.is_completed}
+                    for t in proj.tasks.all()
+                ]
+            except Exception:
+                tasks = []
+            try:
+                weekly_reports = [
+                    {
+                        "week_number": r.week_number,
+                        "supervisor_rating": r.supervisor_rating,
+                        "supervisor_feedback": r.supervisor_feedback,
+                    }
+                    for r in proj.weekly_reports.all()
+                ]
+            except Exception:
+                weekly_reports = []
+
             return {
                 "id": proj.id,
                 "topic_title_vi": proj.topic_title_vi,
@@ -133,7 +158,29 @@ class StudentProfileSerializer(serializers.ModelSerializer):
                 "final_academic_eligibility": proj.final_academic_eligibility,
                 "supervisor_name": sup_name,
                 "supervisor_email": sup_email,
+                "supervisor_score": proj.supervisor_score,
+                "supervisor_feedback": proj.supervisor_feedback,
+                "supervisor_defense_confirmed": proj.supervisor_defense_confirmed,
+                "reviewer_score": proj.reviewer_score,
                 "is_eligible_for_defense": getattr(proj, "is_eligible_for_defense", False),
+                "outline_review": (
+                    {
+                        "verdict": outline_review.verdict,
+                        "comments": outline_review.comments,
+                    }
+                    if outline_review
+                    else None
+                ),
+                "tasks": tasks,
+                "weekly_reports": weekly_reports,
+                "final_grade": (
+                    {
+                        "is_finalized": final_grade.is_finalized,
+                        "final_score_10": final_grade.final_score_10,
+                    }
+                    if final_grade
+                    else None
+                ),
             }
         return None
 
@@ -299,6 +346,20 @@ class ProjectCategoriesSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectCategories
         fields = ["id", "category_name", "supervisor"]
+
+
+class ProjectTopicAreaOptionSerializer(serializers.ModelSerializer):
+    """Pure UTC schema (25 tables) replacement for the legacy ProjectCategories API.
+
+    The frontend still expects the legacy shape (`category_name`), so we expose the
+    ProjectTopicArea name under both keys.
+    """
+
+    category_name = serializers.CharField(source="name", read_only=True)
+
+    class Meta:
+        model = ProjectTopicArea
+        fields = ["id", "code", "name", "category_name", "description", "is_active"]
 
 
 class GroupStatusSerializer(serializers.ModelSerializer):

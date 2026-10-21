@@ -161,17 +161,33 @@ const StudentDashboard: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [profileData, categoriesData] = await Promise.all([
+      // Load independently so a failing auxiliary endpoint (e.g. categories)
+      // can never block the student profile / current-stage detection.
+      const [profileResult, categoriesResult] = await Promise.allSettled([
         apiService.getStudentProfile(),
         apiService.getProjectCategories(),
       ]);
-      setProfile(profileData);
-      setProjectCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData as any).results || []);
+
+      let profileData: Student | null = null;
+      if (profileResult.status === 'fulfilled') {
+        profileData = profileResult.value;
+        setProfile(profileData);
+      } else {
+        console.error('Failed to load student profile:', profileResult.reason);
+      }
+
+      if (categoriesResult.status === 'fulfilled') {
+        const categoriesData = categoriesResult.value;
+        setProjectCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData as any).results || []);
+      } else {
+        console.error('Failed to load project categories:', categoriesResult.reason);
+        setProjectCategories([]);
+      }
 
       // Load supervision meetings for dashboard display (Features 3 & 4)
       loadSupervisionLogs();
 
-      if (profileData.groupmate_id) {
+      if (profileData?.groupmate_id) {
         const supervisorRequestsData = await apiService.getSupervisorRequests();
         setSupervisorRequests(supervisorRequestsData.results || []);
         // Load projects separately
@@ -327,7 +343,7 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  const currentStageInfo = getProjectStageInfo(profile?.graduation_project);
+  const currentStageInfo = getProjectStageInfo(profile?.graduation_project || (student as any)?.graduation_project);
 
   return (
     <UTCAppLayout

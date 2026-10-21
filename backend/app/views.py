@@ -74,6 +74,7 @@ from .models import (
     GroupCreationComment,
     SupervisorStudentComments,
     ProjectCategories,
+    ProjectTopicArea,
     Group,
     Project,
     SupervisorOfStudentGroup,
@@ -110,6 +111,7 @@ from app.serializers.serializers import (
     SupervisorStudentModelCommentsSerializer,
     CommentSerializer,
     ProjectCategoriesSerializer,
+    ProjectTopicAreaOptionSerializer,
     GroupRequestSerializer,
     StudentProfileSerializer,
     GroupStatusSerializer,
@@ -560,8 +562,8 @@ class StudentsListView(ListAPIView):
 class ProjectCategoriesView(ListAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsStudentOrSupervisorOrCommitteeMember]
-    serializer_class = ProjectCategoriesSerializer
-    queryset = ProjectCategories.objects.all()
+    serializer_class = ProjectTopicAreaOptionSerializer
+    queryset = ProjectTopicArea.objects.filter(is_active=True)
     pagination_class = BasePagination
 
     def list(self, request, *args, **kwargs):

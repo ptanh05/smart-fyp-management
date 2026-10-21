@@ -26,7 +26,7 @@ const CommitteeMemberDashboard: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const committeeMember = user as CommitteeMember;
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('utc_live_defense');
   const [profile, setProfile] = useState<CommitteeMember | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTemplateType, setSelectedTemplateType] = useState<string>('scope_document_template');
@@ -111,7 +111,7 @@ const CommitteeMemberDashboard: React.FC = () => {
   }
 
   return (
-    <UTCAppLayout user={committeeMember} onLogout={logout} activeTab={activeTab} onTabChange={setActiveTab}>
+    <UTCAppLayout user={committeeMember} onLogout={logout} activeTab={activeTab} onTabChange={setActiveTab} portalRole="committee_member">
       <div className="container">
         <div className="dashboard-header">
           <h1>{t('dashboard.committeeTitle', 'Bảng Điều Khiển Hội Đồng Đánh Giá UTC')}</h1>
@@ -124,62 +124,19 @@ const CommitteeMemberDashboard: React.FC = () => {
             onClick={() => setActiveTab('utc_live_defense')}
             style={{ fontWeight: 'bold', background: activeTab === 'utc_live_defense' ? '#003366' : undefined, color: activeTab === 'utc_live_defense' ? '#fff' : undefined }}
           >
-            🏛️ Phiên Bảo Vệ Trực Tiếp & Chấm Điểm UTC
-          </button>
-          <button
-            className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            {t('nav.overview', 'Tổng Quan')}
+            🏛️ Lịch Bảo Vệ & Chấm Điểm
           </button>
           <button
             className={`tab ${activeTab === 'groups' ? 'active' : ''}`}
             onClick={() => setActiveTab('groups')}
           >
-            {t('nav.groups', 'Nhóm Đồ Án Hội Đồng')}
-          </button>
-          <button
-            className={`tab ${activeTab === 'documents' ? 'active' : ''}`}
-            onClick={() => setActiveTab('documents')}
-          >
-            {t('nav.documents', 'Tài Liệu Đồ Án')}
+            👥 Sinh Viên & Đồ Án
           </button>
           <button
             className={`tab ${activeTab === 'evaluations' ? 'active' : ''}`}
             onClick={() => setActiveTab('evaluations')}
           >
-            {t('nav.evaluations', 'Đánh Giá & Chấm Điểm')}
-          </button>
-          <button
-            className={`tab ${activeTab === 'templates' ? 'active' : ''}`}
-            onClick={() => setActiveTab('templates')}
-          >
-            {t('nav.templates', 'Biểu Mẫu Chuẩn')}
-          </button>
-          <button
-            className={`tab ${activeTab === 'doc-requirements' ? 'active' : ''}`}
-            onClick={() => setActiveTab('doc-requirements')}
-          >
-            {t('nav.documents', 'Yêu Cầu Tài Liệu')}
-          </button>
-          <button
-            className={`tab ${activeTab === 'audit' ? 'active' : ''}`}
-            onClick={() => setActiveTab('audit')}
-          >
-            {t('nav.auditLogs', 'Nhật Ký Hệ Thống')}
-          </button>
-          <button
-            className={`tab ${activeTab === 'external' ? 'active' : ''}`}
-            onClick={() => setActiveTab('external')}
-          >
-            {t('nav.externalManagement', 'Hội Đồng & Chấm Phản Biện')}
-          </button>
-          <button
-            className={`tab ${activeTab === 'council_conflicts' ? 'active' : ''}`}
-            onClick={() => setActiveTab('council_conflicts')}
-            style={{ fontWeight: '600', color: activeTab === 'council_conflicts' ? '#fff' : '#b91c1c', backgroundColor: activeTab === 'council_conflicts' ? '#b91c1c' : '#fee2e2' }}
-          >
-            ⚖️ Xung Đột Lợi Ích (COI)
+            📝 Chấm Điểm
           </button>
         </div>
 
@@ -278,13 +235,9 @@ const CommitteeMemberDashboard: React.FC = () => {
                   setSelectedGroup(group);
                   setActiveTab('evaluations');
                 }}
-                onViewDocuments={(group) => {
-                  setSelectedGroup(group);
-                  setActiveTab('documents');
-                }}
                 selectedGroupId={selectedGroup?.id}
                 loading={groupsLoading}
-                showDocumentsButton={true}
+                showDocumentsButton={false}
               />
             </div>
           )}

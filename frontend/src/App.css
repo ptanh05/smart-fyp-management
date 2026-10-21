@@ -118,10 +118,14 @@
 }
 
 /* ==================== Base Styles ==================== */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* Kept in the `base` layer so Tailwind utility classes (padding, margin, gap…)
+   can still override the reset. Unlayered rules always win over layered ones. */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 body {
