@@ -22,6 +22,19 @@ def configure_sqlite(sender, connection, **kwargs):
             cursor.execute("PRAGMA synchronous = NORMAL;")
             cursor.execute("PRAGMA cache_size = -64000;")
             cursor.execute("PRAGMA temp_store = MEMORY;")
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS app_proposedallocation (
+                    id integer PRIMARY KEY AUTOINCREMENT,
+                    matched_preference integer NOT NULL DEFAULT 1,
+                    match_score real NOT NULL DEFAULT 0.0,
+                    is_overridden bool NOT NULL DEFAULT 0,
+                    override_reason varchar(255) NULL,
+                    created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    batch_id bigint NOT NULL,
+                    student_id bigint NOT NULL,
+                    supervisor_id bigint NOT NULL
+                );
+            """)
             cursor.close()
         except Exception as e:
             logger.warning(f"Failed to set SQLite PRAGMA: {e}")

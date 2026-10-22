@@ -1,34 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
-import type { Student, Project, ProjectCategory, SupervisorOfStudentGroup, ExternalEvaluation } from '../types';
+import type { Student } from '../types';
 import Navbar from '../components/Navbar';
 import UTCAppLayout from '../components/UTCAppLayout';
-import ProjectModal from '../components/ProjectModal';
-import SupervisorRequestModal from '../components/SupervisorRequestModal';
-import DocumentsList from '../components/DocumentsList';
-import SupervisorRequestsList from '../components/SupervisorRequestsList';
-import CommentsSection from '../components/CommentsSection';
-import SearchFilter from '../components/SearchFilter';
-import ExternalEvaluationView from '../components/ExternalEvaluationView';
 import StudentTemplatesView from '../components/StudentTemplatesView';
-import CommitteeOfferedProjects from '../components/CommitteeOfferedProjects';
 import UTCFypTimeline from '../components/UTCFypTimeline';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { UTCStudentGraduationView } from '../components/UTCStudentGraduationView';
 import { UTCSupervisorGroupChatView } from '../components/UTCSupervisorGroupChatView';
-import { SkeletonProfile, SkeletonCardGrid } from '../components/SkeletonLoader';
-import CopyButton from '../components/CopyButton';
+import { SkeletonProfile } from '../components/SkeletonLoader';
 import { getProjectStageInfo } from '../utils/graduationStages';
 import './Dashboard.css';
 import '../components/SkeletonLoader.css';
-import '../components/CommentsSection.css';
-import '../components/SearchFilter.css';
-import '../components/ExternalEvaluationView.css';
 import '../components/StudentTemplatesView.css';
-import '../components/CommitteeOfferedProjects.css';
 
 const StudentDashboard: React.FC = () => {
   const { t } = useTranslation();
@@ -37,6 +24,10 @@ const StudentDashboard: React.FC = () => {
   const student = user as Student;
   const [activeTab, setActiveTab] = useState('overview');
   const [profile, setProfile] = useState<Student | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showUTCSheet, setShowUTCSheet] = useState(false);
+  const [supervisionLogs, setSupervisionLogs] = useState<any[]>([]);
+  const [supervisionLogsLoading, setSupervisionLogsLoading] = useState(false);
 
   // Synchronize activeTab with URL search params and global notification events
   useEffect(() => {
@@ -79,26 +70,6 @@ const StudentDashboard: React.FC = () => {
       window.removeEventListener('app:switch-subtab', handleSwitchSubtab);
     };
   }, [searchParams, profile?.graduation_project]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectCategories, setProjectCategories] = useState<ProjectCategory[]>([]);
-  const [supervisorRequests, setSupervisorRequests] = useState<SupervisorOfStudentGroup[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [projectsLoading, setProjectsLoading] = useState(false);
-  const [showProjectModal, setShowProjectModal] = useState(false);
-  const [showSupervisorModal, setShowSupervisorModal] = useState(false);
-  const [projectSearch, setProjectSearch] = useState('');
-  const [selectedSemester, setSelectedSemester] = useState('');
-  const [externalEvaluation, setExternalEvaluation] = useState<ExternalEvaluation | null>(null);
-  const [externalLoading, setExternalLoading] = useState(false);
-  const [selectedProjectForSupervisor, setSelectedProjectForSupervisor] = useState<Project | null>(null);
-  const [showUTCSheet, setShowUTCSheet] = useState(false);
-  const [supervisionLogs, setSupervisionLogs] = useState<any[]>([]);
-  const [supervisionLogsLoading, setSupervisionLogsLoading] = useState(false);
-
-  const handleProjectSearch = useCallback((search: string) => {
-    setProjectSearch(search);
-    loadProjects(search);
-  }, []);
 
   const loadSupervisionLogs = async () => {
     try {
@@ -109,6 +80,19 @@ const StudentDashboard: React.FC = () => {
       console.warn('Failed to load supervision logs on student dashboard:', err);
     } finally {
       setSupervisionLogsLoading(false);
+    }
+  };
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const profileData = await apiService.getStudentProfile();
+      setProfile(profileData);
+      loadSupervisionLogs();
+    } catch (error) {
+      console.error('Failed to load student profile:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -123,33 +107,10 @@ const StudentDashboard: React.FC = () => {
     }
   }, [activeTab]);
 
-  // Reload projects when project tab is clicked
-  useEffect(() => {
-    if (activeTab === 'project' && profile?.groupmate_id) {
-      loadProjects();
-    }
-  }, [activeTab, profile?.groupmate_id]);
-
-  // Reload supervisor requests when supervisor/documents/chat tabs are clicked
-  useEffect(() => {
-    if ((activeTab === 'supervisor' || activeTab === 'documents' || activeTab === 'chat') && profile?.groupmate_id) {
-      loadSupervisorRequests();
-    }
-  }, [activeTab, profile?.groupmate_id]);
-
-  // Load external evaluation when external tab is clicked (8th semester only)
-  useEffect(() => {
-    if (activeTab === 'external' && profile?.semester === '8') {
-      loadExternalEvaluation();
-    }
-  }, [activeTab, profile?.semester]);
-
   // Auto-sync when internet reconnects without reloading the page
   useEffect(() => {
     const handleOnlineSync = () => {
       loadData();
-      if (activeTab === 'project') loadProjects();
-      if (activeTab === 'supervisor' || activeTab === 'documents' || activeTab === 'chat') loadSupervisorRequests();
     };
 
     window.addEventListener('app:online-sync', handleOnlineSync);
@@ -157,98 +118,6 @@ const StudentDashboard: React.FC = () => {
       window.removeEventListener('app:online-sync', handleOnlineSync);
     };
   }, [activeTab]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      // Load independently so a failing auxiliary endpoint (e.g. categories)
-      // can never block the student profile / current-stage detection.
-      const [profileResult, categoriesResult] = await Promise.allSettled([
-        apiService.getStudentProfile(),
-        apiService.getProjectCategories(),
-      ]);
-
-      let profileData: Student | null = null;
-      if (profileResult.status === 'fulfilled') {
-        profileData = profileResult.value;
-        setProfile(profileData);
-      } else {
-        console.error('Failed to load student profile:', profileResult.reason);
-      }
-
-      if (categoriesResult.status === 'fulfilled') {
-        const categoriesData = categoriesResult.value;
-        setProjectCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData as any).results || []);
-      } else {
-        console.error('Failed to load project categories:', categoriesResult.reason);
-        setProjectCategories([]);
-      }
-
-      // Load supervision meetings for dashboard display (Features 3 & 4)
-      loadSupervisionLogs();
-
-      if (profileData?.groupmate_id) {
-        const supervisorRequestsData = await apiService.getSupervisorRequests();
-        setSupervisorRequests(supervisorRequestsData.results || []);
-        // Load projects separately
-        await loadProjects();
-      }
-    } catch (error) {
-      console.error('Failed to load data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadProjects = async (search?: string) => {
-    try {
-      setProjectsLoading(true);
-      const projectsData = await apiService.getProjects({ search, mineOnly: true });
-      setProjects(projectsData || []);
-    } catch (error) {
-      console.error('Failed to load projects:', error);
-      setProjects([]);
-    } finally {
-      setProjectsLoading(false);
-    }
-  };
-
-  const loadSupervisorRequests = async () => {
-    try {
-      const requestsData = await apiService.getSupervisorRequests();
-      setSupervisorRequests(requestsData.results || []);
-    } catch (error) {
-      console.error('Failed to load supervisor requests:', error);
-      setSupervisorRequests([]);
-    }
-  };
-
-  const loadExternalEvaluation = async () => {
-    try {
-      setExternalLoading(true);
-      const evaluation = await apiService.getStudentExternalEvaluation();
-      setExternalEvaluation(evaluation);
-    } catch (error) {
-      console.error('Failed to load external evaluation:', error);
-      setExternalEvaluation(null);
-    } finally {
-      setExternalLoading(false);
-    }
-  };
-
-  const handleCancelSupervisorRequest = async (requestId: number) => {
-    const confirmed = window.confirm('Are you sure you want to cancel this supervisor request? This action cannot be undone.');
-    if (!confirmed) return;
-
-    try {
-      await apiService.updateSupervisorRequest(requestId, { status: 'canceled' });
-      await loadSupervisorRequests(); // Reload supervisor requests
-      alert('Supervisor request canceled successfully.');
-    } catch (error) {
-      console.error('Failed to cancel supervisor request:', error);
-      alert('Failed to cancel supervisor request. Please try again.');
-    }
-  };
 
   if (loading || !student) {
     return (
@@ -318,21 +187,15 @@ const StudentDashboard: React.FC = () => {
       case 'chat':
       case 'groups':
         return {
-          title: 'Nhóm Đồ Án & Kênh Chat Trực Tiếp GVHD',
-          subtitle: 'Kênh trao đổi chuyên môn trực tiếp giữa Giảng viên hướng dẫn và các sinh viên cùng nhóm GVHD',
-          badge: 'Trao đổi',
+          title: 'Kênh Trao Đổi & Nhóm Đồ Án GVHD',
+          subtitle: 'Kênh nhắn tin tức thời giữa Giảng viên hướng dẫn và các sinh viên trong nhóm đề tài',
+          badge: 'Nhóm đồ án',
         };
       case 'templates':
         return {
-          title: 'Kho Biểu Mẫu Chuẩn & Quy Định ĐATN UTC',
-          subtitle: 'Tải về toàn bộ biểu mẫu chuẩn, mẫu báo cáo, slide bảo vệ và quy chế đồ án tốt nghiệp UTC',
-          badge: 'Tài nguyên',
-        };
-      case 'external':
-        return {
-          title: 'Hội Đồng Đánh Giá & Điểm Phản Biện ĐATN',
-          subtitle: 'Thông tin phân bổ hội đồng chấm bảo vệ và kết quả đánh giá phản biện độc lập kỳ 8',
-          badge: 'Hội đồng',
+          title: 'Biểu Mẫu Chuẩn & Quy Định ĐATN UTC',
+          subtitle: 'Tải về và tra cứu các mẫu đơn, đề cương, nhật ký và báo cáo tốt nghiệp chuẩn Trường ĐHGTVT',
+          badge: 'Biểu mẫu UTC',
         };
       default:
         return {
@@ -371,30 +234,34 @@ const StudentDashboard: React.FC = () => {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: '16px',
+                gap: '12px',
               }}
             >
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <span
                     style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
                       background: '#e0f2fe',
                       color: '#0369a1',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      letterSpacing: '0.5px',
                     }}
                   >
                     {tabInfo.badge}
                   </span>
                   <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                    MSSV: <strong>{profile?.registration_no || student?.user?.username}</strong> • Đợt: <strong>{profile?.academic_batch?.batch_name || 'ĐATN UTC'}</strong>
+                    MSSV: <strong>{profile?.registration_no || (student as any)?.registration_no || '---'}</strong>
                   </span>
+                  {profile?.department && (
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                      | Khoa: <strong>{profile.department}</strong>
+                    </span>
+                  )}
                 </div>
-                <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800, color: '#0f172a' }}>
+                <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#002B49' }}>
                   {tabInfo.title}
                 </h1>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.88rem', color: '#64748b' }}>
@@ -402,30 +269,12 @@ const StudentDashboard: React.FC = () => {
                 </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                {activeTab === 'overview' && (
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => setShowUTCSheet(true)}
-                    style={{
-                      borderColor: '#004b87',
-                      color: '#004b87',
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      fontSize: '0.88rem',
-                    }}
-                  >
-                    📑 {t('dashboard.printUTCSheet', 'In Phiếu Chấm UTC')}
-                  </button>
-                )}
+              {/* Action buttons on header */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <button
-                  className="btn btn-secondary btn-sm"
+                  type="button"
+                  className="btn btn-outline"
                   onClick={loadData}
-                  title="Tải lại dữ liệu mới nhất"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -606,54 +455,33 @@ const StudentDashboard: React.FC = () => {
                       e.currentTarget.style.background = 'rgba(0, 51, 102, 0.08)';
                       e.currentTarget.style.color = '#003366';
                     }}
+                    title="Mở biểu mẫu biên bản đánh giá ĐATN UTC có chữ ký và điểm chi tiết"
                   >
-                    <span>📑</span>
-                    <span>{t('dashboard.printUTCSheet', 'In Biên Bản / Phiếu Chấm UTC')}</span>
+                    <span>📄</span>
+                    <span>Xem Phiếu Đánh Giá ĐATN Chuẩn UTC</span>
                   </button>
                 </div>
                 <div className="profile-info">
+                  <p><strong>{t('profile.registration_no', 'Mã Sinh Viên (MSSV)')}:</strong> {profile?.registration_no}</p>
+                  <p><strong>{t('profile.semester', 'Học Kỳ Đang Học')}:</strong> {profile?.semester ? `Kỳ ${profile.semester}` : 'Chưa có'}</p>
+                  <p><strong>{t('profile.cgpa', 'Điểm Trung Bình Tích Lũy (GPA)')}:</strong> {(profile as any)?.cgpa || 'Chưa cập nhật'}</p>
+                  <p><strong>{t('profile.department', 'Khoa / Viện Đào Tạo')}:</strong> {profile?.department || 'Khoa Công nghệ Thông tin - UTC'}</p>
                   <p>
-                    <strong>{t('profile.regNo', 'Mã Số Sinh Viên')}:</strong> {profile?.registration_no}{' '}
-                    {profile?.registration_no && (
-                      <CopyButton text={profile.registration_no} title="Sao chép MSSV" tooltipText="Đã sao chép MSSV" />
-                    )}
-                  </p>
-                  <p><strong>{t('profile.department', 'Khoa / Ngành Đào Tạo')}:</strong> {profile?.department || 'N/A'}</p>
-                  <p><strong>{t('profile.semester', 'Học Kỳ Hiện Tại')}:</strong> {profile?.semester || 'N/A'}</p>
-                  <p><strong>{t('profile.batch', 'Đợt Đồ Án / Khóa Học')}:</strong> {profile?.academic_batch?.batch_name || profile?.batch_no || 'N/A'}</p>
-                  <p>
-                    <strong>Trạng Thái Đề Tài:</strong>{' '}
-                    {profile?.graduation_project ? (
-                      <span style={{ fontWeight: 600 }}>
-                        {(profile.graduation_project.topic_review_status === 'APPROVED' || profile.graduation_project.status === 'TOPIC_APPROVED') ? (
-                          <span style={{ color: '#059669' }}>
-                            ✅ Khoa đã duyệt ({profile.graduation_project.topic_title_vi})
-                          </span>
-                        ) : (profile.graduation_project.topic_review_status === 'REVISION_REQUIRED' || profile.graduation_project.status === 'TOPIC_REVISION') ? (
-                          <span style={{ color: '#dc2626' }}>
-                            ⚠️ Khoa yêu cầu sửa đề tài {profile.graduation_project.topic_revision_notes ? `[${profile.graduation_project.topic_revision_notes}]` : ''} ({profile.graduation_project.topic_title_vi})
-                          </span>
-                        ) : (
-                          <span style={{ color: '#047857' }}>
-                            Đã phân công ({profile.graduation_project.topic_title_vi})
-                          </span>
-                        )}
-                        {profile.graduation_project.initial_eligibility === 'FORCE_APPROVED' && (
-                          <span style={{ marginLeft: '8px', color: '#d97706', fontSize: '0.85rem' }}>
-                            (⚡ Đặc cách: {profile.graduation_project.ineligibility_reason || 'Khoa duyệt đặc cách'})
-                          </span>
-                        )}
+                    <strong>Trạng thái học vụ đồ án:</strong>{' '}
+                    {profile?.graduation_project?.initial_eligibility === 'INELIGIBLE' ? (
+                      <span style={{ color: '#ef4444', fontWeight: 600 }}>
+                        ❌ Không đủ điều kiện (Nợ $\ge$ 10 tín chỉ)
                       </span>
                     ) : (
-                      <span style={{ color: '#d97706', fontWeight: 500 }}>
-                        Chờ phân công / Chưa điền khảo sát
+                      <span style={{ color: '#10b981', fontWeight: 600 }}>
+                        ✓ Đủ điều kiện làm đồ án tốt nghiệp
                       </span>
                     )}
                   </p>
                 </div>
               </div>
 
-              {/* Feature 3 & 4: Online Meeting Link & Supervision Schedule on Student Dashboard */}
+              {/* Online Meeting Link & Supervision Schedule on Student Dashboard */}
               <div className="card" style={{ marginTop: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -765,295 +593,6 @@ const StudentDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              {/* Panel Assignment Information */}
-              {(() => {
-                const acceptedGroup = supervisorRequests.find(r => r.status === 'accepted');
-                if (acceptedGroup?.project?.panel_info) {
-                  const panel = acceptedGroup.project.panel_info;
-                  return (
-                    <div className="card" style={{ marginTop: '20px' }}>
-                      <h2>📋 Panel Assignment</h2>
-                      <div className="profile-info">
-                        <p><strong>Panel:</strong> {panel.name || `Panel #${panel.id}`}</p>
-                        <p>
-                          <strong>Project:</strong> {acceptedGroup.project.project_name}{' '}
-                          <span style={{ color: '#64748b', fontSize: '0.9em', fontWeight: 600 }}>(Mã: PRJ-{acceptedGroup.project.id})</span>{' '}
-                          <CopyButton
-                            text={`PRJ-${acceptedGroup.project.id}`}
-                            label="Copy mã đề tài"
-                            tooltipText="Đã sao chép mã đề tài vào bộ nhớ tạm"
-                          />
-                        </p>
-                        <p><strong>Supervisor:</strong> {acceptedGroup.supervisor.user.first_name || acceptedGroup.supervisor.user.username} {acceptedGroup.supervisor.user.last_name || ''}</p>
-                      </div>
-                      {panel.members && panel.members.length > 0 && (
-                        <div style={{ marginTop: '15px' }}>
-                          <h4 style={{ marginBottom: '10px', color: '#555' }}>Committee Members</h4>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                            {panel.members.map(member => (
-                              <div 
-                                key={member.id} 
-                                style={{ 
-                                  padding: '8px 12px', 
-                                  backgroundColor: '#f0f4f8', 
-                                  borderRadius: '6px',
-                                  border: '1px solid #e0e0e0'
-                                }}
-                              >
-                                <span style={{ fontWeight: '500' }}>
-                                  {member.user.first_name || member.user.username} {member.user.last_name || ''}
-                                </span>
-                                <span style={{ color: '#666', fontSize: '0.9em', marginLeft: '8px' }}>
-                                  ({member.committee_id})
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-            </>
-          )}
-
-          {activeTab === 'legacy_project' && profile?.groupmate_id && (
-            <div>
-              <div className="card" style={{ marginBottom: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h2>My Project</h2>
-                  <button className="btn btn-primary" onClick={() => setShowProjectModal(true)}>
-                    Create Project
-                  </button>
-                </div>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.95rem' }}>
-                  Create your own project idea, or choose an offered project (admin-set, category-wise) below. Then select one for supervisor request.
-                </p>
-                <SearchFilter
-                  searchPlaceholder="Tìm kiếm đề tài theo tên, mô tả, công nghệ..."
-                  onSearch={handleProjectSearch}
-                  debounceDelay={400}
-                  syncWithUrl={true}
-                  filters={[
-                    {
-                      name: 'semester',
-                      label: 'Học kỳ',
-                      options: [
-                        { value: '', label: 'Tất cả học kỳ' },
-                        { value: '1', label: 'Kỳ 1' },
-                        { value: '2', label: 'Kỳ 2' },
-                        { value: '3', label: 'Kỳ 3' },
-                        { value: '6', label: 'Kỳ 6' },
-                        { value: '7', label: 'Kỳ 7' },
-                        { value: '8', label: 'Kỳ 8' },
-                      ],
-                    },
-                  ]}
-                  onFilterChange={(filterName, value) => {
-                    if (filterName === 'semester') {
-                      setSelectedSemester(value);
-                    }
-                  }}
-                />
-                {projectsLoading ? (
-                  <SkeletonCardGrid count={2} />
-                ) : (
-                  <div className="fade-in">
-                    {(() => {
-                      const displayedProjects = projects.filter(p => {
-                        if (selectedSemester) {
-                          const pSem = (p as any).semester;
-                          if (pSem && String(pSem).replace('semester_', '') !== selectedSemester) {
-                            return false;
-                          }
-                        }
-                        return true;
-                      });
-
-                      if (displayedProjects.length === 0 && (projectSearch || selectedSemester)) {
-                        return (
-                          <div className="empty-state">
-                            <p>
-                              Không tìm thấy đề tài nào khớp với {projectSearch && `từ khóa "${projectSearch}"`} {selectedSemester && `(Học kỳ: Kỳ ${selectedSemester})`}
-                            </p>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <ProjectsList
-                          projects={displayedProjects}
-                          selectedProjectId={selectedProjectForSupervisor?.id ?? null}
-                          onSelectForSupervisor={(p) => setSelectedProjectForSupervisor(p)}
-                        />
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-              <CommitteeOfferedProjects
-                categories={projectCategories}
-                selectedProjectId={selectedProjectForSupervisor?.id ?? null}
-                onSelectProject={(p) => setSelectedProjectForSupervisor(p)}
-              />
-              {selectedProjectForSupervisor && (
-                <div className="card" style={{ marginTop: '24px', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
-                  <strong>Selected for supervisor request:</strong> {selectedProjectForSupervisor.project_name}
-                  {' '}
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSelectedProjectForSupervisor(null)}>
-                    Clear
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'supervisor' && profile?.groupmate_id && (
-            <div>
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h2>Supervisor Requests</h2>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button className="btn btn-secondary" onClick={loadSupervisorRequests}>
-                      Refresh
-                    </button>
-                    {(supervisorRequests.length === 0 || supervisorRequests.every(r => r.status !== 'accepted')) && (
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => setShowSupervisorModal(true)}
-                        disabled={!selectedProjectForSupervisor}
-                        title={!selectedProjectForSupervisor ? 'Select a project in the Project tab first' : ''}
-                      >
-                        Request Supervisor
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {!selectedProjectForSupervisor && (supervisorRequests.length === 0 || supervisorRequests.every(r => r.status !== 'accepted')) && (
-                  <div style={{ padding: '12px 16px', marginBottom: '16px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <strong>Project required.</strong> Go to the <strong>Project</strong> tab, create a project or select an offered one (admin-set), then choose &quot;Use for supervisor request&quot; or &quot;Select for supervisor request&quot;. After that you can request a supervisor here.
-                  </div>
-                )}
-                {supervisorRequests.length === 0 ? (
-                  <div className="empty-state">
-                    <h3>No Supervisor Requests</h3>
-                    <p>
-                      {selectedProjectForSupervisor
-                        ? 'Click "Request Supervisor" to send a request. The supervisor will see your project idea when deciding.'
-                        : 'Select a project in the Project tab first, then come back to request a supervisor.'}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <SupervisorRequestsList 
-                      requests={supervisorRequests}
-                      viewType="student"
-                      onCancel={handleCancelSupervisorRequest}
-                    />
-                    {supervisorRequests.some(r => r.status === 'accepted') && (
-                      <>
-                        <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#d4edda', borderRadius: '4px', color: '#155724' }}>
-                          <strong>✓ Supervisor Accepted!</strong>
-                          <p style={{ marginTop: '5px', marginBottom: 0 }}>
-                            You can now upload documents and chat with your supervisor. Check the "Documents" and "Chat" tabs.
-                          </p>
-                        </div>
-
-                        {/* Panel Assignment Info */}
-                        {(() => {
-                          const acceptedGroup = supervisorRequests.find(r => r.status === 'accepted');
-                          if (acceptedGroup?.project?.panel_info) {
-                            const panel = acceptedGroup.project.panel_info;
-                            return (
-                              <div style={{ 
-                                marginTop: '20px', 
-                                padding: '15px', 
-                                backgroundColor: '#e8f4f8', 
-                                borderRadius: '4px', 
-                                border: '1px solid #bee5eb' 
-                              }}>
-                                <strong>📋 Evaluation Panel: {panel.name || `Panel #${panel.id}`}</strong>
-                                {panel.members && panel.members.length > 0 && (
-                                  <div style={{ marginTop: '10px' }}>
-                                    <span style={{ color: '#555', fontSize: '0.9em' }}>Committee Members: </span>
-                                    {panel.members.map((member, index) => (
-                                      <span key={member.id} style={{ color: '#333' }}>
-                                        {member.user.first_name || member.user.username} {member.user.last_name || ''}
-                                        {index < panel.members.length - 1 ? ', ' : ''}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                        
-                        {/* Supervisor-Student Discussion */}
-                        <div style={{ marginTop: '30px' }}>
-                          <h3 style={{ marginBottom: '15px', color: '#333' }}>Discussion with Supervisor</h3>
-                          {(() => {
-                            const acceptedGroup = supervisorRequests.find(r => r.status === 'accepted');
-                            if (acceptedGroup?.group?.id) {
-                              return (
-                                <CommentsSection
-                                  commentType="supervisor-student"
-                                  groupId={acceptedGroup.group.id}
-                                  currentUser={profile ? { id: profile.id, user_type: 'student' } : undefined}
-                                  autoRefresh={true}
-                                  refreshInterval={30000}
-                                />
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'documents' && profile?.groupmate_id && (
-            <>
-              {(() => {
-                const acceptedSupervisorGroup = supervisorRequests.find(r => r.status === 'accepted');
-                if (acceptedSupervisorGroup) {
-                  return <DocumentsList groupId={acceptedSupervisorGroup.id} />;
-                } else {
-                  return (
-                    <div className="card">
-                      <div className="empty-state">
-                        <h3>No Active Supervisor</h3>
-                        <p>You need an accepted supervisor to upload documents.</p>
-                        {supervisorRequests.length > 0 && (
-                          <div style={{ marginTop: '10px' }}>
-                            <p style={{ color: '#666' }}>Current supervisor request status:</p>
-                            <ul style={{ textAlign: 'left', display: 'inline-block' }}>
-                              {supervisorRequests.map((req, idx) => (
-                                <li key={idx}>
-                                  {req.supervisor?.user?.username || 'Unknown'}: {req.status}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {supervisorRequests.length === 0 && (
-                          <p style={{ marginTop: '10px', color: '#666' }}>
-                            Go to the "Supervisor" tab to request a supervisor.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-              })()}
             </>
           )}
 
@@ -1064,128 +603,27 @@ const StudentDashboard: React.FC = () => {
           {activeTab === 'templates' && (
             <StudentTemplatesView studentSemester={profile?.semester || undefined} />
           )}
-
-          {activeTab === 'external' && profile?.semester === '8' && (
-            <div className="card">
-              <h2>External Evaluation Results</h2>
-              {externalLoading ? (
-                <div className="loading-state" style={{ padding: '40px', textAlign: 'center' }}>
-                  <div className="loading-spinner" style={{ 
-                    width: '40px', 
-                    height: '40px', 
-                    border: '3px solid #e2e8f0',
-                    borderTopColor: '#3b82f6',
-                    borderRadius: '50%',
-                    animation: 'spin 0.8s linear infinite',
-                    margin: '0 auto 16px'
-                  }}></div>
-                  <p>Loading evaluation...</p>
-                </div>
-              ) : externalEvaluation ? (
-                <ExternalEvaluationView evaluation={externalEvaluation} />
-              ) : (
-                <div className="empty-state">
-                  <h3>No External Evaluation Available</h3>
-                  <p>Your external evaluation will appear here once completed by the external examiner.</p>
-                  <p style={{ marginTop: '10px', color: '#666', fontSize: '14px' }}>
-                    External evaluations are typically conducted during the final semester presentation.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
-
-      {showProjectModal && (
-        <ProjectModal
-          onClose={() => setShowProjectModal(false)}
-          projectCategories={projectCategories}
-          onSuccess={loadData}
-        />
-      )}
-
-      {showSupervisorModal && selectedProjectForSupervisor && (
-        <SupervisorRequestModal
-          onClose={() => setShowSupervisorModal(false)}
-          projectCategories={projectCategories}
-          onSuccess={loadData}
-          initialProject={selectedProjectForSupervisor}
-        />
-      )}
 
       <UTCEvaluationSheetModal
         isOpen={showUTCSheet}
         onClose={() => setShowUTCSheet(false)}
         groupData={{
-          groupId: profile?.id || 1,
-          projectTitle: projects[0]?.project_name || 'Hệ thống Quản lý Đồ án Smart FYP UTC',
+          groupId: profile?.graduation_project?.id || profile?.id || 1,
+          projectTitle: profile?.graduation_project?.topic_title_vi || 'Hệ thống Quản lý Đồ án Smart FYP UTC',
           facultyDepartment: profile?.department || 'Khoa Công nghệ Thông tin - UTC',
-          student1Name: profile?.user?.username || 'Sinh viên UTC',
+          student1Name: profile?.user ? `${profile.user.first_name || ''} ${profile.user.last_name || ''}`.trim() || profile.user.username : 'Sinh viên UTC',
           student1RegNo: profile?.registration_no || '201200101',
-          student2Name: profile?.groupmate_id ? 'Sinh viên 2 (Nhóm UTC)' : undefined,
-          student2RegNo: profile?.groupmate_id ? '201200102' : undefined,
-          supervisorName: 'TS. Nguyễn Văn Minh',
+          supervisorName: profile?.graduation_project?.supervisor_name || 'TS. Nguyễn Văn Minh',
           reviewerName: 'PGS.TS. Trần Thị Mai',
           committeeName: 'PGS.TS. Nguyễn Đức Thắng',
-          supervisorScore: 8.5,
-          reviewerScore: 8.0,
-          committeeScore: 8.8,
+          supervisorScore: (profile?.graduation_project as any)?.supervisor_score ?? 8.5,
+          reviewerScore: (profile?.graduation_project as any)?.reviewer_score ?? 8.0,
+          committeeScore: (profile?.graduation_project as any)?.council_score ?? 8.8,
         }}
       />
     </UTCAppLayout>
-  );
-};
-
-const ProjectsList: React.FC<{
-  projects: Project[];
-  selectedProjectId?: number | null;
-  onSelectForSupervisor?: (project: Project) => void;
-}> = ({ projects, selectedProjectId, onSelectForSupervisor }) => {
-  if (projects.length === 0) {
-    return (
-      <div className="empty-state">
-        <h3>No projects yet</h3>
-        <p>Click "Create Project" to get started, or choose an offered project (admin-set) below.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid">
-      {projects.map((project) => {
-        const isSelected = selectedProjectId === project.id;
-        return (
-          <div key={project.id} className="card" style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-              <h3 style={{ marginBottom: '10px', color: '#333' }}>{project.project_name}</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>PRJ-{project.id}</span>
-                <CopyButton text={`PRJ-${project.id}`} label="Copy mã" tooltipText="Đã sao chép mã đề tài vào bộ nhớ tạm" />
-              </div>
-            </div>
-            <p style={{ marginBottom: '10px', color: '#666' }}>{project.project_description}</p>
-            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-              <p><strong>Language:</strong> {project.language}</p>
-              {project.functionalities && (
-                <p><strong>Functionalities:</strong> {project.functionalities}</p>
-              )}
-            </div>
-            {onSelectForSupervisor && (
-              <div style={{ marginTop: '12px' }}>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${isSelected ? 'btn-secondary' : 'btn-primary'}`}
-                  onClick={() => onSelectForSupervisor(project)}
-                >
-                  {isSelected ? 'Selected for supervisor request' : 'Use for supervisor request'}
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
   );
 };
 

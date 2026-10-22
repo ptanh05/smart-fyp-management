@@ -538,7 +538,13 @@ class GraduationProject(models.Model):
 
     @property
     def defense_status(self):
-        if self.status == "DEFENSE_READY":
+        if self.status == "DEFENDING":
+            return "DEFENDING"
+        elif self.status == "DEFENDED":
+            return "DEFENDED"
+        elif self.status == "WAITING":
+            return "WAITING"
+        elif self.status == "DEFENSE_READY":
             return "READY"
         elif self.status in ["PASSED", "FAILED"]:
             return "COMPLETED"
@@ -568,11 +574,28 @@ class GraduationProject(models.Model):
 
     @property
     def signed_outline_file(self):
-        return getattr(self, "_signed_outline_file", None)
+        val = getattr(self, "_signed_outline_file", None)
+        if val:
+            return val
+        if self.outline_pdf_path:
+            class OutlineFileStub:
+                def __init__(self, path):
+                    self.name = str(path)
+                    self.url = f"/media/{path}" if not str(path).startswith("/") and not str(path).startswith("http") else str(path)
+                def __bool__(self):
+                    return bool(self.name)
+                def __str__(self):
+                    return str(self.name)
+            return OutlineFileStub(self.outline_pdf_path)
+        return None
 
     @signed_outline_file.setter
     def signed_outline_file(self, value):
         self._signed_outline_file = value
+        if hasattr(value, "name"):
+            self.outline_pdf_path = value.name
+        elif isinstance(value, str):
+            self.outline_pdf_path = value
 
     def save(self, *args, **kwargs):
         if "update_fields" in kwargs and kwargs["update_fields"] is not None:
@@ -585,6 +608,9 @@ class GraduationProject(models.Model):
                 elif f == "academic_clearance_status":
                     if "final_academic_eligibility" in valid_fields and "final_academic_eligibility" not in new_uf:
                         new_uf.append("final_academic_eligibility")
+                elif f == "signed_outline_file":
+                    if "outline_pdf_path" in valid_fields and "outline_pdf_path" not in new_uf:
+                        new_uf.append("outline_pdf_path")
                 elif f in valid_fields:
                     new_uf.append(f)
             kwargs["update_fields"] = new_uf
@@ -821,8 +847,19 @@ class DefenseCouncil(models.Model):
         return f"{self.council_name} (HĐ {self.council_number})"
 
     @property
+    def current_defending_project(self):
+        return self.projects.filter(status="DEFENDING").first() or getattr(self, "_current_defending_project", None)
+
+    @current_defending_project.setter
+    def current_defending_project(self, value):
+        self._current_defending_project = value
+
+    @property
     def current_defending_project_id(self):
-        return None
+        p = self.projects.filter(status="DEFENDING").first()
+        if p:
+            return p.id
+        return getattr(getattr(self, "_current_defending_project", None), "id", None)
 
     @property
     def is_locked(self):
