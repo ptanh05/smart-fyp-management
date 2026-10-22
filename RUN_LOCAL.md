@@ -16,35 +16,21 @@ Hệ thống gồm 2 dự án độc lập kết nối chung cơ sở dữ liệ
 | **Frontend (Admin Portal)** | `Smart-Fyp-Admin\frontend` | `5174` | [http://localhost:5174](http://localhost:5174) | React + Vite (Gọi API port 8001) |
 
 ---
-
-## ⚡ 2. CÁCH 1: Chạy Tự Động 1 Chạm (Khuyên dùng trên Windows)
-
-Mở 1 cửa sổ **PowerShell** bất kỳ và chạy lệnh sau để tự động mở 4 cửa sổ terminal riêng biệt cho 4 service:
-
-```powershell
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'c:\Users\Admin\source\repos\smart-fyp-management\backend'; Write-Host '--- USER BACKEND (PORT 8000) ---' -ForegroundColor Cyan; python manage.py runserver 8000"
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'c:\Users\Admin\source\repos\smart-fyp-management\frontend'; Write-Host '--- USER FRONTEND (PORT 3000) ---' -ForegroundColor Green; npm run dev"
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'c:\Users\Admin\source\repos\Smart-Fyp-Admin\backend'; Write-Host '--- ADMIN BACKEND (PORT 8001) ---' -ForegroundColor Yellow; python manage.py runserver 8001"
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd 'c:\Users\Admin\source\repos\Smart-Fyp-Admin\frontend'; Write-Host '--- ADMIN FRONTEND (PORT 5174) ---' -ForegroundColor Magenta; npm run dev"
-```
-
----
-
-## 🖥️ 3. CÁCH 2: Chạy Thủ Công Từng Terminal
+Chạy Thủ Công Từng Terminal
 
 Nếu bạn muốn kiểm soát từng log terminal riêng lẻ:
 
 ### 🔹 Cụm 1: Dự án `smart-fyp-management` (User Portal)
 
 #### Terminal 1 — Backend (Port 8000):
-```bash
+
 cd c:\Users\Admin\source\repos\smart-fyp-management\backend
 python manage.py runserver 8000
 ```
 > *API kiểm tra:* `http://localhost:8000/app/health/` hoặc trang quản trị gốc `http://localhost:8000/admin/`
 
 #### Terminal 2 — Frontend (Port 3000):
-```bash
+
 cd c:\Users\Admin\source\repos\smart-fyp-management\frontend
 npm run dev
 ```
@@ -52,20 +38,20 @@ npm run dev
 
 ---
 
-### 🔹 Cụm 2: Dự án `Smart-Fyp-Admin` (Admin Portal)
+### Dự án `Smart-Fyp-Admin` (Admin Portal)
 
 #### Terminal 3 — Backend Admin (Port 8001):
-```bash
+
 cd c:\Users\Admin\source\repos\Smart-Fyp-Admin\backend
 python manage.py runserver 8001
-```
+
 > *API Backend Admin:* `http://localhost:8001/app/`
 
 #### Terminal 4 — Frontend Admin (Port 5174):
-```bash
+
 cd c:\Users\Admin\source\repos\Smart-Fyp-Admin\frontend
 npm run dev
-```
+
 > *Truy cập trình duyệt:* [http://localhost:5174](http://localhost:5174)
 
 ---

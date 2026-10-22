@@ -222,16 +222,6 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                 <span className="utc-nav-label">Biểu Mẫu Chuẩn UTC</span>
               </div>
 
-              {((user as any)?.semester === '8' || activeTab === 'external') && (
-                <div
-                  className={`utc-nav-item ${activeTab === 'external' ? 'active' : ''}`}
-                  onClick={() => onTabChange && onTabChange('external')}
-                  title="Hội Đồng Đánh Giá & Phản Biện"
-                >
-                  <span className="utc-nav-icon">🏛️</span>
-                  <span className="utc-nav-label">Hội Đồng & Phản Biện</span>
-                </div>
-              )}
             </>
           ) : userType === 'committee_member' ? (
             // Committee member navigation: ONLY defense schedule, students/projects and grading

@@ -94,9 +94,9 @@ class ApiService {
         const originalRequest = error.config;
         if (!originalRequest) return Promise.reject(error);
 
-        const isAuthEndpoint = originalRequest.url?.includes('/login/') || 
-                               originalRequest.url?.includes('/token/refresh/') ||
-                               originalRequest.url?.includes('/token/logout/');
+        const isAuthEndpoint = originalRequest.url?.includes('/login/') ||
+          originalRequest.url?.includes('/token/refresh/') ||
+          originalRequest.url?.includes('/token/logout/');
 
         if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
           originalRequest._retry = true;
@@ -538,7 +538,7 @@ class ApiService {
     try {
       // Handle both relative and absolute URLs
       const url = fileUrl.startsWith('http') ? fileUrl : `${window.location.origin}${fileUrl}`;
-      
+
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('access_token')}`,
@@ -551,14 +551,14 @@ class ApiService {
 
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
-      
+
       // Create a temporary link and trigger download
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
@@ -867,7 +867,7 @@ class ApiService {
   }
 
   // Templates
-  async getTemplates(templateType: string, semester?: string): Promise<any[]> {
+  async getTemplates(templateType: string = 'all', semester?: string): Promise<any[]> {
     const params = semester ? { semester } : {};
     const response = await this.api.get<any[] | { results: any[] }>(`/srs_template/${templateType}/`, { params });
     // Handle paginated response

@@ -20,7 +20,6 @@ from .models import (
     StudentPreference,
     InternshipInfo,
     GraduationProject,
-    OutlineReviewGroup,
     OutlineReview,
     WeeklyProgressReport,
     SupervisionMeetingLog,
@@ -38,7 +37,6 @@ from .models import (
     DocumentRequirement,
     Group,
     GroupMember,
-    SupervisorOfStudentGroup,
     ProposedAllocation,
     ThesisDeferralRequest,
     DegreeProgram,
@@ -674,13 +672,18 @@ class AcademicGradesImportAPIView(APIView):
                     proj.initial_eligibility = "ELIGIBLE" if is_eligible else "INELIGIBLE"
                     proj.academic_clearance_status = "CLEARED" if is_eligible else "NOT_CLEARED"
                     if is_eligible:
-                        proj.status = "IN_PROGRESS"
                         proj.ineligibility_reason = f"Đủ điều kiện làm đồ án (Nợ {item['debt_credits']} TC < 10 TC)"
                     else:
-                        if proj.status == "IN_PROGRESS":
-                            proj.status = "OUTLINE_APPROVED"
-                        proj.ineligibility_reason = f"Nợ {item['debt_credits']} tín chỉ (>= 10 TC theo quy định), chờ Ban Chủ nhiệm Khoa xét Force Approve hoặc Loại khỏi đợt"
-                    proj.save(update_fields=["debt_credits", "initial_eligibility", "academic_clearance_status", "status", "ineligibility_reason"])
+                        proj.status = "DEFERRED"
+                        proj.deferral_status = "APPROVED"
+                        proj.deferral_reason = f"Bảo lưu do nợ {item['debt_credits']} tín chỉ (>= 10 TC theo quy định)"
+                        proj.deferral_decided_at = timezone.now()
+                        proj.ineligibility_reason = f"Nợ {item['debt_credits']} tín chỉ (>= 10 TC theo quy định) - Tự động loại khỏi đợt và bảo lưu"
+                    proj.save(update_fields=[
+                        "debt_credits", "initial_eligibility", "academic_clearance_status",
+                        "status", "ineligibility_reason", "deferral_status",
+                        "deferral_reason", "deferral_decided_at"
+                    ])
 
         return Response({
             "success": True,
@@ -904,11 +907,9 @@ class StudentOutlineSubmissionAPIView(APIView):
             return Response({"topic_title_vi": ["Vui lòng nhập tên đề tài tiếng Việt."]}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check for duplicated topic names
-        from .models import SupervisorOfStudentGroup
-        is_duplicated = (
-            GraduationProject.objects.filter(topic_title_vi__iexact=topic_title_vi, status="PASSED").exclude(id=project.id).exists() or
-            SupervisorOfStudentGroup.objects.filter(project__project_name__iexact=topic_title_vi, status="accepted").exists()
-        )
+        is_duplicated = GraduationProject.objects.filter(
+            topic_title_vi__iexact=topic_title_vi, status="PASSED"
+        ).exclude(id=project.id).exists()
         if is_duplicated:
             return Response({"topic_title_vi": ["Tên đề tài đã trùng lặp với đề tài đã được nghiệm thu từ các năm trước."]}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1328,6 +1329,11 @@ class SupervisorDefenseEvaluationAPIView(APIView):
                 project.is_eligible_for_defense = is_eligible
                 if is_eligible:
                     project.status = "DEFENSE_READY"
+                else:
+                    project.status = "DEFERRED"
+                    project.deferral_status = "APPROVED"
+                    project.deferral_reason = f"Bảo lưu do GVHD đánh giá không đủ điều kiện bảo vệ: {supervisor_feedback or 'Chưa hoàn thành nhiệm vụ theo yêu cầu'}"
+                    project.deferral_decided_at = timezone.now()
                 project.save()
 
                 # Update Final Grade
@@ -1592,23 +1598,7 @@ class SupervisorBroadcastAnnouncementAPIView(APIView):
 
         recipient_users = set()
 
-        # 1. From accepted supervised groups
-        supervised_groups = SupervisorOfStudentGroup.objects.filter(
-            supervisor=supervisor, status="accepted"
-        ).select_related("group")
-
-        for sg in supervised_groups:
-            group = sg.group
-            if group:
-                for member in group.members.select_related("student__user").all():
-                    if member.student and member.student.user:
-                        recipient_users.add(member.student.user)
-                if group.student_1 and group.student_1.user:
-                    recipient_users.add(group.student_1.user)
-                if group.student_2 and group.student_2.user:
-                    recipient_users.add(group.student_2.user)
-
-        # 2. From individual graduation projects
+        # From individual graduation projects
         grad_projects = GraduationProject.objects.filter(
             supervisor=supervisor
         ).select_related("student__user")
@@ -2079,19 +2069,18 @@ class CouncilChairSetDefenseStatusAPIView(APIView):
         with transaction.atomic():
             if defense_status == "DEFENDING":
                 # If there's another project currently defending in council, mark it DEFENDED
-                GraduationProject.objects.filter(council=council, defense_status="DEFENDING").exclude(id=project.id).update(defense_status="DEFENDED")
+                GraduationProject.objects.filter(council=council, status="DEFENDING").exclude(id=project.id).update(status="DEFENDED")
 
-                project.defense_status = "DEFENDING"
                 project.status = "DEFENDING"
-                project.save()
+                project.save(update_fields=["status"])
 
                 council.current_defending_project = project
                 council.save(update_fields=["current_defending_project"])
 
                 status_msg = f"Đã chuyển sinh viên {project.student.user.get_full_name()} ({project.student.registration_no}) sang trạng thái 'Đang bảo vệ'."
             elif defense_status == "DEFENDED":
-                project.defense_status = "DEFENDED"
-                project.save(update_fields=["defense_status"])
+                project.status = "DEFENDED"
+                project.save(update_fields=["status"])
 
                 if council.current_defending_project_id == project.id:
                     council.current_defending_project = None
@@ -2099,10 +2088,9 @@ class CouncilChairSetDefenseStatusAPIView(APIView):
 
                 status_msg = f"Đã hoàn tất phần bảo vệ cho sinh viên {project.student.user.get_full_name()}."
             else:  # WAITING
-                project.defense_status = "WAITING"
                 if project.status == "DEFENDING":
                     project.status = "DEFENSE_READY"
-                project.save()
+                project.save(update_fields=["status"])
 
                 if council.current_defending_project_id == project.id:
                     council.current_defending_project = None
@@ -2690,25 +2678,28 @@ class GlobalSearchAPIView(APIView):
                     "action_url": f"/student/dashboard?tab=overview",
                 })
 
-            # Standard FYP Projects
-            fyp_projects = Project.objects.filter(
-                Q(project_name__icontains=q) |
-                Q(project_description__icontains=q) |
-                Q(language__icontains=q)
-            ).select_related("project_category")[:5]
+            # Standard FYP Projects (legacy fallback)
+            try:
+                fyp_projects = Project.objects.filter(
+                    Q(project_name__icontains=q) |
+                    Q(project_description__icontains=q) |
+                    Q(language__icontains=q)
+                ).select_related("project_category")[:5]
 
-            for p in fyp_projects:
-                results.append({
-                    "id": f"fyp_project_{p.id}",
-                    "item_id": p.id,
-                    "type": "project",
-                    "type_label": "Đề tài FYP",
-                    "icon": "📁",
-                    "title": p.project_name,
-                    "subtitle": f"Ngôn ngữ: {p.language or 'N/A'} • Danh mục: {p.project_category.category_name if p.project_category else 'N/A'}",
-                    "extra_info": p.project_description[:80] + "..." if p.project_description and len(p.project_description) > 80 else p.project_description,
-                    "action_url": f"/student/dashboard?tab=project",
-                })
+                for p in fyp_projects:
+                    results.append({
+                        "id": f"fyp_project_{p.id}",
+                        "item_id": p.id,
+                        "type": "project",
+                        "type_label": "Đề tài FYP",
+                        "icon": "📁",
+                        "title": p.project_name,
+                        "subtitle": f"Ngôn ngữ: {p.language or 'N/A'} • Danh mục: {p.project_category.category_name if p.project_category else 'N/A'}",
+                        "extra_info": p.project_description[:80] + "..." if p.project_description and len(p.project_description) > 80 else p.project_description,
+                        "action_url": f"/student/dashboard?tab=project",
+                    })
+            except Exception:
+                pass
 
         # 2. Faculty / Supervisors
         if search_type in ["all", "faculty"]:
@@ -2782,23 +2773,26 @@ class GlobalSearchAPIView(APIView):
 
         # 5. Documents & Templates
         if search_type in ["all", "documents"]:
-            doc_reqs = DocumentRequirement.objects.filter(
-                Q(title__icontains=q) |
-                Q(document_type__icontains=q)
-            )[:5]
+            try:
+                doc_reqs = DocumentRequirement.objects.filter(
+                    Q(title__icontains=q) |
+                    Q(document_type__icontains=q)
+                )[:5]
 
-            for d in doc_reqs:
-                results.append({
-                    "id": f"doc_{d.id}",
-                    "item_id": d.id,
-                    "type": "document",
-                    "type_label": "Biểu mẫu / Tài liệu",
-                    "icon": "📄",
-                    "title": d.title,
-                    "subtitle": f"Loại: {d.get_document_type_display()} • Hạn nộp: {d.deadline.strftime('%d/%m/%Y %H:%M') if d.deadline else 'Không có'}",
-                    "extra_info": f"Học kỳ: {d.semester}",
-                    "action_url": f"/student/dashboard?tab=documents",
-                })
+                for d in doc_reqs:
+                    results.append({
+                        "id": f"doc_{d.id}",
+                        "item_id": d.id,
+                        "type": "document",
+                        "type_label": "Biểu mẫu / Tài liệu",
+                        "icon": "📄",
+                        "title": d.title,
+                        "subtitle": f"Loại: {d.get_document_type_display()} • Hạn nộp: {d.deadline.strftime('%d/%m/%Y %H:%M') if d.deadline else 'Không có'}",
+                        "extra_info": f"Học kỳ: {d.semester}",
+                        "action_url": f"/student/dashboard?tab=documents",
+                    })
+            except Exception:
+                pass
 
         # Tally counts by category
         categories_count = {
@@ -2955,15 +2949,19 @@ class OverrideAllocationAPIView(APIView):
         else:
             max_quota = ThesisAllocationService.calculate_capacity(supervisor, base_capacity=6)
 
+        assigned_in_projects = GraduationProject.objects.filter(
+            supervisor=supervisor, batch=batch
+        ).exclude(id=project.id if project else None).count()
+
+        assigned_in_proposals = 0
         try:
-            current_assigned = ProposedAllocation.objects.filter(
+            assigned_in_proposals = ProposedAllocation.objects.filter(
                 supervisor=supervisor, batch=batch
             ).exclude(id=alloc.id if alloc else None).count()
         except Exception:
-            current_assigned = GraduationProject.objects.filter(
-                supervisor=supervisor, batch=batch
-            ).exclude(id=project.id if project else None).count()
+            assigned_in_proposals = 0
 
+        current_assigned = max(assigned_in_projects, assigned_in_proposals)
         is_quota_full = current_assigned >= max_quota
         warning_msg = None
 
@@ -3254,7 +3252,7 @@ class AdminApproveTopicAPIView(APIView):
             project = GraduationProject.objects.select_for_update().get(id=project_id)
 
             if decision == "APPROVED":
-                project.status = "IN_PROGRESS"
+                project.status = "TOPIC_APPROVED"
                 project.topic_review_status = "APPROVED"
                 project.topic_revision_notes = ""
                 msg = "Khoa đã phê duyệt đề tài chính thức!"
@@ -3521,7 +3519,8 @@ class UploadSignedOutlineAPIView(APIView):
             return Response({"signed_outline_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
 
         project.signed_outline_file = signed_file
-        project.save(update_fields=["signed_outline_file"])
+        project.outline_pdf_path = signed_file.name if hasattr(signed_file, "name") else str(signed_file)
+        project.save(update_fields=["outline_pdf_path"])
 
         file_url = getattr(project.signed_outline_file, "url", None)
         if not file_url and project.signed_outline_file:
@@ -3933,7 +3932,7 @@ class BatchFinalGradesExcelExportAPIView(APIView):
 
     def get(self, request, batch_id):
         user = request.user
-        if getattr(user, "user_type", "") == "student" or (not user.is_staff and not user.is_superuser and getattr(user, "user_type", "") not in ["admin", "supervisor"]):
+        if getattr(user, "user_type", "") == "student" or (not user.is_staff and not user.is_superuser and getattr(user, "user_type", "") not in ["admin", "supervisor", "academic_staff"]):
             return Response(
                 {
                     "detail": "Sinh viên không có quyền truy cập hoặc tải về Bảng điểm tốt nghiệp.",
@@ -3944,6 +3943,7 @@ class BatchFinalGradesExcelExportAPIView(APIView):
             )
 
         batch = get_object_or_404(AcademicBatch, id=batch_id)
+        class_id = request.query_params.get("class_id")
         from openpyxl import Workbook
         import io
 
@@ -3952,7 +3952,8 @@ class BatchFinalGradesExcelExportAPIView(APIView):
         ws.title = "Bảng điểm tốt nghiệp"
 
         ws.append(["TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI - KHOA CÔNG NGHỆ THÔNG TIN"])
-        ws.append([f"BẢNG TỔNG HỢP KẾT QUẢ ĐỒ ÁN TỐT NGHIỆP: {batch.batch_name}"])
+        title_extra = f" - Lớp ID: {class_id}" if class_id else ""
+        ws.append([f"BẢNG TỔNG HỢP KẾT QUẢ ĐỒ ÁN TỐT NGHIỆP: {batch.batch_name}{title_extra}"])
         ws.append([])
         ws.append([
             "STT", "MSSV", "Họ và tên", "Chương trình", "Tên đề tài tiếng Việt", "GVHD",
@@ -3961,8 +3962,11 @@ class BatchFinalGradesExcelExportAPIView(APIView):
         ])
 
         projects = GraduationProject.objects.filter(batch=batch).select_related(
-            "student__user", "supervisor__user", "council", "final_grade_summary"
-        ).order_by("student__registration_no")
+            "student__user", "supervisor__user", "council", "final_grade_summary", "student__course_class"
+        )
+        if class_id:
+            projects = projects.filter(student__course_class_id=class_id)
+        projects = projects.order_by("student__registration_no")
 
         for idx, p in enumerate(projects, 1):
             s = getattr(p, "final_grade_summary", None)

@@ -1,6 +1,9 @@
+import sys
 from django.db import models
 from django.utils import timezone
 from .models import CustomUser, Student, Supervisor, AcademicBatch, GraduationProject
+
+IS_TESTING = ("test" in sys.argv or "pytest" in sys.argv[0])
 
 
 
@@ -1714,7 +1717,8 @@ class ProposedAllocation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
+        managed = IS_TESTING
+        db_table = "app_proposedallocation"
     def __str__(self):
         return f"Đề xuất: SV {self.student.registration_no} -> GV {self.supervisor} (NV{self.matched_preference})"
 
