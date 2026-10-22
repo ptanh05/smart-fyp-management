@@ -88,8 +88,11 @@ export function getProjectStageNumber(project: any): number {
       ? Number(project.reviewer_score)
       : null;
 
-  // Giai đoạn 6: GVHD đã đánh giá bảo vệ hoặc đủ điều kiện hoặc DEFENSE_READY / PASSED / FAILED / DEFENDING
+  // Giai đoạn 6: Đã có Hội đồng / Lịch bảo vệ, hoặc GVHD đã đánh giá bảo vệ / đủ điều kiện / DEFENSE_READY / DEFENDING / PASSED / FAILED
   if (
+    project.schedule_slot ||
+    Boolean(project.council_name) ||
+    Boolean(project.council) ||
     project.is_eligible_for_defense ||
     project.supervisor_defense_confirmed ||
     supervisorScore !== null ||

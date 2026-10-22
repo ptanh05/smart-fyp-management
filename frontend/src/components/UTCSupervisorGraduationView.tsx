@@ -64,7 +64,6 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const stage1Projects = projectsByStage[1] || [];
   const stage4Projects = projectsByStage[4] || [];
   const stage5Projects = projectsByStage[5] || [];
-  const stage6Projects = projectsByStage[6] || [];
 
   // Outline reviews for MY OWN students must follow the same stage rule: only show
   // students currently in GĐ 3. Reviews assigned for students of other supervisors
@@ -110,6 +109,27 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const [evalScore, setEvalScore] = useState('');
   const [evalFeedback, setEvalFeedback] = useState('');
   const [isEligible, setIsEligible] = useState(true);
+  const [evalFilter, setEvalFilter] = useState<'ALL' | 'PENDING' | 'ELIGIBLE'>('ALL');
+
+  const countEvalPending = useMemo(() => {
+    return projects.filter((p) => !p.is_eligible_for_defense && (p.supervisor_score === null || p.supervisor_score === undefined)).length;
+  }, [projects]);
+
+  const countEvalEligible = useMemo(() => {
+    return projects.filter((p) => Boolean(p.is_eligible_for_defense)).length;
+  }, [projects]);
+
+  const evaluatableProjects = useMemo(() => {
+    return projects.filter((p) => {
+      if (evalFilter === 'PENDING') {
+        return !p.is_eligible_for_defense && (p.supervisor_score === null || p.supervisor_score === undefined);
+      }
+      if (evalFilter === 'ELIGIBLE') {
+        return Boolean(p.is_eligible_for_defense);
+      }
+      return true;
+    });
+  }, [projects, evalFilter]);
 
   // Reviewer Score Modal
   const [showReviewerModal, setShowReviewerModal] = useState(false);
@@ -647,7 +667,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           { key: 'outlines' as SupervisorGradTab, label: `GĐ 3: Duyệt Đề cương & Ký số (${stageCounts[3] || 0} SV)`, icon: '📄' },
           { key: 'weekly' as SupervisorGradTab, label: `GĐ 4: Báo cáo tuần (${stageCounts[4] || 0} SV)`, icon: '📅' },
           { key: 'supervision' as SupervisorGradTab, label: `GĐ 5: Task board & Nhật ký (${stageCounts[5] || 0} SV)`, icon: '📋' },
-          { key: 'eval' as SupervisorGradTab, label: `GĐ 6: Đánh giá & Bảo vệ (${stageCounts[6] || 0} SV)`, icon: '🏆' },
+          { key: 'eval' as SupervisorGradTab, label: `GĐ 6: Xét ĐK & Đánh Giá (${countEvalEligible}/${projects.length} Đủ ĐK)`, icon: '🏆' },
           { key: 'reviewer' as SupervisorGradTab, label: `Đồ án Phản biện (${reviewerProjects.length})`, icon: '🔍' },
           { key: 'deferrals' as SupervisorGradTab, label: `Đơn Bảo lưu (${deferralRequests.length})`, icon: '📋' },
         ].map((tab) => (
@@ -1005,6 +1025,32 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       </div>
                     </div>
 
+                    {/* Condition Status & Defense Eligibility */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-900/80 border border-slate-800/80">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-400 font-medium">Xét ĐK bảo vệ:</span>
+                        {p.is_eligible_for_defense ? (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <span>✓</span> ĐỦ ĐIỀU KIỆN BẢO VỆ
+                          </span>
+                        ) : p.supervisor_score !== null && p.supervisor_score !== undefined ? (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            Điểm GVHD: {p.supervisor_score}đ (Chưa duyệt ĐK)
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                            ⏳ Chưa xét điều kiện
+                          </span>
+                        )}
+                      </div>
+
+                      {p.supervisor_score !== null && p.supervisor_score !== undefined && (
+                        <span className="text-xs font-bold text-emerald-400">
+                          Điểm GVHD: {p.supervisor_score}/10đ
+                        </span>
+                      )}
+                    </div>
+
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-900 text-xs text-slate-400">
                       <div className="flex items-center gap-3">
                         <span>🗓️ <b>{meetingsCount}</b> buổi họp</span>
@@ -1015,13 +1061,32 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         )}
                       </div>
 
-                      <button
-                        onClick={() => handleOpenSupervision(p)}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
-                      >
-                        <span>📋</span>
-                        <span>Quản lý nhiệm vụ & Nhật ký ➔</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedProject(p);
+                            setEvalScore(p.supervisor_score !== null && p.supervisor_score !== undefined ? p.supervisor_score.toString() : '');
+                            setEvalFeedback(p.supervisor_feedback || '');
+                            setIsEligible(p.is_eligible_for_defense ?? true);
+                            setShowEvalModal(true);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow transition flex items-center gap-1.5 shadow-emerald-600/30"
+                          title="Xét điều kiện sinh viên bảo vệ và chấm điểm hướng dẫn (40%)"
+                        >
+                          <span>⭐</span>
+                          <span>{p.is_eligible_for_defense ? 'Sửa ĐK & Điểm GVHD' : 'Xét Điều Kiện & Chấm Điểm'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSupervision(p)}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                        >
+                          <span>📋</span>
+                          <span>Nhiệm vụ & Nhật ký ➔</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1031,65 +1096,148 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         </div>
       )}
 
-      {/* Tab 6: Final Supervisor Evaluation */}
+      {/* Tab 6: Final Supervisor Evaluation & Defense Eligibility */}
       {activeTab === 'eval' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-bold text-base text-slate-100">Đánh giá Sơ khảo & Chấm điểm GVHD (40%) - Giai đoạn 6 ({stage6Projects.length} SV)</h3>
-            <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
-              Hiện có {stageCounts[6] || 0} sinh viên ở giai đoạn này
-            </span>
-          </div>
-          {stage6Projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào ở Giai đoạn 6.</div>
-          ) : (
-          <div className="space-y-3">
-            {stage6Projects.map((p) => (
-              <div key={p.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-slate-100">{p.student_name}</span>
-                    <span className="text-xs text-slate-400">({p.student_reg_no})</span>
-                    {p.is_eligible_for_defense && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
-                        ĐỦ ĐIỀU KIỆN BẢO VỆ
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-300"><b>Đề tài:</b> {p.topic_title_vi}</p>
-                  <div className="flex items-center gap-2 pt-0.5">
-                    <span className="text-xs text-emerald-400 font-semibold">
-                      Điểm GVHD: {p.supervisor_score !== null ? `${p.supervisor_score} / 10đ` : 'Chưa chấm'}
-                    </span>
-                    {p.supervisor_score !== null && (
-                      p.supervisor_score_is_draft ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                          BẢN NHÁP
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          CHÍNH THỨC
-                        </span>
-                      )
-                    )}
-                  </div>
-                </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+                <span>🏆</span>
+                <span>Giai Đoạn 6: Xét Điều Kiện Bảo Vệ & Đánh Giá Điểm GVHD (40%)</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Theo Quy chế UTC: Giảng viên hướng dẫn trực tiếp xét điều kiện cho sinh viên được ra bảo vệ và chấm điểm hướng dẫn (40% điểm tổng kết).
+              </p>
+            </div>
 
-                <button
-                  onClick={() => {
-                    setSelectedProject(p);
-                    setEvalScore(p.supervisor_score !== null ? p.supervisor_score.toString() : '');
-                    setEvalFeedback(p.supervisor_feedback || '');
-                    setIsEligible(p.is_eligible_for_defense);
-                    setShowEvalModal(true);
-                  }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition shadow-md shadow-emerald-600/30"
-                >
-                  {p.supervisor_score !== null ? 'Sửa điểm GVHD' : 'Chấm điểm GVHD'}
-                </button>
-              </div>
-            ))}
+            {/* Filter buttons */}
+            <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setEvalFilter('ALL')}
+                className={`px-3 py-1 rounded-md font-semibold transition ${
+                  evalFilter === 'ALL' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Tất cả ({projects.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEvalFilter('PENDING')}
+                className={`px-3 py-1 rounded-md font-semibold transition ${
+                  evalFilter === 'PENDING' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Chờ xét ĐK ({countEvalPending})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEvalFilter('ELIGIBLE')}
+                className={`px-3 py-1 rounded-md font-semibold transition ${
+                  evalFilter === 'ELIGIBLE' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Đã đủ điều kiện ({countEvalEligible})
+              </button>
+            </div>
           </div>
+
+          {evaluatableProjects.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">
+              Không có sinh viên nào phù hợp với bộ lọc đã chọn.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {evaluatableProjects.map((p) => {
+                const totalTasks = p.tasks?.length || 0;
+                const completedTasks = p.tasks?.filter((t: any) => t.is_completed).length || 0;
+                const percent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                const meetingsCount = p.meeting_logs?.length || 0;
+
+                return (
+                  <div
+                    key={p.id}
+                    className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-blue-400">{p.student_reg_no}</span>
+                        <span className="font-bold text-sm text-slate-100">{p.student_name}</span>
+                        <span className="text-xs text-slate-400">({p.student_class})</span>
+
+                        {p.is_eligible_for_defense ? (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-1">
+                            <span>✓</span> ĐỦ ĐIỀU KIỆN BẢO VỆ
+                          </span>
+                        ) : p.supervisor_score !== null && p.supervisor_score !== undefined ? (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                            Chưa xác nhận bảo vệ
+                          </span>
+                        ) : (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-medium">
+                            Chưa xét điều kiện
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-slate-300 truncate">
+                        <b>Đề tài:</b> {p.topic_title_vi}
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-0.5">
+                        <span>Tiến độ task: <b className="text-blue-400">{completedTasks}/{totalTasks}</b> ({percent}%)</span>
+                        <span>Nhật ký: <b className="text-slate-300">{meetingsCount}</b> buổi</span>
+                        <span className="text-emerald-400 font-semibold">
+                          Điểm GVHD: {p.supervisor_score !== null && p.supervisor_score !== undefined ? `${p.supervisor_score} / 10đ` : 'Chưa chấm'}
+                        </span>
+                        {p.supervisor_score !== null && (
+                          p.supervisor_score_is_draft ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              BẢN NHÁP
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              CHÍNH THỨC
+                            </span>
+                          )
+                        )}
+                      </div>
+
+                      {p.supervisor_feedback && (
+                        <p className="text-xs text-slate-400 italic bg-slate-900/60 p-2 rounded border border-slate-800/80">
+                          Nhận xét: "{p.supervisor_feedback}"
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenSupervision(p)}
+                        className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
+                      >
+                        Xem nhiệm vụ
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedProject(p);
+                          setEvalScore(p.supervisor_score !== null && p.supervisor_score !== undefined ? p.supervisor_score.toString() : '');
+                          setEvalFeedback(p.supervisor_feedback || '');
+                          setIsEligible(p.is_eligible_for_defense ?? true);
+                          setShowEvalModal(true);
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-md shadow-emerald-600/30 flex items-center gap-1.5"
+                      >
+                        <span>⭐</span>
+                        <span>{p.is_eligible_for_defense ? 'Sửa ĐK & Điểm GVHD' : 'Xét Điều Kiện & Chấm Điểm'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
@@ -1270,11 +1418,51 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           onClick={evalGuard.handleOverlayClick}
         >
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
-            <h3 className="text-base font-bold text-slate-100 mb-2">Phiếu Đánh giá của Giảng viên hướng dẫn</h3>
-            <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
+            <h3 className="text-base font-bold text-slate-100 mb-1">Phiếu Đánh Giá Sơ Khảo & Xét Điều Kiện Bảo Vệ ĐATN</h3>
+            <p className="text-xs text-slate-400 mb-3">{selectedProject?.student_name} ({selectedProject?.student_reg_no}) - {selectedProject?.topic_title_vi}</p>
+            
+            <div className="p-2.5 rounded-lg bg-blue-950/30 border border-blue-500/20 text-[11px] text-blue-200 mb-3">
+              💡 <b>Quy chế UTC:</b> Giảng viên hướng dẫn trực tiếp đánh giá quá trình và quyết định sinh viên có đủ điều kiện bảo vệ hay không. Điểm GVHD chiếm <b>40%</b> điểm tổng kết.
+            </div>
+
             <form onSubmit={(e) => { e.preventDefault(); handleSupervisorEvaluation(false); }} className="space-y-3">
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <label className="block text-xs font-bold text-slate-200">
+                  ⚖️ Quyết định Xét Điều Kiện Bảo Vệ ĐATN:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEligible(true)}
+                    className={`p-2.5 rounded-lg border text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      isEligible
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-md shadow-emerald-500/20'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="text-base">✅</span>
+                    <span>ĐỦ ĐIỀU KIỆN BẢO VỆ</span>
+                    <span className="text-[10px] font-normal opacity-80">Cho phép bảo vệ trước HĐ</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsEligible(false)}
+                    className={`p-2.5 rounded-lg border text-xs font-bold transition flex flex-col items-center gap-1 ${
+                      !isEligible
+                        ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-md shadow-rose-500/20'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="text-base">❌</span>
+                    <span>CHƯA ĐỦ ĐIỀU KIỆN</span>
+                    <span className="text-[10px] font-normal opacity-80">Bảo lưu / Hoãn sang đợt sau</span>
+                  </button>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Điểm hướng dẫn (Thang 10, tối đa 10.0đ)</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Điểm hướng dẫn (Thang 10, hệ số 40%, tối đa 10.0đ)</label>
                 <input
                   type="number"
                   step="0.1"
@@ -1286,18 +1474,6 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   onChange={(e) => setEvalScore(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
                 />
-              </div>
-
-              <div>
-                <label className="flex items-center gap-2 cursor-pointer py-1">
-                  <input
-                    type="checkbox"
-                    checked={isEligible}
-                    onChange={(e) => setIsEligible(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700"
-                  />
-                  <span className="text-xs font-bold text-emerald-400">Đồng ý cho sinh viên bảo vệ trước Hội đồng</span>
-                </label>
               </div>
 
               <div>
@@ -1434,12 +1610,30 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                 </h4>
               </div>
 
-              <button
-                onClick={supervisionGuard.requestClose}
-                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedProject(supervisionProject);
+                    setEvalScore(supervisionProject?.supervisor_score !== null && supervisionProject?.supervisor_score !== undefined ? supervisionProject.supervisor_score.toString() : '');
+                    setEvalFeedback(supervisionProject?.supervisor_feedback || '');
+                    setIsEligible(supervisionProject?.is_eligible_for_defense ?? true);
+                    setShowEvalModal(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-emerald-600/30"
+                  title="Xét điều kiện bảo vệ và chấm điểm hướng dẫn"
+                >
+                  <span>⭐</span>
+                  <span>{supervisionProject?.is_eligible_for_defense ? 'Sửa ĐK & Điểm GVHD' : 'Xét ĐK & Chấm Điểm'}</span>
+                </button>
+
+                <button
+                  onClick={supervisionGuard.requestClose}
+                  className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Sub Tabs */}

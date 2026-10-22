@@ -9,6 +9,49 @@ import './UTCStudentGraduationView.css';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
 
 
+const formatDateVN = (dateStr?: string | null) => {
+  if (!dateStr) return 'Chưa công bố';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+};
+
+const getRoleBadgeStyle = (role: string) => {
+  switch (role) {
+    case 'CHAIR':
+      return {
+        badge: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
+        avatarBg: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
+      };
+    case 'SECRETARY':
+      return {
+        badge: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30',
+        avatarBg: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30',
+      };
+    case 'EXTERNAL_MEMBER':
+      return {
+        badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+        avatarBg: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+      };
+    default:
+      return {
+        badge: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+        avatarBg: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+      };
+  }
+};
+
+
 export interface UTCStudentGraduationViewProps {
   initialTab?: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade';
   onSubtabChange?: (tab: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => void;
@@ -1717,98 +1760,368 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         </div>
       )}
 
-      {/* Tab 6: Final Grade Summary */}
-      {activeTab === 'grade' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6 shadow-xl max-w-3xl">
-          <div>
-            <h3 className="text-lg font-bold text-slate-100">Bảng Điểm Tổng kết Đồ án Tốt nghiệp</h3>
-            <p className="text-xs text-slate-400">Tính toán tự động theo Quy chế tín chỉ UTC (40% GVHD + 20% GVPB + 40% Hội đồng)</p>
-          </div>
+      {/* Tab 6: Final Grade & Defense Schedule */}
+      {activeTab === 'grade' && (() => {
+        const scheduleSlot = projectData?.schedule_slot;
+        const councilMembers = Array.isArray(projectData?.council_members) ? projectData.council_members : [];
+        const councilName = projectData?.council_name || 'Hội đồng Bảo vệ ĐATN';
+        const defenseDate = scheduleSlot?.slot_date || projectData?.session_date;
+        const defenseRoom = scheduleSlot?.room || projectData?.defense_room;
+        const sessionTime = scheduleSlot?.session_time || projectData?.session_time;
+        const slotOrder = scheduleSlot?.order_number;
+        const timeSlotStr = (scheduleSlot?.start_time && scheduleSlot?.end_time)
+          ? `${scheduleSlot.start_time} - ${scheduleSlot.end_time}`
+          : (sessionTime || 'Theo thông báo của HĐ');
+        const hasSchedule = Boolean(scheduleSlot || projectData?.council_name || projectData?.session_date);
 
-          {projectData?.final_grade ? (
-            <div className="space-y-6">
-              {/* Component Scores */}
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-400">Điểm GVHD (40%)</span>
-                  <p className="text-2xl font-bold text-emerald-400 mt-1">
-                    {projectData.final_grade.supervisor_score !== null ? projectData.final_grade.supervisor_score : '-'}
-                  </p>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-400">Điểm GVPB (20%)</span>
-                  <p className="text-2xl font-bold text-indigo-400 mt-1">
-                    {projectData.final_grade.reviewer_score !== null ? projectData.final_grade.reviewer_score : '-'}
-                  </p>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-400">Điểm Hội đồng (40%)</span>
-                  <p className="text-2xl font-bold text-blue-400 mt-1">
-                    {projectData.final_grade.council_avg_score !== null ? projectData.final_grade.council_avg_score : '-'}
-                  </p>
-                </div>
-              </div>
+        return (
+          <div className="space-y-6 max-w-4xl">
+            {/* Header Banner */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
 
-              {/* Total Final Score Card */}
-              <div className="bg-gradient-to-r from-blue-900/40 to-slate-900 p-6 rounded-xl border border-blue-500/30 flex items-center justify-between">
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <span className="text-xs text-blue-300 font-semibold uppercase">Điểm Tổng kết cuối cùng</span>
-                  <div className="flex items-baseline gap-3 mt-1">
-                    <span className="text-4xl font-extrabold text-white">
-                      {projectData.final_grade.final_score_10 !== null ? projectData.final_grade.final_score_10 : '-'}
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                      Giai đoạn 6 / 6
                     </span>
-                    <span className="text-base text-slate-300">/ 10</span>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Quy đổi Thang 4: <b>{projectData.final_grade.final_score_4 !== null ? projectData.final_grade.final_score_4 : '-'}</b>
-                  </p>
-                </div>
-
-                <div className="text-right space-y-1">
-                  <span className="text-3xl font-black text-amber-400">
-                    {projectData.final_grade.final_letter_grade || '-'}
-                  </span>
-                  <p className="text-xs font-semibold text-slate-300">
-                    Xếp loại: {projectData.final_grade.classification || 'Đang cập nhật'}
-                  </p>
-                  <div>
-                    {projectData.final_grade.is_passed ? (
-                      <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold">
-                        ĐẠT YÊU CẦU
+                    {projectData?.is_currently_defending ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                        Đang trong phiên bảo vệ
+                      </span>
+                    ) : projectData?.final_grade?.is_passed ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <span>✓</span> Đã hoàn thành bảo vệ
+                      </span>
+                    ) : projectData?.is_eligible_for_defense ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Đủ điều kiện bảo vệ
                       </span>
                     ) : (
-                      <span className="px-3 py-1 rounded-full bg-slate-800 text-slate-400 text-xs">
-                        Đang bảo vệ
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                        Chuẩn bị bảo vệ
                       </span>
                     )}
                   </div>
+                  <h3 className="text-xl font-extrabold text-white tracking-tight">
+                    Lịch Bảo Vệ Đồ Án Tốt Nghiệp & Hội Đồng Chấm Thi
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                    Thông tin chi tiết về phòng bảo vệ, ca thi, thứ tự bảo vệ và danh sách Hội đồng chấm theo Quy chế Đào tạo UTC.
+                  </p>
                 </div>
+
+                <div className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowDeferralModal(true)}
+                    className="utc-btn utc-btn-deferral"
+                  >
+                    <span>📝</span>
+                    <span>Đơn xin bảo lưu</span>
+                    <span className="utc-deferral-count">{deferralRequests.length}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Defense Schedule Highlight Card */}
+            {hasSchedule ? (
+              <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/40 border border-blue-500/30 rounded-2xl p-6 shadow-xl space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-2xl text-blue-400">
+                      🏛️
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-blue-400 uppercase tracking-wide">
+                        Hội đồng phân bổ
+                      </span>
+                      <h4 className="text-base font-bold text-white">
+                        {councilName}
+                      </h4>
+                    </div>
+                  </div>
+
+                  {slotOrder && (
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-500/20 border border-blue-500/40 self-start sm:self-auto">
+                      <span className="text-xs text-blue-300 font-medium">Thứ tự trình bày:</span>
+                      <span className="text-sm font-extrabold text-blue-100">
+                        Lượt số #{slotOrder}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4 Essential Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80">
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5 mb-1">
+                      <span>📅</span> Ngày bảo vệ
+                    </span>
+                    <p className="text-base font-bold text-white">
+                      {formatDateVN(defenseDate)}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80">
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5 mb-1">
+                      <span>⏰</span> Khung giờ bảo vệ
+                    </span>
+                    <p className="text-base font-bold text-emerald-400">
+                      {timeSlotStr}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80">
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5 mb-1">
+                      <span>📍</span> Địa điểm / Phòng
+                    </span>
+                    <p className="text-base font-bold text-amber-400">
+                      {defenseRoom || 'Chưa công bố'}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80">
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5 mb-1">
+                      <span>🌅</span> Buổi / Ca bảo vệ
+                    </span>
+                    <p className="text-base font-bold text-indigo-300">
+                      {sessionTime || 'Ca sáng (08:00)'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Instruction Banner */}
+                <div className="p-3.5 rounded-xl bg-blue-950/30 border border-blue-500/20 text-xs text-blue-200 flex items-start gap-2.5">
+                  <span className="text-base leading-none">💡</span>
+                  <p className="leading-relaxed">
+                    <b>Hướng dẫn bảo vệ:</b> Sinh viên có mặt tại phòng bảo vệ trước giờ quy định <b>15 phút</b>, trang phục lịch sự, chuẩn bị sẵn Slide báo cáo (10–15 phút), bản in báo cáo tóm tắt và sản phẩm phần mềm chạy thử nghiệm.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-3">
+                <div className="w-14 h-14 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-3xl">
+                  ⏳
+                </div>
+                <h4 className="text-base font-bold text-slate-200">
+                  Lịch bảo vệ chi tiết đang được hoàn tất
+                </h4>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Khoa và Bộ môn đang tổng hợp danh sách sinh viên đủ điều kiện và sắp xếp khung giờ bảo vệ theo từng Hội đồng. Lịch chính thức sẽ hiển thị tại đây ngay khi công bố.
+                </p>
+              </div>
+            )}
+
+            {/* Council Members List Card */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div>
+                  <h4 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                    <span>👥</span> Thành Viên Hội Đồng Chấm Thi
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Hội đồng chấm bảo vệ trực tiếp và hỏi đáp chuyên môn với sinh viên
+                  </p>
+                </div>
+                {councilMembers.length > 0 && (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300">
+                    {councilMembers.length} thành viên
+                  </span>
+                )}
               </div>
 
-              {/* Deferral Quick Action Banner in Tab 6 */}
-              <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-slate-950 border border-slate-800">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-200">Đơn Xin Hoãn / Bảo Lưu Đồ Án Tốt Nghiệp</h4>
-                  <p className="text-xs text-slate-400">Trường hợp chưa đủ điều kiện bảo vệ hoặc lý do học vụ cần bảo lưu kết quả sang đợt sau.</p>
+              {councilMembers.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {councilMembers.map((member: any) => {
+                    const roleStyle = getRoleBadgeStyle(member.role);
+                    return (
+                      <div
+                        key={member.id}
+                        className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 hover:border-slate-700 transition flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${roleStyle.avatarBg}`}>
+                            {member.name ? member.name.charAt(0) : 'T'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-white truncate">
+                              {member.display_name || member.name}
+                            </p>
+                            <p className="text-xs text-slate-400 truncate">
+                              {member.department || member.external_institution || 'Trường ĐH Giao thông Vận tải'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 ${roleStyle.badge}`}>
+                          {member.role_display}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowDeferralModal(true)}
-                  className="utc-btn utc-btn-deferral"
-                >
-                  <span>📝</span>
-                  <span>Đơn xin bảo lưu</span>
-                  <span className="utc-deferral-count">{deferralRequests.length}</span>
-                </button>
+              ) : (
+                <div className="py-6 text-center text-xs text-slate-500 italic">
+                  Chưa có danh sách thành viên hội đồng được phân công.
+                </div>
+              )}
+            </div>
+
+            {/* Pre-defense Evaluation Scores (GVHD & GVPB) */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+              <div>
+                <h4 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                  <span>📋</span> Đánh Giá Sơ Khảo Trước Bảo Vệ
+                </h4>
+                <p className="text-xs text-slate-400">
+                  Ý kiến nhận xét và điểm số của Giảng viên hướng dẫn & Giảng viên phản biện
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Supervisor card */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400">Giảng viên hướng dẫn</span>
+                      <p className="text-sm font-bold text-emerald-400">
+                        {projectData?.supervisor?.full_name || 'Chưa phân công'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-slate-500">Điểm hướng dẫn</span>
+                      <p className="text-2xl font-extrabold text-emerald-400">
+                        {projectData?.supervisor_score !== null && projectData?.supervisor_score !== undefined
+                          ? Number(projectData.supervisor_score).toFixed(1)
+                          : '-'}
+                      </p>
+                    </div>
+                  </div>
+                  {projectData?.supervisor_feedback && (
+                    <p className="text-xs text-slate-300 bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 italic">
+                      "{projectData.supervisor_feedback}"
+                    </p>
+                  )}
+                </div>
+
+                {/* Reviewer card */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400">Giảng viên phản biện</span>
+                      <p className="text-sm font-bold text-indigo-400">
+                        {projectData?.reviewer?.full_name || <span className="text-slate-500 italic">Đang phân bổ...</span>}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-slate-500">Điểm phản biện</span>
+                      <p className="text-2xl font-extrabold text-indigo-400">
+                        {projectData?.reviewer_score !== null && projectData?.reviewer_score !== undefined
+                          ? Number(projectData.reviewer_score).toFixed(1)
+                          : '-'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="text-slate-400">Kết luận phản biện:</span>
+                    <span className="font-semibold text-slate-200">
+                      {projectData?.reviewer_verdict_display || (projectData?.reviewer_score !== null ? 'Cho phép bảo vệ' : 'Chờ đánh giá')}
+                    </span>
+                  </div>
+                  {projectData?.reviewer_feedback && (
+                    <p className="text-xs text-slate-300 bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 italic">
+                      "{projectData.reviewer_feedback}"
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-12 text-slate-400 text-sm">
-              Chưa có dữ liệu điểm tổng kết cho đồ án của bạn.
+
+            {/* Final Grade Summary Card */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+              <div>
+                <h4 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                  <span>🏆</span> Bảng Điểm Tổng Kết Đồ Án Tốt Nghiệp
+                </h4>
+                <p className="text-xs text-slate-400">
+                  Tính toán tự động theo Quy chế tín chỉ UTC (40% GVHD + 20% GVPB + 40% Hội đồng)
+                </p>
+              </div>
+
+              {projectData?.final_grade ? (
+                <div className="space-y-5">
+                  {/* 3 Component Scores */}
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                      <span className="text-xs text-slate-400 font-medium">Điểm GVHD (40%)</span>
+                      <p className="text-2xl font-extrabold text-emerald-400 mt-1">
+                        {projectData.final_grade.supervisor_score !== null ? Number(projectData.final_grade.supervisor_score).toFixed(1) : '-'}
+                      </p>
+                    </div>
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                      <span className="text-xs text-slate-400 font-medium">Điểm GVPB (20%)</span>
+                      <p className="text-2xl font-extrabold text-indigo-400 mt-1">
+                        {projectData.final_grade.reviewer_score !== null ? Number(projectData.final_grade.reviewer_score).toFixed(1) : '-'}
+                      </p>
+                    </div>
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                      <span className="text-xs text-slate-400 font-medium">Điểm Hội đồng (40%)</span>
+                      <p className="text-2xl font-extrabold text-blue-400 mt-1">
+                        {projectData.final_grade.council_avg_score !== null ? Number(projectData.final_grade.council_avg_score).toFixed(2) : '-'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Total Final Score Card */}
+                  <div className="bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-slate-900 p-6 rounded-2xl border border-blue-500/30 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-blue-300 font-semibold uppercase tracking-wider">
+                        Điểm Tổng kết cuối cùng
+                      </span>
+                      <div className="flex items-baseline gap-3 mt-1.5">
+                        <span className="text-4xl font-black text-white">
+                          {projectData.final_grade.final_score_10 !== null ? Number(projectData.final_grade.final_score_10).toFixed(2) : '-'}
+                        </span>
+                        <span className="text-base text-slate-300 font-medium">/ 10</span>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-1">
+                        Quy đổi Thang 4: <b className="text-white font-bold">{projectData.final_grade.final_score_4 !== null ? Number(projectData.final_grade.final_score_4).toFixed(2) : '-'}</b>
+                      </p>
+                    </div>
+
+                    <div className="text-right space-y-1">
+                      <span className="text-3xl font-black text-amber-400">
+                        {projectData.final_grade.final_letter_grade || '-'}
+                      </span>
+                      <p className="text-xs font-semibold text-slate-300">
+                        Xếp loại: {projectData.final_grade.classification || 'Đang cập nhật'}
+                      </p>
+                      <div className="pt-1">
+                        {projectData.final_grade.is_passed ? (
+                          <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold">
+                            ✓ ĐẠT YÊU CẦU
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full bg-slate-800 text-slate-400 text-xs font-semibold">
+                            Đang bảo vệ
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 rounded-xl bg-slate-950/60 border border-slate-800/80 text-slate-400 text-xs">
+                  Chưa có dữ liệu điểm tổng kết cuối cùng. Điểm sẽ hiển thị sau khi Hội đồng hoàn tất phiên chấm và ký biên bản.
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* Modal: Ghi chú & Nộp link kết quả nhiệm vụ của sinh viên */}
       {selectedTaskForNotes && (

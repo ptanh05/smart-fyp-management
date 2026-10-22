@@ -864,7 +864,11 @@ class StudentGraduationProjectAPIView(APIView):
             "reviewer__user",
             "council",
             "topic_category",
-            "final_grade_summary"
+            "final_grade_summary",
+            "schedule_slot",
+        ).prefetch_related(
+            "council__members__user",
+            "council__members__supervisor",
         ).first()
 
         if not project:
