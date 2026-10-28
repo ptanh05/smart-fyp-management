@@ -24,14 +24,14 @@ Nếu bạn muốn kiểm soát từng log terminal riêng lẻ:
 
 #### Terminal 1 — Backend (Port 8000):
 
-cd c:\Users\Admin\source\repos\smart-fyp-management\backend
+cd c:\Users\Admin\source\repos\smart-fyp\smart-fyp-management\backend
 python manage.py runserver 8000
 ```
 > *API kiểm tra:* `http://localhost:8000/app/health/` hoặc trang quản trị gốc `http://localhost:8000/admin/`
 
 #### Terminal 2 — Frontend (Port 3000):
 
-cd c:\Users\Admin\source\repos\smart-fyp-management\frontend
+cd c:\Users\Admin\source\repos\smart-fyp\smart-fyp-management\frontend
 npm run dev
 ```
 > *Truy cập trình duyệt:* [http://localhost:3000](http://localhost:3000)
@@ -42,14 +42,14 @@ npm run dev
 
 #### Terminal 3 — Backend Admin (Port 8001):
 
-cd c:\Users\Admin\source\repos\Smart-Fyp-Admin\backend
+cd c:\Users\Admin\source\repos\smart-fyp\Smart-Fyp-Admin\backend
 python manage.py runserver 8001
 
 > *API Backend Admin:* `http://localhost:8001/app/`
 
 #### Terminal 4 — Frontend Admin (Port 5174):
 
-cd c:\Users\Admin\source\repos\Smart-Fyp-Admin\frontend
+cd c:\Users\Admin\source\repos\smart-fyp\Smart-Fyp-Admin\frontend
 npm run dev
 
 > *Truy cập trình duyệt:* [http://localhost:5174](http://localhost:5174)

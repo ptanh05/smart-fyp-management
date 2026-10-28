@@ -427,6 +427,7 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
             "signed_outline_file_url",
             "supervisor_score",
             "supervisor_feedback",
+            "debt_credits",
             "is_eligible_for_defense",
             "supervisor_score_is_draft",
             "reviewer_score",

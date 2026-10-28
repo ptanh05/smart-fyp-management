@@ -65,25 +65,13 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const stage4Projects = projectsByStage[4] || [];
   const stage5Projects = projectsByStage[5] || [];
 
-  // Outline reviews for MY OWN students must follow the same stage rule: only show
-  // students currently in GĐ 3. Reviews assigned for students of other supervisors
-  // cannot have their stage resolved from my project list, so keep the active ones.
-  const stage3ProjectIds = useMemo(
-    () => new Set((projectsByStage[3] || []).map((p) => Number(p.id))),
-    [projectsByStage]
-  );
-  const ownProjectIds = useMemo(
-    () => new Set(projects.map((p) => Number(p.id))),
-    [projects]
-  );
-  const stage3OutlineReviews = useMemo(
+  // Outline reviews for Stage 2 (and any assigned review groups)
+  const filteredOutlineReviews = useMemo(
     () =>
       outlineReviews.filter((r) => {
-        const pid = Number(r.project);
-        if (ownProjectIds.has(pid)) return stage3ProjectIds.has(pid);
-        return !r.verdict || r.verdict === 'PENDING';
+        return Boolean(r.project);
       }),
-    [outlineReviews, stage3ProjectIds, ownProjectIds]
+    [outlineReviews]
   );
 
   // Sorting & Pagination for Students Table
@@ -171,10 +159,12 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const [savingTask, setSavingTask] = useState(false);
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
 
-  // Topic Confirmation Modal State (Phase 3)
+  // Topic Confirmation Modal State (GĐ 2: GVHD Thẩm định & Duyệt đề tài)
   const [selectedTopicProject, setSelectedTopicProject] = useState<any>(null);
   const [topicConfirmVi, setTopicConfirmVi] = useState('');
   const [topicConfirmEn, setTopicConfirmEn] = useState('');
+  const [topicConfirmDecision, setTopicConfirmDecision] = useState<'APPROVE' | 'REVISION'>('APPROVE');
+  const [topicConfirmNotes, setTopicConfirmNotes] = useState('');
   const [confirmingTopic, setConfirmingTopic] = useState(false);
   const [showTopicConfirmModal, setShowTopicConfirmModal] = useState(false);
 
@@ -435,6 +425,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     setSelectedTopicProject(project);
     setTopicConfirmVi(project.topic_title_vi || '');
     setTopicConfirmEn(project.topic_title_en || '');
+    setTopicConfirmDecision('APPROVE');
+    setTopicConfirmNotes(project.topic_revision_notes || '');
     setShowTopicConfirmModal(true);
   };
 
@@ -447,12 +439,17 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         project_id: selectedTopicProject.id,
         topic_title_vi: topicConfirmVi.trim(),
         topic_title_en: topicConfirmEn.trim(),
+        decision: topicConfirmDecision,
+        notes: topicConfirmNotes,
       });
-      alert('Đã xác nhận đề tài thành công! Chuyển trạng thái sang TOPIC_CONFIRMED.');
+      alert(topicConfirmDecision === 'APPROVE'
+        ? 'Đã thẩm định và DUYỆT ĐẠT đề tài thành công! Sinh viên chuyển sang bước hoàn thiện đề cương theo mẫu.'
+        : 'Đã gửi yêu cầu sinh viên chỉnh sửa hoặc chọn đề tài khác.'
+      );
       setShowTopicConfirmModal(false);
       fetchData();
     } catch (err: any) {
-      alert('Lỗi xác nhận đề tài: ' + (err.response?.data?.detail || err.message));
+      alert('Lỗi thẩm định đề tài: ' + (err.response?.data?.detail || err.message));
     } finally {
       setConfirmingTopic(false);
     }
@@ -662,14 +659,14 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Navigation Tabs (Aligned with 6 UTC Stages + Student Counts) */}
       <div className="flex flex-wrap gap-2 border-b border-slate-700/60 pb-3">
         {[
-          { key: 'students' as SupervisorGradTab, label: `GĐ 1: Đề tài & Phân công (${stageCounts[1] || 0} SV)`, icon: '🎓' },
-          { key: 'survey' as SupervisorGradTab, label: `GĐ 2: Khảo sát & Đề tài gợi ý (${stageCounts[2] || 0} SV)`, icon: '📝' },
-          { key: 'outlines' as SupervisorGradTab, label: `GĐ 3: Duyệt Đề cương & Ký số (${stageCounts[3] || 0} SV)`, icon: '📄' },
-          { key: 'weekly' as SupervisorGradTab, label: `GĐ 4: Báo cáo tuần (${stageCounts[4] || 0} SV)`, icon: '📅' },
-          { key: 'supervision' as SupervisorGradTab, label: `GĐ 5: Task board & Nhật ký (${stageCounts[5] || 0} SV)`, icon: '📋' },
-          { key: 'eval' as SupervisorGradTab, label: `GĐ 6: Xét ĐK & Đánh Giá (${countEvalEligible}/${projects.length} Đủ ĐK)`, icon: '🏆' },
-          { key: 'reviewer' as SupervisorGradTab, label: `Đồ án Phản biện (${reviewerProjects.length})`, icon: '🔍' },
-          { key: 'deferrals' as SupervisorGradTab, label: `Đơn Bảo lưu (${deferralRequests.length})`, icon: '📋' },
+          { key: 'students' as SupervisorGradTab, label: `GĐ 1: Phân Công SV (${stageCounts[1] || 0})`, icon: '🎓' },
+          { key: 'outlines' as SupervisorGradTab, label: `GĐ 2: Duyệt Đề Tài & Đề Cương (${filteredOutlineReviews.length})`, icon: '📄' },
+          { key: 'supervision' as SupervisorGradTab, label: `GĐ 3: Task & Điểm Quá Trình (${stageCounts[3] || 0})`, icon: '📋' },
+          { key: 'weekly' as SupervisorGradTab, label: `Báo Cáo Tuần (${stageCounts[3] || 0})`, icon: '📅' },
+          { key: 'survey' as SupervisorGradTab, label: `Đề Tài Gợi Ý Của GV`, icon: '📝' },
+          { key: 'eval' as SupervisorGradTab, label: `GĐ 6: Đánh Giá & HĐ (${countEvalEligible}/${projects.length})`, icon: '🏆' },
+          { key: 'reviewer' as SupervisorGradTab, label: `Đồ Án Phản Biện (${reviewerProjects.length})`, icon: '🔍' },
+          { key: 'deferrals' as SupervisorGradTab, label: `Đơn Bảo Lưu (${deferralRequests.length})`, icon: '📑' },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -853,53 +850,100 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         </div>
       )}
 
-      {/* Tab 3: Outlines Review */}
+      {/* GĐ 2: Thẩm Định Đề Tài & Phê Duyệt Đề Cương Theo Template */}
       {activeTab === 'outlines' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-bold text-base text-slate-100">
-              Danh sách Đề cương Giai đoạn 3 được phân công thẩm định ({stage3OutlineReviews.length})
-            </h3>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+                <span>📄</span>
+                <span>Giai Đoạn 2: Thẩm Định Đề Tài & Phê Duyệt Đề Cương Theo Template ({filteredOutlineReviews.length})</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                GVHD thẩm định tên đề tài & mục tiêu, đọc nội dung đề cương sinh viên điền theo mẫu template chuẩn UTC và phê duyệt trên hệ thống.
+              </p>
+            </div>
             <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
-              Hiện có {stageCounts[3] || 0} sinh viên ở giai đoạn này
+              Hiện có {filteredOutlineReviews.length} đề cương cần theo dõi / thẩm định
             </span>
           </div>
-          {stage3OutlineReviews.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có đề cương nào của sinh viên Giai đoạn 3 được phân công cho Nhóm của Thầy/Cô.</div>
+
+          {filteredOutlineReviews.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-sm">Chưa có đề cương nào được nộp trong danh sách phân công của Thầy/Cô.</div>
           ) : (
             <div className="space-y-3">
-              {stage3OutlineReviews.map((r) => (
-                <div key={r.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+              {filteredOutlineReviews.map((r) => (
+                <div key={r.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                  <div className="space-y-1.5 flex-1 min-w-[280px]">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs font-bold text-blue-400">{r.student_reg_no}</span>
                       <span className="font-semibold text-sm text-slate-100">{r.student_name}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
-                        r.verdict === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400' :
-                        r.verdict === 'REVISION_REQUIRED' ? 'bg-amber-500/10 text-amber-400' :
-                        r.verdict === 'REJECTED' ? 'bg-rose-500/10 text-rose-400' :
-                        'bg-blue-500/10 text-blue-400'
+                      <span className={`text-xs px-2.5 py-0.5 rounded font-bold ${
+                        r.verdict === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
+                        r.verdict === 'REVISION_REQUIRED' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                        r.verdict === 'REJECTED' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' :
+                        'bg-blue-500/20 text-blue-300 border border-blue-500/40'
                       }`}>
-                        {r.verdict === 'APPROVED' ? 'Đã duyệt' : 
-                         r.verdict === 'REVISION_REQUIRED' ? 'Yêu cầu sửa' : 
-                         r.verdict === 'REJECTED' ? 'Không đạt' : 'Chờ xét duyệt'}
+                        {r.verdict === 'APPROVED' ? '✅ Đã duyệt' : 
+                         r.verdict === 'REVISION_REQUIRED' ? '⚠️ Yêu cầu sửa' : 
+                         r.verdict === 'REJECTED' ? '❌ Không đạt' : '⏳ Chờ thẩm định'}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-300"><b>Đề tài:</b> {r.topic_title}</p>
-                    <p className="text-xs text-slate-400"><b>Nhóm thẩm định:</b> {r.group_name} {r.reviewer_name ? `(Người duyệt: ${r.reviewer_name})` : ''}</p>
+                    <p className="text-xs text-slate-200">
+                      <b>Đề tài:</b> {r.topic_title || <span className="text-slate-500 italic">Chưa nhập tên đề tài</span>}
+                    </p>
+                    {r.template_data?.topic_objective && (
+                      <p className="text-[11px] text-slate-400 line-clamp-1">
+                        <b>Mục tiêu cốt lõi:</b> {r.template_data.topic_objective}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-slate-500">
+                      <b>Nhóm thẩm định:</b> {r.group_name || 'Bộ môn'} {r.reviewer_name ? `• Người duyệt: ${r.reviewer_name}` : ''}
+                    </p>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setSelectedProject({ id: r.project, student_name: r.student_name, topic_title_vi: r.topic_title });
-                      setOutlineComments(r.comments || '');
-                      setVerdict(r.verdict && r.verdict !== 'PENDING' ? r.verdict : 'APPROVED');
-                      setShowOutlineModal(true);
-                    }}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition"
-                  >
-                    Thẩm định Đề cương
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const blob = await apiService.exportOutlinePdf(r.project);
+                          const url = window.URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `De_cuong_${r.student_reg_no || 'UTC'}.pdf`;
+                          document.body.appendChild(link);
+                          link.click();
+                          link.remove();
+                          window.URL.revokeObjectURL(url);
+                        } catch (err: any) {
+                          alert('Lỗi tải file đề cương: ' + (err.response?.data?.detail || err.message));
+                        }
+                      }}
+                      className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-blue-300 border border-slate-700 font-medium transition flex items-center gap-1.5"
+                      title="Tải biểu mẫu Đề cương PDF tự động sinh chuẩn UTC"
+                    >
+                      <span>📄</span> Tải PDF Đề Cương
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedProject({
+                          id: r.project,
+                          student_name: r.student_name,
+                          student_reg_no: r.student_reg_no,
+                          topic_title_vi: r.topic_title,
+                          template_data: r.template_data || {},
+                        });
+                        setOutlineComments(r.comments || r.template_data?.supervisor_notes || '');
+                        setVerdict(r.verdict && r.verdict !== 'PENDING' ? r.verdict : 'APPROVED');
+                        setShowOutlineModal(true);
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-md shadow-blue-600/20"
+                    >
+                      <span>✏️</span> Thẩm Định Đề Cương
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1303,53 +1347,140 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         </div>
       )}
 
-      {/* Modal Outline Review */}
+      {/* Modal Outline Review (Enhanced with Template Inspection) */}
       {showOutlineModal && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto"
           onClick={outlineGuard.handleOverlayClick}
         >
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
-            <h3 className="text-base font-bold text-slate-100 mb-2">Xét duyệt Đề cương ĐATN</h3>
-            <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-2xl w-full shadow-2xl space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                  <span>📄</span> Thẩm Định Đề Tài & Đề Cương Chi Tiết (GĐ 2)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Sinh viên: <b className="text-slate-200">{selectedProject?.student_name}</b> ({selectedProject?.student_reg_no || 'UTC'})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={outlineGuard.requestClose}
+                className="text-slate-400 hover:text-slate-200 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Template Outline Details Display */}
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 max-h-72 overflow-y-auto text-xs">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Tên đề tài tiếng Việt:</span>
+                <p className="text-slate-100 font-semibold mt-0.5">{selectedProject?.topic_title_vi || 'Chưa cập nhật'}</p>
+              </div>
+
+              {selectedProject?.template_data?.topic_objective && (
+                <div>
+                  <span className="text-[11px] font-bold text-blue-400 block">Mục tiêu cốt lõi của đề tài:</span>
+                  <p className="text-slate-300 mt-0.5 whitespace-pre-line">{selectedProject.template_data.topic_objective}</p>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-slate-800/80 space-y-2">
+                <span className="font-bold text-slate-300 block text-xs">Nội dung Template đề cương sinh viên đã điền:</span>
+                
+                <div>
+                  <span className="text-[11px] text-emerald-400 font-semibold block">🎯 Mục tiêu nghiên cứu (Objectives):</span>
+                  <p className="text-slate-300 mt-0.5 whitespace-pre-line bg-slate-900/80 p-2.5 rounded border border-slate-800">
+                    {selectedProject?.template_data?.objectives || 'Chưa điền mục tiêu'}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[11px] text-teal-400 font-semibold block">📐 Phạm vi nghiên cứu (Scope):</span>
+                  <p className="text-slate-300 mt-0.5 whitespace-pre-line bg-slate-900/80 p-2.5 rounded border border-slate-800">
+                    {selectedProject?.template_data?.scope || 'Chưa điền phạm vi'}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[11px] text-amber-400 font-semibold block">📅 Kế hoạch thực hiện theo tuần (Work Plan):</span>
+                  <p className="text-slate-300 mt-0.5 whitespace-pre-line bg-slate-900/80 p-2.5 rounded border border-slate-800">
+                    {selectedProject?.template_data?.work_plan || 'Chưa điền kế hoạch'}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[11px] text-purple-400 font-semibold block">📦 Sản phẩm bàn giao dự kiến (Deliverables):</span>
+                  <p className="text-slate-300 mt-0.5 whitespace-pre-line bg-slate-900/80 p-2.5 rounded border border-slate-800">
+                    {selectedProject?.template_data?.deliverables || 'Chưa điền sản phẩm bàn giao'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const blob = await apiService.exportOutlinePdf(selectedProject.id);
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `De_cuong_${selectedProject.student_reg_no || 'UTC'}.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    window.URL.revokeObjectURL(url);
+                  } catch (err: any) {
+                    alert('Lỗi tải PDF đề cương: ' + (err.response?.data?.detail || err.message));
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-blue-300 border border-slate-700 font-medium transition flex items-center gap-1.5"
+              >
+                <span>📄</span> Xem / Tải Đề Cương PDF Đầy Đủ
+              </button>
+            </div>
+
             <form onSubmit={handleReviewOutline} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Kết luận xét duyệt</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Kết luận thẩm định của GVHD (*)</label>
                 <select
                   value={verdict}
                   onChange={(e) => setVerdict(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500 font-bold"
                 >
-                  <option value="APPROVED">ĐẠT YÊU CẦU (Phê duyệt thực hiện)</option>
-                  <option value="REVISION_REQUIRED">YÊU CẦU CHỈNH SỬA LẠI</option>
-                  <option value="REJECTED">KHÔNG ĐẠT / HỦY ĐỀ TÀI</option>
+                  <option value="APPROVED">✅ ĐẠT YÊU CẦU (Phê duyệt thực hiện đồ án)</option>
+                  <option value="REVISION_REQUIRED">⚠️ YÊU CẦU CHỈNH SỬA LẠI ĐỀ CƯƠNG</option>
+                  <option value="REJECTED">❌ KHÔNG ĐẠT / HỦY ĐỀ TÀI</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Ý kiến & Nhận xét</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Ý kiến & Nhận xét của Giảng viên</label>
                 <textarea
                   rows={3}
                   value={outlineComments}
                   onChange={(e) => setOutlineComments(e.target.value)}
-                  placeholder="Ghi chú chi tiết cho sinh viên chỉnh sửa..."
+                  placeholder="Ghi chú chi tiết cho sinh viên chỉnh sửa hoặc lời dặn dò khi phê duyệt..."
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={outlineGuard.requestClose}
-                  className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700 transition"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500"
+                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition shadow-md shadow-blue-600/30"
                 >
-                  Lưu kết quả
+                  Lưu Kết Quả Xét Duyệt
                 </button>
               </div>
             </form>
@@ -2157,25 +2288,53 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         </div>
       )}
 
-      {/* Modal Phase 3: Xác nhận đề tài của Giảng viên hướng dẫn */}
+      {/* Modal GĐ 2: GVHD Thẩm định & Phê duyệt đề tài (yeucau.md) */}
       {showTopicConfirmModal && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4">
             <div className="border-b border-slate-800 pb-3">
-              <span className="text-xs text-amber-400 font-semibold uppercase tracking-wider">Giai đoạn 3: GV Xác nhận đề tài</span>
+              <span className="text-xs text-blue-400 font-semibold uppercase tracking-wider">Giai đoạn 2: GVHD Thẩm định & Duyệt đề tài</span>
               <h3 className="text-base font-bold text-slate-100 mt-1">
                 {selectedTopicProject?.student_name} ({selectedTopicProject?.student_reg_no})
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                GVHD và SV cùng thống nhất tên đề tài trước khi trình Khoa phê duyệt chính thức.
+                GVHD kiểm tra tính khả thi và thẩm định trực tiếp tên, mục tiêu đề tài của sinh viên.
               </p>
             </div>
 
             <form onSubmit={handleConfirmTopic} className="space-y-4 text-xs">
               <div>
+                <label className="block text-slate-300 font-medium mb-1">Kết luận thẩm định (*)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTopicConfirmDecision('APPROVE')}
+                    className={`p-2.5 rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition ${
+                      topicConfirmDecision === 'APPROVE'
+                        ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <span>🎯</span> Duyệt đạt đề tài
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTopicConfirmDecision('REVISION')}
+                    className={`p-2.5 rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition ${
+                      topicConfirmDecision === 'REVISION'
+                        ? 'bg-amber-600/20 border-amber-500 text-amber-300'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <span>⚠️</span> Yêu cầu sửa / Chọn lại
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Việt (*)</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   required
                   value={topicConfirmVi}
                   onChange={(e) => setTopicConfirmVi(e.target.value)}
@@ -2195,8 +2354,28 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                 />
               </div>
 
+              {topicConfirmDecision === 'REVISION' && (
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">
+                    Góp ý / Yêu cầu chỉnh sửa (*) <span className="text-amber-400">(Sinh viên sẽ thấy lý do này)</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={topicConfirmNotes}
+                    onChange={(e) => setTopicConfirmNotes(e.target.value)}
+                    placeholder="Chỉ rõ mục tiêu chưa khả thi hoặc gợi ý hướng đề tài khác..."
+                    className="w-full px-3 py-2 bg-slate-950 border border-amber-500/40 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              )}
+
               <div className="p-3 rounded-lg bg-blue-950/30 border border-blue-500/30 text-blue-300 text-[11px]">
-                ℹ️ Sau khi GV bấm xác nhận, đề tài sẽ chuyển trạng thái <b>TOPIC_CONFIRMED</b> và sẵn sàng trình Ban Chủ nhiệm Khoa duyệt.
+                {topicConfirmDecision === 'APPROVE' ? (
+                  <span>🎯 Sau khi duyệt đạt, sinh viên được chuyển sang bước <b>Hoàn thiện đề cương theo mẫu (Template)</b> và xuất file PDF để GV duyệt.</span>
+                ) : (
+                  <span>⚠️ Sinh viên sẽ nhận thông báo yêu cầu sửa đổi hoặc chọn đề tài khác trên Dashboard cá nhân.</span>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
@@ -2210,9 +2389,13 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                 <button
                   type="submit"
                   disabled={confirmingTopic}
-                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
+                  className={`px-5 py-2 rounded-lg text-white text-xs font-semibold shadow-md disabled:opacity-50 ${
+                    topicConfirmDecision === 'APPROVE'
+                      ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+                      : 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30'
+                  }`}
                 >
-                  {confirmingTopic ? 'Đang xác nhận...' : '✓ Xác nhận đề tài'}
+                  {confirmingTopic ? 'Đang lưu...' : topicConfirmDecision === 'APPROVE' ? '✓ Duyệt Đạt Đề Tài' : '⚠️ Gửi Yêu Cầu Sửa'}
                 </button>
               </div>
             </form>
