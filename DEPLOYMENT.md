@@ -69,7 +69,14 @@ Use the included `render.yaml` at the root of the repository to deploy automatic
 | `DATABASE_URL` | Yes | `postgres://user:pass@ep-cool-host.neon.tech/smart_fyp?sslmode=require` | Neon PostgreSQL Connection URI |
 | `CORS_ALLOWED_ORIGINS` | Yes | `https://smart-fyp-management.vercel.app` | Vercel frontend URL |
 | `CSRF_TRUSTED_ORIGINS` | Yes | `https://smart-fyp-management.vercel.app` | Vercel frontend URL |
-| `REDIS_URL` | Yes | `redis://default:pass@redis-host.render.com:6379` | Redis Channel Layer Connection URL |
+| `REDIS_URL` | Yes | `redis://default:pass@redis-host.render.com:6379` | Redis Channel Layer & Celery broker |
+| `CELERY_BROKER_URL` | Optional | `redis://default:pass@redis-host:6379/0` | Celery broker URL (defaults to REDIS_URL) |
+| `USE_S3` | Optional | `True` | Enable Cloud Object Storage (S3 / R2 / MinIO) |
+| `AWS_STORAGE_BUCKET_NAME`| Optional | `utc-smart-fyp-media` | Cloud Storage bucket name |
+| `AWS_ACCESS_KEY_ID` | Optional | `<access_key>` | Cloud Storage access key |
+| `AWS_SECRET_ACCESS_KEY` | Optional | `<secret_key>` | Cloud Storage secret key |
+| `GOOGLE_OAUTH_CLIENT_ID`| Optional | `<client_id>.apps.googleusercontent.com` | Google OAuth2 Client ID for UTC SSO |
+| `ALLOWED_SSO_DOMAINS` | Optional | `utc.edu.vn,gmail.com` | Allowed email domains for SSO |
 | `EMAIL_BACKEND` | Optional | `django.core.mail.backends.smtp.EmailBackend` | Production email backend |
 | `EMAIL_HOST` | Optional | `smtp.gmail.com` | SMTP Host |
 | `EMAIL_PORT` | Optional | `587` | SMTP Port |

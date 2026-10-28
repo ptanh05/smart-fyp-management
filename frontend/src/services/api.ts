@@ -149,6 +149,14 @@ class ApiService {
     return response.data;
   }
 
+  async googleSsoLogin(credential?: string, email?: string): Promise<{ access: string; user_type: string; user: any; message?: string }> {
+    const response = await this.api.post<{ access: string; user_type: string; user: any; message?: string }>('/auth/google/', {
+      credential,
+      email,
+    });
+    return response.data;
+  }
+
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
     await this.api.post('/change_password/', {
       old_password: oldPassword,

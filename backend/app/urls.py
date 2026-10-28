@@ -165,9 +165,13 @@ from .views import (
     admin_dashboard,
 )
 from .views_media import GetSignedMediaUrlAPIView, SecureMediaDownloadView
+from .views_auth_sso import GoogleSSOLoginAPIView
 
 
 urlpatterns = [
+    # UTC Single Sign-On (Google OAuth2 for @utc.edu.vn)
+    path("auth/google/", GoogleSSOLoginAPIView.as_view(), name="google-sso-login"),
+    path("auth/sso/google/", GoogleSSOLoginAPIView.as_view(), name="sso-google-login"),
     # Admin Dashboard & Management (staff/admin only)
     path("admin/dashboard/", admin_dashboard, name="admin-dashboard"),
     path("admin/users/", AdminUserManagementAPIView.as_view(), name="admin-users-list"),

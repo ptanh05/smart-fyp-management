@@ -25,6 +25,12 @@ const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // UTC Single Sign-On (Google OAuth2) States
+  const [showSsoModal, setShowSsoModal] = useState(false);
+  const [ssoEmailInput, setSsoEmailInput] = useState('');
+  const [ssoLoading, setSsoLoading] = useState(false);
+  const [ssoError, setSsoError] = useState('');
+
   const handleFillStudent = (mssv: string, pass: string, name: string) => {
     setUserType('student');
     setRegistrationNo(mssv);
@@ -158,6 +164,27 @@ const LoginPage: React.FC = () => {
       setTimeout(() => setIsShaking(false), 500);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSsoLogin = async (targetEmail?: string) => {
+    const emailToUse = targetEmail || ssoEmailInput;
+    if (!emailToUse.trim()) {
+      setSsoError('Vui lòng nhập địa chỉ email trường UTC (@utc.edu.vn)');
+      return;
+    }
+    setSsoLoading(true);
+    setSsoError('');
+    try {
+      const data = await apiService.googleSsoLogin(undefined, emailToUse.trim());
+      const role = data.user_type || 'student';
+      login(data.access, '', role as any);
+      setShowSsoModal(false);
+      navigate(`/${role}/dashboard`);
+    } catch (err: any) {
+      setSsoError(err.response?.data?.detail || err.response?.data?.error || 'Đăng nhập UTC SSO thất bại. Vui lòng kiểm tra lại email.');
+    } finally {
+      setSsoLoading(false);
     }
   };
 
@@ -615,14 +642,127 @@ const LoginPage: React.FC = () => {
               type="button"
               className="utc-btn-sso"
               onClick={() => {
-                alert('Đăng nhập Microsoft SSO dành cho tài khoản @utc.edu.vn hoặc @sv.utc.edu.vn');
+                setShowSsoModal(true);
+                setSsoError('');
               }}
             >
-              <span className="sso-icon">🌐</span> {t('portal.ssoBtn', 'Đăng nhập với Email UTC (@utc.edu.vn)')}
+              <span className="sso-icon">🎓</span> {t('portal.ssoBtn', 'Đăng nhập với Email UTC (@utc.edu.vn)')}
             </button>
           </form>
         </section>
       </main>
+
+      {/* UTC Google / Email Single Sign-On Modal */}
+      {showSsoModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-blue-500/30 rounded-2xl max-w-md w-full p-6 text-slate-100 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowSsoModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white w-8 h-8 rounded-full bg-slate-800/60 hover:bg-slate-800 flex items-center justify-center transition"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-2xl">
+                🎓
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Đăng nhập UTC SSO</h3>
+                <p className="text-xs text-blue-400 font-medium">Cổng xác thực tài khoản trường @utc.edu.vn</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+              Hệ thống tự động đồng bộ tài khoản Sinh viên (Cử nhân / Kỹ sư) và Giảng viên trường ĐH Giao thông Vận tải thông qua định dạng email trường.
+            </p>
+
+            {ssoError && (
+              <div className="mb-4 p-3 rounded-lg bg-red-950/60 border border-red-500/40 text-red-300 text-xs">
+                ⚠️ {ssoError}
+              </div>
+            )}
+
+            {/* Quick 1-Click UTC Demo Accounts */}
+            <div className="mb-4 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                ⚡ Chọn nhanh tài khoản UTC mẫu để kiểm thử:
+              </span>
+              <div className="grid grid-cols-1 gap-1.5">
+                <button
+                  type="button"
+                  disabled={ssoLoading}
+                  onClick={() => handleGoogleSsoLogin('201200001@utc.edu.vn')}
+                  className="text-left px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600/30 text-xs text-slate-200 hover:text-white border border-slate-700/60 hover:border-blue-500/50 flex items-center justify-between transition"
+                >
+                  <span>👨‍🎓 <strong>201200001@utc.edu.vn</strong> (SV An)</span>
+                  <span className="text-[10px] text-emerald-400 font-semibold">1-Click</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={ssoLoading}
+                  onClick={() => handleGoogleSsoLogin('thangvb@utc.edu.vn')}
+                  className="text-left px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600/30 text-xs text-slate-200 hover:text-white border border-slate-700/60 hover:border-blue-500/50 flex items-center justify-between transition"
+                >
+                  <span>👨‍🏫 <strong>thangvb@utc.edu.vn</strong> (TS. Thắng)</span>
+                  <span className="text-[10px] text-blue-400 font-semibold">1-Click</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={ssoLoading}
+                  onClick={() => handleGoogleSsoLogin('hadt@utc.edu.vn')}
+                  className="text-left px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600/30 text-xs text-slate-200 hover:text-white border border-slate-700/60 hover:border-blue-500/50 flex items-center justify-between transition"
+                >
+                  <span>🏛️ <strong>hadt@utc.edu.vn</strong> (PGS.TS. Hà - HĐ)</span>
+                  <span className="text-[10px] text-purple-400 font-semibold">1-Click</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Custom UTC Email Input */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Hoặc nhập địa chỉ email trường UTC của bạn:
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={ssoEmailInput}
+                  onChange={(e) => setSsoEmailInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleGoogleSsoLogin();
+                    }
+                  }}
+                  placeholder="Ví dụ: 201200011@utc.edu.vn"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSsoModal(false)}
+                className="w-1/3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={ssoLoading}
+                onClick={() => handleGoogleSsoLogin()}
+                className="w-2/3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-lg shadow-blue-600/30"
+              >
+                {ssoLoading ? 'ĐANG XÁC THỰC...' : '🚀 XÁC THỰC VÀ ĐĂNG NHẬP'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Highlights KPI Banner */}
       <div className="utc-highlights-banner">

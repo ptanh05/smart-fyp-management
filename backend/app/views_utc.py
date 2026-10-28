@@ -3272,30 +3272,15 @@ class AdminApproveTopicAPIView(APIView):
         if hasattr(project, "supervisor") and project.supervisor and project.supervisor.user_id:
             recipient_user_ids.append(project.supervisor.user_id)
 
-        def _send_approval_notifications_async(u_ids, approval_msg):
-            from django.db import connection
-            connection.close()
-            try:
-                users = list(CustomUser.objects.filter(id__in=u_ids))
-                for recipient in users:
-                    NotificationService.create_notification(
-                        user=recipient,
-                        notification_type="general",
-                        title="[Kết quả duyệt đề tài ĐATN]",
-                        message=approval_msg,
-                        action_url="/student/dashboard",
-                        send_email=True,
-                    )
-            except Exception as exc:
-                logger.warning("[ASYNC_NOTIF] Không thể gửi thông báo/email duyệt đề tài bất đồng bộ: %s", exc)
-            finally:
-                connection.close()
-
-        threading.Thread(
-            target=_send_approval_notifications_async,
-            args=(recipient_user_ids, msg),
-            daemon=True
-        ).start()
+        from .tasks import dispatch_async_notification
+        dispatch_async_notification(
+            recipient_user_ids=recipient_user_ids,
+            title="[Kết quả duyệt đề tài ĐATN]",
+            message=msg,
+            notification_type="general",
+            action_url="/student/dashboard",
+            send_email=True
+        )
 
         return Response({
             "message": msg,

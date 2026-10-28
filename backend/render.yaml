@@ -23,3 +23,33 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
+      - key: CELERY_BROKER_URL
+        sync: false
+      - key: USE_S3
+        value: "False"
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+
+  # Celery Background Task Worker
+  - type: worker
+    name: smart-fyp-celery-worker
+    runtime: python
+    region: singapore
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A backend worker -l info -P solo"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CELERY_BROKER_URL
+        sync: false
+      - key: USE_S3
+        value: "False"
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
