@@ -8,6 +8,16 @@ interface SupervisorOfferedTopicsProps {
   onTopicChanged?: () => void;
 }
 
+export const UTC_FALLBACK_CATEGORIES: ProjectCategory[] = [
+  { id: 2, category_name: 'Phát triển phần mềm và ứng dụng' },
+  { id: 1, category_name: 'Dữ liệu và trí tuệ nhân tạo' },
+  { id: 6, category_name: 'Lập trình Game' },
+  { id: 7, category_name: 'Kiểm thử phần mềm' },
+  { id: 8, category_name: 'Hệ thống mạng và hạ tầng CNTT' },
+  { id: 3, category_name: 'An toàn thông tin và an ninh mạng' },
+  { id: 9, category_name: 'Nghiên cứu và ứng dụng thuật toán' },
+];
+
 export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = ({ onTopicChanged }) => {
   const [topics, setTopics] = useState<Project[]>([]);
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
@@ -43,14 +53,28 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
   const loadTopics = async () => {
     try {
       setLoading(true);
-      const [topicsData, catsData] = await Promise.all([
+      const [topicsResult, catsResult] = await Promise.allSettled([
         apiService.getProjects({ mineOnly: true }),
         apiService.getProjectCategories(),
       ]);
-      setTopics(topicsData || []);
-      setCategories(catsData || []);
+      const loadedTopics =
+        topicsResult.status === 'fulfilled' && topicsResult.value
+          ? topicsResult.value
+          : [];
+      let loadedCats =
+        catsResult.status === 'fulfilled' &&
+        catsResult.value &&
+        catsResult.value.length > 0
+          ? catsResult.value
+          : [];
+      if (loadedCats.length === 0) {
+        loadedCats = UTC_FALLBACK_CATEGORIES;
+      }
+      setTopics(loadedTopics);
+      setCategories(loadedCats);
     } catch (err: any) {
       console.error('Failed to load topics:', err);
+      setCategories(UTC_FALLBACK_CATEGORIES);
     } finally {
       setLoading(false);
     }
@@ -225,6 +249,10 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
           {filteredTopics.map((topic) => {
             const isRegistered = !!topic.has_registered_groups;
             const categoryObj = categories.find((c) => c.id === topic.project_category);
+            const categoryLabel =
+              categoryObj?.category_name ||
+              (topic as any).project_category_name ||
+              (topic.project_category ? `Lĩnh vực #${topic.project_category}` : 'Chưa phân loại');
 
             return (
               <div
@@ -233,7 +261,7 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
               >
                 <div className="topic-card-header">
                   <span className="topic-category-badge">
-                    📁 {categoryObj ? categoryObj.category_name : `Danh mục #${topic.project_category}`}
+                    📁 {categoryLabel}
                   </span>
                   {isRegistered ? (
                     <span className="status-badge badge-registered">

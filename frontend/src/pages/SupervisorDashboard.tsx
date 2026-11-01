@@ -110,13 +110,7 @@ const SupervisorDashboard: React.FC = () => {
     }
   };
   
-  // Profile edit state
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    research_interest: '',
-    academic_background: '',
-  });
-  const [savingProfile, setSavingProfile] = useState(false);
+
 
   // Broadcast Announcement State (Feature 2)
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
@@ -160,14 +154,7 @@ const SupervisorDashboard: React.FC = () => {
     }
   };
 
-  const profileEditGuard = useModalGuard({
-    isOpen: isEditingProfile,
-    onClose: () => handleCancelEdit(),
-    isDirty: Boolean(
-      (profile && editFormData.research_interest !== (profile.research_interest || '')) ||
-      (profile && editFormData.academic_background !== (profile.academic_background || ''))
-    ),
-  });
+
 
 
   useEffect(() => {
@@ -277,39 +264,7 @@ const SupervisorDashboard: React.FC = () => {
     }
   };
 
-  const handleEditProfile = () => {
-    setEditFormData({
-      research_interest: profile?.research_interest || '',
-      academic_background: profile?.academic_background || '',
-    });
-    setIsEditingProfile(true);
-  };
 
-  const handleCancelEdit = () => {
-    setIsEditingProfile(false);
-    setEditFormData({
-      research_interest: '',
-      academic_background: '',
-    });
-  };
-
-  const handleSaveProfile = async () => {
-    try {
-      setSavingProfile(true);
-      const updatedProfile = await apiService.updateSupervisorProfile({
-        research_interest: editFormData.research_interest,
-        academic_background: editFormData.academic_background,
-      });
-      setProfile(updatedProfile);
-      setIsEditingProfile(false);
-      alert('Profile updated successfully!');
-    } catch (error: any) {
-      console.error('Failed to update profile:', error);
-      alert(error.response?.data?.message || 'Failed to update profile. Please try again.');
-    } finally {
-      setSavingProfile(false);
-    }
-  };
 
   if (loading || !supervisor) {
     return (
@@ -466,111 +421,16 @@ const SupervisorDashboard: React.FC = () => {
                     >
                       🎓 {t('dashboard.printUTCSheet', 'In Biên Bản / Phiếu Chấm UTC')}
                     </button>
-                    <button className="btn btn-secondary" onClick={handleEditProfile}>
-                      ✏️ {t('profile.editProfile', 'Chỉnh Sửa Hồ Sơ')}
-                    </button>
                   </div>
                 </div>
                 <div className="profile-info">
                   <p><strong>{t('profile.supervisorId', 'Mã Số Giảng Viên')}:</strong> {profile?.supervisor_id}</p>
                   <p><strong>{t('profile.researchInterest', 'Hướng Nghiên Cứu')}:</strong> {profile?.research_interest || 'N/A'}</p>
-                  <p><strong>{t('profile.academicBackground', 'Học Hàm / Học Vị')}:</strong> {profile?.academic_background || 'N/A'}</p>
+                  <p><strong>{t('profile.academicBackground', 'Học Hàm / Học Vị')}:</strong> {profile?.academic_title || profile?.academic_background || 'N/A'}</p>
                 </div>
               </div>
 
               <SupervisorAnalytics />
-
-              {isEditingProfile && (
-                <div className="modal-overlay" onClick={profileEditGuard.handleOverlayClick}>
-                  <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-                    <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: '1px solid #e0e0e0' }}>
-                      <h3 style={{ margin: 0 }}>Edit Profile</h3>
-                      <button 
-                        onClick={profileEditGuard.requestClose}
-                        style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#666' }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                    
-                    <div className="modal-body" style={{ padding: '20px' }}>
-                      <div className="form-group" style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333' }}>
-                          Research Interest
-                        </label>
-                        <textarea
-                          value={editFormData.research_interest}
-                          onChange={(e) => setEditFormData({ ...editFormData, research_interest: e.target.value })}
-                          placeholder="Enter your research interests..."
-                          rows={3}
-                          style={{
-                            width: '100%',
-                            padding: '10px',
-                            border: '1px solid #ddd',
-                            borderRadius: '6px',
-                            fontSize: '14px',
-                            resize: 'vertical',
-                            boxSizing: 'border-box',
-                          }}
-                        />
-                      </div>
-                      
-                      <div className="form-group" style={{ marginBottom: '16px' }}>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#333' }}>
-                          Academic Background
-                        </label>
-                        <textarea
-                          value={editFormData.academic_background}
-                          onChange={(e) => setEditFormData({ ...editFormData, academic_background: e.target.value })}
-                          placeholder="Enter your academic background..."
-                          rows={3}
-                          style={{
-                            width: '100%',
-                            padding: '10px',
-                            border: '1px solid #ddd',
-                            borderRadius: '6px',
-                            fontSize: '14px',
-                            resize: 'vertical',
-                            boxSizing: 'border-box',
-                          }}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="modal-footer" style={{ 
-                      display: 'flex', 
-                      justifyContent: 'flex-end', 
-                      gap: '12px', 
-                      padding: '16px 20px', 
-                      borderTop: '1px solid #e0e0e0',
-                      backgroundColor: '#f8f9fa',
-                    }}>
-                      <button 
-                        className="btn btn-secondary" 
-                        onClick={profileEditGuard.requestClose}
-                        disabled={savingProfile}
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        className="btn btn-primary" 
-                        onClick={handleSaveProfile}
-                        disabled={savingProfile}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                      >
-                        {savingProfile ? (
-                          <>
-                            <span className="spinner-small"></span>
-                            Saving...
-                          </>
-                        ) : (
-                          'Save Changes'
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Broadcast Announcement Modal (Feature 2) */}
               {isBroadcastModalOpen && (

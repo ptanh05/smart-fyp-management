@@ -85,6 +85,7 @@ export interface Supervisor {
   id: number;
   user: User;
   supervisor_id: string;
+  academic_title?: string;
   research_interest?: string;
   academic_background?: string;
   timeline_step?: number;

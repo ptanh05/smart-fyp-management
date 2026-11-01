@@ -319,8 +319,16 @@ class StudentImportAPIView(APIView):
             email_val = str(row.get(email_col) or "").strip() if email_col else ""
             dept_val = str(row.get(class_col) or "").strip() if class_col else "CNTT"
 
+            if reg_val.endswith('.0'):
+                reg_val = reg_val[:-2]
+
             if not reg_val:
                 row_errors.append(f"Dòng {idx}: Mã sinh viên không được để trống.")
+                continue
+
+            import re
+            if not re.match(r"^\d{9}$", reg_val):
+                row_errors.append(f"Dòng {idx}: Mã sinh viên '{reg_val}' không hợp lệ (Mã sinh viên UTC phải gồm đúng 9 chữ số).")
                 continue
 
             if not name_val:
@@ -598,8 +606,16 @@ class AcademicGradesImportAPIView(APIView):
             cred_raw = row.get(cred_col)
             debt_raw = row.get(debt_col) if debt_col else None
 
+            if reg_val.endswith('.0'):
+                reg_val = reg_val[:-2]
+
             if not reg_val:
                 row_errors.append(f"Dòng {idx}: Mã sinh viên không được để trống.")
+                continue
+
+            import re
+            if not re.match(r"^\d{9}$", reg_val):
+                row_errors.append(f"Dòng {idx}: Mã sinh viên '{reg_val}' không hợp lệ (Mã sinh viên UTC phải gồm đúng 9 chữ số).")
                 continue
 
             student = Student.objects.filter(registration_no=reg_val).first()
