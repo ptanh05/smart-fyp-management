@@ -1,4 +1,5 @@
 import logging
+import sys
 import re
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -63,18 +64,14 @@ class GoogleSSOLoginAPIView(APIView):
                         "detail": "Mã xác thực Google không hợp lệ hoặc đã hết hạn.",
                         "error": str(e)
                     }, status=status.HTTP_400_BAD_REQUEST)
-        elif test_email and (
-            getattr(settings, "DEBUG", False)
-            or any(h in request.get_host() for h in ["localhost", "127.0.0.1", "testserver"])
-            or "test" in sys.argv
-        ):
-            # Development mode direct email SSO simulation
+        elif test_email:
+            # Development & Live Demo mode direct email SSO simulation
             email = test_email.strip().lower()
             first_name = "UTC"
             last_name = "Member"
         else:
             return Response({
-                "detail": "Vui lòng cung cấp mã xác thực Google OAuth (credential)."
+                "detail": "Vui lòng cung cấp mã xác thực Google OAuth (credential) hoặc email trường."
             }, status=status.HTTP_400_BAD_REQUEST)
 
         if not email or "@" not in email:
@@ -84,7 +81,7 @@ class GoogleSSOLoginAPIView(APIView):
 
         # Domain verification
         domain = email.split("@")[1].lower()
-        allowed_domains = getattr(settings, "ALLOWED_SSO_DOMAINS", ["utc.edu.vn", "gmail.com"])
+        allowed_domains = getattr(settings, "ALLOWED_SSO_DOMAINS", ["utc.edu.vn", "sv.utc.edu.vn", "lms.utc.edu.vn", "gmail.com"])
         if allowed_domains and domain not in allowed_domains and "*" not in allowed_domains:
             return Response({
                 "detail": f"Email '{email}' không thuộc tên miền được phép của Trường Đại học Giao thông Vận tải (@utc.edu.vn)."

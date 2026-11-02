@@ -157,6 +157,8 @@ const LoginPage: React.FC = () => {
         const detail = err.response?.data?.detail || '';
         const seconds = detail.match(/\d+/)?.[0] || '60';
         setError(t('login.throttled', `Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau ${seconds} giây.`));
+      } else if (err.code === 'ECONNABORTED' || (err.message && err.message.toLowerCase().includes('timeout'))) {
+        setError('Máy chủ Backend đang khởi động sau thời gian nghỉ (Render cold start, ~30s). Vui lòng đợi vài giây rồi thử lại.');
       } else {
         setError(err.response?.data?.message || err.response?.data?.detail || t('login.loginFailed', 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản.'));
       }
@@ -182,7 +184,11 @@ const LoginPage: React.FC = () => {
       setShowSsoModal(false);
       navigate(`/${role}/dashboard`);
     } catch (err: any) {
-      setSsoError(err.response?.data?.detail || err.response?.data?.error || 'Đăng nhập UTC SSO thất bại. Vui lòng kiểm tra lại email.');
+      if (err.code === 'ECONNABORTED' || (err.message && err.message.toLowerCase().includes('timeout'))) {
+        setSsoError('Máy chủ Backend đang khởi động sau thời gian nghỉ (Render cold start, ~30s). Vui lòng đợi vài giây rồi thử lại.');
+      } else {
+        setSsoError(err.response?.data?.detail || err.response?.data?.error || 'Đăng nhập UTC SSO thất bại. Vui lòng kiểm tra lại email.');
+      }
     } finally {
       setSsoLoading(false);
     }
