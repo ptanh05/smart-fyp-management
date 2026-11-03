@@ -308,7 +308,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 sup = group.supervisor.user
                 members.append({
                     "username": sup.username,
-                    "full_name": f"{sup.first_name} {sup.last_name}".strip() or sup.username,
+                    "full_name": sup.get_full_name() or sup.username,
                     "role": "supervisor",
                     "role_display": "GVHD",
                 })
@@ -316,7 +316,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 st1 = group.group.student_1.user
                 members.append({
                     "username": st1.username,
-                    "full_name": f"{st1.first_name} {st1.last_name}".strip() or st1.username,
+                    "full_name": st1.get_full_name() or st1.username,
                     "role": "student",
                     "role_display": "Sinh viên 1",
                 })
@@ -324,7 +324,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 st2 = group.group.student_2.user
                 members.append({
                     "username": st2.username,
-                    "full_name": f"{st2.first_name} {st2.last_name}".strip() or st2.username,
+                    "full_name": st2.get_full_name() or st2.username,
                     "role": "student",
                     "role_display": "Sinh viên 2",
                 })

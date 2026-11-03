@@ -56,3 +56,4 @@ export function formatFullName(
   // Mặc định chuẩn tiếng Việt: last_name (Họ và đệm) đứng trước, first_name (Tên) đứng sau
   return `${ln} ${fn}`;
 }
+

@@ -71,7 +71,7 @@ class SupervisorGroupInfoAPIView(APIView):
             if not s:
                 continue
             u = s.user
-            full_name = f"{u.first_name} {u.last_name}".strip() or u.username
+            full_name = u.get_full_name() or u.username
             members.append(
                 {
                     "student_id": s.id,
@@ -90,7 +90,7 @@ class SupervisorGroupInfoAPIView(APIView):
             )
 
         sup_user = supervisor.user
-        sup_name = f"{supervisor.academic_title or 'ThS'} {sup_user.first_name} {sup_user.last_name}".strip() if (sup_user.first_name or sup_user.last_name) else sup_user.username
+        sup_name = f"{supervisor.academic_title or 'ThS'} {sup_user.get_full_name() or sup_user.username}".strip()
         if supervisor.academic_title and not sup_name.startswith(supervisor.academic_title):
             sup_name = f"{supervisor.academic_title} {sup_name}"
 
@@ -141,7 +141,7 @@ class SupervisorGroupChatMessagesAPIView(APIView):
         results = []
         for msg in messages_qs:
             sender = msg.sender
-            sender_name = f"{sender.first_name} {sender.last_name}".strip() or sender.username
+            sender_name = sender.get_full_name() or sender.username
             role = "supervisor" if sender.user_type == "supervisor" else "student"
             role_label = (supervisor.academic_title or "GVHD") if role == "supervisor" else "Sinh viên"
 
@@ -203,7 +203,7 @@ class SupervisorGroupChatMessagesAPIView(APIView):
             attachment_size=attachment_size,
         )
 
-        sender_name = f"{user.first_name} {user.last_name}".strip() or user.username
+        sender_name = user.get_full_name() or user.username
         role = "supervisor" if user.user_type == "supervisor" else "student"
         role_label = (supervisor.academic_title or "GVHD") if role == "supervisor" else "Sinh viên"
 

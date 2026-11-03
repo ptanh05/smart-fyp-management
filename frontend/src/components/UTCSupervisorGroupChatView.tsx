@@ -1,3 +1,4 @@
+import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import { getRelativeTime } from '../utils/dateUtils';
@@ -219,11 +220,11 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
                 className={`utc-member-item ${m.is_current_user ? 'current-user-item' : ''}`}
               >
                 <div className="utc-member-avatar student">
-                  <span>{m.full_name?.charAt(0)?.toUpperCase() || 'S'}</span>
+                  <span>{formatFullName(m.full_name)?.charAt(0)?.toUpperCase() || 'S'}</span>
                 </div>
                 <div className="utc-member-info">
                   <div className="utc-member-name-row">
-                    <span className="utc-member-name font-semibold">{m.full_name}</span>
+                    <span className="utc-member-name font-semibold">{formatFullName(m.full_name)}</span>
                     {m.is_current_user ? (
                       <span className="utc-role-pill me">Bạn</span>
                     ) : (
@@ -297,13 +298,13 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
                   >
                     {!isMe && (
                       <div className={`utc-msg-avatar ${isSupervisor ? 'sup-avatar' : 'student-avatar'}`}>
-                        {isSupervisor ? '👨‍🏫' : msg.sender_name?.charAt(0)?.toUpperCase() || 'S'}
+                        {isSupervisor ? '👨‍🏫' : formatFullName(msg.sender_name)?.charAt(0)?.toUpperCase() || 'S'}
                       </div>
                     )}
 
                     <div className="utc-msg-bubble-wrap">
                       <div className="utc-msg-sender-info">
-                        <span className="utc-msg-sender-name font-semibold">{msg.sender_name}</span>
+                        <span className="utc-msg-sender-name font-semibold">{formatFullName(msg.sender_name)}</span>
                         <span className={`utc-msg-role-tag ${isSupervisor ? 'sup' : 'student'}`}>
                           {msg.sender_role_label}
                         </span>
