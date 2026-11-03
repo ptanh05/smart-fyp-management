@@ -76,6 +76,11 @@ export const GRADUATION_STAGES: StageInfo[] = [
 export function getProjectStageNumber(project: any): number {
   if (!project) return 2; // Chưa được phân công đồ án -> Bước khảo sát nguyện vọng
 
+  // Giai đoạn 2: Khảo sát nguyện vọng & đề tài gợi ý
+  if (project.is_stage_2 || project.status === 'SURVEY' || project.stage === 2) {
+    return 2;
+  }
+
   const tasks = Array.isArray(project.tasks) ? project.tasks : [];
   const weeklyReports = Array.isArray(project.weekly_reports) ? project.weekly_reports : [];
   const finalGrade = project.final_grade || project.final_grade_summary || null;

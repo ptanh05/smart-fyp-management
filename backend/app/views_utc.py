@@ -1190,7 +1190,92 @@ class SupervisorGraduationProjectsAPIView(APIView):
             "final_grade_summary"
         ).order_by("student__user__last_name")
 
-        return Response(GraduationProjectDetailSerializer(projects, many=True).data, status=status.HTTP_200_OK)
+        data = list(GraduationProjectDetailSerializer(projects, many=True).data)
+
+        # Stage 2 students: students who submitted survey preferences choosing this supervisor,
+        # but do not have an active GraduationProject assigned yet
+        from django.db.models import Q
+        assigned_student_ids = GraduationProject.objects.filter(student__isnull=False).values_list("student_id", flat=True)
+        stage2_prefs = StudentPreference.objects.filter(
+            Q(preference_1=supervisor) | Q(preference_2=supervisor) | Q(preference_3=supervisor)
+        ).exclude(student_id__in=assigned_student_ids).select_related(
+            "student__user", "student__course_class", "topic_direction"
+        ).order_by("student__user__last_name", "student__user__first_name")
+
+        for pref in stage2_prefs:
+            survey = InternshipInfo.objects.filter(student=pref.student).first()
+            s = pref.student
+            su = s.user
+            course_class_name = getattr(s.course_class, "class_name", "") if hasattr(s, "course_class") and s.course_class else ""
+            student_display_name = (
+                f"{su.last_name} {su.first_name}".strip()
+                if (su.last_name or su.first_name)
+                else (su.get_full_name() or su.username)
+            )
+
+            p_rank = 1 if pref.preference_1_id == supervisor.id else (2 if pref.preference_2_id == supervisor.id else 3)
+
+            topic_title = ""
+            if survey and survey.tentative_title:
+                topic_title = survey.tentative_title
+            elif pref.topic_direction:
+                topic_title = pref.topic_direction.name
+            else:
+                topic_title = "Khảo sát nguyện vọng ĐATN"
+
+            stage2_item = {
+                "id": -pref.id,
+                "preference_id": pref.id,
+                "is_stage_2": True,
+                "status": "SURVEY",
+                "stage": 2,
+                "batch": pref.batch_id or getattr(s, "academic_batch_id", None),
+                "student": {
+                    "id": s.id,
+                    "registration_no": s.registration_no,
+                    "user": {
+                        "first_name": su.first_name,
+                        "last_name": su.last_name,
+                        "username": su.username,
+                        "email": su.email,
+                    },
+                    "department": s.department or "",
+                    "course_class": course_class_name,
+                    "phone_number": getattr(s, "phone_number", ""),
+                },
+                "student_name": student_display_name,
+                "student_reg_no": s.registration_no,
+                "student_phone": getattr(s, "phone_number", ""),
+                "student_email": su.email or "",
+                "student_class": course_class_name or (s.department or ""),
+                "supervisor": {
+                    "id": supervisor.id,
+                    "supervisor_id": supervisor.supervisor_id,
+                    "full_name": supervisor.user.get_full_name(),
+                },
+                "supervisor_name": supervisor.user.get_full_name(),
+                "topic_title_vi": topic_title,
+                "topic_title_en": topic_title,
+                "topic_direction_name": pref.topic_direction.name if pref.topic_direction else "",
+                "preference_rank": p_rank,
+                "company_name": survey.company_name if (survey and survey.company_name) else "",
+                "is_interning": survey.is_interning if survey else False,
+                "sub_criteria": pref.sub_criteria or "",
+                "submitted_at": pref.submitted_at.isoformat() if pref.submitted_at else None,
+                "created_at": pref.submitted_at.isoformat() if pref.submitted_at else None,
+                "topic_review_status": "DRAFT",
+                "supervisor_score": None,
+                "reviewer_score": None,
+                "tasks": [],
+                "weekly_reports": [],
+                "meeting_logs": [],
+                "final_grade": None,
+                "final_grade_summary": None,
+                "outline_review": None,
+            }
+            data.append(stage2_item)
+
+        return Response(data, status=status.HTTP_200_OK)
 
 class SupervisorOutlineGroupReviewListAPIView(APIView):
     permission_classes = [IsAuthenticated]

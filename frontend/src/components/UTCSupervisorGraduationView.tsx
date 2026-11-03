@@ -62,6 +62,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   }, [projects]);
 
   const stage1Projects = projectsByStage[1] || [];
+  const stage2Projects = projectsByStage[2] || [];
   const stage4Projects = projectsByStage[4] || [];
   const stage5Projects = projectsByStage[5] || [];
   const stage6Projects = projectsByStage[6] || [];
@@ -813,21 +814,116 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 2: Survey & Offered Topics */}
       {activeTab === 'survey' && (
         <div className="space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-slate-800 pb-3">
+          {/* Card 1: Danh sách sinh viên khảo sát nguyện vọng chọn GVHD */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div>
                 <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
                   <span>📝</span>
                   <span>Giai Đoạn 2: Khảo Sát Nguyện Vọng & Đề Tài Gợi Ý Của Giảng Viên</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Đề xuất các hướng nghiên cứu và đề tài gợi ý để sinh viên đăng ký trong đợt khảo sát nguyện vọng ban đầu.
+                  Danh sách sinh viên đăng ký nguyện vọng hướng dẫn và phiếu khảo sát thực tập giai đoạn 2.
                 </p>
               </div>
               <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
                 Hiện có {stageCounts[2] || 0} sinh viên ở giai đoạn này
               </span>
             </div>
+
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="font-semibold text-sm text-slate-200 flex items-center gap-2">
+                  <span>👥</span>
+                  <span>Sinh viên đăng ký nguyện vọng chọn Thầy/Cô ({stage2Projects.length})</span>
+                </h4>
+                <span className="text-xs text-slate-400">
+                  {stage2Projects.length > 0 ? 'Sinh viên đã hoàn tất phiếu khảo sát nguyện vọng & đề tài' : 'Chưa có sinh viên đăng ký'}
+                </span>
+              </div>
+
+              {stage2Projects.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-sm bg-slate-950/40 rounded-xl border border-slate-800/80">
+                  Chưa có sinh viên nào đăng ký nguyện vọng chọn Thầy/Cô trong đợt khảo sát này.
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-800">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-950 text-slate-400 uppercase font-semibold">
+                      <tr>
+                        <th className="p-3">MSSV</th>
+                        <th className="p-3">Họ và tên sinh viên</th>
+                        <th className="p-3">Lớp / Chuyên ngành</th>
+                        <th className="p-3">Nguyện vọng</th>
+                        <th className="p-3">Hướng đề tài & Tên dự kiến</th>
+                        <th className="p-3">Thực tập doanh nghiệp</th>
+                        <th className="p-3">Thông tin liên hệ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800 text-slate-300">
+                      {stage2Projects.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-950/40 transition">
+                          <td className="p-3 font-mono font-semibold text-blue-400 whitespace-nowrap">{p.student_reg_no}</td>
+                          <td className="p-3 font-medium text-slate-100 whitespace-nowrap">{p.student_name}</td>
+                          <td className="p-3 text-slate-400 whitespace-nowrap">{p.student_class || 'Chưa cập nhật'}</td>
+                          <td className="p-3 whitespace-nowrap">
+                            {p.preference_rank === 1 ? (
+                              <span className="px-2.5 py-1 rounded text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold inline-flex items-center gap-1">
+                                <span>⭐</span> Nguyện vọng 1 (P1)
+                              </span>
+                            ) : p.preference_rank === 2 ? (
+                              <span className="px-2.5 py-1 rounded text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold inline-flex items-center gap-1">
+                                <span>📌</span> Nguyện vọng 2 (P2)
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded text-xs bg-slate-500/10 text-slate-400 border border-slate-500/20 font-semibold inline-flex items-center gap-1">
+                                <span>📌</span> Nguyện vọng 3 (P3)
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 max-w-xs">
+                            <div className="font-medium text-slate-200 line-clamp-2">
+                              {p.topic_title_vi || 'Khảo sát nguyện vọng ĐATN'}
+                            </div>
+                            {p.topic_direction_name && (
+                              <div className="text-[11px] text-blue-400/90 mt-0.5 font-medium">
+                                Hướng: {p.topic_direction_name}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            {p.is_interning ? (
+                              <div className="space-y-0.5">
+                                <span className="px-2 py-0.5 rounded text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-medium inline-block">
+                                  🏢 Đang thực tập
+                                </span>
+                                {p.company_name && (
+                                  <div className="text-slate-400 text-[11px] truncate max-w-[150px]" title={p.company_name}>
+                                    {p.company_name}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-400 border border-slate-700/60 font-medium">
+                                Chưa đi thực tập
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-slate-400 whitespace-nowrap">
+                            <div className="text-slate-300 font-mono text-[11px]">{p.student_phone || 'Chưa có SĐT'}</div>
+                            <div className="text-slate-500 text-[11px]">{p.student_email}</div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Card 2: Đề tài gợi ý của Giảng viên */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
             <SupervisorOfferedTopics onTopicChanged={fetchData} />
           </div>
         </div>
