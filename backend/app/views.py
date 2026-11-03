@@ -810,20 +810,23 @@ class ProjectAPIVIEW(ListAPIView, CreateAPIView):
         except Exception:
             # Fallback pure UTC GraduationProject
             try:
-                from app.models import GraduationProject, Supervisor, AcademicBatch, ProjectTopicArea
+                from app.models import GraduationProject, Supervisor, Student, AcademicBatch, ProjectTopicArea
                 data = request.data
                 project_name = data.get("project_name", "")
                 cat_id = data.get("project_category")
                 category = ProjectTopicArea.objects.filter(id=cat_id).first() if cat_id else None
-                supervisor = Supervisor.objects.filter(user=request.user).first()
+                user = request.user
+                supervisor = Supervisor.objects.filter(user=user).first()
+                student = Student.objects.filter(user=user).first() if getattr(user, "user_type", "") == "student" else None
                 batch = AcademicBatch.objects.filter(is_active=True).first() or AcademicBatch.objects.first()
                 gp = GraduationProject.objects.create(
-                    topic_title_vi=project_name,
-                    topic_title_en=data.get("english_name", project_name),
+                    student=student,
                     supervisor=supervisor,
                     batch=batch,
                     topic_category=category,
-                    status="assigned" if supervisor else "proposed"
+                    topic_title_vi=project_name,
+                    topic_title_en=data.get("english_name", project_name),
+                    status="ALLOCATED"
                 )
                 return Response({
                     "id": gp.id,
@@ -834,7 +837,7 @@ class ProjectAPIVIEW(ListAPIView, CreateAPIView):
                     "project_description": data.get("project_description", ""),
                     "functionalities": data.get("functionalities", ""),
                     "status": gp.status,
-                    "has_registered_groups": False
+                    "has_registered_groups": bool(gp.student_id)
                 }, status=status.HTTP_201_CREATED)
             except Exception as e:
                 return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -2693,18 +2696,47 @@ class ProjectDeleteAPIView(DestroyAPIView):
     permission_classes = [IsAuthenticated, IsProjectOwner]
     queryset = Project.objects.all()
 
+    def get_object(self):
+        try:
+            return super().get_object()
+        except Exception:
+            from app.models import GraduationProject
+            pk = self.kwargs.get("pk")
+            gp = GraduationProject.objects.filter(pk=pk).first()
+            if not gp:
+                from django.http import Http404
+                raise Http404("Project not found")
+            return gp
+
     def destroy(self, request, *args, **kwargs):
         project = self.get_object()
+        from app.models import GraduationProject
+        if isinstance(project, GraduationProject):
+            if project.supervisor and project.supervisor.user != request.user and not request.user.is_staff:
+                return Response(
+                    {"message": "Bạn không có quyền xóa đề tài này."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if project.student is not None:
+                return Response(
+                    {"message": "Đề tài đã có sinh viên đăng ký hoặc nhận, không thể xóa."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            project.delete()
+            return Response(
+                {"message": "Đề tài gợi ý đã được xóa thành công."},
+                status=status.HTTP_204_NO_CONTENT,
+            )
 
         # Check if user is the owner
-        if project.user != request.user:
+        if getattr(project, "user", None) != request.user:
             return Response(
                 {"message": "You do not have permission to delete this project."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         # Check if project is assigned to a panel (may have evaluations)
-        if project.panel is not None:
+        if getattr(project, "panel", None) is not None:
             return Response(
                 {"message": "Cannot delete project that is assigned to a panel."},
                 status=status.HTTP_400_BAD_REQUEST,

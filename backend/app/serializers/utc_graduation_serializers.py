@@ -353,11 +353,11 @@ class FinalGradeSummarySerializer(serializers.ModelSerializer):
 
 
 class GraduationProjectDetailSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True)
-    student_reg_no = serializers.CharField(source="student.registration_no", read_only=True)
-    student_phone = serializers.CharField(source="student.phone_number", read_only=True)
-    student_email = serializers.CharField(source="student.user.email", read_only=True)
-    student_class = serializers.CharField(source="student.department", read_only=True)
+    student_name = serializers.CharField(source="student.user.get_full_name", read_only=True, default="")
+    student_reg_no = serializers.CharField(source="student.registration_no", read_only=True, default="")
+    student_phone = serializers.CharField(source="student.phone_number", read_only=True, default="")
+    student_email = serializers.CharField(source="student.user.email", read_only=True, default="")
+    student_class = serializers.CharField(source="student.department", read_only=True, default="")
     supervisor = SupervisorBriefSerializer(read_only=True)
     reviewer = SupervisorBriefSerializer(read_only=True)
     council_name = serializers.CharField(source="council.council_name", read_only=True, default="")
