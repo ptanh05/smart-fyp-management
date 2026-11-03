@@ -9,6 +9,7 @@ import { formatFullName } from '../utils/nameHelper';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
 import GlobalSearchBar from './GlobalSearchBar';
+import UTCNewsModal, { type UTCNewsItem, UTC_NEWS_DATA } from './UTCNewsModal';
 import './UTCAppLayout.css';
 
 interface UTCAppLayoutProps {
@@ -48,6 +49,21 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   });
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [newsModalOpen, setNewsModalOpen] = useState(false);
+  const [selectedNewsArticle, setSelectedNewsArticle] = useState<UTCNewsItem | null>(null);
+  const [newsPortalCategory, setNewsPortalCategory] = useState<'all' | 'school' | 'training' | 'recruitment'>('all');
+
+  const handleOpenNewsItem = (articleId: string) => {
+    const article = UTC_NEWS_DATA.find((item) => item.id === articleId) || null;
+    setSelectedNewsArticle(article);
+    setNewsModalOpen(true);
+  };
+
+  const handleOpenNewsPortal = (category: 'all' | 'school' | 'training' | 'recruitment' = 'all') => {
+    setSelectedNewsArticle(null);
+    setNewsPortalCategory(category);
+    setNewsModalOpen(true);
+  };
 
   // Auto-expand sidebar when resizing from mobile back to desktop
   React.useEffect(() => {
@@ -544,13 +560,28 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                   <div className="utc-news-card">
                     <div className="utc-news-header">
                       <h3 className="utc-news-title blue-border">| TIN NHÀ TRƯỜNG</h3>
-                      <a href="#all" onClick={(e) => e.preventDefault()} className="utc-news-link">Xem tất cả</a>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenNewsPortal('school')}
+                        className="utc-news-link"
+                        style={{ border: 'none', cursor: 'pointer' }}
+                        title="Xem toàn bộ thông báo nhà trường"
+                      >
+                        Xem tất cả
+                      </button>
                     </div>
                     <ul className="utc-news-list">
                       <li>
                         <span className="pin-icon">📌</span>
                         <div className="news-content">
-                          <a href="#news1" onClick={(e) => e.preventDefault()}>
+                          <a
+                            href="#news-policy"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleOpenNewsItem('news-policy-2026');
+                            }}
+                            title="Nhấp để xem chi tiết thông báo"
+                          >
                             Thực hiện chế độ chính sách sinh viên học kỳ I năm học 2026 - 2027
                           </a>
                           <span className="news-date">📅 11/08/2026</span>
@@ -559,7 +590,14 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                       <li>
                         <span className="pin-icon">📌</span>
                         <div className="news-content">
-                          <a href="#news2" onClick={(e) => e.preventDefault()}>
+                          <a
+                            href="#news-hoangphat"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleOpenNewsItem('news-hoangphat-recruit');
+                            }}
+                            title="Nhấp để xem chi tiết thông báo tuyển dụng"
+                          >
                             Công ty TNHH Tư vấn & Công nghệ Xây dựng Hoàng Phát tuyển dụng sinh viên UTC
                           </a>
                           <span className="news-date">📅 22/07/2026</span>
@@ -568,7 +606,14 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                       <li>
                         <span className="pin-icon">📌</span>
                         <div className="news-content">
-                          <a href="#news3" onClick={(e) => e.preventDefault()}>
+                          <a
+                            href="#news-vatm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleOpenNewsItem('news-vatm-recruit');
+                            }}
+                            title="Nhấp để xem chi tiết thông báo tuyển dụng VATM"
+                          >
                             Tổng công ty Quản lý bay Việt Nam thông báo tuyển dụng lao động năm 2026
                           </a>
                           <span className="news-date">📅 16/07/2026</span>
@@ -580,13 +625,28 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                   <div className="utc-news-card">
                     <div className="utc-news-header">
                       <h3 className="utc-news-title blue-border">| TIN ĐÀO TẠO & ĐỒ ÁN TỐT NGHIỆP</h3>
-                      <a href="#all" onClick={(e) => e.preventDefault()} className="utc-news-link">Xem tất cả</a>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenNewsPortal('training')}
+                        className="utc-news-link"
+                        style={{ border: 'none', cursor: 'pointer' }}
+                        title="Xem toàn bộ thông báo đào tạo và đồ án"
+                      >
+                        Xem tất cả
+                      </button>
                     </div>
                     <ul className="utc-news-list">
                       <li>
                         <span className="pin-icon">📌</span>
                         <div className="news-content">
-                          <a href="#train1" onClick={(e) => e.preventDefault()}>
+                          <a
+                            href="#train-ielts"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleOpenNewsItem('train-ielts-k61');
+                            }}
+                            title="Nhấp để xem chi tiết chuẩn đầu ra ngoại ngữ"
+                          >
                             THÔNG BÁO VỀ VIỆC SỬ DỤNG CHỨNG CHỈ IELTS / CHUẨN ĐẦU RA TRONG QUÁ TRÌNH ĐÀO TẠO ĐỒ ÁN K61
                           </a>
                           <span className="news-date">📅 14/08/2026</span>
@@ -595,7 +655,14 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                       <li>
                         <span className="pin-icon">📌</span>
                         <div className="news-content">
-                          <a href="#train2" onClick={(e) => e.preventDefault()}>
+                          <a
+                            href="#train-timeline"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleOpenNewsItem('train-timeline-k62');
+                            }}
+                            title="Nhấp để xem lịch duyệt đề cương"
+                          >
                             Thông báo lịch đăng ký bổ sung, duyệt đề cương Đồ án Tốt nghiệp đợt 1 năm học 2026 - 2027
                           </a>
                           <span className="news-date">📅 10/08/2026</span>
@@ -604,7 +671,14 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                       <li>
                         <span className="pin-icon">📌</span>
                         <div className="news-content">
-                          <a href="#train3" onClick={(e) => e.preventDefault()}>
+                          <a
+                            href="#train-midterm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleOpenNewsItem('train-midterm-eval');
+                            }}
+                            title="Nhấp để xem lịch báo cáo giữa kỳ"
+                          >
                             Lịch báo cáo Đánh giá Giữa kỳ Đồ án Tốt nghiệp các Khoa CNTT, Điện tử, Cầu đường (10/08 - 23/08)
                           </a>
                           <span className="news-date">📅 06/08/2026</span>
@@ -628,6 +702,15 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
       {showChangePassword && (
         <ChangePasswordModal isOpen={showChangePassword} onClose={() => setShowChangePassword(false)} />
       )}
+
+      {/* UTC Official News & Bulletin Modal */}
+      <UTCNewsModal
+        isOpen={newsModalOpen}
+        onClose={() => setNewsModalOpen(false)}
+        newsItem={selectedNewsArticle}
+        initialCategory={newsPortalCategory}
+        onSelectNews={(item) => setSelectedNewsArticle(item)}
+      />
     </div>
   );
 };
