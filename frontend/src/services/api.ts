@@ -852,6 +852,9 @@ class ApiService {
     attachment_name?: string | null;
     attachment_type?: string | null;
     attachment_size?: number | null;
+    reactions?: Record<string, string[]>;
+    is_pinned?: boolean;
+    reply_to?: { id: number; sender_name: string; message: string } | null;
     created_at: string;
     is_me: boolean;
   }>> {
@@ -859,7 +862,7 @@ class ApiService {
     return Array.isArray(response.data) ? response.data : [];
   }
 
-  async sendSupervisorGroupMessage(payload: FormData | { message: string }): Promise<any> {
+  async sendSupervisorGroupMessage(payload: FormData | { message: string; reply_to_id?: number }): Promise<any> {
     if (payload instanceof FormData) {
       const response = await this.api.post('/supervisor-group/messages/', payload, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -872,6 +875,52 @@ class ApiService {
 
   async deleteSupervisorGroupMessage(messageId: number): Promise<void> {
     await this.api.delete(`/supervisor-group/messages/${messageId}/`);
+  }
+
+  async toggleSupervisorGroupMessageReaction(messageId: number, emoji: string): Promise<{ message_id: number; reactions: Record<string, string[]> }> {
+    const response = await this.api.post(`/supervisor-group/messages/${messageId}/react/`, { emoji });
+    return response.data;
+  }
+
+  async togglePinSupervisorGroupMessage(messageId: number): Promise<{ message_id: number; is_pinned: boolean; message: string }> {
+    const response = await this.api.post(`/supervisor-group/messages/${messageId}/pin/`);
+    return response.data;
+  }
+
+  async downloadFile(fileUrl: string, fileName?: string): Promise<void> {
+    try {
+      let fullUrl = fileUrl;
+      if (!fullUrl.startsWith('http')) {
+        const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '');
+        fullUrl = `${rootUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+      }
+
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(fullUrl, {
+        responseType: 'blob',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      const blob = new Blob([response.data]);
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName || fileUrl.split('/').pop() || 'downloaded_file';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      console.warn('Lỗi tải tệp qua blob, chuyển sang fallback:', err);
+      const token = localStorage.getItem('access_token');
+      let fallbackUrl = fileUrl;
+      if (!fallbackUrl.startsWith('http')) {
+        const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '');
+        fallbackUrl = `${rootUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+      }
+      fallbackUrl = fallbackUrl.includes('?') ? `${fallbackUrl}&token=${token}` : `${fallbackUrl}?token=${token}`;
+      window.open(fallbackUrl, '_blank');
+    }
   }
 
   // Templates

@@ -69,6 +69,8 @@ from .views_utc import (
     AssignMemberAPIView,
 )
 from .views_supervisor_group_chat import (
+    SupervisorGroupChatMessageReactionAPIView,
+    SupervisorGroupChatMessagePinAPIView,
     SupervisorGroupInfoAPIView,
     SupervisorGroupChatMessagesAPIView,
     SupervisorGroupChatMessageDeleteAPIView,
@@ -346,6 +348,8 @@ urlpatterns = [
     path("supervisor-group/info/", SupervisorGroupInfoAPIView.as_view(), name="supervisor-group-info"),
     path("supervisor-group/messages/", SupervisorGroupChatMessagesAPIView.as_view(), name="supervisor-group-messages"),
     path("supervisor-group/messages/<int:pk>/", SupervisorGroupChatMessageDeleteAPIView.as_view(), name="supervisor-group-message-delete"),
+    path("supervisor-group/messages/<int:pk>/react/", SupervisorGroupChatMessageReactionAPIView.as_view(), name="supervisor-group-message-react"),
+    path("supervisor-group/messages/<int:pk>/pin/", SupervisorGroupChatMessagePinAPIView.as_view(), name="supervisor-group-message-pin"),
     path("export/report/", ExportReportAPIView.as_view(), name="export-report"),
     path("export/consolidated-report/", ConsolidatedEvaluationExportAPIView.as_view(), name="export-consolidated-report"),
     # Delete endpoints

@@ -134,7 +134,7 @@ class SupervisorGroupChatMessagesAPIView(APIView):
 
         messages_qs = (
             SupervisorGroupChatMessage.objects.filter(supervisor=supervisor)
-            .select_related("sender")
+            .select_related("sender", "reply_to", "reply_to__sender")
             .order_by("created_at")
         )
 
@@ -144,6 +144,15 @@ class SupervisorGroupChatMessagesAPIView(APIView):
             sender_name = sender.get_full_name() or sender.username
             role = "supervisor" if sender.user_type == "supervisor" else "student"
             role_label = (supervisor.academic_title or "GVHD") if role == "supervisor" else "Sinh viên"
+
+            reply_info = None
+            if msg.reply_to:
+                rep_s = msg.reply_to.sender
+                reply_info = {
+                    "id": msg.reply_to.id,
+                    "sender_name": rep_s.get_full_name() or rep_s.username,
+                    "message": msg.reply_to.message[:100] if msg.reply_to.message else (f"[{msg.reply_to.attachment_name}]" if msg.reply_to.attachment_name else ""),
+                }
 
             results.append(
                 {
@@ -158,6 +167,9 @@ class SupervisorGroupChatMessagesAPIView(APIView):
                     "attachment_name": msg.attachment_name,
                     "attachment_type": msg.attachment_type,
                     "attachment_size": msg.attachment_size,
+                    "reactions": msg.reactions or {},
+                    "is_pinned": bool(msg.is_pinned),
+                    "reply_to": reply_info,
                     "created_at": msg.created_at.isoformat(),
                     "is_me": (sender.id == user.id),
                 }
@@ -193,6 +205,14 @@ class SupervisorGroupChatMessagesAPIView(APIView):
             attachment_size = attachment.size
             attachment_type = getattr(attachment, "content_type", None) or ""
 
+        reply_to_id = data.get("reply_to_id")
+        reply_to_obj = None
+        if reply_to_id:
+            try:
+                reply_to_obj = SupervisorGroupChatMessage.objects.filter(id=reply_to_id, supervisor=supervisor).first()
+            except Exception:
+                pass
+
         new_msg = SupervisorGroupChatMessage.objects.create(
             supervisor=supervisor,
             sender=user,
@@ -201,6 +221,7 @@ class SupervisorGroupChatMessagesAPIView(APIView):
             attachment_name=attachment_name,
             attachment_type=attachment_type,
             attachment_size=attachment_size,
+            reply_to=reply_to_obj,
         )
 
         sender_name = user.get_full_name() or user.username
@@ -241,6 +262,15 @@ class SupervisorGroupChatMessagesAPIView(APIView):
         except Exception as e:
             logger.warning(f"Failed to create chat notifications: {e}")
 
+        reply_info = None
+        if new_msg.reply_to:
+            rep_s = new_msg.reply_to.sender
+            reply_info = {
+                "id": new_msg.reply_to.id,
+                "sender_name": rep_s.get_full_name() or rep_s.username,
+                "message": new_msg.reply_to.message[:100] if new_msg.reply_to.message else "",
+            }
+
         return Response(
             {
                 "id": new_msg.id,
@@ -254,6 +284,9 @@ class SupervisorGroupChatMessagesAPIView(APIView):
                 "attachment_name": new_msg.attachment_name,
                 "attachment_type": new_msg.attachment_type,
                 "attachment_size": new_msg.attachment_size,
+                "reactions": {},
+                "is_pinned": False,
+                "reply_to": reply_info,
                 "created_at": new_msg.created_at.isoformat(),
                 "is_me": True,
             },
@@ -283,3 +316,72 @@ class SupervisorGroupChatMessageDeleteAPIView(APIView):
 
         msg.delete()
         return Response({"message": "Đã xóa tin nhắn thành công."}, status=status.HTTP_200_OK)
+
+
+class SupervisorGroupChatMessageReactionAPIView(APIView):
+    """Thả hoặc gỡ biểu tượng cảm xúc (Reaction) vào tin nhắn."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        user = request.user
+        supervisor = get_user_supervisor(user)
+        if not supervisor:
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            msg = SupervisorGroupChatMessage.objects.get(id=pk, supervisor=supervisor)
+        except SupervisorGroupChatMessage.DoesNotExist:
+            return Response({"detail": "Tin nhắn không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
+
+        emoji = request.data.get("emoji", "").strip()
+        allowed_emojis = ["👍", "❤️", "😄", "😮", "😢", "🔥"]
+        if not emoji or emoji not in allowed_emojis:
+            return Response({"detail": "Biểu tượng cảm xúc không hợp lệ."}, status=status.HTTP_400_BAD_REQUEST)
+
+        reactions = dict(msg.reactions or {})
+        user_key = user.username
+
+        current_users = list(reactions.get(emoji, []))
+        if user_key in current_users:
+            current_users.remove(user_key)
+            if current_users:
+                reactions[emoji] = current_users
+            else:
+                reactions.pop(emoji, None)
+        else:
+            current_users.append(user_key)
+            reactions[emoji] = current_users
+
+        msg.reactions = reactions
+        msg.save(update_fields=["reactions"])
+
+        return Response({
+            "message_id": msg.id,
+            "reactions": reactions,
+        }, status=status.HTTP_200_OK)
+
+
+class SupervisorGroupChatMessagePinAPIView(APIView):
+    """Ghim hoặc bỏ ghim tin nhắn trong nhóm đồ án."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        user = request.user
+        supervisor = get_user_supervisor(user)
+        if not supervisor:
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            msg = SupervisorGroupChatMessage.objects.get(id=pk, supervisor=supervisor)
+        except SupervisorGroupChatMessage.DoesNotExist:
+            return Response({"detail": "Tin nhắn không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Toggle pin
+        msg.is_pinned = not msg.is_pinned
+        msg.save(update_fields=["is_pinned"])
+
+        return Response({
+            "message_id": msg.id,
+            "is_pinned": msg.is_pinned,
+            "message": "Đã ghim tin nhắn." if msg.is_pinned else "Đã bỏ ghim tin nhắn."
+        }, status=status.HTTP_200_OK)

@@ -742,3 +742,421 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+
+/* ==============================================================================
+   NEW FEATURES: REACTIONS, PIN, REPLY, COPY, FILE DOWNLOAD
+   ============================================================================== */
+
+/* Toast notification */
+.utc-chat-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  background: #1e293b;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  animation: slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInToast {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Pinned Banner */
+.utc-pinned-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #fffbeb;
+  border-bottom: 1px solid #fef3c7;
+  gap: 12px;
+  font-size: 0.82rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.utc-pinned-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.utc-pinned-content:hover .utc-pinned-text {
+  text-decoration: underline;
+}
+
+.utc-pinned-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #f59e0b;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.utc-pinned-sender {
+  color: #92400e;
+  flex-shrink: 0;
+}
+
+.utc-pinned-text {
+  color: #451a03;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.utc-pinned-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.utc-pinned-jump-btn {
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.utc-pinned-jump-btn:hover {
+  background: #fde68a;
+}
+
+.utc-pinned-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.utc-pinned-close-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #475569;
+}
+
+/* Reply Preview Bar */
+.utc-reply-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #f1f5f9;
+  border-top: 1px solid #e2e8f0;
+  border-left: 4px solid #0284c7;
+  font-size: 0.82rem;
+}
+
+.utc-reply-preview-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.utc-reply-icon {
+  font-size: 16px;
+  color: #0284c7;
+  flex-shrink: 0;
+}
+
+.utc-reply-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.utc-reply-sender {
+  color: #0369a1;
+  font-size: 0.78rem;
+}
+
+.utc-reply-snippet {
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.utc-reply-cancel-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.utc-reply-cancel-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1e293b;
+}
+
+/* Quoted Reply Card Inside Bubble */
+.utc-quoted-reply-box {
+  background: rgba(0, 0, 0, 0.06);
+  border-left: 3px solid #0284c7;
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.utc-message-row.message-out .utc-quoted-reply-box {
+  background: rgba(255, 255, 255, 0.18);
+  border-left-color: #ffffff;
+}
+
+.utc-quoted-reply-box:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.utc-message-row.message-out .utc-quoted-reply-box:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.utc-quoted-sender {
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: block;
+  opacity: 0.9;
+}
+
+.utc-quoted-snippet {
+  margin: 2px 0 0 0;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+/* Floating Actions Toolbar */
+.utc-msg-actions-toolbar {
+  position: absolute;
+  top: -16px;
+  right: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 2px 5px;
+  display: none;
+  align-items: center;
+  gap: 3px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+.utc-message-row.message-out .utc-msg-actions-toolbar {
+  right: auto;
+  left: 8px;
+}
+
+.utc-message-row:hover .utc-msg-actions-toolbar {
+  display: flex;
+}
+
+.utc-action-icon-btn {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 12px;
+  line-height: 1;
+  transition: all 0.15s;
+}
+
+.utc-action-icon-btn:hover {
+  background: #f1f5f9;
+  transform: scale(1.15);
+}
+
+.utc-action-icon-btn.is-active-pin {
+  color: #f59e0b;
+}
+
+.utc-action-icon-btn.delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Emoji Picker Popup */
+.utc-emoji-picker-popup {
+  position: absolute;
+  top: -42px;
+  left: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+  animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0.8) translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.utc-emoji-option-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+
+.utc-emoji-option-btn:hover {
+  transform: scale(1.3);
+}
+
+/* Reaction Pills below message */
+.utc-msg-reactions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.utc-reaction-pill-badge {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 2px 7px;
+  font-size: 0.74rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #475569;
+  transition: all 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.utc-reaction-pill-badge:hover {
+  border-color: #0284c7;
+  background: #f0f9ff;
+}
+
+.utc-reaction-pill-badge.my-reaction {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0369a1;
+  font-weight: 700;
+}
+
+.utc-reaction-pill-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* Clickable File Attachment & Download Button */
+.utc-attachment-name-clickable {
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: underline;
+  transition: color 0.15s;
+}
+
+.utc-attachment-name-clickable:hover {
+  color: #0369a1;
+}
+
+.utc-download-btn-active {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.utc-download-btn-active:hover:not(:disabled) {
+  background: #0369a1;
+  transform: scale(1.1);
+}
+
+.utc-download-btn-active:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Pinned tag on message info */
+.utc-msg-pinned-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #d97706;
+  background: #fef3c7;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.utc-message-row.msg-is-pinned .utc-msg-bubble {
+  border: 2px solid #f59e0b;
+}
+
+/* Highlight animation when jumping to message */
+.utc-msg-highlight {
+  animation: highlightFlash 2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes highlightFlash {
+  0% {
+    background-color: #fef08a;
+    transform: scale(1.02);
+  }
+  50% {
+    background-color: #fef9c3;
+  }
+  100% {
+    background-color: transparent;
+    transform: scale(1);
+  }
+}

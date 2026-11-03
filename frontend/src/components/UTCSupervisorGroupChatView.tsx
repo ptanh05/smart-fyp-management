@@ -10,6 +10,8 @@ interface UTCSupervisorGroupChatViewProps {
   supervisorProfile?: any;
 }
 
+const EMOJI_LIST = ['👍', '❤️', '😄', '😮', '😢', '🔥'];
+
 export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProps> = () => {
   const [groupInfo, setGroupInfo] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -20,12 +22,35 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
   const [searchMember, setSearchMember] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Advanced features states
+  const [replyingTo, setReplyingTo] = useState<any | null>(null);
+  const [activeEmojiPickerId, setActiveEmojiPickerId] = useState<number | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const showToast = (text: string) => {
+    setToastMessage(text);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
 
   const scrollToBottom = (smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+  };
+
+  const scrollToMessage = (msgId: number) => {
+    const el = document.getElementById(`utc-msg-${msgId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('utc-msg-highlight');
+      setTimeout(() => {
+        el.classList.remove('utc-msg-highlight');
+      }, 2200);
+    }
   };
 
   const loadGroupData = async (isInitial = false) => {
@@ -62,13 +87,22 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
     loadGroupData(true);
     loadMessages();
 
-    // Live sync polling every 4 seconds
     pollIntervalRef.current = setInterval(() => {
       loadMessages();
     }, 4000);
 
+    // Close emoji picker on click outside
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.utc-msg-actions-toolbar') && !target.closest('.utc-emoji-picker-popup')) {
+        setActiveEmojiPickerId(null);
+      }
+    };
+    document.addEventListener('click', handleDocumentClick);
+
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      document.removeEventListener('click', handleDocumentClick);
     };
   }, []);
 
@@ -83,13 +117,21 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
         const fd = new FormData();
         fd.append('message', trimmed);
         fd.append('attachment', selectedFile);
+        if (replyingTo) {
+          fd.append('reply_to_id', String(replyingTo.id));
+        }
         await apiService.sendSupervisorGroupMessage(fd);
       } else {
-        await apiService.sendSupervisorGroupMessage({ message: trimmed });
+        const payload: any = { message: trimmed };
+        if (replyingTo) {
+          payload.reply_to_id = replyingTo.id;
+        }
+        await apiService.sendSupervisorGroupMessage(payload);
       }
 
       setInputText('');
       setSelectedFile(null);
+      setReplyingTo(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
 
       // Immediately refresh messages
@@ -103,51 +145,124 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
   };
 
   const handleDeleteMessage = async (msgId: number) => {
-    if (!window.confirm('Bạn có chắc muốn xóa tin nhắn này không?')) return;
+    if (!window.confirm('Bạn có chắc chắn muốn xóa tin nhắn này?')) return;
     try {
       await apiService.deleteSupervisorGroupMessage(msgId);
       setMessages((prev) => prev.filter((m) => m.id !== msgId));
+      showToast('Đã xóa tin nhắn.');
     } catch (err: any) {
       alert('Lỗi xóa tin nhắn: ' + (err.response?.data?.detail || err.message));
     }
   };
 
-  if (loading) {
+  // 1. Download file handler
+  const handleDownloadFile = async (e: React.MouseEvent, msgId: number, fileUrl: string, fileName?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      setDownloadingId(msgId);
+      showToast('Đang tải tệp xuống thiết bị...');
+      await apiService.downloadFile(fileUrl, fileName);
+    } catch (err: any) {
+      alert('Lỗi tải tệp: ' + (err.message || 'Không thể tải tệp'));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // 2. Reaction handler
+  const handleToggleReaction = async (msgId: number, emoji: string) => {
+    setActiveEmojiPickerId(null);
+    try {
+      const res = await apiService.toggleSupervisorGroupMessageReaction(msgId, emoji);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msgId ? { ...m, reactions: res.reactions } : m))
+      );
+    } catch (err: any) {
+      console.error('Lỗi thả cảm xúc:', err);
+    }
+  };
+
+  // 3. Copy message handler
+  const handleCopyMessage = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('📋 Đã sao chép nội dung tin nhắn!');
+    } catch (err) {
+      showToast('Không thể sao chép văn bản');
+    }
+  };
+
+  // 4. Reply message handler
+  const handleReplyMessage = (msg: any) => {
+    setReplyingTo(msg);
+    chatInputRef.current?.focus();
+  };
+
+  // 5. Pin message handler
+  const handleTogglePin = async (msgId: number) => {
+    try {
+      const res = await apiService.togglePinSupervisorGroupMessage(msgId);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msgId ? { ...m, is_pinned: res.is_pinned } : m))
+      );
+      showToast(res.is_pinned ? '📌 Đã ghim tin nhắn lên đầu nhóm!' : 'Đã bỏ ghim tin nhắn.');
+    } catch (err: any) {
+      alert('Lỗi ghim tin nhắn: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  if (loading && !groupInfo) {
     return (
       <div className="utc-group-chat-loading">
-        <div className="loading-spinner"></div>
-        <p>Đang tải không gian nhóm đồ án & đoạn chat chung...</p>
+        <div className="utc-spinner"></div>
+        <p>Đang tải thông tin nhóm đồ án và kênh trao đổi...</p>
       </div>
     );
   }
 
-  if (!groupInfo || !groupInfo.has_group) {
+  if (errorMsg && !groupInfo) {
     return (
-      <div className="card utc-group-empty-card">
-        <div className="utc-empty-icon">👥</div>
-        <h2>Chưa Có Nhóm Đồ Án / Chưa Phân Công GVHD</h2>
-        <p className="utc-empty-sub">
-          {errorMsg || groupInfo?.message ||
-            'Bạn chưa được phân công Giảng viên Hướng dẫn chính thức. Vui lòng hoàn thành mục Khảo sát & Nguyện vọng hoặc chờ Khoa công bố phân công để tham gia nhóm đồ án cùng Thầy/Cô.'}
-        </p>
+      <div className="utc-group-chat-error-card">
+        <span className="utc-err-icon">⚠️</span>
+        <h3>Không thể tải thông tin nhóm</h3>
+        <p>{errorMsg}</p>
+        <button onClick={() => loadGroupData(true)} className="utc-retry-btn">
+          Thử lại
+        </button>
       </div>
     );
   }
 
-  const { supervisor, members = [] } = groupInfo;
+  const supervisor = groupInfo?.supervisor;
+  const members = groupInfo?.members || [];
+  const currentUsername = members.find((m: any) => m.is_current_user)?.username;
+
+  // Filter members by search input
   const filteredMembers = members.filter((m: any) => {
-    if (!searchMember) return true;
-    const query = searchMember.toLowerCase();
+    const q = searchMember.toLowerCase();
+    const formattedName = formatFullName(m.full_name).toLowerCase();
     return (
-      (m.full_name || '').toLowerCase().includes(query) ||
-      (m.registration_no || '').toLowerCase().includes(query) ||
-      (m.topic_title || '').toLowerCase().includes(query)
+      formattedName.includes(q) ||
+      m.registration_no?.toLowerCase().includes(q) ||
+      m.topic_title?.toLowerCase().includes(q)
     );
   });
 
+  // Pinned messages
+  const pinnedMessages = messages.filter((m) => m.is_pinned);
+  const latestPinned = pinnedMessages.length > 0 ? pinnedMessages[pinnedMessages.length - 1] : null;
+
   return (
     <div className="utc-group-chat-container">
-      {/* 1. Header Banner: Thông tin GVHD & Nhóm Đồ Án */}
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="utc-chat-toast">
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* 1. Header Overview Card */}
       <div className="utc-group-header-card">
         <div className="utc-group-header-main">
           <div className="utc-sup-avatar-badge">
@@ -180,7 +295,7 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
         </div>
       </div>
 
-      {/* 2. Main Workspace: Two-Column (Thành viên bên trái + Kênh Chat bên phải) */}
+      {/* 2. Main Workspace: Two-Column */}
       <div className="utc-group-workspace">
         {/* Left Column: Danh sách các thành viên cùng 1 GVHD */}
         <div className="utc-group-members-col">
@@ -269,12 +384,50 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
             </div>
           </div>
 
+          {/* Banner Thông báo */}
           <div className="utc-chat-notice-banner">
             <span>📢</span>
             <p>
               Tất cả thành viên trong nhóm đồ án của Thầy/Cô có thể trao đổi bài học, hỏi đáp đề tài, thông báo lịch hẹn và chia sẻ tài liệu trực tiếp tại đây.
             </p>
           </div>
+
+          {/* Banner Tin nhắn đã ghim (Pinned Message Banner) */}
+          {latestPinned && (
+            <div className="utc-pinned-banner">
+              <div
+                className="utc-pinned-content"
+                onClick={() => scrollToMessage(latestPinned.id)}
+                title="Bấm để cuộn đến tin nhắn đã ghim"
+              >
+                <span className="utc-pinned-badge">📌 ĐÃ GHIM</span>
+                <span className="utc-pinned-sender font-semibold">
+                  {formatFullName(latestPinned.sender_name)}:
+                </span>
+                <span className="utc-pinned-text">
+                  {latestPinned.message || latestPinned.attachment_name || '[Tệp đính kèm]'}
+                </span>
+              </div>
+              <div className="utc-pinned-actions">
+                <button
+                  type="button"
+                  className="utc-pinned-jump-btn"
+                  onClick={() => scrollToMessage(latestPinned.id)}
+                  title="Xem tin nhắn đã ghim"
+                >
+                  👁️ Xem
+                </button>
+                <button
+                  type="button"
+                  className="utc-pinned-close-btn"
+                  onClick={() => handleTogglePin(latestPinned.id)}
+                  title="Bỏ ghim tin nhắn này"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Messages Stream */}
           <div className="utc-messages-stream">
@@ -288,13 +441,18 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
               messages.map((msg: any) => {
                 const isSupervisor = msg.sender_role === 'supervisor';
                 const isMe = msg.is_me;
+                const reactions = msg.reactions || {};
+                const reactionEntries = Object.entries(reactions).filter(
+                  ([_, users]: [string, any]) => Array.isArray(users) && users.length > 0
+                );
 
                 return (
                   <div
                     key={msg.id}
+                    id={`utc-msg-${msg.id}`}
                     className={`utc-message-row ${isMe ? 'message-out' : 'message-in'} ${
                       isSupervisor ? 'from-supervisor' : ''
-                    }`}
+                    } ${msg.is_pinned ? 'msg-is-pinned' : ''}`}
                   >
                     {!isMe && (
                       <div className={`utc-msg-avatar ${isSupervisor ? 'sup-avatar' : 'student-avatar'}`}>
@@ -308,12 +466,26 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
                         <span className={`utc-msg-role-tag ${isSupervisor ? 'sup' : 'student'}`}>
                           {msg.sender_role_label}
                         </span>
-                        <span className="utc-msg-time">
-                          {getRelativeTime(msg.created_at)}
-                        </span>
+                        {msg.is_pinned && <span className="utc-msg-pinned-tag">📌 Đã ghim</span>}
+                        <span className="utc-msg-time">{getRelativeTime(msg.created_at)}</span>
                       </div>
 
                       <div className="utc-msg-bubble">
+                        {/* Quoted Reply Box */}
+                        {msg.reply_to && (
+                          <div
+                            className="utc-quoted-reply-box"
+                            onClick={() => scrollToMessage(msg.reply_to.id)}
+                            title="Bấm để xem tin nhắn gốc"
+                          >
+                            <span className="utc-quoted-sender">
+                              ↩️ {formatFullName(msg.reply_to.sender_name)}
+                            </span>
+                            <p className="utc-quoted-snippet">{msg.reply_to.message}</p>
+                          </div>
+                        )}
+
+                        {/* Message Text */}
                         {msg.message && <p className="utc-msg-text">{msg.message}</p>}
 
                         {/* File Attachment */}
@@ -321,44 +493,128 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
                           <div className="utc-msg-attachment">
                             <span className="utc-attachment-icon">📎</span>
                             <div className="utc-attachment-info">
-                              <a
-                                href={msg.attachment}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="utc-attachment-name"
-                                title="Bấm để tải về / mở tệp"
+                              <span
+                                className="utc-attachment-name-clickable"
+                                onClick={(e) => handleDownloadFile(e, msg.id, msg.attachment, msg.attachment_name)}
+                                title="Bấm để tải về máy tính"
                               >
                                 {msg.attachment_name || 'Tệp đính kèm'}
-                              </a>
+                              </span>
                               {msg.attachment_size && (
                                 <span className="utc-attachment-size">
                                   ({(msg.attachment_size / 1024).toFixed(1)} KB)
                                 </span>
                               )}
                             </div>
-                            <a
-                              href={msg.attachment}
-                              download
-                              className="utc-download-btn"
-                              title="Tải về"
+                            <button
+                              type="button"
+                              className="utc-download-btn-active"
+                              onClick={(e) => handleDownloadFile(e, msg.id, msg.attachment, msg.attachment_name)}
+                              title="Tải về máy tính"
+                              disabled={downloadingId === msg.id}
                             >
-                              ⬇️
-                            </a>
+                              {downloadingId === msg.id ? '⏳' : '⬇️'}
+                            </button>
                           </div>
                         )}
 
-                        {/* Action buttons (Delete) */}
-                        {isMe && (
+                        {/* Floating Action Toolbar on Hover */}
+                        <div className="utc-msg-actions-toolbar">
+                          {/* Emoji Picker Popup */}
+                          {activeEmojiPickerId === msg.id && (
+                            <div className="utc-emoji-picker-popup">
+                              {EMOJI_LIST.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  className="utc-emoji-option-btn"
+                                  onClick={() => handleToggleReaction(msg.id, emoji)}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Reaction Button */}
                           <button
                             type="button"
-                            className="utc-msg-del-btn"
-                            onClick={() => handleDeleteMessage(msg.id)}
-                            title="Xóa tin nhắn"
+                            className="utc-action-icon-btn"
+                            title="Thả cảm xúc"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveEmojiPickerId(activeEmojiPickerId === msg.id ? null : msg.id);
+                            }}
                           >
-                            ×
+                            😊
                           </button>
-                        )}
+
+                          {/* Reply Button */}
+                          <button
+                            type="button"
+                            className="utc-action-icon-btn"
+                            title="Trả lời tin nhắn"
+                            onClick={() => handleReplyMessage(msg)}
+                          >
+                            ↩️
+                          </button>
+
+                          {/* Copy Button */}
+                          {msg.message && (
+                            <button
+                              type="button"
+                              className="utc-action-icon-btn"
+                              title="Sao chép nội dung"
+                              onClick={() => handleCopyMessage(msg.message)}
+                            >
+                              📋
+                            </button>
+                          )}
+
+                          {/* Pin Button */}
+                          <button
+                            type="button"
+                            className={`utc-action-icon-btn ${msg.is_pinned ? 'is-active-pin' : ''}`}
+                            title={msg.is_pinned ? 'Bỏ ghim tin nhắn' : 'Ghim tin nhắn'}
+                            onClick={() => handleTogglePin(msg.id)}
+                          >
+                            📌
+                          </button>
+
+                          {/* Delete Button (If author) */}
+                          {isMe && (
+                            <button
+                              type="button"
+                              className="utc-action-icon-btn delete"
+                              title="Xóa tin nhắn"
+                              onClick={() => handleDeleteMessage(msg.id)}
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Reaction Pills below message */}
+                      {reactionEntries.length > 0 && (
+                        <div className="utc-msg-reactions-row">
+                          {reactionEntries.map(([emoji, userList]: [string, any]) => {
+                            const hasReacted = currentUsername && userList.includes(currentUsername);
+                            return (
+                              <button
+                                key={emoji}
+                                type="button"
+                                className={`utc-reaction-pill-badge ${hasReacted ? 'my-reaction' : ''}`}
+                                onClick={() => handleToggleReaction(msg.id, emoji)}
+                                title={userList.join(', ')}
+                              >
+                                <span>{emoji}</span>
+                                <span className="utc-reaction-pill-count">{userList.length}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -366,6 +622,31 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Quoting / Replying Preview Bar */}
+          {replyingTo && (
+            <div className="utc-reply-preview-bar">
+              <div className="utc-reply-preview-info">
+                <span className="utc-reply-icon">↩️</span>
+                <div className="utc-reply-text">
+                  <span className="utc-reply-sender">
+                    Đang trả lời <strong>{formatFullName(replyingTo.sender_name)}</strong>:
+                  </span>
+                  <span className="utc-reply-snippet">
+                    {replyingTo.message || replyingTo.attachment_name || '[Tệp đính kèm]'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="utc-reply-cancel-btn"
+                onClick={() => setReplyingTo(null)}
+                title="Hủy trả lời"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* Chat Input Bar */}
           <form className="utc-chat-input-bar" onSubmit={handleSendMessage}>
@@ -390,35 +671,35 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
                 <input
                   ref={fileInputRef}
                   type="file"
-                  style={{ display: 'none' }}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setSelectedFile(e.target.files[0]);
                     }
                   }}
+                  style={{ display: 'none' }}
                 />
               </label>
 
-              <textarea
-                className="utc-chat-textarea"
-                placeholder="Nhập tin nhắn thảo luận cho cả nhóm (Enter để gửi, Shift+Enter xuống dòng)..."
-                rows={1}
+              <input
+                ref={chatInputRef}
+                type="text"
+                className="utc-text-input"
+                placeholder={
+                  replyingTo
+                    ? `Nhập câu trả lời cho ${formatFullName(replyingTo.sender_name)}...`
+                    : 'Nhập tin nhắn thảo luận cho cả nhóm (Enter để gửi)...'
+                }
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage(e);
-                  }
-                }}
+                disabled={sending}
               />
 
               <button
                 type="submit"
-                className="utc-chat-send-btn"
+                className="utc-send-btn"
                 disabled={sending || (!inputText.trim() && !selectedFile)}
               >
-                {sending ? '⏳' : 'Gửi ➔'}
+                {sending ? 'Đang gửi...' : 'Gửi ➔'}
               </button>
             </div>
           </form>
@@ -427,5 +708,3 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
     </div>
   );
 };
-
-export default UTCSupervisorGroupChatView;

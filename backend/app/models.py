@@ -1171,6 +1171,11 @@ class SupervisorGroupChatMessage(models.Model):
     attachment_name = models.CharField(max_length=255, blank=True, null=True)
     attachment_type = models.CharField(max_length=100, blank=True, null=True)
     attachment_size = models.PositiveIntegerField(blank=True, null=True)
+    reactions = models.JSONField(default=dict, blank=True)
+    reply_to = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="replies"
+    )
+    is_pinned = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
