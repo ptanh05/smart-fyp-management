@@ -29,8 +29,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
-    if (targetStage && targetStage.number > currentStageNum) {
-      alert(`⚠️ Bạn hiện đang ở Giai đoạn ${currentStageNum}. Cần được Giảng viên hướng dẫn duyệt các bước trước để mở ${targetStage.label}!`);
+    // Giai đoạn 1 (Đề tài/GVHD), Giai đoạn 2 (Khảo sát/Nguyện vọng), Giai đoạn 3 (Đề cương) luôn mở cho sinh viên
+    if (targetStage && targetStage.number > 3 && targetStage.number > currentStageNum) {
+      alert(`⚠️ Bạn cần hoàn thành và được Hội đồng Khoa & GVHD duyệt Đề cương (Giai đoạn 3) để mở ${targetStage.label}!`);
       return;
     }
     setActiveTab(tabKey);
@@ -488,7 +489,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           {GRADUATION_STAGES.map((tab) => {
             const isCurrent = tab.number === currentStageNum;
             const isCompleted = tab.number < currentStageNum;
-            const isLocked = tab.number > currentStageNum;
+            // GĐ 1, 2, 3 không bao giờ bị khóa để sinh viên tự do thực hiện hồ sơ & đề cương
+            const isLocked = tab.number > 3 && tab.number > currentStageNum;
 
             return (
               <button
@@ -709,6 +711,57 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   <li>GVHD chấm sơ khảo và đánh giá đủ điều kiện bảo vệ.</li>
                   <li>GVPB chấm nhận xét độc lập và Hội đồng chấm bảo vệ trực tiếp.</li>
                 </ol>
+              </div>
+
+              {/* Hướng Dẫn & Chuyển Tiếp Sang GĐ 2 và GĐ 3 */}
+              <div className="p-5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🚀</span>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-100">Hướng Dẫn & Bước Tiếp Theo Của Sinh Viên:</h4>
+                    <p className="text-xs text-slate-400">Sinh viên có thể chủ động chuyển sang các giai đoạn sau để cập nhật khảo sát và đề cương:</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div
+                    className="cursor-pointer hover:border-blue-500/60 transition-all p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between"
+                    onClick={() => handleSelectTab('survey')}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Bước 1</span>
+                        <span className="text-lg">📝</span>
+                      </div>
+                      <h5 className="font-bold text-slate-200 text-sm mb-1">Khảo Sát Nguyện Vọng & Doanh Nghiệp (GĐ 2)</h5>
+                      <p className="text-xs text-slate-400 mb-3">
+                        Cập nhật thông tin thực tập tốt nghiệp, nguyện vọng hướng đề tài và thông tin liên hệ.
+                      </p>
+                    </div>
+                    <button type="button" className="utc-btn bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs px-3 py-2 rounded self-start">
+                      Đến GĐ 2: Khảo Sát ➔
+                    </button>
+                  </div>
+
+                  <div
+                    className="cursor-pointer hover:border-emerald-500/60 transition-all p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between"
+                    onClick={() => handleSelectTab('outline')}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Bước 2</span>
+                        <span className="text-lg">📄</span>
+                      </div>
+                      <h5 className="font-bold text-slate-200 text-sm mb-1">Soạn Thảo Đề Tài & Ký Đề Cương (GĐ 3)</h5>
+                      <p className="text-xs text-slate-400 mb-3">
+                        Soạn thảo tiêu đề Việt/Anh, tải phiếu đề cương PDF chuẩn UTC và nộp bản scan có chữ ký GVHD.
+                      </p>
+                    </div>
+                    <button type="button" className="utc-btn bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs px-3 py-2 rounded self-start">
+                      Đến GĐ 3: Đề Cương ➔
+                    </button>
+                  </div>
+                </div>
               </div>
             </>
           ) : (

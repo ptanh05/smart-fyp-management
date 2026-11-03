@@ -138,7 +138,6 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   // For Student: Determine the single current active stage to display on the sidebar
   const studentProject = (user as any)?.graduation_project;
   const effectiveStageNumber = currentStageNumber || getProjectStageNumber(studentProject);
-  const currentStage = GRADUATION_STAGES.find((s) => s.number === effectiveStageNumber) || GRADUATION_STAGES[0];
 
   const handleNotificationNavigate = (url: string) => {
     const [path, queryString] = url.split('?');
@@ -217,36 +216,54 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                 <span className="utc-nav-label">Tổng Quan Dashboard</span>
               </div>
 
-              {/* 2. QUY TRÌNH ĐỒ ÁN UTC (CHỈ HIỂN THỊ GIAI ĐOẠN HIỆN TẠI) */}
+              {/* 2. QUY TRÌNH ĐỒ ÁN UTC (6 GIAI ĐOẠN) */}
               <div className="utc-sidebar-section-title">
-                GIAI ĐOẠN HIỆN TẠI ({currentStage.number}/6)
+                QUY TRÌNH ĐỒ ÁN UTC ({effectiveStageNumber}/6)
               </div>
-              <div
-                className={`utc-nav-item ${
-                  activeTab === currentStage.key ||
-                  (currentStage.number === 1 && (activeTab === 'project' || activeTab === 'utc_graduation'))
-                    ? 'active'
-                    : ''
-                }`}
-                onClick={() => handleNavClick(currentStage.key)}
-                title={`${currentStage.label} - Giai đoạn bạn đang thực hiện. Khi GVHD duyệt sẽ mở giai đoạn tiếp theo`}
-              >
-                <span className="utc-nav-icon">{currentStage.icon}</span>
-                <span className="utc-nav-label">{currentStage.label}</span>
-                <span
-                  className="utc-nav-badge"
-                  style={{
-                    background: '#0284c7',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    borderRadius: '12px',
-                    padding: '2px 8px',
-                    fontSize: '0.72rem',
-                  }}
-                >
-                  GĐ {currentStage.number}
-                </span>
-              </div>
+              {GRADUATION_STAGES.map((st) => {
+                const isCurrent = st.number === effectiveStageNumber;
+                const isAccessible = st.number <= 3 || st.number <= effectiveStageNumber;
+                const isActive =
+                  activeTab === st.key ||
+                  (st.number === 1 && (activeTab === 'project' || activeTab === 'utc_graduation'));
+
+                return (
+                  <div
+                    key={st.key}
+                    className={`utc-nav-item ${isActive ? 'active' : ''} ${!isAccessible ? 'locked' : ''}`}
+                    onClick={() => {
+                      if (!isAccessible) {
+                        alert(`⚠️ Bạn cần hoàn thành và được Khoa/GVHD duyệt các bước trước để mở ${st.label}!`);
+                        return;
+                      }
+                      handleNavClick(st.key);
+                    }}
+                    title={
+                      !isAccessible
+                        ? `Chờ hoàn thành bước trước để mở ${st.label}`
+                        : `${st.label} ${isCurrent ? '- Giai đoạn bạn đang thực hiện' : ''}`
+                    }
+                  >
+                    <span className="utc-nav-icon">{isAccessible ? st.icon : '🔒'}</span>
+                    <span className="utc-nav-label">{st.sidebarLabel}</span>
+                    {isCurrent && (
+                      <span
+                        className="utc-nav-badge"
+                        style={{
+                          background: '#0284c7',
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          borderRadius: '12px',
+                          padding: '2px 8px',
+                          fontSize: '0.7rem',
+                        }}
+                      >
+                        GĐ {st.number}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
 
               {/* 3. TRAO ĐỔI & THẢO LUẬN */}
               <div className="utc-sidebar-section-title">TRAO ĐỔI & THẢO LUẬN</div>
@@ -471,131 +488,133 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
           </div>
         </header>
 
-        {/* 3. Hero Greeting Banner (Exact UTC Portal Style) */}
-        <section className="utc-hero-banner">
-          <div className="utc-hero-text-block">
-            <span className="utc-greeting-time">{getGreeting()}</span>
-            <h1 className="utc-hero-user-name">{getUserDisplayName()}</h1>
-            <div className="utc-hero-date">
-              📅 {getCurrentDateString()}
-            </div>
-          </div>
-          <div className="utc-hero-badge">
-            <img src={utcLogo} alt="UTC Logo" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
-          </div>
-        </section>
-
-        {/* 4. Quick actions & news are student/supervisor oriented — hidden in the committee portal */}
-        {userType !== 'committee_member' && (
+        {/* 3. Hero Banner, Quick Actions & News ONLY rendered on Overview Tab */}
+        {(activeTab === 'overview' || activeTab === 'dashboard') && (
           <>
-        <section className="utc-quick-actions-grid">
-          <div className="utc-quick-card action-blue" onClick={() => onTabChange && onTabChange('project')}>
-            <div className="qc-icon icon-bg-blue">📘</div>
-            <div className="qc-text">
-              <span className="qc-tag">HỌC TẬP</span>
-              <h4 className="qc-title">Đăng ký đồ án</h4>
-            </div>
-          </div>
+            <section className="utc-hero-banner">
+              <div className="utc-hero-text-block">
+                <span className="utc-greeting-time">{getGreeting()}</span>
+                <h1 className="utc-hero-user-name">{getUserDisplayName()}</h1>
+                <div className="utc-hero-date">
+                  📅 {getCurrentDateString()}
+                </div>
+              </div>
+              <div className="utc-hero-badge">
+                <img src={utcLogo} alt="UTC Logo" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
+              </div>
+            </section>
 
-          <div className="utc-quick-card action-amber" onClick={() => handleNavClick('templates')}>
-            <div className="qc-icon icon-bg-amber">📅</div>
-            <div className="qc-text">
-              <span className="qc-tag">LỊCH</span>
-              <h4 className="qc-title">Thời khóa biểu & Tiến độ</h4>
-            </div>
-          </div>
+            {userType !== 'committee_member' && (
+              <>
+                <section className="utc-quick-actions-grid">
+                  <div className="utc-quick-card action-blue" onClick={() => onTabChange && onTabChange('project')}>
+                    <div className="qc-icon icon-bg-blue">📘</div>
+                    <div className="qc-text">
+                      <span className="qc-tag">HỌC TẬP</span>
+                      <h4 className="qc-title">Đăng ký đồ án</h4>
+                    </div>
+                  </div>
 
-          <div className="utc-quick-card action-green" onClick={() => onTabChange && onTabChange('documents')}>
-            <div className="qc-icon icon-bg-green">📑</div>
-            <div className="qc-text">
-              <span className="qc-tag">TÀI LIỆU</span>
-              <h4 className="qc-title">Nộp báo cáo & Đề cương</h4>
-            </div>
-          </div>
+                  <div className="utc-quick-card action-amber" onClick={() => handleNavClick('templates')}>
+                    <div className="qc-icon icon-bg-amber">📅</div>
+                    <div className="qc-text">
+                      <span className="qc-tag">LỊCH</span>
+                      <h4 className="qc-title">Thời khóa biểu & Tiến độ</h4>
+                    </div>
+                  </div>
 
-          <div className="utc-quick-card action-red" onClick={() => handleNavClick('evaluations')}>
-            <div className="qc-icon icon-bg-red">📊</div>
-            <div className="qc-text">
-              <span className="qc-tag">THÔNG TIN</span>
-              <h4 className="qc-title">Kết quả điểm & Đánh giá</h4>
-            </div>
-          </div>
-        </section>
+                  <div className="utc-quick-card action-green" onClick={() => onTabChange && onTabChange('documents')}>
+                    <div className="qc-icon icon-bg-green">📑</div>
+                    <div className="qc-text">
+                      <span className="qc-tag">TÀI LIỆU</span>
+                      <h4 className="qc-title">Nộp báo cáo & Đề cương</h4>
+                    </div>
+                  </div>
 
-        {/* 5. 2-Column News & Training Announcements Grid (Exact UTC Portal Vibe) */}
-        <section className="utc-news-grid">
-          <div className="utc-news-card">
-            <div className="utc-news-header">
-              <h3 className="utc-news-title blue-border">| TIN NHÀ TRƯỜNG</h3>
-              <a href="#all" onClick={(e) => e.preventDefault()} className="utc-news-link">Xem tất cả</a>
-            </div>
-            <ul className="utc-news-list">
-              <li>
-                <span className="pin-icon">📌</span>
-                <div className="news-content">
-                  <a href="#news1" onClick={(e) => e.preventDefault()}>
-                    Thực hiện chế độ chính sách sinh viên học kỳ I năm học 2026 - 2027
-                  </a>
-                  <span className="news-date">📅 11/08/2026</span>
-                </div>
-              </li>
-              <li>
-                <span className="pin-icon">📌</span>
-                <div className="news-content">
-                  <a href="#news2" onClick={(e) => e.preventDefault()}>
-                    Công ty TNHH Tư vấn & Công nghệ Xây dựng Hoàng Phát tuyển dụng sinh viên UTC
-                  </a>
-                  <span className="news-date">📅 22/07/2026</span>
-                </div>
-              </li>
-              <li>
-                <span className="pin-icon">📌</span>
-                <div className="news-content">
-                  <a href="#news3" onClick={(e) => e.preventDefault()}>
-                    Tổng công ty Quản lý bay Việt Nam thông báo tuyển dụng lao động năm 2026
-                  </a>
-                  <span className="news-date">📅 16/07/2026</span>
-                </div>
-              </li>
-            </ul>
-          </div>
+                  <div className="utc-quick-card action-red" onClick={() => handleNavClick('evaluations')}>
+                    <div className="qc-icon icon-bg-red">📊</div>
+                    <div className="qc-text">
+                      <span className="qc-tag">THÔNG TIN</span>
+                      <h4 className="qc-title">Kết quả điểm & Đánh giá</h4>
+                    </div>
+                  </div>
+                </section>
 
-          <div className="utc-news-card">
-            <div className="utc-news-header">
-              <h3 className="utc-news-title blue-border">| TIN ĐÀO TẠO & ĐỒ ÁN TỐT NGHIỆP</h3>
-              <a href="#all" onClick={(e) => e.preventDefault()} className="utc-news-link">Xem tất cả</a>
-            </div>
-            <ul className="utc-news-list">
-              <li>
-                <span className="pin-icon">📌</span>
-                <div className="news-content">
-                  <a href="#train1" onClick={(e) => e.preventDefault()}>
-                    THÔNG BÁO VỀ VIỆC SỬ DỤNG CHỨNG CHỈ IELTS / CHUẨN ĐẦU RA TRONG QUÁ TRÌNH ĐÀO TẠO ĐỒ ÁN K61
-                  </a>
-                  <span className="news-date">📅 14/08/2026</span>
-                </div>
-              </li>
-              <li>
-                <span className="pin-icon">📌</span>
-                <div className="news-content">
-                  <a href="#train2" onClick={(e) => e.preventDefault()}>
-                    Thông báo lịch đăng ký bổ sung, duyệt đề cương Đồ án Tốt nghiệp đợt 1 năm học 2026 - 2027
-                  </a>
-                  <span className="news-date">📅 10/08/2026</span>
-                </div>
-              </li>
-              <li>
-                <span className="pin-icon">📌</span>
-                <div className="news-content">
-                  <a href="#train3" onClick={(e) => e.preventDefault()}>
-                    Lịch báo cáo Đánh giá Giữa kỳ Đồ án Tốt nghiệp các Khoa CNTT, Điện tử, Cầu đường (10/08 - 23/08)
-                  </a>
-                  <span className="news-date">📅 06/08/2026</span>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </section>
+                <section className="utc-news-grid">
+                  <div className="utc-news-card">
+                    <div className="utc-news-header">
+                      <h3 className="utc-news-title blue-border">| TIN NHÀ TRƯỜNG</h3>
+                      <a href="#all" onClick={(e) => e.preventDefault()} className="utc-news-link">Xem tất cả</a>
+                    </div>
+                    <ul className="utc-news-list">
+                      <li>
+                        <span className="pin-icon">📌</span>
+                        <div className="news-content">
+                          <a href="#news1" onClick={(e) => e.preventDefault()}>
+                            Thực hiện chế độ chính sách sinh viên học kỳ I năm học 2026 - 2027
+                          </a>
+                          <span className="news-date">📅 11/08/2026</span>
+                        </div>
+                      </li>
+                      <li>
+                        <span className="pin-icon">📌</span>
+                        <div className="news-content">
+                          <a href="#news2" onClick={(e) => e.preventDefault()}>
+                            Công ty TNHH Tư vấn & Công nghệ Xây dựng Hoàng Phát tuyển dụng sinh viên UTC
+                          </a>
+                          <span className="news-date">📅 22/07/2026</span>
+                        </div>
+                      </li>
+                      <li>
+                        <span className="pin-icon">📌</span>
+                        <div className="news-content">
+                          <a href="#news3" onClick={(e) => e.preventDefault()}>
+                            Tổng công ty Quản lý bay Việt Nam thông báo tuyển dụng lao động năm 2026
+                          </a>
+                          <span className="news-date">📅 16/07/2026</span>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="utc-news-card">
+                    <div className="utc-news-header">
+                      <h3 className="utc-news-title blue-border">| TIN ĐÀO TẠO & ĐỒ ÁN TỐT NGHIỆP</h3>
+                      <a href="#all" onClick={(e) => e.preventDefault()} className="utc-news-link">Xem tất cả</a>
+                    </div>
+                    <ul className="utc-news-list">
+                      <li>
+                        <span className="pin-icon">📌</span>
+                        <div className="news-content">
+                          <a href="#train1" onClick={(e) => e.preventDefault()}>
+                            THÔNG BÁO VỀ VIỆC SỬ DỤNG CHỨNG CHỈ IELTS / CHUẨN ĐẦU RA TRONG QUÁ TRÌNH ĐÀO TẠO ĐỒ ÁN K61
+                          </a>
+                          <span className="news-date">📅 14/08/2026</span>
+                        </div>
+                      </li>
+                      <li>
+                        <span className="pin-icon">📌</span>
+                        <div className="news-content">
+                          <a href="#train2" onClick={(e) => e.preventDefault()}>
+                            Thông báo lịch đăng ký bổ sung, duyệt đề cương Đồ án Tốt nghiệp đợt 1 năm học 2026 - 2027
+                          </a>
+                          <span className="news-date">📅 10/08/2026</span>
+                        </div>
+                      </li>
+                      <li>
+                        <span className="pin-icon">📌</span>
+                        <div className="news-content">
+                          <a href="#train3" onClick={(e) => e.preventDefault()}>
+                            Lịch báo cáo Đánh giá Giữa kỳ Đồ án Tốt nghiệp các Khoa CNTT, Điện tử, Cầu đường (10/08 - 23/08)
+                          </a>
+                          <span className="news-date">📅 06/08/2026</span>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </section>
+              </>
+            )}
           </>
         )}
 
