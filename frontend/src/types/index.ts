@@ -186,6 +186,11 @@ export interface Project {
   has_registered_groups?: boolean;
   category_name?: string;
   user?: number;
+  topic_review_status?: 'DRAFT' | 'GV_CONFIRMED' | 'APPROVED' | 'REVISION_REQUIRED';
+  topic_revision_notes?: string;
+  batch_id?: number;
+  batch_name?: string;
+  supervisor_name?: string;
 }
 
 export interface DocumentComment {

@@ -142,6 +142,22 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
     }
   };
 
+  const handleResubmitTopic = async (topic: Project) => {
+    try {
+      setLoading(true);
+      await apiService.updateProject(topic.id, {
+        topic_review_status: 'GV_CONFIRMED',
+      } as any);
+      alert('Đã gửi đề tài lên Hội đồng Khoa xét duyệt thành công!');
+      loadTopics();
+      onTopicChanged?.();
+    } catch (err: any) {
+      alert('Lỗi gửi đề tài: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
@@ -254,29 +270,66 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
               (topic as any).project_category_name ||
               (topic.project_category ? `Lĩnh vực #${topic.project_category}` : 'Chưa phân loại');
 
+            const isPendingReview = topic.topic_review_status === 'GV_CONFIRMED';
+            const isApproved = topic.topic_review_status === 'APPROVED';
+            const isRevisionRequired = topic.topic_review_status === 'REVISION_REQUIRED';
+
             return (
               <div
                 key={topic.id}
-                className={`topic-card ${isRegistered ? 'is-registered' : 'is-available'}`}
+                className={`topic-card ${isRegistered ? 'is-registered' : 'is-available'} ${isRevisionRequired ? 'has-revision-border' : ''}`}
               >
                 <div className="topic-card-header">
                   <span className="topic-category-badge">
                     📁 {categoryLabel}
                   </span>
-                  {isRegistered ? (
-                    <span className="status-badge badge-registered">
-                      🔒 Đã có nhóm nhận
-                    </span>
-                  ) : (
-                    <span className="status-badge badge-available">
-                      🟢 Chưa có nhóm nhận
-                    </span>
-                  )}
+
+                  <div className="topic-badges-cluster">
+                    {/* Badge Trạng thái Thẩm định của Khoa */}
+                    {isApproved ? (
+                      <span className="review-badge badge-approved" title="Khoa đã phê duyệt đề tài này">
+                        ✅ Khoa đã duyệt
+                      </span>
+                    ) : isRevisionRequired ? (
+                      <span className="review-badge badge-revision" title="Khoa yêu cầu chỉnh sửa đề tài">
+                        ⚠️ Khoa yêu cầu sửa
+                      </span>
+                    ) : isPendingReview ? (
+                      <span className="review-badge badge-pending" title="Đang chờ Hội đồng Khoa thẩm định">
+                        ⏳ Chờ Khoa duyệt
+                      </span>
+                    ) : (
+                      <span className="review-badge badge-draft" title="Bản nháp">
+                        📝 Bản nháp
+                      </span>
+                    )}
+
+                    {isRegistered ? (
+                      <span className="status-badge badge-registered">
+                        🔒 Đã có nhóm nhận
+                      </span>
+                    ) : (
+                      <span className="status-badge badge-available">
+                        🟢 Chưa có nhóm nhận
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <h3 className="topic-title">{topic.project_name}</h3>
 
                 <p className="topic-description">{topic.project_description || 'Chưa có mô tả chi tiết.'}</p>
+
+                {/* Hộp hiển thị ý kiến phản hồi từ Khoa nếu có */}
+                {topic.topic_revision_notes && (
+                  <div className={`khoa-feedback-box ${isRevisionRequired ? 'feedback-warning' : 'feedback-info'}`}>
+                    <div className="feedback-header">
+                      <span className="feedback-icon">🏛️</span>
+                      <strong>Ý kiến phản hồi từ Hội Đồng Khoa:</strong>
+                    </div>
+                    <p className="feedback-body">"{topic.topic_revision_notes}"</p>
+                  </div>
+                )}
 
                 <div className="topic-meta">
                   <div className="meta-item">
@@ -300,6 +353,17 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
                   >
                     ✏️ Sửa đề tài
                   </button>
+
+                  {(isRevisionRequired || topic.topic_review_status === 'DRAFT') && !isRegistered && (
+                    <button
+                      className="btn btn-sm btn-resubmit"
+                      onClick={() => handleResubmitTopic(topic)}
+                      title="Gửi lại đề tài lên Khoa phê duyệt"
+                    >
+                      🚀 Gửi Khoa duyệt
+                    </button>
+                  )}
+
                   <button
                     className={`btn btn-sm ${isRegistered ? 'btn-disabled' : 'btn-outline-danger'}`}
                     onClick={() => handleDeleteTopic(topic)}

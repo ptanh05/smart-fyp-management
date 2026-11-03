@@ -826,6 +826,7 @@ class ProjectAPIVIEW(ListAPIView, CreateAPIView):
                     topic_category=category,
                     topic_title_vi=project_name,
                     topic_title_en=data.get("english_name", project_name),
+                    topic_review_status="GV_CONFIRMED" if supervisor else "DRAFT",
                     status="ALLOCATED"
                 )
                 return Response({
@@ -837,6 +838,8 @@ class ProjectAPIVIEW(ListAPIView, CreateAPIView):
                     "project_description": data.get("project_description", ""),
                     "functionalities": data.get("functionalities", ""),
                     "status": gp.status,
+                    "topic_review_status": gp.topic_review_status,
+                    "topic_revision_notes": gp.topic_revision_notes or "",
                     "has_registered_groups": bool(gp.student_id)
                 }, status=status.HTTP_201_CREATED)
             except Exception as e:
@@ -865,7 +868,12 @@ class ProjectAPIVIEW(ListAPIView, CreateAPIView):
                         "language": "Fullstack",
                         "functionalities": "Hệ thống quản lý",
                         "status": gp.status,
-                        "has_registered_groups": bool(gp.student_id)
+                        "has_registered_groups": bool(gp.student_id),
+                        "topic_review_status": gp.topic_review_status or "GV_CONFIRMED",
+                        "topic_revision_notes": gp.topic_revision_notes or "",
+                        "batch_id": gp.batch_id,
+                        "batch_name": gp.batch.batch_name if gp.batch else "",
+                        "supervisor_name": gp.supervisor.user.get_full_name() if gp.supervisor and gp.supervisor.user else "",
                     }
                     for gp in qs[:50]
                 ]
@@ -2171,6 +2179,11 @@ class ProjectDetailAPiView(RetrieveUpdateDestroyAPIView):
             if "project_category" in data:
                 from app.models import ProjectTopicArea
                 project.topic_category = ProjectTopicArea.objects.filter(id=data["project_category"]).first()
+            if "topic_review_status" in data:
+                project.topic_review_status = data["topic_review_status"]
+            elif project.topic_review_status == "REVISION_REQUIRED":
+                project.topic_review_status = "GV_CONFIRMED"
+                project.topic_revision_notes = ""
             project.save()
             return Response({
                 "id": project.id,
@@ -2178,6 +2191,8 @@ class ProjectDetailAPiView(RetrieveUpdateDestroyAPIView):
                 "project_category": project.topic_category_id or 1,
                 "project_category_name": project.topic_category.name if project.topic_category else "",
                 "status": project.status,
+                "topic_review_status": project.topic_review_status,
+                "topic_revision_notes": project.topic_revision_notes or "",
             })
 
         if project.user != request.user and not request.user.is_staff:
