@@ -40,9 +40,38 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const { t, i18n } = useTranslation();
   const { toggleTheme, isDark } = useTheme();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth > 768;
+    }
+    return true;
+  });
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+
+  // Auto-expand sidebar when resizing from mobile back to desktop
+  React.useEffect(() => {
+    let prevWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const handleResize = () => {
+      const currentWidth = window.innerWidth;
+      if (prevWidth <= 768 && currentWidth > 768) {
+        setSidebarOpen(true);
+      }
+      prevWidth = currentWidth;
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleNavClick = (tabKey: string) => {
+    if (onTabChange) {
+      onTabChange(tabKey);
+    }
+    // Automatically close sidebar drawer on mobile after clicking an item
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setSidebarOpen(false);
+    }
+  };
 
   // Format dynamic greeting based on current hour
   const getGreeting = () => {
@@ -134,10 +163,23 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
     if (subtab) {
       window.dispatchEvent(new CustomEvent('app:switch-subtab', { detail: { subtab } }));
     }
+
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      setSidebarOpen(false);
+    }
   };
 
   return (
     <div className={`utc-dashboard-wrapper ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
+      {/* Mobile Backdrop Overlay */}
+      {sidebarOpen && (
+        <div
+          className="utc-sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* 1. Left Sidebar Navigation */}
       <aside className="utc-sidebar">
         <div className="utc-sidebar-logo">
@@ -150,6 +192,15 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               {userType === 'student' ? 'CỔNG SINH VIÊN' : userType === 'supervisor' ? 'CỔNG GIẢNG VIÊN' : 'HỘI ĐỒNG ĐÁNH GIÁ'}
             </span>
           </div>
+          <button
+            type="button"
+            className="utc-sidebar-close-btn"
+            onClick={() => setSidebarOpen(false)}
+            title="Đóng menu"
+            aria-label="Đóng menu"
+          >
+            ✕
+          </button>
         </div>
 
         <nav className="utc-sidebar-nav">
@@ -159,7 +210,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               <div className="utc-sidebar-section-title">TỔNG QUAN HỆ THỐNG</div>
               <div
                 className={`utc-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('overview')}
+                onClick={() => handleNavClick('overview')}
                 title="Tổng Quan Dashboard & Tiến Độ Học Vụ"
               >
                 <span className="utc-nav-icon">📊</span>
@@ -177,7 +228,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                     ? 'active'
                     : ''
                 }`}
-                onClick={() => onTabChange && onTabChange(currentStage.key)}
+                onClick={() => handleNavClick(currentStage.key)}
                 title={`${currentStage.label} - Giai đoạn bạn đang thực hiện. Khi GVHD duyệt sẽ mở giai đoạn tiếp theo`}
               >
                 <span className="utc-nav-icon">{currentStage.icon}</span>
@@ -201,7 +252,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               <div className="utc-sidebar-section-title">TRAO ĐỔI & THẢO LUẬN</div>
               <div
                 className={`utc-nav-item ${activeTab === 'chat' || activeTab === 'groups' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('chat')}
+                onClick={() => handleNavClick('chat')}
                 title="Nhóm Đồ Án & Kênh Chat Trực Tiếp GVHD"
               >
                 <span className="utc-nav-icon">💬</span>
@@ -212,7 +263,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               <div className="utc-sidebar-section-title">TÀI NGUYÊN & TIỆN ÍCH</div>
               <div
                 className={`utc-nav-item ${activeTab === 'templates' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('templates')}
+                onClick={() => handleNavClick('templates')}
                 title="Kho Biểu Mẫu Chuẩn & Quy Định ĐATN UTC"
               >
                 <span className="utc-nav-icon">📑</span>
@@ -226,7 +277,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               <div className="utc-sidebar-section-title">HỘI ĐỒNG ĐÁNH GIÁ</div>
               <div
                 className={`utc-nav-item ${activeTab === 'utc_live_defense' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('utc_live_defense')}
+                onClick={() => handleNavClick('utc_live_defense')}
                 title="Lịch bảo vệ, phòng/ca bảo vệ và chấm điểm trực tiếp"
               >
                 <span className="utc-nav-icon">🏛️</span>
@@ -234,7 +285,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'groups' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('groups')}
+                onClick={() => handleNavClick('groups')}
                 title="Sinh viên và đồ án thuộc Hội đồng của bạn"
               >
                 <span className="utc-nav-icon">👥</span>
@@ -242,7 +293,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'evaluations' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('evaluations')}
+                onClick={() => handleNavClick('evaluations')}
                 title="Chấm điểm Hội đồng cho sinh viên"
               >
                 <span className="utc-nav-icon">📝</span>
@@ -256,7 +307,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               <div className="utc-sidebar-section-title">TỔNG QUAN HỆ THỐNG</div>
               <div
                 className={`utc-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('overview')}
+                onClick={() => handleNavClick('overview')}
                 title="Trang Chủ & Thống Kê Giảng Viên"
               >
                 <span className="utc-nav-icon">🏠</span>
@@ -281,7 +332,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                   <div
                     key={st.number}
                     className={`utc-nav-item ${isTabActive ? 'active' : ''}`}
-                    onClick={() => onTabChange && onTabChange(`stage_${st.number}`)}
+                    onClick={() => handleNavClick(`stage_${st.number}`)}
                     title={`${st.sidebarLabel} - Hiện có ${count} sinh viên đang ở giai đoạn này`}
                   >
                     <span className="utc-nav-icon">{st.icon}</span>
@@ -308,7 +359,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               <div className="utc-sidebar-section-title">ĐÁNH GIÁ & BẢO LƯU</div>
               <div
                 className={`utc-nav-item ${activeTab === 'reviewer' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('reviewer')}
+                onClick={() => handleNavClick('reviewer')}
                 title="Đồ Án Phản Biện Độc Lập"
               >
                 <span className="utc-nav-icon">🔍</span>
@@ -316,7 +367,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'deferrals' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('deferrals')}
+                onClick={() => handleNavClick('deferrals')}
                 title="Đơn Xin Hoãn / Bảo Lưu Đồ Án Tốt Nghiệp"
               >
                 <span className="utc-nav-icon">📋</span>
@@ -327,7 +378,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               <div className="utc-sidebar-section-title">TRAO ĐỔI & TIỆN ÍCH</div>
               <div
                 className={`utc-nav-item ${activeTab === 'chat' || activeTab === 'groups' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('chat')}
+                onClick={() => handleNavClick('chat')}
                 title="Nhóm Đồ Án & Kênh Chat Trực Tiếp Sinh Viên"
               >
                 <span className="utc-nav-icon">💬</span>
@@ -335,7 +386,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'templates' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('templates')}
+                onClick={() => handleNavClick('templates')}
                 title="Kho Biểu Mẫu Chuẩn & Quy Định ĐATN UTC"
               >
                 <span className="utc-nav-icon">📑</span>
@@ -343,7 +394,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'audit' ? 'active' : ''}`}
-                onClick={() => onTabChange && onTabChange('audit')}
+                onClick={() => handleNavClick('audit')}
                 title="Nhật Ký Hoạt Động & Thống Kê"
               >
                 <span className="utc-nav-icon">📈</span>
@@ -446,7 +497,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             </div>
           </div>
 
-          <div className="utc-quick-card action-amber" onClick={() => onTabChange && onTabChange('templates')}>
+          <div className="utc-quick-card action-amber" onClick={() => handleNavClick('templates')}>
             <div className="qc-icon icon-bg-amber">📅</div>
             <div className="qc-text">
               <span className="qc-tag">LỊCH</span>
@@ -462,7 +513,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             </div>
           </div>
 
-          <div className="utc-quick-card action-red" onClick={() => onTabChange && onTabChange('evaluations')}>
+          <div className="utc-quick-card action-red" onClick={() => handleNavClick('evaluations')}>
             <div className="qc-icon icon-bg-red">📊</div>
             <div className="qc-text">
               <span className="qc-tag">THÔNG TIN</span>
