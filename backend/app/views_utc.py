@@ -821,9 +821,15 @@ class StudentSurveyAPIView(APIView):
 
         with transaction.atomic():
             # Update student profile
+            fields_to_save = []
             if phone_number:
                 student.phone_number = phone_number
-                student.save(update_fields=["phone_number"])
+                fields_to_save.append("phone_number")
+            if batch and not student.academic_batch:
+                student.academic_batch = batch
+                fields_to_save.append("academic_batch")
+            if fields_to_save:
+                student.save(update_fields=fields_to_save)
 
             if email:
                 user.email = email
