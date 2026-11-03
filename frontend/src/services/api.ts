@@ -888,14 +888,19 @@ class ApiService {
   }
 
   async downloadFile(fileUrl: string, fileName?: string): Promise<void> {
-    try {
-      let fullUrl = fileUrl;
-      if (!fullUrl.startsWith('http')) {
-        const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '');
-        fullUrl = `${rootUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
-      }
+    const token = localStorage.getItem('access_token');
+    let fullUrl = fileUrl;
+    if (!fullUrl.startsWith('http')) {
+      const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '');
+      fullUrl = `${rootUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+    }
 
-      const token = localStorage.getItem('access_token');
+    // Attach token to URL query parameter so both direct GET and window.open fallback are authorized
+    if (token) {
+      fullUrl = fullUrl.includes('?') ? `${fullUrl}&token=${token}` : `${fullUrl}?token=${token}`;
+    }
+
+    try {
       const response = await axios.get(fullUrl, {
         responseType: 'blob',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -905,21 +910,14 @@ class ApiService {
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = fileName || fileUrl.split('/').pop() || 'downloaded_file';
+      a.download = fileName || fileUrl.split('/').pop()?.split('?')[0] || 'downloaded_file';
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(blobUrl);
       document.body.removeChild(a);
     } catch (err: any) {
-      console.warn('Lỗi tải tệp qua blob, chuyển sang fallback:', err);
-      const token = localStorage.getItem('access_token');
-      let fallbackUrl = fileUrl;
-      if (!fallbackUrl.startsWith('http')) {
-        const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '');
-        fallbackUrl = `${rootUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
-      }
-      fallbackUrl = fallbackUrl.includes('?') ? `${fallbackUrl}&token=${token}` : `${fallbackUrl}?token=${token}`;
-      window.open(fallbackUrl, '_blank');
+      console.warn('Lỗi tải tệp qua blob, chuyển sang fallback window.open:', err);
+      window.open(fullUrl, '_blank');
     }
   }
 

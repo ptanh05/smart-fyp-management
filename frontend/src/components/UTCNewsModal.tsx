@@ -553,3 +553,4 @@ export const UTCNewsModal: React.FC<UTCNewsModalProps> = ({
 };
 
 export default UTCNewsModal;
+
