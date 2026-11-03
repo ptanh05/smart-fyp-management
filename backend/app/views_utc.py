@@ -1747,7 +1747,7 @@ class CouncilLiveDefenseSessionAPIView(APIView):
         projects_list = list(projects)
         projects_list = sort_by_vietnamese_name(
             projects_list,
-            key_extractor=lambda p: p.student.user.get_full_name() or p.student.user.username
+            key_extractor=lambda p: (p.student.user.get_full_name() or p.student.user.username) if p.student and p.student.user else (p.topic_title_vi or "")
         )
 
         # Get scores submitted by this member and all scores in council
