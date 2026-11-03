@@ -1,3 +1,4 @@
+import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -676,7 +677,7 @@ const SupervisorDashboard: React.FC = () => {
           student1RegNo: selectedGroup?.group?.student_1_details?.registration_no || '201200101',
           student2Name: selectedGroup?.group?.student_2_details?.user?.username || 'Sinh viên 2 (UTC)',
           student2RegNo: selectedGroup?.group?.student_2_details?.registration_no || '201200102',
-          supervisorName: supervisor?.user?.first_name ? `${supervisor.user.first_name} ${supervisor.user.last_name}` : 'TS. Nguyễn Văn Minh',
+          supervisorName: supervisor?.user ? formatFullName(supervisor.user) : 'TS. Nguyễn Văn Minh',
           reviewerName: 'PGS.TS. Trần Thị Mai',
           committeeName: 'PGS.TS. Nguyễn Đức Thắng',
           supervisorScore: 8.8,

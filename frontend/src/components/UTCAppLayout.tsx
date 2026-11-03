@@ -5,6 +5,7 @@ import type { Student, Supervisor, CommitteeMember, UserType } from '../types';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
+import { formatFullName } from '../utils/nameHelper';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
 import GlobalSearchBar from './GlobalSearchBar';
@@ -78,13 +79,9 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const getUserDisplayName = () => {
     if (!user) return 'Người dùng UTC';
     if ('user' in user && user.user) {
-      const { first_name, last_name, username } = user.user;
-      if (first_name || last_name) {
-        return `${first_name} ${last_name}`.trim();
-      }
-      return username;
+      return formatFullName(user.user);
     }
-    return 'Người dùng UTC';
+    return formatFullName(user as any, null, 'Người dùng UTC');
   };
 
   const getUserRoleLabel = () => {

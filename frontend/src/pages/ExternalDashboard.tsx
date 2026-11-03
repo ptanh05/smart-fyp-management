@@ -1,3 +1,4 @@
+import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
@@ -128,7 +129,7 @@ const ExternalDashboard: React.FC = () => {
               {profile.user.first_name?.[0] || profile.user.username[0]}
             </div>
             <div className="profile-info-header">
-              <h1>{profile.user.first_name} {profile.user.last_name}</h1>
+              <h1>{formatFullName(profile.user)}</h1>
               <p className="profile-subtitle">External Examiner</p>
               <div className="profile-meta-tags">
                 <span className="meta-tag institution">{profile.institution}</span>

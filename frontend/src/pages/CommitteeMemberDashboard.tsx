@@ -1,3 +1,4 @@
+import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -177,7 +178,7 @@ const CommitteeMemberDashboard: React.FC = () => {
                             }}
                           >
                             <span style={{ fontWeight: '500' }}>
-                              {member.user.first_name || member.user.username} {member.user.last_name || ''}
+                              {formatFullName(member.user)}
                             </span>
                             <span style={{ color: '#666', fontSize: '0.9em', marginLeft: '8px' }}>
                               ({member.committee_id})
@@ -380,8 +381,8 @@ const CommitteeMemberDashboard: React.FC = () => {
             student1RegNo: selectedGroup.group?.student_1_details?.registration_no || 'N/A',
             student2Name: selectedGroup.group?.student_2_details?.user?.username,
             student2RegNo: selectedGroup.group?.student_2_details?.registration_no,
-            supervisorName: selectedGroup.supervisor?.user?.first_name 
-              ? `${selectedGroup.supervisor.user.first_name} ${selectedGroup.supervisor.user.last_name}`
+            supervisorName: selectedGroup.supervisor?.user
+              ? formatFullName(selectedGroup.supervisor.user)
               : selectedGroup.supervisor?.user?.username || 'GVHD',
             committeeName: profile?.committee_id || 'Hội đồng Bảo vệ UTC',
           }}

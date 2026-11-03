@@ -1,3 +1,4 @@
+import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -613,7 +614,7 @@ const StudentDashboard: React.FC = () => {
           groupId: profile?.graduation_project?.id || profile?.id || 1,
           projectTitle: profile?.graduation_project?.topic_title_vi || 'Hệ thống Quản lý Đồ án Smart FYP UTC',
           facultyDepartment: profile?.department || 'Khoa Công nghệ Thông tin - UTC',
-          student1Name: profile?.user ? `${profile.user.first_name || ''} ${profile.user.last_name || ''}`.trim() || profile.user.username : 'Sinh viên UTC',
+          student1Name: profile?.user ? formatFullName(profile.user) : 'Sinh viên UTC',
           student1RegNo: profile?.registration_no || '201200101',
           supervisorName: profile?.graduation_project?.supervisor_name || 'TS. Nguyễn Văn Minh',
           reviewerName: 'PGS.TS. Trần Thị Mai',

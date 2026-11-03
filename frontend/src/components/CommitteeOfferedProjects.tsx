@@ -1,3 +1,4 @@
+import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import type { Project, ProjectCategory, Supervisor } from '../types';
@@ -86,7 +87,7 @@ const CommitteeOfferedProjects: React.FC<CommitteeOfferedProjectsProps> = ({
             <option value="">All Supervisors...</option>
             {supervisors.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.user.first_name} {s.user.last_name}
+                {formatFullName(s.user)}
               </option>
             ))}
           </select>
