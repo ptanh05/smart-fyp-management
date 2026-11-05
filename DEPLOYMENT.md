@@ -140,6 +140,7 @@ To ensure thesis outlines, deliverables, and chat attachments persist permanentl
    AWS_SECRET_ACCESS_KEY=<your_r2_secret_access_key>
    AWS_S3_ENDPOINT_URL=https://<account_id>.r2.cloudflarestorage.com
    AWS_S3_REGION_NAME=auto
+   AWS_S3_ADDRESSING_STYLE=path
    AWS_LOCATION=media
    ```
 
@@ -165,12 +166,16 @@ Run the built-in idempotent migration command from the backend directory:
 # Step 1: Dry run to preview files to migrate
 python manage.py migrate_media_to_s3 --dry-run
 
-# Step 2: Execute non-destructive upload (existing remote files with matching size are skipped)
-python manage.py migrate_media_to_s3
+# Step 2: Execute non-destructive upload with SHA256 checksum verification
+python manage.py migrate_media_to_s3 --verify-checksum
 ```
 
-### 5.5 Rollback Procedure
-To instantly revert back to local disk storage without downtime:
-1. In Render Dashboard ➔ Environment Variables: set `USE_S3=False`.
-2. Save changes (triggers container redeploy).
-3. The backend immediately switches back to `FileSystemStorage` at `MEDIA_ROOT`.
+### 5.5 Rollback & Restore Procedure
+To revert back to local disk storage without losing any files uploaded during cloud operation:
+1. **Sync cloud files to local disk first** (if running on a persistent volume or local server):
+   ```bash
+   python manage.py migrate_media_to_s3 --from-s3-to-local --verify-checksum
+   ```
+2. In Render Dashboard ➔ **Environment Variables**: set `USE_S3=False`.
+3. Save changes (triggers container redeploy).
+4. The backend immediately switches back to `FileSystemStorage` at `MEDIA_ROOT`. Existing local files will continue to be served via `SecureMediaDownloadView`.

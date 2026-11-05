@@ -25,7 +25,7 @@ class CustomUser(AbstractUser):
     )
     user_type = models.CharField(max_length=50, choices=USER_TYPE_CHOICES, db_index=True)
 
-    class Meta:
+    class Meta(AbstractUser.Meta):
         db_table = "app_customuser"
         verbose_name = "User"
         verbose_name_plural = "Users"
@@ -573,7 +573,8 @@ class GraduationProject(models.Model):
         verbose_name_plural = "Danh sách Đồ án tốt nghiệp"
 
     def __str__(self):
-        reg = self.student.registration_no if (hasattr(self, "student") and self.student) else "Chưa gán SV"
+        student = getattr(self, "student", None)
+        reg = student.registration_no if student else "Chưa gán SV"
         return f"{reg} - {self.topic_title_vi}"
 
     @property
@@ -891,7 +892,14 @@ class DefenseCouncil(models.Model):
 
     @property
     def current_defending_project(self):
-        return self.projects.filter(status="DEFENDING").first() or getattr(self, "_current_defending_project", None)
+        if not self.pk:
+            return getattr(self, "_current_defending_project", None)
+        projects = getattr(self, "projects", None)
+        if projects is not None:
+            p = projects.filter(status="DEFENDING").first()
+            if p:
+                return p
+        return getattr(self, "_current_defending_project", None)
 
     @current_defending_project.setter
     def current_defending_project(self, value):
@@ -899,9 +907,13 @@ class DefenseCouncil(models.Model):
 
     @property
     def current_defending_project_id(self):
-        p = self.projects.filter(status="DEFENDING").first()
-        if p:
-            return p.id
+        if not self.pk:
+            return getattr(getattr(self, "_current_defending_project", None), "id", None)
+        projects = getattr(self, "projects", None)
+        if projects is not None:
+            p = projects.filter(status="DEFENDING").first()
+            if p:
+                return p.id
         return getattr(getattr(self, "_current_defending_project", None), "id", None)
 
     @property
@@ -927,7 +939,8 @@ class DefenseCouncil(models.Model):
 
     def check_utc_model_validity(self):
         """Kiểm tra mô hình chuẩn 1 Chủ tịch, 2 Thư ký, 2 Ủy viên (5 thành viên)"""
-        members = list(self.members.all())
+        members_mgr = getattr(self, "members", None)
+        members = list(members_mgr.all()) if members_mgr is not None else []
         chairs = [m for m in members if m.role == "CHAIR"]
         secs = [m for m in members if m.role == "SECRETARY"]
         uvs = [m for m in members if m.role in ["MEMBER", "EXTERNAL_MEMBER"]]

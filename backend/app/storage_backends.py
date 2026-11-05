@@ -19,6 +19,7 @@ class MediaStorage(S3Boto3Storage if S3Boto3Storage else FileSystemStorage):
     custom_domain = getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', None)
     querystring_auth = getattr(settings, 'AWS_QUERYSTRING_AUTH', False)
     querystring_expire = getattr(settings, 'AWS_QUERYSTRING_EXPIRE', 3600)
+    addressing_style = getattr(settings, 'AWS_S3_ADDRESSING_STYLE', 'path')
 
     def url(self, name):
         """

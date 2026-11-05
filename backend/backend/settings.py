@@ -232,6 +232,7 @@ if USE_S3 and AWS_STORAGE_BUCKET_NAME:
     AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
     AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="auto")  # 'auto' for Cloudflare R2, 'ap-southeast-1' for AWS
     AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default=None)  # Cloudflare R2 or MinIO
+    AWS_S3_ADDRESSING_STYLE = env("AWS_S3_ADDRESSING_STYLE", default="path")  # 'path' for Cloudflare R2 / MinIO
     AWS_S3_FILE_OVERWRITE = False
     AWS_DEFAULT_ACL = None  # Crucial for Cloudflare R2 and modern S3
     AWS_S3_SIGNATURE_VERSION = "s3v4"

@@ -547,3 +547,141 @@ class MediaMigrationCommandTestCase(APITestCase):
             self.assertIn("Skipped (Already in Storage): 1", output2)
             self.assertIn("Successfully Uploaded: 0", output2)
 
+    def test_migration_with_verify_checksum(self):
+        from io import StringIO
+        out = StringIO()
+        with override_settings(MEDIA_ROOT=self.test_dest_dir):
+            self.call_command("migrate_media_to_s3", source_dir=self.test_src_dir, verify_checksum=True, stdout=out)
+            output = out.getvalue()
+            self.assertIn("Successfully Uploaded: 1", output)
+            self.assertIn("Checksums Verified: 1", output)
+            self.assertIn("Failed Files: 0", output)
+
+    def test_migration_reverse_rollback(self):
+        from io import StringIO
+        # First put file into default_storage
+        with override_settings(MEDIA_ROOT=self.test_dest_dir):
+            self.call_command("migrate_media_to_s3", source_dir=self.test_src_dir, stdout=StringIO())
+
+            restore_dir = tempfile.mkdtemp()
+            try:
+                out = StringIO()
+                self.call_command("migrate_media_to_s3", reverse=True, dest_dir=restore_dir, verify_checksum=True, stdout=out)
+                output = out.getvalue()
+                self.assertIn("Successfully Downloaded: 1", output)
+                self.assertIn("Checksums Verified: 1", output)
+                restored_path = os.path.join(restore_dir, "chat_attachments", "migration_test.txt")
+                self.assertTrue(os.path.exists(restored_path))
+                with open(restored_path, "rb") as rf:
+                    self.assertEqual(rf.read(), b"Migration test file content.")
+            finally:
+                shutil.rmtree(restore_dir, ignore_errors=True)
+
+    def test_migration_reverse_dry_run(self):
+        from io import StringIO
+        with override_settings(MEDIA_ROOT=self.test_dest_dir):
+            self.call_command("migrate_media_to_s3", source_dir=self.test_src_dir, stdout=StringIO())
+
+            restore_dir = tempfile.mkdtemp()
+            try:
+                out = StringIO()
+                self.call_command("migrate_media_to_s3", reverse=True, dest_dir=restore_dir, dry_run=True, stdout=out)
+                output = out.getvalue()
+                self.assertIn("DRY-RUN", output)
+                self.assertIn("Would download", output)
+                restored_path = os.path.join(restore_dir, "chat_attachments", "migration_test.txt")
+                self.assertFalse(os.path.exists(restored_path))
+            finally:
+                shutil.rmtree(restore_dir, ignore_errors=True)
+
+    def test_migration_with_vietnamese_filename(self):
+        from io import StringIO
+        vn_file = os.path.join(self.test_src_dir, "chat_attachments", "Báo_cáo_Đồ_án_2026.pdf")
+        with open(vn_file, "wb") as f:
+            f.write(b"%PDF-1.4 Vietnamese Content")
+
+        out = StringIO()
+        with override_settings(MEDIA_ROOT=self.test_dest_dir):
+            self.call_command("migrate_media_to_s3", source_dir=self.test_src_dir, verify_checksum=True, stdout=out)
+            output = out.getvalue()
+            self.assertIn("Failed Files: 0", output)
+            self.assertTrue(os.path.exists(os.path.join(self.test_dest_dir, "chat_attachments", "Báo_cáo_Đồ_án_2026.pdf")))
+
+    def test_forward_migration_when_use_s3_true_and_source_only_on_local(self):
+        """
+        Verifies that when USE_S3=True, forward migration correctly reads from local filesystem
+        (source_dir / MEDIA_ROOT) and uploads to cloud/destination storage without conflation.
+        Source file is preserved, SHA256 matches, and idempotence holds on rerun.
+        """
+        from io import StringIO
+        # Local source file exists only on local disk
+        local_sample = os.path.join(self.test_src_dir, "chat_attachments", "local_only_sample.pdf")
+        content = b"%PDF-1.4 Local Only File Content"
+        with open(local_sample, "wb") as f:
+            f.write(content)
+
+        dest_file = os.path.join(self.test_dest_dir, "chat_attachments", "local_only_sample.pdf")
+        self.assertFalse(os.path.exists(dest_file))
+
+        out1 = StringIO()
+        with override_settings(USE_S3=True, MEDIA_ROOT=self.test_dest_dir):
+            self.call_command("migrate_media_to_s3", source_dir=self.test_src_dir, verify_checksum=True, stdout=out1)
+            output1 = out1.getvalue()
+            self.assertIn("Checksums Verified:", output1)
+            self.assertIn("Failed Files: 0", output1)
+
+            # 1. Destination received the file
+            self.assertTrue(os.path.exists(dest_file))
+            with open(dest_file, "rb") as df:
+                self.assertEqual(df.read(), content)
+
+            # 2. Source file is PRESERVED (never deleted)
+            self.assertTrue(os.path.exists(local_sample))
+
+            # 3. Rerun skips the existing file (idempotent, no duplicates)
+            out2 = StringIO()
+            self.call_command("migrate_media_to_s3", source_dir=self.test_src_dir, verify_checksum=True, stdout=out2)
+            output2 = out2.getvalue()
+            self.assertIn("Skipped (Already in Storage):", output2)
+            self.assertIn("Successfully Uploaded: 0", output2)
+
+    def test_reverse_migration_when_r2_has_new_file_and_local_missing(self):
+        """
+        Verifies that when cloud storage (R2) has a newly uploaded file that does NOT exist
+        on local filesystem, reverse migration (--from-s3-to-local) discovers the file,
+        downloads it to local MEDIA_ROOT, verifies checksum, and skips on rerun.
+        """
+        from io import StringIO
+        # Simulate cloud storage containing a new file
+        os.makedirs(os.path.join(self.test_dest_dir, "outlines"), exist_ok=True)
+        cloud_file = os.path.join(self.test_dest_dir, "outlines", "new_cloud_thesis.docx")
+        content = b"PK0304 New Cloud Thesis Outline"
+        with open(cloud_file, "wb") as f:
+            f.write(content)
+
+        local_restore_dir = tempfile.mkdtemp()
+        try:
+            local_target = os.path.join(local_restore_dir, "outlines", "new_cloud_thesis.docx")
+            self.assertFalse(os.path.exists(local_target))
+
+            out1 = StringIO()
+            with override_settings(MEDIA_ROOT=self.test_dest_dir):
+                self.call_command("migrate_media_to_s3", reverse=True, dest_dir=local_restore_dir, verify_checksum=True, stdout=out1)
+                output1 = out1.getvalue()
+                self.assertIn("Successfully Downloaded: 1", output1)
+                self.assertIn("Checksums Verified: 1", output1)
+
+                # Local file successfully restored
+                self.assertTrue(os.path.exists(local_target))
+                with open(local_target, "rb") as lf:
+                    self.assertEqual(lf.read(), content)
+
+                # Rerun skips already restored local file
+                out2 = StringIO()
+                self.call_command("migrate_media_to_s3", reverse=True, dest_dir=local_restore_dir, verify_checksum=True, stdout=out2)
+                output2 = out2.getvalue()
+                self.assertIn("Skipped (Already in Local Storage): 1", output2)
+                self.assertIn("Successfully Downloaded: 0", output2)
+        finally:
+            shutil.rmtree(local_restore_dir, ignore_errors=True)
+
