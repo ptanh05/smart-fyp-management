@@ -4,6 +4,84 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def apply_schema_changes(apps, schema_editor):
+    connection = schema_editor.connection
+    with connection.cursor() as cursor:
+        if connection.vendor == "postgresql":
+            cursor.execute("""
+                ALTER TABLE app_supervisorgroupchatmessage 
+                ADD COLUMN IF NOT EXISTS is_pinned boolean DEFAULT false NOT NULL;
+                
+                ALTER TABLE app_supervisorgroupchatmessage 
+                ADD COLUMN IF NOT EXISTS reactions jsonb DEFAULT '{}'::jsonb NOT NULL;
+                
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'app_supervisorgroupchatmessage' AND column_name = 'reply_to_id'
+                    ) THEN 
+                        ALTER TABLE app_supervisorgroupchatmessage 
+                        ADD COLUMN reply_to_id bigint NULL REFERENCES app_supervisorgroupchatmessage(id) ON DELETE SET NULL;
+                    END IF;
+                END $$;
+                
+                ALTER TABLE app_graduationproject ALTER COLUMN student_id DROP NOT NULL;
+
+                CREATE TABLE IF NOT EXISTS app_proposedallocation (
+                    id bigserial PRIMARY KEY,
+                    matched_preference integer NOT NULL DEFAULT 1,
+                    match_score double precision NOT NULL DEFAULT 0.0,
+                    is_overridden boolean NOT NULL DEFAULT false,
+                    override_reason varchar(255) NULL,
+                    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    batch_id bigint NOT NULL,
+                    student_id bigint NOT NULL,
+                    supervisor_id bigint NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_gp_council_stat_created ON app_graduationproject (council_id, status, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_gp_batch_status ON app_graduationproject (batch_id, status);
+                CREATE INDEX IF NOT EXISTS idx_gp_supervisor_status ON app_graduationproject (supervisor_id, status);
+                CREATE INDEX IF NOT EXISTS idx_student_batch_class ON app_student (academic_batch_id, course_class_id);
+                CREATE INDEX IF NOT EXISTS idx_notif_unread_user_created ON app_notification (user_id, created_at DESC) WHERE NOT is_read;
+                CREATE INDEX IF NOT EXISTS idx_task_project_completed ON app_supervisiontask (project_id, is_completed);
+                CREATE INDEX IF NOT EXISTS idx_chatmsg_reply_to ON app_supervisorgroupchatmessage (reply_to_id);
+            """)
+        else:
+            # SQLite (for local unit tests)
+            cursor.execute("PRAGMA table_info(app_supervisorgroupchatmessage);")
+            columns = [row[1] for row in cursor.fetchall()]
+            if "is_pinned" not in columns:
+                cursor.execute("ALTER TABLE app_supervisorgroupchatmessage ADD COLUMN is_pinned bool DEFAULT 0 NOT NULL;")
+            if "reactions" not in columns:
+                cursor.execute("ALTER TABLE app_supervisorgroupchatmessage ADD COLUMN reactions text DEFAULT '{}' NOT NULL;")
+            if "reply_to_id" not in columns:
+                cursor.execute("ALTER TABLE app_supervisorgroupchatmessage ADD COLUMN reply_to_id integer NULL REFERENCES app_supervisorgroupchatmessage(id);")
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS app_proposedallocation (
+                    id integer PRIMARY KEY AUTOINCREMENT,
+                    matched_preference integer NOT NULL DEFAULT 1,
+                    match_score real NOT NULL DEFAULT 0.0,
+                    is_overridden bool NOT NULL DEFAULT 0,
+                    override_reason varchar(255) NULL,
+                    created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    batch_id bigint NOT NULL,
+                    student_id bigint NOT NULL,
+                    supervisor_id bigint NOT NULL
+                );
+            """)
+
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_gp_council_stat_created ON app_graduationproject (council_id, status, created_at DESC);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_gp_batch_status ON app_graduationproject (batch_id, status);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_gp_supervisor_status ON app_graduationproject (supervisor_id, status);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_student_batch_class ON app_student (academic_batch_id, course_class_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_notif_unread_user_created ON app_notification (user_id, created_at DESC) WHERE NOT is_read;")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_task_project_completed ON app_supervisiontask (project_id, is_completed);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_chatmsg_reply_to ON app_supervisorgroupchatmessage (reply_to_id);")
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,56 +89,66 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='supervisorgroupchatmessage',
-            name='is_pinned',
-            field=models.BooleanField(default=False),
-        ),
-        migrations.AddField(
-            model_name='supervisorgroupchatmessage',
-            name='reactions',
-            field=models.JSONField(blank=True, default=dict),
-        ),
-        migrations.AddField(
-            model_name='supervisorgroupchatmessage',
-            name='reply_to',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='replies', to='app.supervisorgroupchatmessage'),
-        ),
-        migrations.AlterField(
-            model_name='graduationproject',
-            name='student',
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='graduation_project', to='app.student'),
-        ),
-        migrations.AddIndex(
-            model_name='graduationproject',
-            index=models.Index(fields=['council', 'status', '-created_at'], name='idx_gp_council_stat_created'),
-        ),
-        migrations.AddIndex(
-            model_name='graduationproject',
-            index=models.Index(fields=['batch', 'status'], name='idx_gp_batch_status'),
-        ),
-        migrations.AddIndex(
-            model_name='graduationproject',
-            index=models.Index(fields=['supervisor', 'status'], name='idx_gp_supervisor_status'),
-        ),
-        migrations.AddIndex(
-            model_name='notification',
-            index=models.Index(condition=models.Q(('is_read', False)), fields=['user', '-created_at'], name='idx_notif_unread_user_created'),
-        ),
-        migrations.AddIndex(
-            model_name='student',
-            index=models.Index(fields=['academic_batch', 'course_class'], name='idx_student_batch_class'),
-        ),
-        migrations.AddIndex(
-            model_name='supervisiontask',
-            index=models.Index(fields=['project', 'is_completed'], name='idx_task_project_completed'),
-        ),
-        migrations.AddIndex(
-            model_name='supervisorgroupchatmessage',
-            index=models.Index(fields=['reply_to'], name='idx_chatmsg_reply_to'),
-        ),
-        migrations.AlterModelTable(
-            name='proposedallocation',
-            table='app_proposedallocation',
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='supervisorgroupchatmessage',
+                    name='is_pinned',
+                    field=models.BooleanField(default=False),
+                ),
+                migrations.AddField(
+                    model_name='supervisorgroupchatmessage',
+                    name='reactions',
+                    field=models.JSONField(blank=True, default=dict),
+                ),
+                migrations.AddField(
+                    model_name='supervisorgroupchatmessage',
+                    name='reply_to',
+                    field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='replies', to='app.supervisorgroupchatmessage'),
+                ),
+                migrations.AlterField(
+                    model_name='graduationproject',
+                    name='student',
+                    field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='graduation_project', to='app.student'),
+                ),
+                migrations.AddIndex(
+                    model_name='graduationproject',
+                    index=models.Index(fields=['council', 'status', '-created_at'], name='idx_gp_council_stat_created'),
+                ),
+                migrations.AddIndex(
+                    model_name='graduationproject',
+                    index=models.Index(fields=['batch', 'status'], name='idx_gp_batch_status'),
+                ),
+                migrations.AddIndex(
+                    model_name='graduationproject',
+                    index=models.Index(fields=['supervisor', 'status'], name='idx_gp_supervisor_status'),
+                ),
+                migrations.AddIndex(
+                    model_name='notification',
+                    index=models.Index(condition=models.Q(('is_read', False)), fields=['user', '-created_at'], name='idx_notif_unread_user_created'),
+                ),
+                migrations.AddIndex(
+                    model_name='student',
+                    index=models.Index(fields=['academic_batch', 'course_class'], name='idx_student_batch_class'),
+                ),
+                migrations.AddIndex(
+                    model_name='supervisiontask',
+                    index=models.Index(fields=['project', 'is_completed'], name='idx_task_project_completed'),
+                ),
+                migrations.AddIndex(
+                    model_name='supervisorgroupchatmessage',
+                    index=models.Index(fields=['reply_to'], name='idx_chatmsg_reply_to'),
+                ),
+                migrations.AlterModelTable(
+                    name='proposedallocation',
+                    table='app_proposedallocation',
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(
+                    code=apply_schema_changes,
+                    reverse_code=migrations.RunPython.noop,
+                ),
+            ],
         ),
     ]
