@@ -58,10 +58,58 @@ class SupervisorBriefSerializer(serializers.ModelSerializer):
         return any(marker in title.upper() for marker in doctoral_markers)
 
     def get_topic_area_ids(self, obj):
-        return [link.topic_area_id for link in obj.topic_area_links.all()]
+        # Ưu tiên dùng cache prefetch_related để tránh N+1 query
+        links = obj.topic_area_links.all()
+        if hasattr(links, "_prefetched_objects_cache"):
+            return [link.topic_area_id for link in links]
+        return [link.topic_area_id for link in links]
 
     def get_topic_areas(self, obj):
-        return [link.topic_area.name for link in obj.topic_area_links.all()]
+        links = obj.topic_area_links.all()
+        if hasattr(links, "_prefetched_objects_cache"):
+            return [link.topic_area.name for link in links]
+        return [link.topic_area.name for link in links]
+
+
+class SupervisorNestedSerializer(serializers.ModelSerializer):
+    """Serializer rút gọn cho GV nhúng trong Đề tài.
+
+    KHÔNG bao gồm `topic_area_ids` / `topic_areas` vì 2 field này chỉ dùng ở
+    endpoint khảo sát nguyện vọng (`/student/assignment`). Nếu đưa vào đây thì
+    mọi endpoint trả về danh sách đề tài sẽ phát sinh N+1 query vào bảng
+    `app_supervisortopicarea`.
+    """
+
+    full_name = serializers.SerializerMethodField()
+    department = serializers.CharField(source="department_name", read_only=True)
+    username = serializers.CharField(source="user.username", read_only=True)
+    email = serializers.CharField(source="user.email", read_only=True)
+    is_eligible_for_engineer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Supervisor
+        fields = [
+            "id",
+            "supervisor_id",
+            "full_name",
+            "academic_title",
+            "department",
+            "phone_number",
+            "username",
+            "email",
+            "is_external",
+            "research_interest",
+            "is_eligible_for_engineer",
+        ]
+
+    def get_full_name(self, obj):
+        prefix = f"{obj.academic_title} " if obj.academic_title else ""
+        return f"{prefix}{obj.user.get_full_name() or obj.user.username}".strip()
+
+    def get_is_eligible_for_engineer(self, obj):
+        title = obj.academic_title or ""
+        doctoral_markers = ["TS", "TIẾN SĨ", "TIEN SI", "PGS", "GS", "GIÁO SƯ", "GIAO SU", "PHÓ GIÁO SƯ"]
+        return any(marker in title.upper() for marker in doctoral_markers)
 
 
 class InternshipInfoSerializer(serializers.ModelSerializer):
@@ -368,8 +416,8 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
     student_phone = serializers.CharField(source="student.phone_number", read_only=True, default="")
     student_email = serializers.CharField(source="student.user.email", read_only=True, default="")
     student_class = serializers.CharField(source="student.department", read_only=True, default="")
-    supervisor = SupervisorBriefSerializer(read_only=True)
-    reviewer = SupervisorBriefSerializer(read_only=True)
+    supervisor = SupervisorNestedSerializer(read_only=True)
+    reviewer = SupervisorNestedSerializer(read_only=True)
     council_name = serializers.CharField(source="council.council_name", read_only=True, default="")
     defense_room = serializers.CharField(source="council.defense_room", read_only=True, default="")
     session_date = serializers.DateField(source="council.session_date", read_only=True, default=None)

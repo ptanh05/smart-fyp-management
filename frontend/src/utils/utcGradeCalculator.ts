@@ -95,9 +95,9 @@ export function convertScoreToUTCGrade(score10: number): UTCGradeResult {
 
 /**
  * Calculate Weighted Final Score according to UTC Standard:
- * - Supervisor Score (GVHD): 40%
+ * - Supervisor Score (GVHD): 30%
  * - Reviewer / External Examiner Score (Phản Biện): 20%
- * - Committee Panel Score (Hội Đồng): 40%
+ * - Committee Panel Score (Hội Đồng): 50%
  */
 export function calculateUTCWeightedScore(
   supervisorScore: number,
@@ -105,6 +105,6 @@ export function calculateUTCWeightedScore(
   committeeScore: number
 ): UTCGradeResult {
   const weightedTotal =
-    supervisorScore * 0.4 + reviewerScore * 0.2 + committeeScore * 0.4;
+    supervisorScore * 0.3 + reviewerScore * 0.2 + committeeScore * 0.5;
   return convertScoreToUTCGrade(weightedTotal);
 }

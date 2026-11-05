@@ -113,7 +113,10 @@ class Group(models.Model):
 
     class Meta:
         managed = False
+
+    @property
     def current_members_count(self):
+        """Số thành viên hiện tại của nhóm (dùng như thuộc tính)."""
         count = self.members.count()
         if count > 0:
             return count

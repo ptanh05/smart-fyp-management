@@ -537,7 +537,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-bold text-base text-slate-100">Danh sách Sinh viên bảo vệ trong Hội đồng</h3>
-          <span className="text-xs text-slate-400">Trọng số tính điểm: 40% GVHD + 20% GVPB + 40% Hội đồng</span>
+          <span className="text-xs text-slate-400">Trọng số tính điểm: 30% GVHD + 20% GVPB + 50% Hội đồng</span>
         </div>
 
         <div className="space-y-3">

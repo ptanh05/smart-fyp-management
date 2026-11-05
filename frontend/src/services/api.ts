@@ -219,6 +219,12 @@ class ApiService {
     });
   }
 
+  // Tiến trình đợt đồ án (6 giai đoạn) — dùng cho thanh tiến trình trên đầu trang
+  async getBatchProgress(): Promise<any> {
+    const response = await this.api.get('/batches/progress/');
+    return response.data;
+  }
+
   // WebSocket Ticket
   async getWebSocketTicket(groupId: number): Promise<{ ticket: string; expires_in: number }> {
     const response = await this.api.post<{ ticket: string; expires_in: number }>('/ws-ticket/', { group_id: groupId });

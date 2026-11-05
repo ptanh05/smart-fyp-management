@@ -309,7 +309,7 @@ const LoginPage: React.FC = () => {
               </div>
               <div className="utc-feat-content">
                 <h4>{t('portal.feat1Title', 'Quản lý Tiến độ Đồ án')}</h4>
-                <p>{t('portal.feat1Desc', 'Theo dõi 5 mốc tiến độ & trạng thái nộp tài liệu')}</p>
+                <p>{t('portal.feat1Desc', 'Theo dõi 6 giai đoạn đồ án & trạng thái nộp tài liệu')}</p>
               </div>
             </div>
 
@@ -358,10 +358,10 @@ const LoginPage: React.FC = () => {
                     <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
                   </svg>
                 </div>
-                <span className="utc-feat-badge badge-emerald">40-20-40 • GPA 4.0</span>
+                <span className="utc-feat-badge badge-emerald">30-20-50 • GPA 4.0</span>
               </div>
               <div className="utc-feat-content">
-                <h4>{t('portal.feat4Title', 'Trọng số Điểm 40-20-40 & GPA')}</h4>
+                <h4>{t('portal.feat4Title', 'Trọng số Điểm 30-20-50 & GPA')}</h4>
                 <p>{t('portal.feat4Desc', 'Tự động quy đổi thang GPA 4.0 & điểm chữ UTC')}</p>
               </div>
             </div>

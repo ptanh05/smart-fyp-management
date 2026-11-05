@@ -1484,7 +1484,25 @@ class CommitteeMemberProfileView(APIView):
                 "role_display": cm.get_role_display(),
                 "room": cm.council.defense_room,
             }
-        sup = getattr(user, "supervisor_profile", None)
+
+        # Ưu tiên hồ sơ Ủy viên Hội đồng (CommitteeMember) để lấy mã hội đồng,
+        # sau đó mới fallback sang hồ sơ Giảng viên hoặc username.
+        committee_id = user.username
+        legacy_cm = getattr(user, "committee_member_profile", None)
+        if legacy_cm is not None and getattr(legacy_cm, "committee_id", None):
+            committee_id = legacy_cm.committee_id
+        else:
+            sup = getattr(user, "supervisor_profile", None)
+            if sup and getattr(sup, "supervisor_id", None):
+                committee_id = sup.supervisor_id
+
+        panel_data = None
+        if legacy_cm is not None and getattr(legacy_cm, "panel", None):
+            panel_data = {
+                "id": legacy_cm.panel.id,
+                "name": legacy_cm.panel.name,
+            }
+
         return Response({
             "id": user.id,
             "user": {
@@ -1496,9 +1514,9 @@ class CommitteeMemberProfileView(APIView):
                 "full_name": user.get_full_name() or user.username,
                 "user_type": user.user_type,
             },
-            "committee_id": sup.supervisor_id if sup else user.username,
-            "panel": council_data,
-            "panel_info": council_data,
+            "committee_id": committee_id,
+            "panel": council_data or panel_data,
+            "panel_info": council_data or panel_data,
             "council": council_data,
         }, status=status.HTTP_200_OK)
 

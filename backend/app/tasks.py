@@ -76,43 +76,33 @@ def send_bulk_email_task(self, recipient_emails, subject, body_text):
 def dispatch_async_notification(recipient_user_ids, title, message, notification_type="general", action_url="", send_email=True):
     """
     Dispatches notification via Celery if available, or gracefully falls back to a background thread.
-    """
-    try:
-        # Try Celery delay first
-        send_async_notification_task.delay(
-            recipient_user_ids=recipient_user_ids,
-            title=title,
-            message=message,
-            notification_type=notification_type,
-            action_url=action_url,
-            send_email=send_email
-        )
-        return True
-    except Exception as exc:
-        # Graceful fallback to background thread (dev / test environment without Redis)
-        logger.debug("[TASK_FALLBACK] Celery broker unavailable (%s), running via daemon thread", exc)
-        
-        def _fallback_runner():
-            from django.db import connection
-            connection.close()
-            try:
-                from .models import CustomUser
-                from .services import NotificationService
-                users = list(CustomUser.objects.filter(id__in=recipient_user_ids))
-                for u in users:
-                    NotificationService.create_notification(
-                        user=u,
-                        notification_type=notification_type,
-                        title=title,
-                        message=message,
-                        action_url=action_url,
-                        send_email=send_email
-                    )
-            except Exception as thread_exc:
-                logger.warning("[THREAD_NOTIF_FALLBACK] Failed: %s", thread_exc)
-            finally:
-                connection.close()
 
-        thread = threading.Thread(target=_fallback_runner, daemon=True)
-        thread.start()
-        return True
+    Yêu cầu: API phải phản hồi nhanh (< 1s) vì có thể đang chạy sau reverse proxy
+    với timeout 504. Vì vậy ta KHÔNG gọi `task.delay()` đồng bộ (Celery sẽ block
+    khi Redis không sẵn sàng, gây timeout 19-30 giây), mà luôn chạy nền bằng
+    daemon thread. Worker Celery có thể xử lý phần gửi email qua task riêng.
+    """
+    def _fallback_runner():
+        from django.db import connection
+        connection.close()
+        try:
+            from .models import CustomUser
+            from .services import NotificationService
+            users = list(CustomUser.objects.filter(id__in=recipient_user_ids))
+            for u in users:
+                NotificationService.create_notification(
+                    user=u,
+                    notification_type=notification_type,
+                    title=title,
+                    message=message,
+                    action_url=action_url,
+                    send_email=send_email
+                )
+        except Exception as thread_exc:
+            logger.warning("[THREAD_NOTIF_FALLBACK] Failed: %s", thread_exc)
+        finally:
+            connection.close()
+
+    thread = threading.Thread(target=_fallback_runner, daemon=True)
+    thread.start()
+    return True

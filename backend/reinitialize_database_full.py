@@ -80,7 +80,7 @@ def reinitialize_database():
 
     policy, _ = EvaluationPolicy.objects.get_or_create(
         batch=main_batch,
-        defaults={"weight_supervisor": 0.4, "weight_reviewer": 0.2, "weight_council": 0.4}
+        defaults={"weight_supervisor": 0.3, "weight_reviewer": 0.2, "weight_council": 0.5}
     )
 
     topic_ai, _ = ProjectTopicArea.objects.get_or_create(code="AI_ML", defaults={"name": "Trí tuệ nhân tạo & Học máy", "description": "Mô hình LLM, thị giác máy tính", "is_active": True})

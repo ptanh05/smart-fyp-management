@@ -28,13 +28,19 @@ class IsSupervisor(BasePermission):
 
 
 class IsCommitteeMember(BasePermission):
-    """Allows access to committee members, supervisors, and admins."""
+    """
+    Chỉ dành cho thành viên Hội đồng (committee_member) và Admin hệ thống.
+
+    Lưu ý RBAC: Giảng viên hướng dẫn (supervisor) KHÔNG được phép truy cập
+    các API chuyên biệt của Hội đồng (profile, groups, analytics) - tránh
+    vi phạm ranh giới vai trò giữa GVHD và Ủy viên/Thư ký Hội đồng.
+    """
     message = "You must be a committee member to access this resource."
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return getattr(request.user, 'user_type', None) in ['committee_member', 'supervisor', 'admin']
+        return getattr(request.user, 'user_type', None) in ['committee_member', 'admin']
 
 
 class IsExternalExaminer(BasePermission):
@@ -174,7 +180,41 @@ class IsExternalExaminerOrCommittee(BasePermission):
     def has_permission(self, request, view): return bool(request.user and request.user.is_authenticated)
 
 class IsExternalGroupOwner(BasePermission):
-    def has_permission(self, request, view): return bool(request.user and request.user.is_authenticated)
+    """
+    Chỉ chủ sở hữu nhóm (External Examiner được gán) mới được sửa/xoá nhóm đó.
+    """
+    message = "Bạn không phải chủ sở hữu nhóm này."
+
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        if getattr(user, 'user_type', None) in ['admin']:
+            return True
+        external = getattr(user, 'external_examiner_profile', None)
+        if external is None:
+            return False
+        external_id = getattr(external, 'id', None) or getattr(
+            getattr(obj, 'external_examiner', None), 'id', None
+        )
+        return bool(external_id and external_id == getattr(obj, 'external_examiner_id', None))
+
 
 class CanManageExternalGroups(BasePermission):
-    def has_permission(self, request, view): return bool(request.user and request.user.is_authenticated)
+    """
+    Quản lý nhóm External: CHỈ Ủy viên Hội đồng và Admin được tạo / xoá.
+    External Examiner chỉ được XEM danh sách nhóm được gán cho mình.
+    """
+    message = "Chỉ Ủy viên Hội đồng hoặc Admin được quản lý nhóm External."
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        if getattr(user, 'user_type', None) in ['admin', 'committee_member']:
+            return True
+        if request.method in SAFE_METHODS:
+            # Đọc: External Examiner được xem nhóm của mình.
+            return True
+        # Ghi (POST/PUT/PATCH/DELETE): không cho External Examiner.
+        return False

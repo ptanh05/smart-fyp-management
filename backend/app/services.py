@@ -87,6 +87,10 @@ class NotificationService:
             notification_type=notification_type or "general",
             title=title,
             message=message,
+            action_url=action_url or "",
+            related_group=related_group,
+            related_supervisor_group=related_supervisor_group,
+            related_document=related_document,
         )
         
         # Send email if enabled

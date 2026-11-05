@@ -9,7 +9,9 @@ import { formatFullName } from '../utils/nameHelper';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
 import GlobalSearchBar from './GlobalSearchBar';
+import BatchProgressBar, { type BatchProgressData } from './BatchProgressBar';
 import UTCNewsModal, { type UTCNewsItem, UTC_NEWS_DATA } from './UTCNewsModal';
+import { apiService } from '../services/api';
 import './UTCAppLayout.css';
 
 interface UTCAppLayoutProps {
@@ -52,6 +54,29 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const [newsModalOpen, setNewsModalOpen] = useState(false);
   const [selectedNewsArticle, setSelectedNewsArticle] = useState<UTCNewsItem | null>(null);
   const [newsPortalCategory, setNewsPortalCategory] = useState<'all' | 'school' | 'training' | 'recruitment'>('all');
+
+  // ===== Tiến trình đợt đồ án (6 giai đoạn) =====
+  const [batchProgress, setBatchProgress] = useState<BatchProgressData | null>(null);
+  const [batchProgressLoading, setBatchProgressLoading] = useState<boolean>(true);
+
+  const fetchBatchProgress = async () => {
+    try {
+      setBatchProgressLoading(true);
+      const data = await apiService.getBatchProgress();
+      setBatchProgress(data);
+    } catch (err) {
+      console.error('Failed to load batch progress:', err);
+      setBatchProgress(null);
+    } finally {
+      setBatchProgressLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchBatchProgress();
+    const timer = window.setInterval(fetchBatchProgress, 90000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleOpenNewsItem = (articleId: string) => {
     const article = UTC_NEWS_DATA.find((item) => item.id === articleId) || null;
@@ -503,6 +528,17 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             </div>
           </div>
         </header>
+
+        {/* 2.1 Thanh tiến trình đợt đồ án (theo dõi giai đoạn) */}
+        {userType !== 'committee_member' && (
+          <BatchProgressBar
+            data={batchProgress}
+            loading={batchProgressLoading}
+            variant="portal"
+            onRefresh={fetchBatchProgress}
+            title="Tiến Trình Đợt Đồ Án"
+          />
+        )}
 
         {/* 3. Hero Banner, Quick Actions & News ONLY rendered on Overview Tab */}
         {(activeTab === 'overview' || activeTab === 'dashboard') && (

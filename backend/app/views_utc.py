@@ -137,9 +137,9 @@ class BatchCreateAPIView(APIView):
             EvaluationPolicy.objects.get_or_create(
                 batch=batch,
                 defaults={
-                    "weight_supervisor": 0.4,
+                    "weight_supervisor": 0.3,
                     "weight_reviewer": 0.2,
-                    "weight_council": 0.4,
+                    "weight_council": 0.5,
                 }
             )
 
@@ -2986,6 +2986,70 @@ class GlobalSearchAPIView(APIView):
 # ==============================================================================
 # PHASE 2: ALLOCATION OPTIMIZATION & OVERRIDE APIS
 # ==============================================================================
+
+class BatchProgressAPIView(APIView):
+    """
+    Tiến trình 6 giai đoạn của đợt đồ án hiện tại — dùng cho thanh tiến trình
+    ở đầu trang của Cổng Sinh viên / Cổng Giảng viên.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .utils.batch_progress import compute_batch_progress
+
+        user = request.user
+        batch = None
+
+        # Ưu tiên đợt mà sinh viên đang tham gia
+        student = getattr(user, "student_profile", None)
+        if student is not None and student.academic_batch_id:
+            batch = student.academic_batch
+
+        # Giảng viên: ưu tiên đợt có đề tài đang hướng dẫn
+        if batch is None:
+            supervisor = getattr(user, "supervisor_profile", None)
+            if supervisor is not None:
+                batch = (
+                    GraduationProject.objects.filter(supervisor=supervisor)
+                    .select_related("batch")
+                    .order_by("-created_at")
+                    .values_list("batch", flat=True)
+                    .first()
+                )
+                if batch is not None:
+                    batch = AcademicBatch.objects.filter(id=batch).first()
+
+        if batch is None:
+            batch = AcademicBatch.get_active_batch() or AcademicBatch.objects.order_by("-id").first()
+
+        if not batch:
+            return Response(
+                {
+                    "is_open": False,
+                    "current_stage_number": 1,
+                    "overall_percent": 0,
+                    "stages": [],
+                    "next_actions": ["Chưa có đợt đồ án nào đang hoạt động."],
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        data = compute_batch_progress(batch)
+
+        # Bổ sung tiến độ cá nhân cho sinh viên
+        if student is not None:
+            project = getattr(student, "graduation_project", None)
+            data["my_project"] = {
+                "has_project": project is not None,
+                "status": getattr(project, "status", None),
+                "topic_title": getattr(project, "topic_title_vi", ""),
+                "supervisor_name": (
+                    project.supervisor.user.get_full_name() if project and project.supervisor_id else ""
+                ),
+            }
+
+        return Response(data, status=status.HTTP_200_OK)
+
 
 class RunAllocationAlgorithmAPIView(APIView):
     """Khoa / Admin chạy thuật toán tối ưu phân công nguyện vọng đồ án"""

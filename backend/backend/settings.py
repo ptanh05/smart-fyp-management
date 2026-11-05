@@ -74,6 +74,10 @@ INSTALLED_APPS = [
     "app",
 ]
 
+# Test runner tự tạo bảng cho các model legacy (managed = False) bị thiếu
+# trong SQLite in-memory khi chạy test.
+TEST_RUNNER = "app.test_runner.LegacyTableTestRunner"
+
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",

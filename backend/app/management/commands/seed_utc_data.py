@@ -54,9 +54,9 @@ class Command(BaseCommand):
         policy, _ = EvaluationPolicy.objects.update_or_create(
             batch=batch,
             defaults={
-                "weight_supervisor": 0.4,
+                "weight_supervisor": 0.3,
                 "weight_reviewer": 0.2,
-                "weight_council": 0.4,
+                "weight_council": 0.5,
             }
         )
         self.stdout.write(f"[OK] Evaluation Policy: {policy}")
