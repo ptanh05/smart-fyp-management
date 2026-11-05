@@ -166,7 +166,12 @@ from .views import (
     # Admin Dashboard
     admin_dashboard,
 )
-from .views_media import GetSignedMediaUrlAPIView, SecureMediaDownloadView
+from .views_media import (
+    GetSignedMediaUrlAPIView,
+    SecureMediaDownloadView,
+    DocumentSecureDownloadView,
+    TemplateSecureDownloadView,
+)
 from .views_auth_sso import GoogleSSOLoginAPIView
 
 
@@ -550,6 +555,12 @@ urlpatterns = [
     path("media/download-token/", GetSignedMediaUrlAPIView.as_view(), name="media-download-token"),
     path("media/download/<path:file_path>", SecureMediaDownloadView.as_view(), name="media-secure-download"),
     path("media/<path:file_path>", SecureMediaDownloadView.as_view(), name="app-media-direct-download"),
+    path("doc_templates/<str:filename>/", TemplateSecureDownloadView.as_view(), name="app-template-download"),
+    path("doc_templates/<str:filename>", TemplateSecureDownloadView.as_view(), name="app-template-download-noslash"),
+    path("documents/<str:filename>/", DocumentSecureDownloadView.as_view(), name="app-document-download"),
+    path("documents/<str:filename>", DocumentSecureDownloadView.as_view(), name="app-document-download-noslash"),
+    path("chat_attachments/<str:filename>/", SecureMediaDownloadView.as_view(subfolder="chat_attachments"), name="app-chat-attachment-download"),
+    path("chat_attachments/<str:filename>", SecureMediaDownloadView.as_view(subfolder="chat_attachments"), name="app-chat-attachment-download-noslash"),
 
     # Bug Reports & User Feedback
     path("bug-reports/", BugReportAPIView.as_view(), name="bug-reports"),

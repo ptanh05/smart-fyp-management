@@ -4,8 +4,12 @@ Ensures document files are accessible to authenticated users while strictly prev
 """
 import os
 import mimetypes
+import logging
 from django.conf import settings
 from django.http import FileResponse, Http404, JsonResponse
+from django.core.files.storage import default_storage
+
+logger = logging.getLogger(__name__)
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -241,41 +245,78 @@ class SecureMediaDownloadView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # 4. Locate File across MEDIA_ROOT and BASE_DIR subfolders
+        # 4. Locate File in Storage (Cloudflare R2 / AWS S3 / Local Storage)
         base_name = os.path.basename(safe_rel_path)
-        candidate_paths = [
-            os.path.abspath(os.path.join(settings.MEDIA_ROOT, safe_rel_path)),
-            os.path.abspath(os.path.join(settings.BASE_DIR, safe_rel_path)),
-            os.path.abspath(os.path.join(settings.BASE_DIR, "media", safe_rel_path)),
-            os.path.abspath(os.path.join(settings.MEDIA_ROOT, "chat_attachments", base_name)),
-            os.path.abspath(os.path.join(settings.BASE_DIR, "media", "chat_attachments", base_name)),
-            os.path.abspath(os.path.join(settings.BASE_DIR, "chat_attachments", base_name)),
-            os.path.abspath(os.path.join(settings.MEDIA_ROOT, "documents", base_name)),
-            os.path.abspath(os.path.join(settings.BASE_DIR, "documents", base_name)),
-            os.path.abspath(os.path.join(settings.MEDIA_ROOT, "doc_templates", base_name)),
-            os.path.abspath(os.path.join(settings.BASE_DIR, "doc_templates", base_name)),
-            os.path.abspath(os.path.join(settings.MEDIA_ROOT, "outlines", base_name)),
-            os.path.abspath(os.path.join(settings.BASE_DIR, "outlines", base_name)),
+
+        candidate_storage_keys = [
+            safe_rel_path,
+            f"chat_attachments/{base_name}",
+            f"documents/{base_name}",
+            f"doc_templates/{base_name}",
+            f"outlines/{base_name}",
+            f"task_deliverables/{base_name}",
+            f"weekly_reports/{base_name}",
+            f"deferral_evidence/{base_name}",
+            f"media/{safe_rel_path}",
+            f"media/chat_attachments/{base_name}",
         ]
 
-        full_path = None
-        for cand in candidate_paths:
-            if os.path.exists(cand) and os.path.isfile(cand):
-                full_path = cand
-                break
+        found_file_handle = None
+        storage_error = None
 
-        if not full_path:
+        for key in candidate_storage_keys:
+            try:
+                if default_storage.exists(key):
+                    found_file_handle = default_storage.open(key, "rb")
+                    break
+            except Exception as e:
+                storage_error = e
+                # Fall through to try other keys or local filesystem fallback
+                pass
+
+        # Local filesystem fallback (supports seed data / repository templates committed on disk)
+        if not found_file_handle:
+            candidate_paths = [
+                os.path.abspath(os.path.join(settings.MEDIA_ROOT, safe_rel_path)),
+                os.path.abspath(os.path.join(settings.BASE_DIR, safe_rel_path)),
+                os.path.abspath(os.path.join(settings.BASE_DIR, "media", safe_rel_path)),
+                os.path.abspath(os.path.join(settings.MEDIA_ROOT, "chat_attachments", base_name)),
+                os.path.abspath(os.path.join(settings.BASE_DIR, "media", "chat_attachments", base_name)),
+                os.path.abspath(os.path.join(settings.BASE_DIR, "chat_attachments", base_name)),
+                os.path.abspath(os.path.join(settings.MEDIA_ROOT, "documents", base_name)),
+                os.path.abspath(os.path.join(settings.BASE_DIR, "documents", base_name)),
+                os.path.abspath(os.path.join(settings.MEDIA_ROOT, "doc_templates", base_name)),
+                os.path.abspath(os.path.join(settings.BASE_DIR, "doc_templates", base_name)),
+                os.path.abspath(os.path.join(settings.MEDIA_ROOT, "outlines", base_name)),
+                os.path.abspath(os.path.join(settings.BASE_DIR, "outlines", base_name)),
+            ]
+            for cand in candidate_paths:
+                if os.path.exists(cand) and os.path.isfile(cand):
+                    try:
+                        found_file_handle = open(cand, "rb")
+                        break
+                    except Exception:
+                        pass
+
+        if not found_file_handle:
+            if storage_error and getattr(settings, 'USE_S3', False):
+                logger.warning(f"Storage backend error while accessing '{safe_rel_path}': {storage_error}")
+                return Response(
+                    {"detail": "Dịch vụ lưu trữ tệp tin tạm thời không khả dụng. Vui lòng thử lại sau."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
             return Response(
                 {"detail": f"Tệp tin '{base_name}' không tồn tại hoặc đã bị xóa."},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # 3. Stream File with Attachment Headers & CORS
-        download_filename = os.path.basename(full_path)
-        content_type, _ = mimetypes.guess_type(full_path)
+        # 5. Stream File with Attachment Headers & CORS
+        download_filename = base_name
+        content_type, _ = mimetypes.guess_type(base_name)
+        is_inline = request.GET.get("inline") == "1" or request.GET.get("preview") == "1"
         response = FileResponse(
-            open(full_path, "rb"),
-            as_attachment=True,
+            found_file_handle,
+            as_attachment=not is_inline,
             filename=download_filename,
             content_type=content_type or "application/octet-stream"
         )

@@ -220,9 +220,8 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-# Storage Settings (Cloud Object Storage: S3 / Cloudflare R2 / MinIO with Local Fallback)
+# Storage Settings (Cloud Object Storage: Cloudflare R2 / AWS S3 / MinIO with Local Fallback)
 USE_S3 = env.bool("USE_S3", default=False)
 AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="")
 
@@ -231,20 +230,32 @@ if USE_S3 and AWS_STORAGE_BUCKET_NAME:
         INSTALLED_APPS.append("storages")
     AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
     AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
-    AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="ap-southeast-1")
+    AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="auto")  # 'auto' for Cloudflare R2, 'ap-southeast-1' for AWS
     AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default=None)  # Cloudflare R2 or MinIO
     AWS_S3_FILE_OVERWRITE = False
-    AWS_DEFAULT_ACL = None
+    AWS_DEFAULT_ACL = None  # Crucial for Cloudflare R2 and modern S3
     AWS_S3_SIGNATURE_VERSION = "s3v4"
-    AWS_QUERYSTRING_AUTH = True
+    AWS_QUERYSTRING_AUTH = env.bool("AWS_QUERYSTRING_AUTH", default=False)
     AWS_QUERYSTRING_EXPIRE = 3600
-    DEFAULT_FILE_STORAGE = "app.storage_backends.MediaStorage"
-    MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
+    AWS_LOCATION = env("AWS_LOCATION", default="media")
+    AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN", default=None)
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = BASE_DIR / "media"
+    _DEFAULT_STORAGE = "app.storage_backends.MediaStorage"
 else:
     MEDIA_URL = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"
-    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+    _DEFAULT_STORAGE = "django.core.files.storage.FileSystemStorage"
 
+# Modern Django 4.2+ Storage Configuration (replaces deprecated DEFAULT_FILE_STORAGE / STATICFILES_STORAGE)
+STORAGES = {
+    "default": {
+        "BACKEND": _DEFAULT_STORAGE,
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 
 
