@@ -34,8 +34,8 @@ In Vercel **Project Settings** ➔ **Environment Variables**, add:
 
 | Variable Name | Environment | Example / Value | Description |
 | :--- | :--- | :--- | :--- |
-| `VITE_API_BASE_URL` | Production, Preview, Dev | `https://smart-fyp-backend.onrender.com/app` | Render Backend HTTP API URL |
-| `VITE_WS_URL` | Production, Preview, Dev | `wss://smart-fyp-backend.onrender.com/ws` | Render Backend WebSocket (WSS) URL |
+| `VITE_API_BASE_URL` | Production, Preview, Dev | `https://smart-fyp-management.onrender.com/app` | Render Backend HTTP API URL |
+| `VITE_WS_URL` | Production, Preview, Dev | `wss://smart-fyp-management.onrender.com/ws` | Render Backend WebSocket (WSS) URL |
 
 ---
 
@@ -65,7 +65,7 @@ Use the included `render.yaml` at the root of the repository to deploy automatic
 | :--- | :--- | :--- | :--- |
 | `SECRET_KEY` | Yes | `<64+ char random string>` | Django production secret key |
 | `DEBUG` | Yes | `False` | Must be False in production |
-| `ALLOWED_HOSTS` | Yes | `smart-fyp-backend.onrender.com,localhost,127.0.0.1` | Allowed domain hosts |
+| `ALLOWED_HOSTS` | Yes | `smart-fyp-management.onrender.com,localhost,127.0.0.1` | Allowed domain hosts |
 | `DATABASE_URL` | Yes | `postgres://user:pass@ep-cool-host.neon.tech/smart_fyp?sslmode=require` | Neon PostgreSQL Connection URI |
 | `CORS_ALLOWED_ORIGINS` | Yes | `https://smart-fyp-management.vercel.app` | Vercel frontend URL |
 | `CSRF_TRUSTED_ORIGINS` | Yes | `https://smart-fyp-management.vercel.app` | Vercel frontend URL |

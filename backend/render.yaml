@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: smart-fyp-main-backend
+    name: smart-fyp-management
     runtime: python
     region: singapore
     plan: free
