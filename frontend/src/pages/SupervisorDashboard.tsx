@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { apiService } from '../services/api';
+import { apiService, API_BASE_URL } from '../services/api';
 import type { Supervisor, SupervisorOfStudentGroup } from '../types';
 import Navbar from '../components/Navbar';
 import UTCAppLayout from '../components/UTCAppLayout';
@@ -186,7 +186,7 @@ const SupervisorDashboard: React.FC = () => {
       const token = localStorage.getItem('access_token');
       const [profileData, projRes] = await Promise.all([
         apiService.getSupervisorProfile(),
-        axios.get(`${import.meta.env.VITE_API_BASE_URL || '/app'}/supervisor/graduation-projects/`, {
+        axios.get(`${API_BASE_URL}/supervisor/graduation-projects/`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         }).catch(() => null),
       ]);

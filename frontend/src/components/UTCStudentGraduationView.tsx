@@ -6,7 +6,7 @@ import type { ThesisDeferralRequest } from '../types';
 import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
 import './UTCStudentGraduationView.css';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
+import { API_BASE_URL as API_BASE } from '../services/api';
 
 
 export interface UTCStudentGraduationViewProps {

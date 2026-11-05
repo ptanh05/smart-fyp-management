@@ -7,7 +7,7 @@ import { apiService } from '../services/api';
 import { calculateStageCounts, getProjectStageNumber } from '../utils/graduationStages';
 import { SupervisorOfferedTopics } from './SupervisorOfferedTopics';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
+import { API_BASE_URL as API_BASE } from '../services/api';
 
 export type SupervisorGradTab = 'students' | 'survey' | 'outlines' | 'weekly' | 'supervision' | 'eval' | 'reviewer' | 'deferrals';
 

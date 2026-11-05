@@ -41,7 +41,18 @@ import type {
 
 import { triggerGlobalToast } from '../contexts/ToastContext';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/app';
+const resolveApiBaseUrl = (): string => {
+  let url = (import.meta.env.VITE_API_BASE_URL || '/app').trim();
+  if (url.includes('smart-fyp-backend.onrender.com')) {
+    url = url.replace('smart-fyp-backend.onrender.com', 'smart-fyp-management.onrender.com');
+  }
+  if (url.includes('smart-fyp-main-backend.onrender.com')) {
+    url = url.replace('smart-fyp-main-backend.onrender.com', 'smart-fyp-management.onrender.com');
+  }
+  return url;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 
 class ApiService {

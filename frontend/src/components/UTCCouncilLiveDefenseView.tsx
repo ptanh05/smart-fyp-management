@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useModalGuard } from '../utils/modalHooks';
 import { apiService } from '../services/api';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/app';
+import { API_BASE_URL as API_BASE } from '../services/api';
 
 export const UTCCouncilLiveDefenseView: React.FC = () => {
   const [councilData, setCouncilData] = useState<any>(null);

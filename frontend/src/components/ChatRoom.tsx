@@ -62,8 +62,15 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
     const host = import.meta.env.VITE_WS_HOST || window.location.hostname;
     const defaultPort = import.meta.env.DEV ? ':8000' : (window.location.port ? `:${window.location.port}` : '');
     const portStr = import.meta.env.VITE_WS_PORT ? `:${import.meta.env.VITE_WS_PORT}` : defaultPort;
-    const baseWsUrl = import.meta.env.VITE_WS_URL
-      ? (import.meta.env.VITE_WS_URL.endsWith('/') ? import.meta.env.VITE_WS_URL : `${import.meta.env.VITE_WS_URL}/`) + `chat/${groupId}/`
+    let rawWsUrl = (import.meta.env.VITE_WS_URL || '').trim();
+    if (rawWsUrl.includes('smart-fyp-backend.onrender.com')) {
+      rawWsUrl = rawWsUrl.replace('smart-fyp-backend.onrender.com', 'smart-fyp-management.onrender.com');
+    }
+    if (rawWsUrl.includes('smart-fyp-main-backend.onrender.com')) {
+      rawWsUrl = rawWsUrl.replace('smart-fyp-main-backend.onrender.com', 'smart-fyp-management.onrender.com');
+    }
+    const baseWsUrl = rawWsUrl
+      ? (rawWsUrl.endsWith('/') ? rawWsUrl : `${rawWsUrl}/`) + `chat/${groupId}/`
       : `${protocol}//${host}${portStr}/ws/chat/${groupId}/`;
 
     try {
