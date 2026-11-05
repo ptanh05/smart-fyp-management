@@ -448,6 +448,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
 
   // Poll for new messages (fallback)
   const pollNewMessages = async () => {
+    if (typeof document !== 'undefined' && document.hidden) return;
     try {
       const response = await apiService.getChatMessages(groupId, 1);
       const newMessages = [...response.results].reverse();
