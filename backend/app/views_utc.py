@@ -1189,18 +1189,34 @@ class SupervisorGraduationProjectsAPIView(APIView):
         if not supervisor:
             return Response({"detail": "Chỉ dành cho Giảng viên hướng dẫn."}, status=status.HTTP_403_FORBIDDEN)
 
+        from django.db.models import Q, Prefetch
+
+        tasks_qs = SupervisionTask.objects.select_related("assigned_by__user")
+        meeting_logs_qs = SupervisionMeetingLog.objects.select_related(
+            "project__supervisor__user"
+        ).prefetch_related(
+            Prefetch("tasks", queryset=tasks_qs)
+        )
+
         projects = GraduationProject.objects.filter(supervisor=supervisor).select_related(
             "student__user",
+            "supervisor__user",
+            "reviewer__user",
             "topic_category",
             "council",
-            "final_grade_summary"
+            "final_grade_summary",
+            "outline_review__reviewer__user",
+            "outline_review__review_group",
+        ).prefetch_related(
+            Prefetch("tasks", queryset=tasks_qs),
+            Prefetch("weekly_reports", queryset=WeeklyProgressReport.objects.all()),
+            Prefetch("meeting_logs", queryset=meeting_logs_qs),
         ).order_by("student__user__last_name")
 
         data = list(GraduationProjectDetailSerializer(projects, many=True).data)
 
         # Stage 2 students: students who submitted survey preferences choosing this supervisor,
         # but do not have an active GraduationProject assigned yet
-        from django.db.models import Q
         assigned_student_ids = GraduationProject.objects.filter(student__isnull=False).values_list("student_id", flat=True)
         stage2_prefs = StudentPreference.objects.filter(
             Q(preference_1=supervisor) | Q(preference_2=supervisor) | Q(preference_3=supervisor)
@@ -1208,8 +1224,17 @@ class SupervisorGraduationProjectsAPIView(APIView):
             "student__user", "student__course_class", "topic_direction"
         ).order_by("student__user__last_name", "student__user__first_name")
 
-        for pref in stage2_prefs:
-            survey = InternshipInfo.objects.filter(student=pref.student).first()
+        stage2_prefs_list = list(stage2_prefs)
+        surveys_map = {}
+        if stage2_prefs_list:
+            st_ids = [p.student_id for p in stage2_prefs_list]
+            surveys = InternshipInfo.objects.filter(student_id__in=st_ids).only(
+                "student_id", "tentative_title", "company_name", "is_interning"
+            )
+            surveys_map = {s.student_id: s for s in surveys}
+
+        for pref in stage2_prefs_list:
+            survey = surveys_map.get(pref.student_id)
             s = pref.student
             su = s.user
             course_class_name = getattr(s.course_class, "class_name", "") if hasattr(s, "course_class") and s.course_class else ""

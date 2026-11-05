@@ -445,16 +445,24 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
         return ""
 
     def get_is_currently_defending(self, obj):
-        if obj.council and obj.council.current_defending_project_id == obj.id:
+        if obj.defense_status == "DEFENDING" or obj.status == "DEFENDING":
             return True
-        return obj.defense_status == "DEFENDING" or obj.status == "DEFENDING"
+        if not getattr(obj, "council_id", None) or not obj.council:
+            return False
+        override = getattr(obj.council, "_current_defending_project", None)
+        if override is not None:
+            defending_p = obj.council.projects.filter(status="DEFENDING").first()
+            if defending_p:
+                return defending_p.id == obj.id
+            return getattr(override, "id", None) == obj.id
+        return False
 
     def get_task_stats(self, obj):
-        tasks = obj.tasks.all()
-        total = tasks.count()
-        completed = tasks.filter(is_completed=True).count()
-        in_progress = tasks.filter(status="IN_PROGRESS", is_completed=False).count()
-        todo = tasks.filter(status="TODO", is_completed=False).count()
+        tasks = list(obj.tasks.all())
+        total = len(tasks)
+        completed = sum(1 for t in tasks if t.is_completed)
+        in_progress = sum(1 for t in tasks if t.status == "IN_PROGRESS" and not t.is_completed)
+        todo = sum(1 for t in tasks if t.status == "TODO" and not t.is_completed)
         rate = round((completed / total * 100), 1) if total > 0 else 0
         return {
             "total": total,
