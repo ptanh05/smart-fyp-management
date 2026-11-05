@@ -205,6 +205,9 @@ class Student(models.Model):
     class Meta:
         db_table = "app_student"
         ordering = ["registration_no"]
+        indexes = [
+            models.Index(fields=["academic_batch", "course_class"], name="idx_student_batch_class"),
+        ]
         verbose_name = "Sinh viên"
         verbose_name_plural = "Danh sách Sinh viên"
 
@@ -561,6 +564,11 @@ class GraduationProject(models.Model):
     class Meta:
         db_table = "app_graduationproject"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["council", "status", "-created_at"], name="idx_gp_council_stat_created"),
+            models.Index(fields=["batch", "status"], name="idx_gp_batch_status"),
+            models.Index(fields=["supervisor", "status"], name="idx_gp_supervisor_status"),
+        ]
         verbose_name = "Đồ án tốt nghiệp"
         verbose_name_plural = "Danh sách Đồ án tốt nghiệp"
 
@@ -812,6 +820,9 @@ class SupervisionTask(models.Model):
     class Meta:
         db_table = "app_supervisiontask"
         ordering = ["is_completed", "due_date", "-created_at"]
+        indexes = [
+            models.Index(fields=["project", "is_completed"], name="idx_task_project_completed"),
+        ]
         verbose_name = "Nhiệm vụ đồ án"
         verbose_name_plural = "Danh sách Nhiệm vụ đồ án"
 
@@ -1148,6 +1159,9 @@ class Notification(models.Model):
     class Meta:
         db_table = "app_notification"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"], condition=models.Q(is_read=False), name="idx_notif_unread_user_created"),
+        ]
         verbose_name = "Thông báo"
         verbose_name_plural = "Danh sách Thông báo"
 
@@ -1182,6 +1196,9 @@ class SupervisorGroupChatMessage(models.Model):
     class Meta:
         db_table = "app_supervisorgroupchatmessage"
         ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["reply_to"], name="idx_chatmsg_reply_to"),
+        ]
         verbose_name = "Tin nhắn nhóm GVHD"
         verbose_name_plural = "Danh sách Tin nhắn nhóm GVHD"
 
