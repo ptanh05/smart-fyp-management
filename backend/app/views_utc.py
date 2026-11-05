@@ -196,7 +196,7 @@ class StudentImportAPIView(APIView):
         if batch_id:
             batch = AcademicBatch.objects.filter(id=batch_id).first()
         if not batch:
-            batch = AcademicBatch.objects.filter(is_active=True).first() or AcademicBatch.objects.last()
+            batch = AcademicBatch.get_active_batch() or AcademicBatch.objects.last()
 
         # 3. Parse content
         rows = []
@@ -725,7 +725,7 @@ class StudentSurveyAPIView(APIView):
         if not student:
             return Response({"detail": "Hồ sơ sinh viên không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
 
-        batch = student.academic_batch or AcademicBatch.objects.filter(is_active=True).first()
+        batch = student.academic_batch or AcademicBatch.get_active_batch()
         
         from django.core.cache import cache
 
@@ -737,12 +737,37 @@ class StudentSurveyAPIView(APIView):
 
         supervisors_data = cache.get("utc_active_supervisors_brief_data")
         if supervisors_data is None:
-            supervisors = Supervisor.objects.all().select_related("user").order_by("user__first_name")
+            supervisors = (
+                Supervisor.objects.filter(is_active=True)
+                .select_related("user")
+                .prefetch_related("topic_area_links__topic_area")
+                .order_by("user__first_name")
+            )
             supervisors_data = SupervisorBriefSerializer(supervisors, many=True).data
             cache.set("utc_active_supervisors_brief_data", supervisors_data, 300)
 
         survey = InternshipInfo.objects.filter(student=student).first()
         survey_data = InternshipInfoSerializer(survey).data if survey else None
+
+        # Lọc & đề xuất giảng viên theo chuyên ngành (hướng nghiên cứu) đã chọn
+        selected_topic_id = request.query_params.get("topic_area_id") or ""
+        if not selected_topic_id and survey and survey.topic_direction_id:
+            selected_topic_id = str(survey.topic_direction_id)
+
+        supervisors_for_topic = []
+        if selected_topic_id:
+            try:
+                selected_topic_id_int = int(selected_topic_id)
+            except (TypeError, ValueError):
+                selected_topic_id_int = None
+
+            if selected_topic_id_int:
+                topic_ids = {s.get("id") for s in topic_areas_data}
+                if selected_topic_id_int in topic_ids:
+                    for sup in supervisors_data:
+                        sup["is_topic_match"] = selected_topic_id_int in (sup.get("topic_area_ids") or [])
+                        if sup["is_topic_match"]:
+                            supervisors_for_topic.append(sup)
 
         return Response({
             "student": {
@@ -766,6 +791,8 @@ class StudentSurveyAPIView(APIView):
             },
             "topic_areas": topic_areas_data,
             "supervisors": supervisors_data,
+            "selected_topic_area_id": selected_topic_id or "",
+            "supervisors_for_topic": supervisors_for_topic,
             "survey": survey_data
         }, status=status.HTTP_200_OK)
 
@@ -778,7 +805,7 @@ class StudentSurveyAPIView(APIView):
         if not student:
             return Response({"detail": "Hồ sơ sinh viên không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
 
-        batch = student.academic_batch or AcademicBatch.objects.filter(is_active=True).first()
+        batch = student.academic_batch or AcademicBatch.get_active_batch()
         if not batch:
             return Response({"detail": "Không có đợt làm đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -862,10 +889,23 @@ class StudentSurveyAPIView(APIView):
                 }
             )
 
-        return Response({
+        # Cảnh báo (không chặn): GVHD được chọn không thuộc chuyên ngành sinh viên đã chọn
+        warnings = []
+        if topic_direction:
+            for label, sup in (("NV1", sup1), ("NV2", sup2), ("NV3", sup3)):
+                if sup and not sup.has_topic_area(topic_direction):
+                    warnings.append(
+                        f"{label}: {sup.user.get_full_name()} ({sup.academic_title or 'GV'}) "
+                        f"không được đăng ký chuyên ngành \"{topic_direction.name}\"."
+                    )
+
+        response_data = {
             "message": "Cập nhật khảo sát và nguyện vọng thành công!",
             "survey": InternshipInfoSerializer(survey).data
-        }, status=status.HTTP_200_OK)
+        }
+        if warnings:
+            response_data["warnings"] = warnings
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 # ==============================================================================
@@ -2956,7 +2996,7 @@ class RunAllocationAlgorithmAPIView(APIView):
         if batch_id:
             batch = get_object_or_404(AcademicBatch, id=batch_id)
         else:
-            batch = AcademicBatch.objects.filter(is_active=True).first()
+            batch = AcademicBatch.get_active_batch()
             if not batch:
                 return Response({"detail": "Không có đợt đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -3002,7 +3042,7 @@ class ProposedAllocationListAPIView(APIView):
         if batch_id:
             batch = get_object_or_404(AcademicBatch, id=batch_id)
         else:
-            batch = AcademicBatch.objects.filter(is_active=True).first()
+            batch = AcademicBatch.get_active_batch()
             if not batch:
                 return Response({"detail": "Không có đợt đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -3151,7 +3191,7 @@ class FinalizeAllocationAPIView(APIView):
         if batch_id:
             batch = get_object_or_404(AcademicBatch, id=batch_id)
         else:
-            batch = AcademicBatch.objects.filter(is_active=True).first()
+            batch = AcademicBatch.get_active_batch()
             if not batch:
                 return Response({"detail": "Không có đợt đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -4141,7 +4181,7 @@ class StudentDeferralRequestAPIView(APIView):
 
         project = GraduationProject.objects.filter(student=student).first()
         if not project:
-            batch = getattr(student, "academic_batch", None) or AcademicBatch.objects.filter(is_active=True).first()
+            batch = getattr(student, "academic_batch", None) or AcademicBatch.get_active_batch()
             if batch:
                 project = GraduationProject.objects.create(
                     student=student,
@@ -4257,5 +4297,58 @@ class AdminReviewDeferralRequestAPIView(APIView):
             "message": msg,
             "deferral": ThesisDeferralRequestSerializer(deferral).data,
             "project": GraduationProjectDetailSerializer(project).data
+        }, status=status.HTTP_200_OK)
+
+
+class CloseBatchAPIView(APIView):
+    """Khoa kết thúc đợt đồ án"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        batch = get_object_or_404(AcademicBatch, pk=pk)
+        batch.current_stage = "COMPLETED"
+        batch.is_closed = True
+        batch.is_active = False
+        batch.save(update_fields=["current_stage", "is_closed", "is_active"])
+
+        AuditLog.objects.create(
+            user=request.user,
+            action_type="group_status_change",
+            description=f"Khoa đã chính thức kết thúc Đợt đồ án {batch.batch_code}."
+        )
+
+        return Response({
+            "message": f"Đợt {batch.batch_code} đã hoàn tất và kết thúc thành công.",
+            "batch_id": batch.id,
+            "is_closed": True,
+            "is_active": False,
+            "current_stage": "COMPLETED"
+        }, status=status.HTTP_200_OK)
+
+
+class ReopenBatchAPIView(APIView):
+    """Khoa mở lại đợt đồ án đã kết thúc từ kho lưu trữ"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        batch = get_object_or_404(AcademicBatch, pk=pk)
+        batch.is_closed = False
+        batch.is_active = True
+        if batch.current_stage == "COMPLETED":
+            batch.current_stage = "PHASE_6_DEFENSE"
+        batch.save(update_fields=["current_stage", "is_closed", "is_active"])
+
+        AuditLog.objects.create(
+            user=request.user,
+            action_type="group_status_change",
+            description=f"Khoa đã mở lại Đợt đồ án {batch.batch_code} từ kho lưu trữ."
+        )
+
+        return Response({
+            "message": f"Đợt {batch.batch_code} đã được mở lại thành công.",
+            "batch_id": batch.id,
+            "is_closed": False,
+            "is_active": True,
+            "current_stage": batch.current_stage
         }, status=status.HTTP_200_OK)
 

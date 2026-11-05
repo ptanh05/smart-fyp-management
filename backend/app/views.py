@@ -818,7 +818,7 @@ class ProjectAPIVIEW(ListAPIView, CreateAPIView):
                 user = request.user
                 supervisor = Supervisor.objects.filter(user=user).first()
                 student = Student.objects.filter(user=user).first() if getattr(user, "user_type", "") == "student" else None
-                batch = AcademicBatch.objects.filter(is_active=True).first() or AcademicBatch.objects.first()
+                batch = AcademicBatch.get_active_batch() or AcademicBatch.objects.first()
                 gp = GraduationProject.objects.create(
                     student=student,
                     supervisor=supervisor,

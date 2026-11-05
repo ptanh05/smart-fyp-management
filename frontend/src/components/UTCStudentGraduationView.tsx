@@ -77,10 +77,25 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const [preference3Id, setPreference3Id] = useState<number | string>('');
   const [secondaryCriteriaNote, setSecondaryCriteriaNote] = useState('');
   const [tentativeTitle, setTentativeTitle] = useState('');
+  const [showAllSupervisors, setShowAllSupervisors] = useState(false);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [surveySaving, setSurveySaving] = useState(false);
+
+  // Lọc & đề xuất giảng viên theo chuyên ngành (hướng nghiên cứu) đã chọn
+  const selectedTopicArea = (surveyData?.topic_areas || []).find(
+    (t: any) => String(t.id) === String(topicDirectionId)
+  );
+  const allSupervisors: any[] = surveyData?.supervisors || [];
+  const topicMatchedSupervisors: any[] = selectedTopicArea
+    ? allSupervisors.filter((s: any) =>
+        (s.topic_area_ids || []).map(Number).includes(Number(selectedTopicArea.id))
+      )
+    : [];
+  // Mặc định chỉ hiển thị GV đúng chuyên ngành; bật "Xem tất cả" để mở rộng
+  const displayedSupervisors: any[] =
+    selectedTopicArea && !showAllSupervisors ? topicMatchedSupervisors : allSupervisors;
 
   // Outline Form & Phase 3 Topic Draft / PDF
   const [outlineTitleVi, setOutlineTitleVi] = useState('');
@@ -260,7 +275,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     e.preventDefault();
     try {
       setSurveySaving(true);
-      await axios.post(
+      const res = await axios.post(
         `${API_BASE}/student/survey/`,
         {
           is_interning: isInterning,
@@ -278,7 +293,12 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         },
         { headers: getHeaders() }
       );
-      alert('Đã lưu thông tin khảo sát và nguyện vọng thành công!');
+      const warnings: string[] = res.data?.warnings || [];
+      if (warnings.length > 0) {
+        alert('Đã lưu thông tin khảo sát và nguyện vọng thành công!\n\n⚠️ Lưu ý:\n- ' + warnings.join('\n- '));
+      } else {
+        alert('Đã lưu thông tin khảo sát và nguyện vọng thành công!');
+      }
       fetchData();
     } catch (err: any) {
       const msg =
@@ -885,13 +905,18 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Chọn Hướng nghiên cứu / Làm đồ án (8 hướng chuẩn UTC)</label>
+              <label className="block text-xs font-medium text-slate-400 mb-1">
+                Chọn Chuyên ngành / Hướng nghiên cứu
+              </label>
               <select
                 value={topicDirectionId}
-                onChange={(e) => setTopicDirectionId(e.target.value)}
+                onChange={(e) => {
+                  setTopicDirectionId(e.target.value);
+                  setShowAllSupervisors(false);
+                }}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-blue-500"
               >
-                <option value="">-- Chọn hướng đề tài --</option>
+                <option value="">-- Chọn chuyên ngành --</option>
                 {surveyData?.topic_areas?.map((t: any) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -899,6 +924,61 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 ))}
               </select>
             </div>
+
+            {/* Gợi ý giảng viên theo chuyên ngành đã chọn */}
+            {selectedTopicArea && (
+              <div className="p-4 bg-slate-950 rounded-lg border border-blue-800/60 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-bold text-blue-300">
+                      🎯 Giảng viên gợi ý cho chuyên ngành “{selectedTopicArea.name}”
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      {topicMatchedSupervisors.length > 0
+                        ? `Có ${topicMatchedSupervisors.length} giảng viên đăng ký chuyên ngành này — hệ thống sẽ ưu tiên đề xuất khi phân bổ GVHD.`
+                        : 'Chưa có giảng viên nào đăng ký chuyên ngành này. Bạn có thể xem toàn bộ danh sách bên dưới.'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSupervisors((v) => !v)}
+                    className="text-[11px] px-2.5 py-1 rounded border border-slate-600 bg-slate-900 text-slate-200 hover:border-blue-500 hover:text-blue-300 transition-colors"
+                  >
+                    {showAllSupervisors
+                      ? '✕ Chỉ xem GV đúng chuyên ngành'
+                      : `👥 Xem tất cả GV (${allSupervisors.length})`}
+                  </button>
+                </div>
+
+                {topicMatchedSupervisors.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {topicMatchedSupervisors.map((s: any) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setPreference1Id(String(s.id));
+                          setPreference2Id((p2) => (String(p2) === String(s.id) ? '' : p2));
+                          setPreference3Id((p3) => (String(p3) === String(s.id) ? '' : p3));
+                        }}
+                        title={`Chuyên ngành: ${(s.topic_areas || []).join(', ')}`}
+                        className={`text-left px-2.5 py-1.5 rounded-lg border text-[11px] transition-colors ${
+                          String(preference1Id) === String(s.id)
+                            ? 'border-blue-500 bg-blue-950/60 text-blue-200'
+                            : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-blue-600'
+                        }`}
+                      >
+                        <span className="font-semibold">{s.full_name}</span>
+                        <span className="block text-[10px] text-slate-400">
+                          {(s.topic_areas || []).slice(0, 2).join(' · ')}
+                          {s.is_eligible_for_engineer ? ' • Đủ ĐK Kỹ sư' : ''}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* NV1 - Preference 1 */}
             <div>
@@ -914,7 +994,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-blue-500"
               >
                 <option value="">-- Chọn GVHD Nguyện vọng 1 --</option>
-                {surveyData?.supervisors?.map((s: any) => (
+                {displayedSupervisors.map((s: any) => (
                   <option key={s.id} value={s.id}>
                     {s.full_name} ({s.department}) {s.is_eligible_for_engineer ? '— [TS / Đủ ĐK Kỹ sư]' : '— [ThS]'}
                   </option>
@@ -936,7 +1016,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-blue-500"
               >
                 <option value="">-- Chọn GVHD Nguyện vọng 2 (Không bắt buộc) --</option>
-                {surveyData?.supervisors?.map((s: any) => (
+                {displayedSupervisors.map((s: any) => (
                   <option key={s.id} value={s.id}>
                     {s.full_name} ({s.department}) {s.is_eligible_for_engineer ? '— [TS / Đủ ĐK Kỹ sư]' : '— [ThS]'}
                   </option>
@@ -958,7 +1038,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-blue-500"
               >
                 <option value="">-- Chọn GVHD Nguyện vọng 3 (Không bắt buộc) --</option>
-                {surveyData?.supervisors?.map((s: any) => (
+                {displayedSupervisors.map((s: any) => (
                   <option key={s.id} value={s.id}>
                     {s.full_name} ({s.department}) {s.is_eligible_for_engineer ? '— [TS / Đủ ĐK Kỹ sư]' : '— [ThS]'}
                   </option>

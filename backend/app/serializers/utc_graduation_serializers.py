@@ -27,6 +27,8 @@ class SupervisorBriefSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     email = serializers.CharField(source="user.email", read_only=True)
     is_eligible_for_engineer = serializers.SerializerMethodField()
+    topic_area_ids = serializers.SerializerMethodField()
+    topic_areas = serializers.SerializerMethodField()
 
     class Meta:
         model = Supervisor
@@ -42,6 +44,8 @@ class SupervisorBriefSerializer(serializers.ModelSerializer):
             "is_external",
             "research_interest",
             "is_eligible_for_engineer",
+            "topic_area_ids",
+            "topic_areas",
         ]
 
     def get_full_name(self, obj):
@@ -52,6 +56,12 @@ class SupervisorBriefSerializer(serializers.ModelSerializer):
         title = obj.academic_title or ""
         doctoral_markers = ["TS", "TIẾN SĨ", "TIEN SI", "PGS", "GS", "GIÁO SƯ", "GIAO SU", "PHÓ GIÁO SƯ"]
         return any(marker in title.upper() for marker in doctoral_markers)
+
+    def get_topic_area_ids(self, obj):
+        return [link.topic_area_id for link in obj.topic_area_links.all()]
+
+    def get_topic_areas(self, obj):
+        return [link.topic_area.name for link in obj.topic_area_links.all()]
 
 
 class InternshipInfoSerializer(serializers.ModelSerializer):

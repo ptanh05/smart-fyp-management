@@ -126,7 +126,7 @@ class CreateStudentGroupAPIView(APIView):
             )
 
         # Batch
-        batch = student.academic_batch or AcademicBatch.objects.filter(is_active=True).first()
+        batch = student.academic_batch or AcademicBatch.get_active_batch()
 
         # Feature 4: Tên nhóm đã tồn tại trong cùng kỳ đồ án
         dup_filter = Q(group_name__iexact=name)

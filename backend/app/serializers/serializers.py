@@ -102,7 +102,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         batch = getattr(obj, "academic_batch", None)
         if not batch:
             from ..models import AcademicBatch
-            batch = AcademicBatch.objects.filter(is_active=True).first()
+            batch = AcademicBatch.get_active_batch()
         if batch:
             return {
                 "id": batch.id,
@@ -188,7 +188,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         batch = getattr(obj, "academic_batch", None)
         if not batch:
             from app.models import AcademicBatch
-            batch = AcademicBatch.objects.filter(is_active=True).first()
+            batch = AcademicBatch.get_active_batch()
 
         batch_step = 1
         if batch:
@@ -248,7 +248,7 @@ class SupervisorProfileSerializer(serializers.ModelSerializer):
 
     def get_timeline_step(self, obj):
         from app.models import AcademicBatch
-        batch = AcademicBatch.objects.filter(is_active=True).first()
+        batch = AcademicBatch.get_active_batch()
         if not batch:
             return 3
         stage = getattr(batch, "current_stage", "")
