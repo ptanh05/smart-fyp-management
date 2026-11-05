@@ -88,7 +88,9 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
     loadMessages();
 
     pollIntervalRef.current = setInterval(() => {
-      loadMessages();
+      if (!document.hidden) {
+        loadMessages();
+      }
     }, 4000);
 
     // Close emoji picker on click outside
@@ -163,8 +165,9 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
       setDownloadingId(msgId);
       showToast('Đang tải tệp xuống thiết bị...');
       await apiService.downloadFile(fileUrl, fileName);
+      showToast('Đã tải tệp xuống thành công!');
     } catch (err: any) {
-      alert('Lỗi tải tệp: ' + (err.message || 'Không thể tải tệp'));
+      showToast('Lỗi tải tệp: ' + (err.message || 'Không thể tải tệp'));
     } finally {
       setDownloadingId(null);
     }

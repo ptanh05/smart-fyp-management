@@ -47,6 +47,22 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/app';
 class ApiService {
   private api: AxiosInstance;
   private pendingRequests = new Map<string, Promise<any>>();
+  private isRefreshing = false;
+  private failedQueue: Array<{
+    resolve: (token: string) => void;
+    reject: (error: any) => void;
+  }> = [];
+
+  private processQueue(error: any, token: string | null = null) {
+    this.failedQueue.forEach((prom) => {
+      if (error) {
+        prom.reject(error);
+      } else if (token) {
+        prom.resolve(token);
+      }
+    });
+    this.failedQueue = [];
+  }
 
   private deduplicateRequest<T>(key: string, fetcher: () => Promise<T>, ttlMs = 2500): Promise<T> {
     if (this.pendingRequests.has(key)) {
@@ -99,24 +115,44 @@ class ApiService {
           originalRequest.url?.includes('/token/logout/');
 
         if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+          if (this.isRefreshing) {
+            return new Promise<string>((resolve, reject) => {
+              this.failedQueue.push({ resolve, reject });
+            })
+              .then((newToken) => {
+                originalRequest._retry = true;
+                if (originalRequest.headers) {
+                  originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                }
+                return this.api(originalRequest);
+              })
+              .catch((err) => Promise.reject(err));
+          }
+
           originalRequest._retry = true;
+          this.isRefreshing = true;
+
           try {
             // Send request to refresh token endpoint - HttpOnly cookie attached automatically via withCredentials
             const response = await axios.post(`${API_BASE_URL}/token/refresh/`, {}, { withCredentials: true });
             const { access } = response.data;
             localStorage.setItem('access_token', access);
+            this.processQueue(null, access);
             if (originalRequest.headers) {
               originalRequest.headers.Authorization = `Bearer ${access}`;
             }
             return this.api(originalRequest);
           } catch (refreshError) {
+            this.processQueue(refreshError, null);
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('user_type');
-            if (window.location.pathname !== '/login') {
+            if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
               window.location.href = '/login';
             }
             return Promise.reject(refreshError);
+          } finally {
+            this.isRefreshing = false;
           }
         }
         return Promise.reject(error);
@@ -543,49 +579,20 @@ class ApiService {
   }
 
   async downloadDocument(fileUrl: string, fileName: string): Promise<void> {
-    try {
-      // Handle both relative and absolute URLs
-      const url = fileUrl.startsWith('http') ? fileUrl : `${window.location.origin}${fileUrl}`;
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Download failed');
-      }
-
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-
-      // Create a temporary link and trigger download
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-      console.error('Download error:', error);
-      throw error;
-    }
+    return this.downloadFile(fileUrl, fileName);
   }
 
   async fetchDocumentBlob(fileUrl: string): Promise<Blob> {
-    const url = fileUrl.startsWith('http') ? fileUrl : `${window.location.origin}${fileUrl}`;
-    const token = localStorage.getItem('access_token');
-    const response = await fetch(url + (url.includes('?') ? '&preview=1' : '?preview=1'), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to load document: ${response.status} ${response.statusText}`);
+    let targetUrl = fileUrl;
+    if (targetUrl.includes('?')) {
+      targetUrl += '&preview=1';
+    } else {
+      targetUrl += '?preview=1';
     }
-    return await response.blob();
+    const response = await this.api.get(targetUrl, {
+      responseType: 'blob',
+    });
+    return response.data;
   }
 
   async deleteDocument(documentType: string, documentId: number): Promise<void> {
@@ -888,36 +895,81 @@ class ApiService {
   }
 
   async downloadFile(fileUrl: string, fileName?: string): Promise<void> {
-    const token = localStorage.getItem('access_token');
-    let fullUrl = fileUrl;
-    if (!fullUrl.startsWith('http')) {
-      const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '');
-      fullUrl = `${rootUrl}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+    if (!fileUrl) {
+      throw new Error('Đường dẫn tệp không hợp lệ.');
     }
 
-    // Attach token to URL query parameter so both direct GET and window.open fallback are authorized
-    if (token) {
-      fullUrl = fullUrl.includes('?') ? `${fullUrl}&token=${token}` : `${fullUrl}?token=${token}`;
+    // Determine target URL for authenticated this.api client
+    let targetUrl = fileUrl;
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '');
+      if (rootUrl && targetUrl.startsWith('/')) {
+        targetUrl = `${rootUrl}${targetUrl}`;
+      }
     }
 
     try {
-      const response = await axios.get(fullUrl, {
+      // Use this.api with responseType: 'blob' so request interceptor attaches Authorization: Bearer
+      // and response interceptor automatically handles 401 token refresh!
+      const response = await this.api.get(targetUrl, {
         responseType: 'blob',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
-      const blob = new Blob([response.data]);
+      // Extract filename from Content-Disposition header if available
+      let resolvedFileName = fileName;
+      if (!resolvedFileName) {
+        const disposition = response.headers?.['content-disposition'];
+        if (disposition) {
+          const utf8Match = disposition.match(/filename\*=utf-8''([^;]+)/i);
+          if (utf8Match && utf8Match[1]) {
+            resolvedFileName = decodeURIComponent(utf8Match[1]);
+          } else {
+            const match = disposition.match(/filename=["']?([^"';]+)["']?/i);
+            if (match && match[1]) {
+              resolvedFileName = match[1];
+            }
+          }
+        }
+      }
+
+      if (!resolvedFileName) {
+        resolvedFileName = fileUrl.split('/').pop()?.split('?')[0] || 'downloaded_file';
+      }
+
+      const blob = new Blob([response.data], {
+        type: response.headers?.['content-type'] || 'application/octet-stream',
+      });
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = fileName || fileUrl.split('/').pop()?.split('?')[0] || 'downloaded_file';
+      a.download = resolvedFileName;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(blobUrl);
       document.body.removeChild(a);
     } catch (err: any) {
-      console.warn('Lỗi tải tệp qua blob, chuyển sang fallback window.open:', err);
-      window.open(fullUrl, '_blank');
+      let errorMessage = 'Không thể tải tệp tin. Vui lòng thử lại sau.';
+      const resData = err.response?.data;
+      if (resData && typeof resData.text === 'function') {
+        try {
+          const text = await resData.text();
+          const json = JSON.parse(text);
+          errorMessage = json.detail || json.message || text;
+        } catch {
+          // not JSON
+        }
+      } else if (resData?.detail) {
+        errorMessage = resData.detail;
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Bạn không có quyền truy cập tệp tin này.';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Tệp tin không tồn tại hoặc đã bị xóa.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      throw new Error(errorMessage);
     }
   }
 

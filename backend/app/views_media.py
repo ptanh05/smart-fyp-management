@@ -87,6 +87,70 @@ def verify_access_token_or_media_token(token, file_path):
     return None
 
 
+def is_safe_relative_path(rel_path):
+    """Ensure path contains no directory traversal, null bytes, or absolute path components."""
+    if not rel_path or not isinstance(rel_path, str):
+        return False
+    if "\x00" in rel_path:
+        return False
+    norm = os.path.normpath(rel_path).replace("\\", "/")
+    if norm.startswith("..") or norm.startswith("/") or os.path.isabs(norm):
+        return False
+    parts = norm.split("/")
+    if ".." in parts:
+        return False
+    return True
+
+
+def check_attachment_access(user, safe_rel_path):
+    """
+    Check if the authenticated user is authorized to access a chat attachment.
+    - Superuser, staff, admin, committee: full access.
+    - If file belongs to SupervisorGroupChatMessage:
+        User must be the supervisor OR an assigned student of that supervisor.
+    - If file belongs to ChatRoom:
+        User must be the student OR the supervisor in that chat room.
+    - General shared files (templates, outlines, news): allowed for authenticated users.
+    """
+    if not user or not user.is_authenticated:
+        return False
+
+    user_type = getattr(user, "user_type", "")
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or user_type in ["admin", "committee"]:
+        return True
+
+    base_name = os.path.basename(safe_rel_path)
+
+    try:
+        from .models import SupervisorGroupChatMessage
+        group_msg = SupervisorGroupChatMessage.objects.filter(
+            attachment__icontains=base_name
+        ).first()
+        if group_msg:
+            from .views_supervisor_group_chat import get_user_supervisor
+            user_sup = get_user_supervisor(user)
+            if user_sup and user_sup.id == group_msg.supervisor_id:
+                return True
+            return False
+    except Exception:
+        pass
+
+    try:
+        from .models import ChatRoom
+        chat_room_msg = ChatRoom.objects.filter(
+            attachment__icontains=base_name
+        ).select_related("student__user", "supervisor__user").first()
+        if chat_room_msg:
+            if (chat_room_msg.student and chat_room_msg.student.user_id == user.id) or \
+               (chat_room_msg.supervisor and chat_room_msg.supervisor.user_id == user.id):
+                return True
+            return False
+    except Exception:
+        pass
+
+    return True
+
+
 class GetSignedMediaUrlAPIView(APIView):
     """
     Endpoint for authenticated clients to obtain a short-lived Signed URL / Media Token
@@ -138,7 +202,7 @@ class SecureMediaDownloadView(APIView):
         
         # Normalize and sanitize file path
         safe_rel_path = os.path.normpath(raw_path.lstrip("/")).replace("\\", "/")
-        if safe_rel_path.startswith("..") or os.path.isabs(safe_rel_path):
+        if not is_safe_relative_path(raw_path) or safe_rel_path.startswith("..") or os.path.isabs(safe_rel_path):
             return Response({"detail": "Đường dẫn không hợp lệ."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Strip redundant leading "media/" prefix if present in URL
@@ -170,7 +234,14 @@ class SecureMediaDownloadView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        # 2. Locate File across MEDIA_ROOT and BASE_DIR subfolders
+        # 3. Check Attachment Access Permissions (prevent unauthorized access to other chats)
+        if not check_attachment_access(request.user, safe_rel_path):
+            return Response(
+                {"detail": "Bạn không có quyền truy cập tệp tin này."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # 4. Locate File across MEDIA_ROOT and BASE_DIR subfolders
         base_name = os.path.basename(safe_rel_path)
         candidate_paths = [
             os.path.abspath(os.path.join(settings.MEDIA_ROOT, safe_rel_path)),
@@ -194,7 +265,10 @@ class SecureMediaDownloadView(APIView):
                 break
 
         if not full_path:
-            raise Http404(f"Tệp tin '{base_name}' không tồn tại hoặc đã bị xóa.")
+            return Response(
+                {"detail": f"Tệp tin '{base_name}' không tồn tại hoặc đã bị xóa."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         # 3. Stream File with Attachment Headers & CORS
         download_filename = os.path.basename(full_path)

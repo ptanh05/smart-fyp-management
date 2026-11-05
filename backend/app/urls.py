@@ -549,6 +549,7 @@ urlpatterns = [
     path("media/get-signed-url/", GetSignedMediaUrlAPIView.as_view(), name="media-get-signed-url"),
     path("media/download-token/", GetSignedMediaUrlAPIView.as_view(), name="media-download-token"),
     path("media/download/<path:file_path>", SecureMediaDownloadView.as_view(), name="media-secure-download"),
+    path("media/<path:file_path>", SecureMediaDownloadView.as_view(), name="app-media-direct-download"),
 
     # Bug Reports & User Feedback
     path("bug-reports/", BugReportAPIView.as_view(), name="bug-reports"),
