@@ -150,26 +150,41 @@ class Command(BaseCommand):
         
         students = []
         for username, email, first_name, last_name, reg_no, dept, semester, batch in students_data:
-            user, created = CustomUser.objects.get_or_create(
-                username=username,
-                defaults={
-                    "email": email,
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "password": make_password("student123"),
-                    "user_type": "student",
-                }
+            # `app_student.registration_no` là UNIQUE. Nếu MSSV đã tồn tại (do
+            # backend smart-fyp-admin seed trước, hoặc do lần seed trước tạo với
+            # user khác) thì `get_or_create(user=...)` sẽ vi phạm unique
+            # constraint và làm build trên Render fail.
+            # -> Tái sử dụng profile hiện có nếu MSSV đã tồn tại.
+            existing_profile = (
+                Student.objects.filter(registration_no=reg_no)
+                .select_related("user")
+                .first()
             )
-            
-            student, created = Student.objects.get_or_create(
-                user=user,
-                defaults={
-                    "registration_no": reg_no,
-                    "department": dept,
-                    "semester": semester,
-                    "batch_no": batch,
-                }
-            )
+
+            if existing_profile is not None:
+                user = existing_profile.user
+                student = existing_profile
+            else:
+                user, created = CustomUser.objects.get_or_create(
+                    username=username,
+                    defaults={
+                        "email": email,
+                        "first_name": first_name,
+                        "last_name": last_name,
+                        "password": make_password("student123"),
+                        "user_type": "student",
+                    }
+                )
+
+                student, created = Student.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        "registration_no": reg_no,
+                        "department": dept,
+                        "semester": semester,
+                        "batch_no": batch,
+                    }
+                )
             students.append(student)
             
             # Create notification preferences

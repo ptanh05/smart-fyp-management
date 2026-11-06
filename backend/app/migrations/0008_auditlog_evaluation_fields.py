@@ -4,6 +4,75 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def apply_schema_changes(apps, schema_editor):
+    """
+    Thêm cột cho app_auditlog một cách idempotent.
+
+    Lý do cần `SeparateDatabaseAndState`:
+    - Repo `smart-fyp-admin` dùng CHUNG app label `app` và CHUNG bảng
+      `django_migrations` trên Neon. Các migration `0006_auditlog_evaluation_fields`
+      (của admin) đã tạo cột `evaluation_type`, `ip_address`, `supervisor_group_id`
+      trên bảng `app_auditlog` trước đó.
+    - Migration `0008_auditlog_evaluation_fields` (của management) có tên khác nên
+      vẫn chưa được đánh dấu applied, nhưng `AddField` thuần sẽ lỗi
+      `column "evaluation_type" of relation "app_auditlog" already exists`.
+
+    Vì vậy phần DB được thực hiện bằng SQL idempotent (IF NOT EXISTS), còn phần
+    state được khai báo chuẩn để Django không sinh thêm `AlterField` drift.
+    """
+    connection = schema_editor.connection
+
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                ALTER TABLE app_auditlog ADD COLUMN IF NOT EXISTS evaluation_type varchar(50) NULL;
+                ALTER TABLE app_auditlog ADD COLUMN IF NOT EXISTS ip_address inet NULL;
+                ALTER TABLE app_auditlog ADD COLUMN IF NOT EXISTS supervisor_group_id bigint NULL;
+
+                CREATE INDEX IF NOT EXISTS app_auditlog_supervisor_group_id_f00145cc
+                    ON app_auditlog (supervisor_group_id);
+            """)
+            # FK tới bảng legacy `app_supervisorofstudentgroup` chỉ được tạo khi
+            # bảng đích thực sự tồn tại (db_constraint=False trong state nên
+            # Django không tự sinh FK).
+            cursor.execute("""
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'app_supervisorofstudentgroup'
+            """)
+            if cursor.fetchone():
+                cursor.execute("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint
+                            WHERE conname = 'app_auditlog_supervisor_group_id_f00145cc_fk_app_super'
+                        ) THEN
+                            ALTER TABLE app_auditlog ADD CONSTRAINT
+                                "app_auditlog_supervisor_group_id_f00145cc_fk_app_super"
+                                FOREIGN KEY (supervisor_group_id)
+                                REFERENCES app_supervisorofstudentgroup (id)
+                                DEFERRABLE INITIALLY DEFERRED;
+                        END IF;
+                    END $$;
+                """)
+    else:
+        # SQLite (dùng cho unit test local)
+        with connection.cursor() as cursor:
+            cursor.execute("PRAGMA table_info(app_auditlog);")
+            columns = {row[1] for row in cursor.fetchall()}
+            if "evaluation_type" not in columns:
+                cursor.execute("ALTER TABLE app_auditlog ADD COLUMN evaluation_type varchar(50) NULL;")
+            if "ip_address" not in columns:
+                cursor.execute("ALTER TABLE app_auditlog ADD COLUMN ip_address varchar(39) NULL;")
+            if "supervisor_group_id" not in columns:
+                cursor.execute("ALTER TABLE app_auditlog ADD COLUMN supervisor_group_id integer NULL;")
+
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS app_auditlog_supervisor_group_id_f00145cc "
+                "ON app_auditlog (supervisor_group_id);"
+            )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,19 +80,31 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='auditlog',
-            name='evaluation_type',
-            field=models.CharField(blank=True, max_length=50, null=True),
-        ),
-        migrations.AddField(
-            model_name='auditlog',
-            name='ip_address',
-            field=models.GenericIPAddressField(blank=True, null=True),
-        ),
-        migrations.AddField(
-            model_name='auditlog',
-            name='supervisor_group',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='audit_logs', to='app.supervisorofstudentgroup'),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='auditlog',
+                    name='evaluation_type',
+                    field=models.CharField(blank=True, max_length=50, null=True),
+                ),
+                migrations.AddField(
+                    model_name='auditlog',
+                    name='ip_address',
+                    field=models.GenericIPAddressField(blank=True, null=True),
+                ),
+                migrations.AddField(
+                    model_name='auditlog',
+                    name='supervisor_group',
+                    # Bảng legacy `app_supervisorofstudentgroup` KHÔNG tồn tại trên
+                    # Neon -> không tạo FK constraint ở tầng DB.
+                    field=models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='audit_logs', to='app.supervisorofstudentgroup'),
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(
+                    code=apply_schema_changes,
+                    reverse_code=migrations.RunPython.noop,
+                ),
+            ],
         ),
     ]

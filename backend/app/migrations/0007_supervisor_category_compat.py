@@ -13,6 +13,10 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='supervisor',
             name='category',
-            field=models.ManyToManyField(blank=True, related_name='supervisor', to='app.projectcategories'),
+            # `ProjectCategories` là model unmanaged: bảng `app_projectcategories`
+            # KHÔNG tồn tại trên Neon PostgreSQL. Nếu tạo FK constraint tới bảng
+            # này, Postgres sẽ lỗi `relation "app_projectcategories" does not exist`
+            # và build Render thất bại -> dùng db_constraint=False.
+            field=models.ManyToManyField(blank=True, db_constraint=False, related_name='supervisor', to='app.projectcategories'),
         ),
     ]

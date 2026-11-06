@@ -3,6 +3,7 @@ from django.db import transaction
 import sys
 import unicodedata
 import re
+from app.legacy_compat import legacy_table_exists
 from app.models import (
     CustomUser,
     AcademicBatch,
@@ -77,7 +78,10 @@ class Command(BaseCommand):
                 code=code,
                 defaults={"name": name, "is_active": True}
             )
-            ProjectCategories.objects.get_or_create(category_name=name)
+            # Bảng legacy `app_projectcategories` KHÔNG tồn tại trên production
+            # Neon -> bỏ qua nếu bảng không có (schema Pure UTC đã thay thế nó).
+            if legacy_table_exists(ProjectCategories._meta.db_table):
+                ProjectCategories.objects.get_or_create(category_name=name)
         self.stdout.write(f"[OK] Created/Updated 8 Standard Topic Areas")
 
         # 4. Standard Classes for Batch

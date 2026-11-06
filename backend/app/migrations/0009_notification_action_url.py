@@ -4,6 +4,110 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def apply_schema_changes(apps, schema_editor):
+    """
+    Thêm cột cho app_notification một cách idempotent.
+
+    Lý do cần `SeparateDatabaseAndState`:
+    - Repo `smart-fyp-admin` dùng CHUNG app label `app` và CHUNG bảng
+      `django_migrations` trên Neon. Migration `0007_notification_action_url`
+      (của admin) đã tạo cột `action_url`, `related_document_id`,
+      `related_group_id`, `related_supervisor_group_id` trên `app_notification`.
+    - Migration `0009_notification_action_url` (của management) có tên khác nên
+      vẫn chưa được đánh dấu applied, nhưng `AddField` thuần sẽ lỗi
+      `column ... of relation "app_notification" already exists`.
+
+    Vì vậy phần DB được thực hiện bằng SQL idempotent (IF NOT EXISTS), còn phần
+    state được khai báo chuẩn để Django không sinh thêm `AlterField` drift.
+    """
+    connection = schema_editor.connection
+
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                ALTER TABLE app_notification ADD COLUMN IF NOT EXISTS action_url varchar(255) NULL;
+                ALTER TABLE app_notification ADD COLUMN IF NOT EXISTS related_document_id bigint NULL;
+                ALTER TABLE app_notification ADD COLUMN IF NOT EXISTS related_group_id bigint NULL;
+                ALTER TABLE app_notification ADD COLUMN IF NOT EXISTS related_supervisor_group_id bigint NULL;
+
+                CREATE INDEX IF NOT EXISTS app_notification_related_document_id_41669787
+                    ON app_notification (related_document_id);
+                CREATE INDEX IF NOT EXISTS app_notification_related_group_id_e92b3edb
+                    ON app_notification (related_group_id);
+                CREATE INDEX IF NOT EXISTS app_notification_related_supervisor_group_id_80ea8a0b
+                    ON app_notification (related_supervisor_group_id);
+            """)
+            # FK tới các bảng legacy chỉ được tạo khi bảng đích thực sự tồn tại.
+            cursor.execute("""
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'public'
+                  AND table_name IN (
+                      'app_document', 'app_group', 'app_supervisorofstudentgroup'
+                  )
+            """)
+            if cursor.fetchone():
+                cursor.execute("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (SELECT 1 FROM information_schema.tables
+                                   WHERE table_schema='public' AND table_name='app_document')
+                           AND NOT EXISTS (SELECT 1 FROM pg_constraint
+                                           WHERE conname='app_notification_related_document_id_41669787_fk_app_document_id') THEN
+                            ALTER TABLE app_notification ADD CONSTRAINT
+                                "app_notification_related_document_id_41669787_fk_app_document_id"
+                                FOREIGN KEY (related_document_id) REFERENCES app_document (id)
+                                DEFERRABLE INITIALLY DEFERRED;
+                        END IF;
+
+                        IF EXISTS (SELECT 1 FROM information_schema.tables
+                                   WHERE table_schema='public' AND table_name='app_group')
+                           AND NOT EXISTS (SELECT 1 FROM pg_constraint
+                                           WHERE conname='app_notification_related_group_id_e92b3edb_fk_app_group_id') THEN
+                            ALTER TABLE app_notification ADD CONSTRAINT
+                                "app_notification_related_group_id_e92b3edb_fk_app_group_id"
+                                FOREIGN KEY (related_group_id) REFERENCES app_group (id)
+                                DEFERRABLE INITIALLY DEFERRED;
+                        END IF;
+
+                        IF EXISTS (SELECT 1 FROM information_schema.tables
+                                   WHERE table_schema='public' AND table_name='app_supervisorofstudentgroup')
+                           AND NOT EXISTS (SELECT 1 FROM pg_constraint
+                                           WHERE conname='app_notification_related_supervisor_group_id_80ea8a0b_fk_app_super') THEN
+                            ALTER TABLE app_notification ADD CONSTRAINT
+                                "app_notification_related_supervisor_group_id_80ea8a0b_fk_app_super"
+                                FOREIGN KEY (related_supervisor_group_id) REFERENCES app_supervisorofstudentgroup (id)
+                                DEFERRABLE INITIALLY DEFERRED;
+                        END IF;
+                    END $$;
+                """)
+    else:
+        # SQLite (dùng cho unit test local)
+        with connection.cursor() as cursor:
+            cursor.execute("PRAGMA table_info(app_notification);")
+            columns = {row[1] for row in cursor.fetchall()}
+            if "action_url" not in columns:
+                cursor.execute("ALTER TABLE app_notification ADD COLUMN action_url varchar(255) NULL;")
+            if "related_document_id" not in columns:
+                cursor.execute("ALTER TABLE app_notification ADD COLUMN related_document_id integer NULL;")
+            if "related_group_id" not in columns:
+                cursor.execute("ALTER TABLE app_notification ADD COLUMN related_group_id integer NULL;")
+            if "related_supervisor_group_id" not in columns:
+                cursor.execute("ALTER TABLE app_notification ADD COLUMN related_supervisor_group_id integer NULL;")
+
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS app_notification_related_document_id_41669787 "
+                "ON app_notification (related_document_id);"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS app_notification_related_group_id_e92b3edb "
+                "ON app_notification (related_group_id);"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS app_notification_related_supervisor_group_id_80ea8a0b "
+                "ON app_notification (related_supervisor_group_id);"
+            )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,24 +115,40 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='notification',
-            name='action_url',
-            field=models.CharField(blank=True, max_length=255, null=True),
-        ),
-        migrations.AddField(
-            model_name='notification',
-            name='related_document',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='notifications', to='app.document'),
-        ),
-        migrations.AddField(
-            model_name='notification',
-            name='related_group',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='notifications', to='app.group'),
-        ),
-        migrations.AddField(
-            model_name='notification',
-            name='related_supervisor_group',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='notifications', to='app.supervisorofstudentgroup'),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='notification',
+                    name='action_url',
+                    field=models.CharField(blank=True, max_length=255, null=True),
+                ),
+                migrations.AddField(
+                    model_name='notification',
+                    name='related_document',
+                    # Bảng legacy `app_document` KHÔNG tồn tại trên Neon ->
+                    # không tạo FK constraint ở tầng DB.
+                    field=models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='notifications', to='app.document'),
+                ),
+                migrations.AddField(
+                    model_name='notification',
+                    name='related_group',
+                    # Bảng legacy `app_group` KHÔNG tồn tại trên Neon ->
+                    # không tạo FK constraint ở tầng DB.
+                    field=models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='notifications', to='app.group'),
+                ),
+                migrations.AddField(
+                    model_name='notification',
+                    name='related_supervisor_group',
+                    # Bảng legacy `app_supervisorofstudentgroup` KHÔNG tồn tại trên
+                    # Neon -> không tạo FK constraint ở tầng DB.
+                    field=models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='notifications', to='app.supervisorofstudentgroup'),
+                ),
+            ],
+            database_operations=[
+                migrations.RunPython(
+                    code=apply_schema_changes,
+                    reverse_code=migrations.RunPython.noop,
+                ),
+            ],
         ),
     ]

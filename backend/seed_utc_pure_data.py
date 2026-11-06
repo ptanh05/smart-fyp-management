@@ -211,31 +211,45 @@ def seed_database():
 
     topic_keys = list(topic_objs.keys())
     for idx, (uname, fname, lname, email, msv, edu, cclass) in enumerate(students_data):
-        su, _ = CustomUser.objects.get_or_create(
-            username=uname,
-            defaults={
-                "email": email,
-                "first_name": fname,
-                "last_name": lname,
-                "user_type": "student",
-            }
+        # `app_student.registration_no` là UNIQUE. Nếu MSSV đã tồn tại (do lần
+        # seed trước hoặc backend khác tạo với user khác) thì
+        # `get_or_create(user=...)` sẽ vi phạm unique constraint.
+        # -> Tái sử dụng profile hiện có nếu MSSV đã tồn tại.
+        existing_profile = (
+            Student.objects.filter(registration_no=msv)
+            .select_related("user")
+            .first()
         )
-        su.set_password("Sv@123456")
-        su.save()
 
-        st, _ = Student.objects.get_or_create(
-            user=su,
-            defaults={
-                "registration_no": msv,
-                "department": "CNTT",
-                "semester": "Hoc ky 1 (2026-2027)",
-                "batch_no": "K62",
-                "phone_number": f"09876543{idx:02d}",
-                "education_program": edu,
-                "course_class": cclass,
-                "academic_batch": batch
-            }
-        )
+        if existing_profile is not None:
+            su = existing_profile.user
+            st = existing_profile
+        else:
+            su, _ = CustomUser.objects.get_or_create(
+                username=uname,
+                defaults={
+                    "email": email,
+                    "first_name": fname,
+                    "last_name": lname,
+                    "user_type": "student",
+                }
+            )
+            su.set_password("Sv@123456")
+            su.save()
+
+            st, _ = Student.objects.get_or_create(
+                user=su,
+                defaults={
+                    "registration_no": msv,
+                    "department": "CNTT",
+                    "semester": "Hoc ky 1 (2026-2027)",
+                    "batch_no": "K62",
+                    "phone_number": f"09876543{idx:02d}",
+                    "education_program": edu,
+                    "course_class": cclass,
+                    "academic_batch": batch
+                }
+            )
 
         # Student Preference
         topic_choice = topic_objs[topic_keys[idx % len(topic_keys)]]

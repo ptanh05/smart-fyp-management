@@ -90,28 +90,43 @@ class Command(BaseCommand):
             username = f"sv.{reg_no}"
             email = f"sv{reg_no}@st.utc.edu.vn"
             full_name = f"Sinh viên Demo {i}"
-            
-            user, u_created = CustomUser.objects.get_or_create(
-                username=username,
-                defaults={
-                    "email": email,
-                    "password": make_password("UTC@123"),
-                    "user_type": "student",
-                    "first_name": full_name,
-                }
+
+            # `app_student.registration_no` là UNIQUE. Nếu MSSV đã tồn tại (do
+            # lần seed trước hoặc backend khác tạo với user khác) thì
+            # `get_or_create(user=...)` sẽ vi phạm unique constraint.
+            # -> Tái sử dụng profile hiện có nếu MSSV đã tồn tại.
+            existing_profile = (
+                Student.objects.filter(registration_no=reg_no)
+                .select_related("user")
+                .first()
             )
-            
-            student, _ = Student.objects.get_or_create(
-                user=user,
-                defaults={
-                    "registration_no": reg_no,
-                    "department": "CNTT",
-                    "semester": "8",
-                    "batch_no": "K62",
-                    "academic_batch": batch,
-                    "phone_number": f"0987654{i:03d}"
-                }
-            )
+
+            if existing_profile is not None:
+                user = existing_profile.user
+                student = existing_profile
+                u_created = False
+            else:
+                user, u_created = CustomUser.objects.get_or_create(
+                    username=username,
+                    defaults={
+                        "email": email,
+                        "password": make_password("UTC@123"),
+                        "user_type": "student",
+                        "first_name": full_name,
+                    }
+                )
+
+                student, _ = Student.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        "registration_no": reg_no,
+                        "department": "CNTT",
+                        "semester": "8",
+                        "batch_no": "K62",
+                        "academic_batch": batch,
+                        "phone_number": f"0987654{i:03d}"
+                    }
+                )
 
             # Assign a topic, supervisor and create GraduationProject
             assigned_supervisor = supervisor_objs[(i - 1) % len(supervisor_objs)]

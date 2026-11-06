@@ -1715,7 +1715,14 @@ class CouncilStructureService:
             elif cat_name and any(word in sup_interest for word in cat_name.split() if len(word) > 2):
                 score += 4.5
             elif hasattr(supervisor, "category"):
-                cat_names = [normalize_str(c.category_name) for c in supervisor.category.all()]
+                # Bảng legacy `app_projectcategories` KHÔNG tồn tại trên production
+                # Neon -> đọc an toàn, nếu lỗi thì coi như không có danh mục.
+                from app.legacy_compat import safe_legacy_values
+
+                cat_names = [
+                    normalize_str(c)
+                    for c in safe_legacy_values(supervisor.category, "category_name")
+                ]
                 if any(c in cat_name or c in cat_code for c in cat_names):
                     score += 4.0
 

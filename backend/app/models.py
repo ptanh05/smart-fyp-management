@@ -309,10 +309,14 @@ class Supervisor(models.Model):
 
     # Bảng M2M legacy `app_supervisor_category` (đã tồn tại trên production Neon).
     # Giữ tương thích ngược với module Nhóm/Legacy của hệ thống.
+    # `ProjectCategories` là model unmanaged (bảng `app_projectcategories` KHÔNG
+    # tồn tại trên Neon) -> không tạo FK constraint ở tầng DB, nếu không Postgres
+    # sẽ lỗi `relation "app_projectcategories" does not exist` khi migrate.
     category = models.ManyToManyField(
         "ProjectCategories",
         related_name="supervisor",
         blank=True,
+        db_constraint=False,
     )
 
     class Meta:
@@ -1203,12 +1207,15 @@ class AuditLog(models.Model):
     # Loại bản đánh giá (vd: srs_supervisor, sdd_committee, evaluation3_...)
     evaluation_type = models.CharField(max_length=50, blank=True, null=True)
     # Nhóm sinh viên liên quan (dùng để lọc nhật ký theo GV / Hội đồng)
+    # Bảng legacy `app_supervisorofstudentgroup` do smart-fyp-admin quản lý
+    # và KHÔNG tồn tại trên Neon -> không tạo FK constraint ở tầng DB.
     supervisor_group = models.ForeignKey(
         "SupervisorOfStudentGroup",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="audit_logs",
+        db_constraint=False,
     )
     # Địa chỉ IP thực hiện hành động (dùng cho trung tâm bảo mật / nhật ký)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
@@ -1232,15 +1239,19 @@ class Notification(models.Model):
     # Đường dẫn điều hướng khi người dùng bấm vào thông báo
     action_url = models.CharField(max_length=255, blank=True, null=True)
     # Liên kết tới nhóm / nhóm GV / tài liệu liên quan (nếu có)
+    # Các bảng legacy `app_group`, `app_supervisorofstudentgroup`, `app_document`
+    # KHÔNG tồn tại trên Neon -> không tạo FK constraint ở tầng DB.
     related_group = models.ForeignKey(
-        "Group", on_delete=models.SET_NULL, null=True, blank=True, related_name="notifications"
+        "Group", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="notifications", db_constraint=False,
     )
     related_supervisor_group = models.ForeignKey(
         "SupervisorOfStudentGroup", on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="notifications",
+        related_name="notifications", db_constraint=False,
     )
     related_document = models.ForeignKey(
-        "Document", on_delete=models.SET_NULL, null=True, blank=True, related_name="notifications"
+        "Document", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="notifications", db_constraint=False,
     )
     notification_type = models.CharField(max_length=50, default="system")
     is_read = models.BooleanField(default=False)
