@@ -452,48 +452,40 @@ const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   className="utc-demo-pill default"
-                  onClick={() => handleFillStudent('201200102', 'student123', 'Trần Thị Bích')}
-                  title="Tài khoản demo mẫu: 201200102 / student123"
+                  onClick={() => handleFillStudent('201200102', '201200102', 'Trần Thị Bích')}
+                  title="Tài khoản demo mẫu: 201200102 / 201200102"
                 >
                   🎓 <strong>201200102</strong> (Demo)
                 </button>
               </div>
             )}
 
-            {/* Supervisor Demo Options */}
+            {/* Supervisor Demo Options - tài khoản giảng viên chính thức (UTC) */}
             {userType === 'supervisor' && (
               <div className="utc-demo-chips-container">
                 <button
                   type="button"
                   className="utc-demo-pill primary"
-                  onClick={() => handleFillSupervisor('ts_thang', 'Gv@123456', 'TS. Vũ Bá Thắng')}
-                  title="TS. Thắng - Hướng dẫn SV An & SV Hùng, giao task, chấm điểm"
+                  onClick={() => handleFillSupervisor('gv_tran_thi_ngan', 'Gv@123456', 'PGS.TS. Trần Thị Ngân (UTC001)')}
+                  title="PGS.TS. Trần Thị Ngân - Chủ tịch Hội đồng, GVHD chính thức"
                 >
-                  👨‍🏫 <strong>TS. Thắng</strong> (ts_thang)
+                  👨‍🏫 <strong>PGS.TS. Ngân</strong> (UTC001)
                 </button>
                 <button
                   type="button"
                   className="utc-demo-pill"
-                  onClick={() => handleFillSupervisor('pgs_ha', 'Gv@123456', 'PGS.TS. Đỗ Thị Hà')}
-                  title="PGS.TS. Hà - Chủ tịch Hội đồng 01 & GVHD"
+                  onClick={() => handleFillSupervisor('gv_nguyen_van_long', 'Gv@123456', 'PGS.TS. Nguyễn Văn Long (UTC002)')}
+                  title="PGS.TS. Nguyễn Văn Long - GVHD chính thức"
                 >
-                  👨‍🏫 <strong>PGS. Hà</strong> (pgs_ha)
-                </button>
-                <button
-                  type="button"
-                  className="utc-demo-pill"
-                  onClick={() => handleFillSupervisor('ths_linh', 'Gv@123456', 'ThS. Nguyễn Thùy Linh')}
-                  title="ThS. Linh - Hướng dẫn Cử nhân & Thư ký Hội đồng 01"
-                >
-                  👩‍🏫 <strong>ThS. Linh</strong> (ths_linh)
+                  👨‍🏫 <strong>PGS.TS. Long</strong> (UTC002)
                 </button>
                 <button
                   type="button"
                   className="utc-demo-pill default"
-                  onClick={() => handleFillSupervisor('supervisor1', 'supervisor123', 'GVC. Nguyễn Hướng Dẫn')}
-                  title="Tài khoản demo mẫu: supervisor1 / supervisor123"
+                  onClick={() => handleFillSupervisor('gv_bui_ngoc_dung', 'Gv@123456', 'TS. Bùi Ngọc Dũng (UTC003)')}
+                  title="TS. Bùi Ngọc Dũng - GVHD chính thức"
                 >
-                  👨‍🏫 <strong>supervisor1</strong> (Demo)
+                  👨‍🏫 <strong>TS. Dũng</strong> (UTC003)
                 </button>
               </div>
             )}
@@ -504,34 +496,34 @@ const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   className="utc-demo-pill primary"
-                  onClick={() => handleFillCommittee('pgs_ha', 'Gv@123456', 'Chủ tịch HĐ: PGS.TS. Đỗ Thị Hà')}
+                  onClick={() => handleFillCommittee('gv_tran_thi_ngan', 'Gv@123456', 'Chủ tịch HĐ: PGS.TS. Trần Thị Ngân')}
                   title="Chủ tịch Hội đồng 01 - Chấm điểm bảo vệ"
                 >
-                  🏛️ <strong>Chủ tịch HĐ</strong> (pgs_ha)
+                  🏛️ <strong>Chủ tịch HĐ</strong> (gv_tran_thi_ngan)
                 </button>
                 <button
                   type="button"
                   className="utc-demo-pill"
-                  onClick={() => handleFillCommittee('ths_linh', 'Gv@123456', 'Thư ký: ThS. Nguyễn Thùy Linh')}
-                  title="Thư ký Hội đồng 01 - Chấm điểm & lập biên bản"
+                  onClick={() => handleFillCommittee('gv_cao_thi_luyen', 'Gv@123456', 'Thư ký: TS. Cao Thị Luyên')}
+                  title="Thư ký Hội đồng - Chấm điểm & lập biên bản"
                 >
-                  📝 <strong>Thư ký 1</strong> (ths_linh)
+                  📝 <strong>Thư ký 1</strong> (UTC004)
                 </button>
                 <button
                   type="button"
                   className="utc-demo-pill"
-                  onClick={() => handleFillCommittee('ts_nam', 'Gv@123456', 'Ủy viên: TS. Trần Hoài Nam')}
-                  title="Ủy viên Hội đồng 01 - Chấm điểm & hỏi đáp"
+                  onClick={() => handleFillCommittee('gv_bui_ngoc_dung', 'Gv@123456', 'Ủy viên: TS. Bùi Ngọc Dũng')}
+                  title="Ủy viên Hội đồng - Chấm điểm & hỏi đáp"
                 >
-                  ⚖️ <strong>Ủy viên</strong> (ts_nam)
+                  ⚖️ <strong>Ủy viên</strong> (UTC003)
                 </button>
                 <button
                   type="button"
                   className="utc-demo-pill default"
-                  onClick={() => handleFillCommittee('committee1', 'committee123', 'PGS.TS. Nguyễn Chủ Tịch HĐ')}
-                  title="Tài khoản demo mẫu: committee1 / committee123"
+                  onClick={() => handleFillCommittee('gv_nguyen_van_long', 'Gv@123456', 'PGS.TS. Nguyễn Văn Long')}
+                  title="PGS.TS. Nguyễn Văn Long - Thành viên Hội đồng"
                 >
-                  🏛️ <strong>committee1</strong> (Demo)
+                  🏛️ <strong>gv_nguyen_van_long</strong> (UTC002)
                 </button>
               </div>
             )}
@@ -583,7 +575,7 @@ const LoginPage: React.FC = () => {
                       }
                     }}
                     onBlur={() => handleBlur('email')}
-                    placeholder={t('login.emailPlaceholder', 'Nhập email hoặc username (Ví dụ: supervisor1 hoặc gvc.nguyen@utc.edu.vn)')}
+                    placeholder={t('login.emailPlaceholder', 'Nhập email hoặc username (Ví dụ: gv_tran_thi_ngan hoặc tran_thi_ngan@utc.edu.vn)')}
                   />
                   {touched.email && !fieldErrors.email && email && (
                     <span className="utc-valid-icon">✓</span>
