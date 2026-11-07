@@ -1220,6 +1220,29 @@ class StudentMarkTaskCompletedAPIView(APIView):
 # SUPERVISOR DASHBOARD & ACTIONS
 # ==============================================================================
 
+class SupervisorMyBatchesAPIView(APIView):
+    """Trả về danh sách các đợt đồ án mà giảng viên này có tham gia (hướng dẫn hoặc phản biện)"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        supervisor = getattr(user, "supervisor_profile", None)
+        if not supervisor:
+            return Response({"detail": "Chỉ dành cho Giảng viên."}, status=status.HTTP_403_FORBIDDEN)
+
+        from django.db.models import Q
+
+        # Lấy các batch mà supervisor này có project (hướng dẫn hoặc phản biện)
+        batch_ids = GraduationProject.objects.filter(
+            Q(supervisor=supervisor) | Q(reviewer=supervisor)
+        ).values_list("batch_id", flat=True).distinct()
+
+        batches = AcademicBatch.objects.filter(id__in=batch_ids).order_by("-id")
+
+        from .serializers.utc_graduation_serializers import AcademicBatchSerializer
+        return Response(AcademicBatchSerializer(batches, many=True).data, status=status.HTTP_200_OK)
+
+
 class SupervisorGraduationProjectsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1231,6 +1254,8 @@ class SupervisorGraduationProjectsAPIView(APIView):
 
         from django.db.models import Q, Prefetch
 
+        batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
+
         tasks_qs = SupervisionTask.objects.select_related("assigned_by__user")
         meeting_logs_qs = SupervisionMeetingLog.objects.select_related(
             "project__supervisor__user"
@@ -1238,7 +1263,10 @@ class SupervisorGraduationProjectsAPIView(APIView):
             Prefetch("tasks", queryset=tasks_qs)
         )
 
-        projects = GraduationProject.objects.filter(supervisor=supervisor).select_related(
+        projects_qs = GraduationProject.objects.filter(supervisor=supervisor)
+        if batch_id:
+            projects_qs = projects_qs.filter(batch_id=batch_id)
+        projects = projects_qs.select_related(
             "student__user",
             "supervisor__user",
             "reviewer__user",
@@ -1368,11 +1396,15 @@ class SupervisorOutlineGroupReviewListAPIView(APIView):
             OutlineReview.objects.get_or_create(project=p)
 
         from django.db.models import Q
+        batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
         query = Q(project__supervisor=supervisor)
         if review_groups.exists():
             query |= Q(review_group__in=review_groups)
 
-        reviews = OutlineReview.objects.filter(query).select_related(
+        reviews_qs = OutlineReview.objects.filter(query)
+        if batch_id:
+            reviews_qs = reviews_qs.filter(project__batch_id=batch_id)
+        reviews = reviews_qs.select_related(
             "project__student__user",
             "project__supervisor__user",
             "review_group",
@@ -1821,7 +1853,11 @@ class ReviewerAssignedProjectsAPIView(APIView):
         if not supervisor:
             return Response({"detail": "Chỉ dành cho Giảng viên phản biện."}, status=status.HTTP_403_FORBIDDEN)
 
-        projects = GraduationProject.objects.filter(reviewer=supervisor).select_related(
+        batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
+        projects_qs = GraduationProject.objects.filter(reviewer=supervisor)
+        if batch_id:
+            projects_qs = projects_qs.filter(batch_id=batch_id)
+        projects = projects_qs.select_related(
             "student__user",
             "supervisor__user",
             "council",

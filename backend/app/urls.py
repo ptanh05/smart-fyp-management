@@ -24,6 +24,7 @@ from .views_utc import (
     StudentTasksAPIView,
     StudentMarkTaskCompletedAPIView,
     SupervisorGraduationProjectsAPIView,
+    SupervisorMyBatchesAPIView,
     SupervisorOutlineReviewAPIView,
     SupervisorOutlineGroupReviewListAPIView,
     SupervisorWeeklyFeedbackAPIView,
@@ -579,6 +580,7 @@ urlpatterns = [
     path("student/tasks/", StudentTasksAPIView.as_view(), name="utc-student-tasks"),
     path("student/tasks/<int:pk>/complete/", StudentMarkTaskCompletedAPIView.as_view(), name="utc-student-task-complete"),
 
+    path("supervisor/my-batches/", SupervisorMyBatchesAPIView.as_view(), name="utc-supervisor-my-batches"),
     path("supervisor/graduation-projects/", SupervisorGraduationProjectsAPIView.as_view(), name="utc-supervisor-graduation-projects"),
     path("supervisor/outline/review/", SupervisorOutlineReviewAPIView.as_view(), name="utc-supervisor-outline-review"),
     path("supervisor/outline-reviews/", SupervisorOutlineReviewAPIView.as_view(), name="utc-supervisor-outline-reviews-alias"),
