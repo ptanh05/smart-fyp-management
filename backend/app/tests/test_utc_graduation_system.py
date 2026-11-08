@@ -229,7 +229,9 @@ class UTCGraduationSystemTests(APITestCase):
         self.assertEqual(res_review.status_code, status.HTTP_200_OK)
 
         proj.refresh_from_db()
-        self.assertEqual(proj.status, "OUTLINE_APPROVED")
+        # GVHD approval is only the first review step; Khoa/Admin must make
+        # the final decision before the project can leave the outline stage.
+        self.assertEqual(proj.status, "OUTLINE_PENDING")
         outline_review = OutlineReview.objects.get(project=proj)
         self.assertEqual(outline_review.verdict, "APPROVED")
 

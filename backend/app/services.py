@@ -1522,7 +1522,10 @@ class ThesisAllocationService:
             for p in proposed:
                 # Kiểm tra survey có tentative title hay không
                 survey = InternshipInfo.objects.filter(student=p.student, batch=batch).first()
-                default_title = (survey.tentative_title.strip() if survey and survey.tentative_title else "") or f"Đề tài đồ án tốt nghiệp - SV {p.student.registration_no}"
+                # Finalizing an allocation only assigns the supervisor.  The
+                # supervisor must explicitly create/confirm the official topic
+                # afterwards; a survey title is only a preference, not a topic.
+                default_title = ""
                 topic_cat = survey.topic_direction if survey else None
 
                 proj, created = GraduationProject.objects.update_or_create(
@@ -1533,6 +1536,7 @@ class ThesisAllocationService:
                         "topic_category": topic_cat,
                         "topic_title_vi": default_title,
                         "status": "TOPIC_DRAFT",
+                        "topic_review_status": "DRAFT",
                     }
                 )
                 created_projects.append(proj)

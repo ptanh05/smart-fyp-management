@@ -581,7 +581,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         },
         { headers: getHeaders()}
       );
-      alert('Đã cập nhật kết quả duyệt đề cương!');
+      alert(
+        verdict === 'APPROVED'
+          ? 'GVHD đã chấp nhận đề cương. Hồ sơ đang chờ Khoa/Admin duyệt cuối.'
+          : 'Đã cập nhật kết quả duyệt đề cương!'
+      );
       setShowOutlineModal(false);
       fetchData();
     } catch (err: any) {
@@ -814,7 +818,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                               className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition flex items-center gap-1"
                               title="GV xác nhận đề tài sau khi thảo luận với sinh viên"
                             >
-                              <span>✏️</span> Xác nhận đề tài
+                          <span>✏️</span> Tạo / Xác nhận đề tài
                             </button>
                           )}
                           {(p.status === 'TOPIC_CONFIRMED' || p.status === 'PENDING_REVIEW') && (

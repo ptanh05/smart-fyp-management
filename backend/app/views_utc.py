@@ -1459,7 +1459,9 @@ class SupervisorOutlineReviewAPIView(APIView):
             review.save()
 
             if verdict == "APPROVED":
-                project.status = "OUTLINE_APPROVED"
+                # GVHD approval is the first review step.  Keep the project
+                # pending until Khoa/Admin performs the final approval.
+                project.status = "OUTLINE_PENDING"
             elif verdict == "REVISION_REQUIRED":
                 project.status = "OUTLINE_REVISION"
             elif verdict == "REJECTED":
@@ -1468,7 +1470,11 @@ class SupervisorOutlineReviewAPIView(APIView):
 
         verdict_display = getattr(review, "get_verdict_display", lambda: verdict)()
         return Response({
-            "message": f"Đã cập nhật kết quả duyệt đề cương: {verdict_display}",
+            "message": (
+                "GVHD đã chấp nhận đề cương. Hồ sơ đang chờ Khoa/Admin duyệt cuối."
+                if verdict == "APPROVED"
+                else f"Đã cập nhật kết quả duyệt đề cương: {verdict_display}"
+            ),
             "project": GraduationProjectDetailSerializer(project).data
         }, status=status.HTTP_200_OK)
 
@@ -1488,6 +1494,9 @@ class SupervisorWeeklyFeedbackAPIView(APIView):
 
         if not report_id or not rating:
             return Response({"detail": "report_id và rating là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if rating not in {"GOOD", "ACCEPTABLE", "LATE", "UNSATISFACTORY"}:
+            return Response({"detail": "Mức đánh giá báo cáo tuần không hợp lệ."}, status=status.HTTP_400_BAD_REQUEST)
 
         report = get_object_or_404(WeeklyProgressReport, id=report_id, project__supervisor=supervisor)
         report.supervisor_rating = rating

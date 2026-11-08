@@ -111,12 +111,16 @@ export function getProjectStageNumber(project: any): number {
 
   // Giai đoạn 5 & 4: Khi Đề cương đã được GVHD DUYỆT (OUTLINE_APPROVED hoặc outline_review.verdict === 'APPROVED')
   const isOutlineApproved =
-    project.status === 'OUTLINE_APPROVED' ||
-    project.outline_review?.verdict === 'APPROVED';
+    project.status === 'OUTLINE_APPROVED';
 
   if (isOutlineApproved) {
     const hasTasks = tasks.length > 0;
-    const hasReviewedWeekly = weeklyReports.some((r: any) => r.supervisor_rating || r.supervisor_feedback);
+    const hasReviewedWeekly = weeklyReports.some(
+      (r: any) =>
+        Boolean(r.reviewed_at) ||
+        Boolean(r.supervisor_feedback?.trim?.()) ||
+        (Boolean(r.supervisor_rating) && r.supervisor_rating !== 'PENDING')
+    );
 
     // Nếu đã giao tasks hoặc đã có báo cáo tuần được GVHD đánh giá nhận xét -> Sang Giai đoạn 5: Task board & Nhật ký
     if (hasTasks || hasReviewedWeekly || weeklyReports.length >= 5) {
@@ -128,7 +132,7 @@ export function getProjectStageNumber(project: any): number {
 
   // Giai đoạn 1: Mới phân công GVHD ban đầu, đề tài chưa xác nhận / DRAFT / PENDING
   if (
-    project.status === 'ALLOCATED' &&
+    ['ALLOCATED', 'TOPIC_DRAFT'].includes(project.status) &&
     (!project.topic_review_status || project.topic_review_status === 'DRAFT' || project.topic_review_status === 'PENDING') &&
     !project.signed_outline_file
   ) {

@@ -163,7 +163,7 @@ class AuditSecurityAndStateTransitionsTests(APITestCase):
         self.proj_a.refresh_from_db()
         self.assertEqual(self.proj_a.status, "OUTLINE_PENDING")
 
-        # 3. Supervisor approves outline -> OUTLINE_APPROVED
+        # 3. Supervisor approves outline -> still pending final Khoa/Admin approval
         self.client.force_authenticate(user=self.sup1_user)
         res_app = self.client.post("/app/supervisor/outline/review/", {
             "project_id": self.proj_a.id,
@@ -172,7 +172,7 @@ class AuditSecurityAndStateTransitionsTests(APITestCase):
         })
         self.assertEqual(res_app.status_code, status.HTTP_200_OK)
         self.proj_a.refresh_from_db()
-        self.assertEqual(self.proj_a.status, "OUTLINE_APPROVED")
+        self.assertEqual(self.proj_a.status, "OUTLINE_PENDING")
 
         # 4. Supervisor evaluates and marks defense ready -> DEFENSE_READY
         res_eval = self.client.post("/app/supervisor/defense-evaluation/", {
