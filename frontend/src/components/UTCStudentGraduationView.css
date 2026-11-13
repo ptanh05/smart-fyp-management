@@ -232,29 +232,29 @@
   box-shadow: 0 6px 20px rgba(45, 70, 158, 0.5);
 }
 
-/* 6. Task Board & Secondary Buttons (UTC Ocean Blue Palette) */
+/* 6. Task Board & Secondary Buttons (UTC Ocean Blue Palette - Clean Light Theme) */
 .utc-btn-deliverable {
-  background: linear-gradient(135deg, rgba(45, 70, 158, 0.3) 0%, rgba(29, 50, 123, 0.45) 100%);
-  color: #a8c2fd;
-  border: 1px solid rgba(114, 144, 236, 0.45);
+  background: #eef3fb;
+  color: #2D469E;
+  border: 1px solid #cbdcf7;
   padding: 7px 14px;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(45, 70, 158, 0.2);
+  box-shadow: 0 1px 4px rgba(45, 70, 158, 0.08);
 }
 
 .utc-btn-deliverable:hover {
   background: linear-gradient(135deg, #2D469E 0%, #1D327B 100%);
   color: #ffffff;
-  border-color: #7290ec;
-  box-shadow: 0 4px 14px rgba(45, 70, 158, 0.45);
+  border-color: #2D469E;
+  box-shadow: 0 4px 14px rgba(45, 70, 158, 0.35);
 }
 
 .utc-btn-task-note {
-  background: rgba(16, 27, 62, 0.8);
-  color: #c5d5f2;
-  border: 1px solid rgba(69, 101, 201, 0.35);
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
   padding: 7px 14px;
   font-size: 0.8rem;
   font-weight: 600;
@@ -262,65 +262,60 @@
 }
 
 .utc-btn-task-note:hover {
-  background: #1e3170;
-  color: #ffffff;
-  border-color: #5575db;
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 .utc-btn-ghost {
-  background: rgba(16, 27, 62, 0.8);
-  color: #c5d5f2;
-  border: 1px solid rgba(69, 101, 201, 0.35);
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
   padding: 8px 16px;
   font-size: 0.82rem;
   border-radius: 8px;
 }
 
 .utc-btn-ghost:hover {
-  background: #1e3170;
-  color: #ffffff;
-  border-color: #5575db;
-}
-
-.utc-btn-ghost:hover {
-  background: #334155;
-  color: #ffffff;
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 /* 7. Action Banners */
 .utc-action-banner-revision {
   padding: 16px 20px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(88, 28, 28, 0.5) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border: 1px solid rgba(244, 63, 94, 0.45);
-  color: #fecdd3;
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border: 1px solid #fecdd3;
+  color: #9f1239;
   margin-bottom: 16px;
-  box-shadow: 0 8px 24px rgba(225, 29, 72, 0.15);
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.08);
 }
 
 .utc-action-banner-approved {
   padding: 16px 20px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(6, 78, 59, 0.5) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.45);
-  color: #a7f3d0;
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+  border: 1px solid #a7f3d0;
+  color: #065f46;
   margin-bottom: 16px;
-  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.15);
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.08);
 }
 
-/* 8. Stepper Process Bar - Chuẩn Bộ Nhận Diện Thương Hiệu UTC (#2D469E) */
+/* 8. Stepper Process Bar - Chuẩn Bộ Nhận Diện Thương Hiệu UTC (#2D469E) - Clean Light Theme */
 .utc-stepper-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: linear-gradient(135deg, #101b3e 0%, #172757 45%, #2d469e 100%);
-  border: 1px solid rgba(45, 70, 158, 0.45);
+  background: #ffffff;
+  border: 1px solid #d2e0f5;
   border-radius: 12px;
   padding: 12px 16px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 20px rgba(45, 70, 158, 0.25);
+  box-shadow: 0 4px 16px rgba(45, 70, 158, 0.06);
 }
 
 .utc-stepper-label {
@@ -328,7 +323,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #dce7fa;
+  color: #2D469E;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -338,14 +333,14 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #5b7ee5;
-  box-shadow: 0 0 10px #7b99ef;
+  background: #2D469E;
+  box-shadow: 0 0 10px rgba(45, 70, 158, 0.6);
   animation: pulse 1.8s infinite;
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
+  50% { opacity: 0.45; transform: scale(0.85); }
 }
 
 .utc-stepper-group {
@@ -358,32 +353,31 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 13px;
+  padding: 8px 14px;
   border-radius: 8px;
   font-size: 0.79rem;
   font-weight: 600;
-  background: rgba(16, 27, 62, 0.65);
-  color: #c5d5f2;
-  border: 1px solid rgba(69, 101, 201, 0.35);
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  backdrop-filter: blur(4px);
   user-select: none;
 }
 
 .utc-stepper-item:hover {
-  background: #1e3170;
-  color: #ffffff;
-  border-color: #5575db;
+  background: #eef3fb;
+  color: #2D469E;
+  border-color: #93c5fd;
   transform: translateY(-1px);
 }
 
 .utc-stepper-item.active {
-  background: #2d469e;
+  background: #2D469E;
   color: #ffffff;
-  border: 1.5px solid #7290ec;
+  border: 1.5px solid #2D469E;
   font-weight: 800;
-  box-shadow: 0 4px 16px rgba(45, 70, 158, 0.6);
+  box-shadow: 0 4px 14px rgba(45, 70, 158, 0.35);
   transform: scale(1.03);
 }
 
@@ -399,26 +393,62 @@
   letter-spacing: 0.2px;
 }
 
-/* 8.1. UTC Graduation Card Container (Dùng cho cả 6 Tab ĐATN) */
+/* 8.1. UTC Graduation Card Container (Clean Light Theme) */
 .utc-graduation-card {
-  background: linear-gradient(180deg, #101b3e 0%, #0c152f 100%);
-  border: 1px solid #233772;
-  border-top: 4px solid #2d469e;
+  background: #ffffff;
+  border: 1px solid #d8e5f8;
+  border-top: 4px solid #2D469E;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 8px 30px rgba(16, 27, 62, 0.35);
+  box-shadow: 0 8px 30px rgba(45, 70, 158, 0.08);
   position: relative;
   transition: all 0.25s ease;
+  color: #1e293b;
+}
+
+/* Tự động tối ưu độ tương phản cho text trong thẻ sáng */
+.utc-graduation-card .text-slate-100,
+.utc-graduation-card .text-slate-200 {
+  color: #0f172a !important;
+}
+
+.utc-graduation-card .text-slate-300 {
+  color: #334155 !important;
+}
+
+.utc-graduation-card .text-slate-400 {
+  color: #64748b !important;
+}
+
+.utc-graduation-card .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.utc-graduation-card .border-slate-800,
+.utc-graduation-card .border-slate-700 {
+  border-color: #e2e8f0 !important;
+}
+
+.utc-graduation-card .bg-slate-950,
+.utc-graduation-card .bg-slate-900 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+.utc-graduation-card .border-blue-900\/40,
+.utc-graduation-card .border-blue-900\/30 {
+  border-color: #dbe7f6 !important;
 }
 
 .utc-card-header {
-  border-bottom: 1px solid rgba(45, 70, 158, 0.25);
+  border-bottom: 1px solid #eef3fb;
   padding-bottom: 14px;
   margin-bottom: 20px;
 }
 
 .utc-card-title {
-  color: #ffffff;
+  color: #101B3E;
   font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: -0.2px;
@@ -429,18 +459,18 @@
 }
 
 .utc-card-subtitle {
-  color: #9bb0db;
-  font-size: 0.8rem;
+  color: #64748b;
+  font-size: 0.82rem;
   font-weight: 500;
   margin: 6px 0 0 0;
 }
 
-/* Empty State khi chưa có dữ liệu điểm */
+/* Empty State khi chưa có dữ liệu điểm / dữ liệu trống */
 .utc-empty-grade-box {
   text-align: center;
   padding: 44px 20px;
-  background: rgba(45, 70, 158, 0.08);
-  border: 1.5px dashed rgba(69, 101, 201, 0.35);
+  background: #f4f7fc;
+  border: 1.5px dashed #b9d1f8;
   border-radius: 12px;
   margin: 12px 0;
   transition: all 0.2s ease;
@@ -450,19 +480,19 @@
   font-size: 2.4rem;
   margin-bottom: 10px;
   display: inline-block;
-  filter: drop-shadow(0 2px 8px rgba(45, 70, 158, 0.4));
+  filter: drop-shadow(0 2px 8px rgba(45, 70, 158, 0.25));
 }
 
 .utc-empty-grade-title {
-  color: #ffffff;
+  color: #101B3E;
   font-size: 1rem;
   font-weight: 700;
   margin-bottom: 6px;
 }
 
 .utc-empty-grade-desc {
-  color: #8da3cf;
-  font-size: 0.82rem;
+  color: #64748b;
+  font-size: 0.84rem;
   max-width: 480px;
   margin: 0 auto 16px auto;
   line-height: 1.55;
@@ -472,46 +502,47 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(45, 70, 158, 0.28);
-  color: #d8e5ff;
-  border: 1px solid rgba(114, 144, 236, 0.4);
+  background: #eef3fb;
+  color: #2D469E;
+  border: 1px solid #cbdcf7;
   padding: 5px 14px;
   border-radius: 20px;
   font-size: 0.76rem;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(45, 70, 158, 0.2);
+  box-shadow: 0 2px 6px rgba(45, 70, 158, 0.1);
 }
 
 /* Điểm thành phần khi có dữ liệu */
 .utc-score-component-card {
-  background: linear-gradient(135deg, #13214a 0%, #0e1838 100%);
-  border: 1px solid #283e7f;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 16px;
   text-align: center;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .utc-score-component-card:hover {
-  border-color: #4565c9;
+  border-color: #2D469E;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(45, 70, 158, 0.2);
+  box-shadow: 0 6px 16px rgba(45, 70, 158, 0.12);
 }
 
 .utc-score-component-label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #9cb1dc;
+  color: #64748b;
 }
 
 /* Banner Điểm tổng kết cuối cùng chuẩn UTC */
 .utc-final-score-banner {
-  background: linear-gradient(135deg, #172757 0%, #22377a 45%, #2d469e 100%);
+  background: linear-gradient(135deg, #1e3a8a 0%, #2D469E 60%, #3D5BC7 100%);
   border: 1px solid #4a6bd8;
   border-radius: 12px;
   padding: 24px;
   color: #ffffff;
-  box-shadow: 0 8px 24px rgba(45, 70, 158, 0.35);
+  box-shadow: 0 8px 24px rgba(45, 70, 158, 0.25);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -519,21 +550,21 @@
   gap: 16px;
 }
 
-/* 8.2. Task Board & Supervision Styling (GĐ 5 - Chuẩn UTC Blue) */
+/* 8.2. Task Board & Supervision Styling (GĐ 5 - Chuẩn UTC Blue - Clean Light Theme) */
 .utc-task-progress-box {
   padding: 16px;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(16, 27, 62, 0.8) 0%, rgba(12, 21, 47, 0.9) 100%);
-  border: 1px solid rgba(45, 70, 158, 0.35);
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.05);
+  background: #f4f7fc;
+  border: 1px solid #dbe7f6;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .utc-progress-track {
   width: 100%;
   height: 10px;
   border-radius: 9999px;
-  background: rgba(45, 70, 158, 0.25);
-  border: 1px solid rgba(45, 70, 158, 0.3);
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
   overflow: hidden;
 }
 
@@ -542,44 +573,45 @@
   background: linear-gradient(90deg, #2D469E 0%, #3D5BC7 50%, #10B981 100%);
   border-radius: 9999px;
   transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 0 12px rgba(45, 70, 158, 0.6);
+  box-shadow: 0 0 10px rgba(45, 70, 158, 0.35);
 }
 
 .utc-filter-btn {
-  padding: 5px 14px;
+  padding: 6px 15px;
   border-radius: 8px;
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 600;
   transition: all 0.2s ease;
   cursor: pointer;
-  border: 1px solid rgba(45, 70, 158, 0.3);
-  background: rgba(16, 27, 62, 0.7);
-  color: #c5d5f2;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
 }
 
 .utc-filter-btn:hover {
-  background: #1e3170;
-  color: #ffffff;
-  border-color: #5575db;
+  background: #eef3fb;
+  color: #2D469E;
+  border-color: #93c5fd;
 }
 
 .utc-filter-btn.active {
   background: #2D469E;
   color: #ffffff;
-  border-color: #7290ec;
+  border-color: #2D469E;
   font-weight: 800;
-  box-shadow: 0 2px 10px rgba(45, 70, 158, 0.5);
+  box-shadow: 0 2px 10px rgba(45, 70, 158, 0.35);
 }
 
 .utc-task-card {
-  padding: 16px;
+  padding: 18px;
   border-radius: 12px;
-  border: 1px solid #233772;
-  background: linear-gradient(135deg, #101b3e 0%, #0c152f 100%);
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 @media (min-width: 768px) {
@@ -591,36 +623,37 @@
 }
 
 .utc-task-card:hover {
-  border-color: #4d6fd9;
-  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.22);
+  border-color: #2D469E;
+  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.12);
   transform: translateY(-1px);
 }
 
 .utc-task-card.completed {
-  opacity: 0.85;
-  background: linear-gradient(135deg, rgba(14, 24, 56, 0.65) 0%, rgba(10, 17, 39, 0.75) 100%);
-  border-color: rgba(35, 55, 114, 0.6);
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  opacity: 0.9;
 }
 
 .utc-meeting-log-card {
   padding: 18px;
   border-radius: 12px;
-  border: 1px solid #233772;
-  background: linear-gradient(135deg, #101b3e 0%, #0c152f 100%);
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .utc-meeting-log-card:hover {
-  border-color: #4d6fd9;
-  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.22);
+  border-color: #2D469E;
+  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.12);
 }
 
-/* 9. Deferral Modal Styling (Chuẩn UTC) */
+/* 9. Deferral Modal Styling (Clean Light Theme UTC) */
 .utc-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(4, 9, 23, 0.8);
-  backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -630,15 +663,15 @@
 }
 
 .utc-modal-card {
-  background: linear-gradient(135deg, #101b3e 0%, #0c152f 100%);
-  border: 1px solid #233772;
-  border-top: 4px solid #2d469e;
+  background: #ffffff;
+  border: 1px solid #d2e0f5;
+  border-top: 4px solid #2D469E;
   border-radius: 16px;
   max-width: 580px;
   width: 100%;
   padding: 24px;
-  color: #f8fafc;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+  color: #1e293b;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -654,14 +687,14 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 1px solid rgba(45, 70, 158, 0.3);
+  border-bottom: 1px solid #e2e8f0;
   padding-bottom: 14px;
 }
 
 .utc-modal-title {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #ffffff;
+  color: #101B3E;
   margin: 0;
   display: flex;
   align-items: center;
@@ -670,14 +703,14 @@
 
 .utc-modal-subtitle {
   font-size: 0.78rem;
-  color: #9cb1dc;
+  color: #64748b;
   margin: 4px 0 0 0;
 }
 
 .utc-modal-close-btn {
-  background: rgba(16, 27, 62, 0.8);
-  border: 1px solid rgba(45, 70, 158, 0.4);
-  color: #9cb1dc;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
   width: 32px;
   height: 32px;
   border-radius: 8px;
@@ -691,9 +724,9 @@
 }
 
 .utc-modal-close-btn:hover {
-  background: #1e3170;
-  color: #ffffff;
-  border-color: #5575db;
+  background: #eef3fb;
+  color: #2D469E;
+  border-color: #93c5fd;
 }
 
 .utc-modal-input,
@@ -701,10 +734,10 @@
 .utc-modal-textarea {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(10, 17, 39, 0.85);
-  border: 1px solid #283e7f;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
-  color: #f8fafc;
+  color: #0f172a;
   padding: 9px 12px;
   font-size: 0.82rem;
   font-family: inherit;
@@ -715,46 +748,49 @@
 .utc-modal-select:focus,
 .utc-modal-textarea:focus {
   outline: none;
-  border-color: #5575db;
-  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.35);
-  background: rgba(14, 23, 52, 0.95);
+  border-color: #2D469E;
+  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.18);
+  background: #ffffff;
 }
 
 .utc-modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  border-top: 1px solid rgba(45, 70, 158, 0.3);
+  border-top: 1px solid #e2e8f0;
   padding-top: 16px;
 }
 
-/* 10. UTC Sub-cards and Form Controls (Dùng cho GĐ 1, 2, 3, 4) */
+/* 10. UTC Sub-cards and Form Controls (Clean Light Theme cho GĐ 1, 2, 3, 4) */
 .utc-sub-card {
-  background: linear-gradient(135deg, rgba(16, 27, 62, 0.75) 0%, rgba(12, 21, 47, 0.85) 100%);
-  border: 1px solid #233772;
+  background: #f8fafc;
+  border: 1px solid #dbe7f6;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 16px rgba(16, 27, 62, 0.25);
+  box-shadow: 0 2px 10px rgba(45, 70, 158, 0.04);
   transition: all 0.2s ease;
+  color: #1e293b;
 }
 
 .utc-sub-card:hover {
-  border-color: #3d5bc7;
+  border-color: #2D469E;
+  box-shadow: 0 4px 16px rgba(45, 70, 158, 0.1);
 }
 
 /* Info box for GVHD / GVPB / Council in Tab 1 */
 .utc-info-box {
-  background: linear-gradient(135deg, rgba(16, 27, 62, 0.85) 0%, rgba(12, 21, 47, 0.95) 100%);
-  border: 1px solid #233772;
+  background: #ffffff;
+  border: 1px solid #dbe7f6;
   border-radius: 10px;
   padding: 16px;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(45, 70, 158, 0.04);
 }
 
 .utc-info-box:hover {
-  border-color: #4d6fd9;
+  border-color: #2D469E;
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(45, 70, 158, 0.25);
+  box-shadow: 0 6px 18px rgba(45, 70, 158, 0.1);
 }
 
 .utc-info-box-gvhd {
@@ -771,41 +807,42 @@
 
 /* Process guide box in Tab 1 */
 .utc-process-guide-box {
-  background: linear-gradient(135deg, rgba(45, 70, 158, 0.12) 0%, rgba(16, 27, 62, 0.7) 100%);
-  border: 1px solid rgba(45, 70, 158, 0.35);
+  background: #f0f5fc;
+  border: 1px solid #d2e0f5;
   border-radius: 10px;
   padding: 16px;
 }
 
 /* Step navigation cards (Bước 1 & Bước 2 in Tab 1) */
 .utc-step-nav-card {
-  background: linear-gradient(135deg, rgba(16, 27, 62, 0.9) 0%, rgba(12, 21, 47, 0.95) 100%);
-  border: 1px solid #233772;
+  background: #ffffff;
+  border: 1.5px solid #dbe7f6;
   border-radius: 12px;
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(45, 70, 158, 0.04);
 }
 
 .utc-step-nav-card:hover {
-  border-color: #5575db;
+  border-color: #2D469E;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(45, 70, 158, 0.35);
+  box-shadow: 0 8px 24px rgba(45, 70, 158, 0.12);
 }
 
-/* Form inputs & selects across Tabs */
+/* Form inputs & selects across Tabs (Clean Light Theme) */
 .utc-form-input,
 .utc-form-select,
 .utc-form-textarea {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(10, 17, 39, 0.85);
-  border: 1px solid #283e7f;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
-  color: #f1f5f9;
+  color: #0f172a;
   padding: 8px 12px;
   font-size: 0.84rem;
   font-family: inherit;
@@ -816,33 +853,37 @@
 .utc-form-select:focus,
 .utc-form-textarea:focus {
   outline: none;
-  border-color: #5575db;
-  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.35);
-  background: rgba(14, 23, 52, 0.95);
+  border-color: #2D469E;
+  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.18);
+  background: #ffffff;
 }
 
 .utc-form-input::placeholder,
 .utc-form-textarea::placeholder {
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .utc-form-input:disabled,
 .utc-form-select:disabled,
 .utc-form-textarea:disabled {
-  opacity: 0.6;
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  opacity: 0.8;
   cursor: not-allowed;
 }
 
-/* Weekly Report Item */
+/* Weekly Report Item (Clean Light Theme) */
 .utc-weekly-report-card {
-  background: linear-gradient(135deg, rgba(16, 27, 62, 0.75) 0%, rgba(12, 21, 47, 0.85) 100%);
-  border: 1px solid #233772;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .utc-weekly-report-card:hover {
-  border-color: #4d6fd9;
-  box-shadow: 0 4px 16px rgba(45, 70, 158, 0.2);
+  border-color: #2D469E;
+  box-shadow: 0 4px 16px rgba(45, 70, 158, 0.1);
 }
