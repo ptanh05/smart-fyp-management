@@ -1138,7 +1138,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           <div className="utc-sub-card space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-900/40 pb-3">
               <div>
-                <h4 className="text-sm font-bold text-slate-200">1. Bản thảo Đề tài (Topic Draft & Approval)</h4>
+                <h4 className="utc-sub-card-title text-sm font-bold">1. Bản thảo Đề tài (Topic Draft & Approval)</h4>
                 <p className="text-[11px] text-slate-400">GV và SV cùng xác định tên đề tài trước khi trình Khoa phê duyệt.</p>
               </div>
               {(() => {
@@ -1256,7 +1256,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               {/* Step 24: Generate Outline PDF */}
               <div className="utc-sub-card space-y-3 text-xs">
                 <div className="space-y-1">
-                  <h4 className="font-bold text-slate-200 text-sm">2. Sinh đề cương & file PDF tự động</h4>
+                  <h4 className="utc-sub-card-title font-bold text-sm">2. Sinh đề cương & file PDF tự động</h4>
                   <p className="text-slate-400">
                     Hệ thống tự động xuất biểu mẫu Đề cương chi tiết ĐATN chuẩn UTC dưới định dạng PDF.
                   </p>
@@ -1278,7 +1278,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               {/* Step 25: Upload Signed Outline */}
               <div className="utc-sub-card space-y-3 text-xs">
                 <div className="space-y-1">
-                  <h4 className="font-bold text-slate-200 text-sm">3. Ký nộp & Lưu hồ sơ Đề cương</h4>
+                  <h4 className="utc-sub-card-title font-bold text-sm">3. Ký nộp & Lưu hồ sơ Đề cương</h4>
                   <p className="text-slate-400">
                     Sau khi in và có đầy đủ chữ ký của SV & GVHD, scan nộp file PDF để Khoa lưu hồ sơ.
                   </p>
@@ -1347,7 +1347,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           )}
 
           <form onSubmit={handleSubmitOutline} className="space-y-4 pt-4 border-t border-blue-900/40">
-            <h4 className="font-bold text-slate-200 text-sm">Nộp / Cập nhật File Tài Liệu Đề Cương Chi Tiết</h4>
+            <h4 className="utc-sub-card-title font-bold text-sm">Nộp / Cập nhật File Tài Liệu Đề Cương Chi Tiết</h4>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Tên đề tài tiếng Việt (*)</label>
               <input

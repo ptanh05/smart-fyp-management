@@ -893,6 +893,12 @@
   box-shadow: 0 4px 16px rgba(45, 70, 158, 0.1);
 }
 
+.utc-sub-card-title {
+  color: #101B3E !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.15px;
+}
+
 /* Info box for GVHD / GVPB / Council in Tab 1 */
 .utc-info-box {
   background: #ffffff;
@@ -1342,5 +1348,49 @@
 [data-theme="dark"] .utc-graduation-card .text-purple-900,
 [data-theme="dark"] .utc-graduation-card .text-purple-950 {
   color: #e9d5ff !important;
+}
+
+/* Stage 3 and Sub-card Titles, Labels and Text */
+[data-theme="dark"] .utc-sub-card-title {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.15px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .utc-sub-card {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--text-body) !important;
+}
+
+[data-theme="dark"] .utc-sub-card:hover {
+  border-color: rgba(61, 91, 199, 0.5) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .utc-sub-card h4,
+[data-theme="dark"] .utc-graduation-card h4 {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .utc-sub-card p,
+[data-theme="dark"] .utc-graduation-card p {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .utc-sub-card label,
+[data-theme="dark"] .utc-graduation-card label {
+  color: #cbd5e1 !important;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .utc-form-input:disabled,
+[data-theme="dark"] .utc-form-select:disabled,
+[data-theme="dark"] .utc-form-textarea:disabled {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #94a3b8 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
