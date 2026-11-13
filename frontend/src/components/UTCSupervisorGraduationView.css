@@ -1,0 +1,382 @@
+/* ==========================================================================
+   UTC Supervisor Graduation View Styles
+   Design System for Teacher/Supervisor FYP Management (Clean Light Theme)
+   Primary Brand Anchor: UTC Ocean Blue (#2D469E)
+   ========================================================================== */
+
+/* 1. Root Container */
+.utc-supervisor-view {
+  font-family: inherit;
+  color: #1e293b;
+  position: relative;
+}
+
+/* 2. Batch Selector Box */
+.utc-batch-selector-box {
+  background: #ffffff;
+  border: 1px solid #d8e5f8;
+  border-left: 4px solid #2D469E;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(45, 70, 158, 0.05);
+  transition: all 0.25s ease;
+}
+
+@media (min-width: 640px) {
+  .utc-batch-selector-box {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.utc-batch-selector-box:hover {
+  border-color: #b9d1f8;
+  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.08);
+}
+
+.utc-batch-selector-select {
+  width: 100%;
+  background-color: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #0f172a;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 9px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+@media (min-width: 640px) {
+  .utc-batch-selector-select {
+    width: auto;
+  }
+}
+
+.utc-batch-selector-select:focus {
+  outline: none;
+  border-color: #2D469E;
+  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.18);
+}
+
+/* 3. Stage Navigation Tabs Bar (Pills) */
+.utc-supervisor-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 2px solid #eef3fb;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+.utc-supervisor-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: #ffffff;
+  color: #475569;
+  border: 1.5px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.utc-supervisor-tab-btn:hover {
+  background: #eef3fb;
+  color: #2D469E;
+  border-color: #b9d1f8;
+  transform: translateY(-1px);
+}
+
+.utc-supervisor-tab-btn.active {
+  background: #2D469E !important;
+  color: #ffffff !important;
+  border-color: #2D469E !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 14px rgba(45, 70, 158, 0.35) !important;
+  transform: scale(1.02);
+}
+
+/* 4. Main Stage Card Container */
+.utc-supervisor-card {
+  background: #ffffff;
+  border: 1px solid #d8e5f8;
+  border-top: 4px solid #2D469E;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 8px 30px rgba(45, 70, 158, 0.06);
+  position: relative;
+  transition: all 0.25s ease;
+  color: #1e293b;
+}
+
+.utc-supervisor-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #eef3fb;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+.utc-supervisor-card-title {
+  color: #101B3E;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.utc-supervisor-card-subtitle {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin: 4px 0 0 0;
+}
+
+/* 5. Sub-cards inside Stage tabs */
+.utc-supervisor-subcard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+}
+
+.utc-supervisor-subcard:hover {
+  background: #ffffff;
+  border-color: #2D469E;
+  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.1);
+  transform: translateY(-1px);
+}
+
+/* 6. Empty States */
+.utc-supervisor-empty-box {
+  text-align: center;
+  padding: 44px 20px;
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 12px;
+  margin: 12px 0;
+  color: #64748b;
+}
+
+.utc-supervisor-empty-box h4 {
+  color: #101B3E;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+/* 7. Tables */
+.utc-supervisor-table {
+  width: 100%;
+  text-align: left;
+  font-size: 0.8rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.utc-supervisor-table thead {
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1.5px solid #cbd5e1;
+}
+
+.utc-supervisor-table th {
+  padding: 12px 14px;
+}
+
+.utc-supervisor-table tbody tr {
+  border-bottom: 1px solid #eef3fb;
+  transition: background-color 0.15s ease;
+}
+
+.utc-supervisor-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.utc-supervisor-table td {
+  padding: 12px 14px;
+  color: #334155;
+}
+
+/* 8. Modals (Clean Light Theme) */
+.utc-supervisor-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 9999;
+  overflow-y: auto;
+}
+
+.utc-supervisor-modal-card {
+  background: #ffffff;
+  border: 1px solid #d2e0f5;
+  border-top: 4px solid #2D469E;
+  border-radius: 16px;
+  color: #1e293b;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* 9. Global Contrast & Typography Overrides inside .utc-supervisor-view */
+.utc-supervisor-view .text-slate-100,
+.utc-supervisor-view .text-slate-200 {
+  color: #0f172a !important;
+}
+
+.utc-supervisor-view .text-slate-300 {
+  color: #334155 !important;
+}
+
+.utc-supervisor-view .text-slate-400 {
+  color: #64748b !important;
+}
+
+.utc-supervisor-view .text-slate-500 {
+  color: #64748b !important;
+}
+
+.utc-supervisor-view .border-slate-800,
+.utc-supervisor-view .border-slate-700 {
+  border-color: #e2e8f0 !important;
+}
+
+.utc-supervisor-view .border-slate-900 {
+  border-color: #f1f5f9 !important;
+}
+
+.utc-supervisor-view .bg-slate-950 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+.utc-supervisor-view .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #d8e5f8 !important;
+  color: #1e293b !important;
+}
+
+.utc-supervisor-view .bg-slate-800 {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+/* Inputs & Form controls override */
+.utc-supervisor-view input[type="text"],
+.utc-supervisor-view input[type="number"],
+.utc-supervisor-view input[type="url"],
+.utc-supervisor-view input[type="date"],
+.utc-supervisor-view input[type="time"],
+.utc-supervisor-view textarea,
+.utc-supervisor-view select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.utc-supervisor-view input:focus,
+.utc-supervisor-view textarea:focus,
+.utc-supervisor-view select:focus {
+  border-color: #2D469E !important;
+  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.18) !important;
+  outline: none !important;
+}
+
+/* Badge colors override in Clean Light Theme */
+.utc-supervisor-view .text-blue-400 {
+  color: #1d4ed8 !important;
+}
+
+.utc-supervisor-view .text-emerald-400 {
+  color: #047857 !important;
+}
+
+.utc-supervisor-view .text-amber-400 {
+  color: #b45309 !important;
+}
+
+.utc-supervisor-view .text-rose-400 {
+  color: #be123c !important;
+}
+
+.utc-supervisor-view .text-indigo-400 {
+  color: #4338ca !important;
+}
+
+.utc-supervisor-view .bg-blue-500\/10,
+.utc-supervisor-view .bg-blue-500\/15,
+.utc-supervisor-view .bg-blue-500\/20 {
+  background-color: #eef3fb !important;
+  border-color: #b9d1f8 !important;
+  color: #1e40af !important;
+}
+
+.utc-supervisor-view .bg-emerald-500\/10,
+.utc-supervisor-view .bg-emerald-500\/15,
+.utc-supervisor-view .bg-emerald-500\/20,
+.utc-supervisor-view .bg-emerald-600\/30 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #065f46 !important;
+}
+
+.utc-supervisor-view .bg-amber-500\/10,
+.utc-supervisor-view .bg-amber-500\/15,
+.utc-supervisor-view .bg-amber-500\/20 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+
+.utc-supervisor-view .bg-rose-500\/10,
+.utc-supervisor-view .bg-rose-500\/15,
+.utc-supervisor-view .bg-rose-500\/20,
+.utc-supervisor-view .bg-rose-600\/30 {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #9f1239 !important;
+}
+
+.utc-supervisor-view .bg-purple-500\/10,
+.utc-supervisor-view .bg-purple-500\/15,
+.utc-supervisor-view .bg-purple-500\/20 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+  color: #6b21a8 !important;
+}

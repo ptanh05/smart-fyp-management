@@ -318,7 +318,7 @@ const SupervisorDashboard: React.FC = () => {
           <button
             className={`tab ${activeTab === 'utc_graduation' ? 'active' : ''}`}
             onClick={() => setActiveTab('utc_graduation')}
-            style={{ fontWeight: 'bold', background: activeTab === 'utc_graduation' ? '#003366' : undefined, color: activeTab === 'utc_graduation' ? '#fff' : undefined }}
+            style={{ fontWeight: 'bold', background: activeTab === 'utc_graduation' ? '#2D469E' : undefined, color: activeTab === 'utc_graduation' ? '#fff' : undefined }}
           >
             🎓 Quản lý ĐATN UTC (Duyệt Đề cương, Báo cáo & Chấm Điểm)
           </button>
@@ -412,8 +412,8 @@ const SupervisorDashboard: React.FC = () => {
                       className="btn btn-outline"
                       onClick={() => setShowUTCSheet(true)}
                       style={{
-                        borderColor: '#003366',
-                        color: '#003366',
+                        borderColor: '#2D469E',
+                        color: '#2D469E',
                         fontWeight: 600,
                         display: 'flex',
                         alignItems: 'center',

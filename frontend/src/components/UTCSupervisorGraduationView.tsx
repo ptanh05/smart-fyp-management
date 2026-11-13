@@ -6,6 +6,7 @@ import { useModalGuard } from '../utils/modalHooks';
 import { apiService } from '../services/api';
 import { calculateStageCounts, getProjectStageNumber } from '../utils/graduationStages';
 import { SupervisorOfferedTopics } from './SupervisorOfferedTopics';
+import './UTCSupervisorGraduationView.css';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
 
@@ -671,14 +672,14 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="utc-supervisor-view space-y-6 animate-fadeIn">
       {/* Batch Selector - Responsive + Animation */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-700/50 rounded-xl p-4 shadow-lg animate-slideDown">
-        <div className="flex items-center gap-2">
+      <div className="utc-batch-selector-box animate-slideDown">
+        <div className="flex items-center gap-3">
           <span className="text-2xl">📅</span>
           <div>
-            <h4 className="text-sm font-bold text-slate-100">Đợt Đồ Án</h4>
-            <p className="text-xs text-slate-400">Chọn đợt để xem sinh viên</p>
+            <h4 className="text-sm font-bold text-slate-900">Đợt Đồ Án</h4>
+            <p className="text-xs text-slate-500">Chọn đợt để xem sinh viên</p>
           </div>
         </div>
         <select
@@ -691,7 +692,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             }
           }}
           disabled={loadingBatches}
-          className="w-full sm:w-auto px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+          className="utc-batch-selector-select"
         >
           <option value="all">🌐 Tất cả các đợt</option>
           {batches.map((batch) => (
@@ -703,7 +704,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       </div>
 
       {/* Navigation Tabs (Aligned with 6 UTC Stages + Student Counts) */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-700/60 pb-3 animate-fadeInUp">
+      <div className="utc-supervisor-tabs animate-fadeInUp">
         {[
           { key: 'students' as SupervisorGradTab, label: `GĐ 1: Đề tài & Phân công (${stageCounts[1] || 0} SV)`, icon: '🎓' },
           { key: 'survey' as SupervisorGradTab, label: `GĐ 2: Khảo sát & Đề tài gợi ý (${stageCounts[2] || 0} SV)`, icon: '📝' },
@@ -717,11 +718,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           <button
             key={tab.key}
             onClick={() => handleSelectTab(tab.key)}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-300 flex items-center gap-2 transform hover:scale-105 active:scale-95 ${
-              activeTab === tab.key
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 animate-pulse-slow'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:shadow-md'
-            }`}
+            className={`utc-supervisor-tab-btn ${activeTab === tab.key ? 'active' : ''}`}
           >
             <span>{tab.icon}</span>
             <span>{tab.label}</span>
@@ -731,33 +728,36 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       {/* Tab 1: Students List */}
       {activeTab === 'students' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-5 shadow-xl animate-fadeInUp hover:shadow-2xl transition-shadow duration-300">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h3 className="font-bold text-base text-slate-100">
-              Danh sách Sinh viên Giai đoạn 1 - Đề tài & Phân công ({stage1Projects.length})
+        <div className="utc-supervisor-card space-y-4 animate-fadeInUp">
+          <div className="utc-supervisor-card-header">
+            <h3 className="utc-supervisor-card-title">
+              <span>📋</span> Danh sách Sinh viên Giai đoạn 1 - Đề tài & Phân công ({stage1Projects.length})
             </h3>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-500">
               💡 Bấm vào tiêu đề cột <b>"Tên"</b>, <b>"Ngày tạo"</b>, <b>"Điểm số"</b> để sắp xếp Tăng dần / Giảm dần.
             </span>
           </div>
 
           {stage1Projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào ở Giai đoạn 1.</div>
+            <div className="utc-supervisor-empty-box">
+              <h4>Chưa có sinh viên nào ở Giai đoạn 1</h4>
+              <p>Danh sách sinh viên phân công sẽ xuất hiện tại đây khi bắt đầu đợt đồ án.</p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-950 text-slate-400 uppercase font-semibold">
+              <table className="utc-supervisor-table">
+                <thead>
                   <tr>
                     <th className="p-3">MSSV</th>
                     <th
-                      className="p-3 cursor-pointer select-none hover:text-blue-400 transition"
+                      className="p-3 cursor-pointer select-none hover:text-[#2D469E] transition"
                       onClick={() => handleSort('student_name')}
                       title="Bấm để sắp xếp theo Tên sinh viên"
                     >
                       Tên {renderSortIcon('student_name')}
                     </th>
                     <th
-                      className="p-3 cursor-pointer select-none hover:text-blue-400 transition"
+                      className="p-3 cursor-pointer select-none hover:text-[#2D469E] transition"
                       onClick={() => handleSort('created_at')}
                       title="Bấm để sắp xếp theo Ngày tạo"
                     >
@@ -777,48 +777,48 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     <th className="p-3 text-right">Hướng dẫn & Nhiệm vụ</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800 text-slate-300">
+                <tbody className="divide-y divide-slate-100 text-slate-700">
                   {paginatedProjects.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-950/40">
-                      <td className="p-3 font-mono font-semibold text-blue-400">{p.student_reg_no}</td>
-                      <td className="p-3 font-medium text-slate-100">{p.student_name}</td>
+                    <tr key={p.id} className="hover:bg-slate-50/80 transition">
+                      <td className="p-3 font-mono font-bold text-[#2D469E]">{p.student_reg_no}</td>
+                      <td className="p-3 font-bold text-slate-900">{p.student_name}</td>
                       <td
-                        className="p-3 text-slate-400 whitespace-nowrap"
+                        className="p-3 text-slate-500 whitespace-nowrap"
                         title={p.created_at ? new Date(p.created_at).toLocaleString('vi-VN') : ''}
                       >
                         {p.created_at ? getRelativeTime(p.created_at) : 'Mới tạo'}
                       </td>
-                      <td className="p-3 font-semibold text-emerald-400">
+                      <td className="p-3 font-bold text-emerald-700">
                         {p.supervisor_score !== null && p.supervisor_score !== undefined ? (
                           `${p.supervisor_score} / 10đ`
                         ) : (
-                          <span className="text-slate-500 font-normal">Chưa chấm</span>
+                          <span className="text-slate-400 font-normal">Chưa chấm</span>
                         )}
                       </td>
-                      <td className="p-3 text-slate-400">{p.student_class}</td>
-                      <td className="p-3 font-medium text-slate-200 max-w-xs">{p.topic_title_vi}</td>
-                      <td className="p-3 text-slate-400">
+                      <td className="p-3 text-slate-600">{p.student_class}</td>
+                      <td className="p-3 font-semibold text-slate-800 max-w-xs">{p.topic_title_vi}</td>
+                      <td className="p-3 text-slate-600">
                         <div>{p.student_phone || 'N/A'}</div>
-                        <div className="text-slate-500">{p.student_email}</div>
+                        <div className="text-slate-400 text-[11px]">{p.student_email}</div>
                       </td>
                       <td className="p-3">
                         <div className="space-y-1">
                           <span className={`px-2 py-0.5 rounded text-xs block w-fit border ${
-                            p.status === 'TOPIC_APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-semibold' :
-                            p.status === 'TOPIC_CONFIRMED' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 font-semibold' :
-                            p.status === 'TOPIC_REVISION' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 font-semibold' :
-                            p.status === 'TOPIC_DRAFT' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 font-semibold' :
-                            'bg-slate-800 text-slate-300 border-slate-700'
+                            p.status === 'TOPIC_APPROVED' ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' :
+                            p.status === 'TOPIC_CONFIRMED' ? 'bg-blue-50 text-blue-800 border-blue-300 font-bold' :
+                            p.status === 'TOPIC_REVISION' ? 'bg-rose-50 text-rose-800 border-rose-300 font-bold' :
+                            p.status === 'TOPIC_DRAFT' ? 'bg-amber-50 text-amber-800 border-amber-300 font-bold' :
+                            'bg-slate-100 text-slate-700 border-slate-300 font-medium'
                           }`}>
                             {p.status_display || p.status}
                           </span>
                           {(p.status === 'TOPIC_DRAFT' || p.status === 'TOPIC_REVISION') && (
                             <button
                               onClick={() => handleOpenTopicConfirm(p)}
-                              className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition flex items-center gap-1"
+                              className="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-bold transition flex items-center gap-1 shadow-sm"
                               title="GV xác nhận đề tài sau khi thảo luận với sinh viên"
                             >
-                          <span>✏️</span> Tạo / Xác nhận đề tài
+                              <span>✏️</span> Tạo / Xác nhận đề tài
                             </button>
                           )}
                           {(p.status === 'TOPIC_CONFIRMED' || p.status === 'PENDING_REVIEW') && (
@@ -826,7 +826,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                               <button
                                 onClick={() => handleAdminApproveTopic(p, 'APPROVED')}
                                 disabled={adminTopicSubmitting}
-                                className="px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition flex items-center gap-1"
+                                className="px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[11px] font-bold transition flex items-center gap-1 shadow-sm"
                                 title="Khoa phê duyệt chính thức đề tài"
                               >
                                 <span>✓</span> Khoa Duyệt
@@ -834,7 +834,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                               <button
                                 onClick={() => handleAdminApproveTopic(p, 'REJECTED')}
                                 disabled={adminTopicSubmitting}
-                                className="px-2 py-0.5 rounded bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 text-[11px] font-bold transition flex items-center gap-1"
+                                className="px-2 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 text-[11px] font-bold transition flex items-center gap-1 shadow-sm"
                                 title="Khoa yêu cầu sửa / từ chối đề tài"
                               >
                                 <span>✕</span> Từ chối
@@ -846,7 +846,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       <td className="p-3 text-right">
                         <button
                           onClick={() => handleOpenSupervision(p)}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition inline-flex items-center gap-1.5"
+                          className="px-3 py-1.5 rounded-lg bg-[#EEF3FB] hover:bg-[#2D469E] text-[#2D469E] hover:text-white border border-[#B9D1F8] text-xs font-bold transition inline-flex items-center gap-1.5 shadow-sm"
                         >
                           <span>📋</span>
                           <span>Nhật ký & Giao việc</span>
@@ -877,7 +877,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {activeTab === 'survey' && (
         <div className="space-y-6">
           {/* Card 1: Danh sách sinh viên khảo sát nguyện vọng chọn GVHD */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+          <div className="utc-supervisor-card space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div>
                 <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
@@ -985,7 +985,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           </div>
 
           {/* Card 2: Đề tài gợi ý của Giảng viên */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
+          <div className="utc-supervisor-card">
             <SupervisorOfferedTopics onTopicChanged={fetchData} />
           </div>
         </div>
@@ -993,7 +993,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       {/* Tab 3: Outlines Review */}
       {activeTab === 'outlines' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div className="utc-supervisor-card space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-bold text-base text-slate-100">
               Danh sách Đề cương Giai đoạn 3 được phân công thẩm định ({stage3OutlineReviews.length})
@@ -1047,7 +1047,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       {/* Tab 3: Weekly Reports */}
       {activeTab === 'weekly' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div className="utc-supervisor-card space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-bold text-base text-slate-100">Đánh giá Báo cáo tiến độ tuần - Giai đoạn 4 ({stage4Projects.length} SV)</h3>
             <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
@@ -1107,7 +1107,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       {/* Tab 5: Supervision Tasks & Meeting Logs */}
       {activeTab === 'supervision' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div className="utc-supervisor-card space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
             <div>
               <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
@@ -1191,7 +1191,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       {/* Tab 6: Final Supervisor Evaluation */}
       {activeTab === 'eval' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div className="utc-supervisor-card space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-bold text-base text-slate-100">Đánh giá Sơ khảo & Chấm điểm GVHD (40%) - Giai đoạn 6 ({stage6Projects.length} SV)</h3>
             <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
@@ -1254,7 +1254,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       {/* Tab 5: Reviewer Evaluation */}
       {activeTab === 'reviewer' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div className="utc-supervisor-card space-y-4">
           <h3 className="font-bold text-base text-slate-100">Đồ án được phân công Phản biện độc lập (20%)</h3>
           {reviewerProjects.length === 0 ? (
             <div className="text-center py-12 text-slate-400 text-sm">Chưa có đồ án nào được phân công cho Thầy/Cô phản biện.</div>
@@ -2281,7 +2281,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       )}
       {/* Tab 6: Deferrals Management for Khoa / Ban Chu Nhiem (FLOW_24) */}
       {activeTab === 'deferrals' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div className="utc-supervisor-card space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
             <div>
               <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">

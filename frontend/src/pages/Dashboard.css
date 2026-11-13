@@ -106,12 +106,12 @@
 }
 
 .tab:hover {
-  color: #003366;
-  background: var(--bg-hover, rgba(0, 51, 102, 0.05));
+  color: #2D469E;
+  background: var(--bg-hover, rgba(45, 70, 158, 0.05));
 }
 
 .tab.active {
-  color: #003366;
+  color: #2D469E;
   background: var(--bg-secondary);
   font-weight: 700;
 }
@@ -123,7 +123,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #003366, #d97706);
+  background: linear-gradient(90deg, #2D469E, #f58220);
   border-radius: 3px 3px 0 0;
   animation: fadeInUp 0.2s ease;
 }

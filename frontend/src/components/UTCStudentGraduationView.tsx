@@ -4,6 +4,7 @@ import axios from 'axios';
 import { apiService } from '../services/api';
 import type { ThesisDeferralRequest } from '../types';
 import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
+import { useBatchProgress } from '../contexts/BatchProgressContext';
 import './UTCStudentGraduationView.css';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
@@ -21,11 +22,14 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade'>(initialTab || 'project');
   const [loading, setLoading] = useState(true);
+  const { progress: batchProgress, loading: batchProgressLoading } = useBatchProgress();
 
   // Project Data
   const [projectData, setProjectData] = useState<any>(null);
 
-  const currentStageNum = getProjectStageNumber(projectData);
+  // Dùng cùng nguồn dữ liệu với thanh tiến trình phía trên để không thể lệch giai đoạn.
+  const currentStageNum =
+    batchProgress?.current_stage_number || getProjectStageNumber(projectData);
 
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
@@ -46,6 +50,24 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       setActiveTab(initialTab);
     }
   }, [initialTab]);
+
+  // URL/thông báo có thể mở thẳng một tab chưa tới giai đoạn. Khi tiến trình đợt
+  // tải xong, đưa người dùng về đúng giai đoạn hiện tại thay vì hiển thị sai GĐ6.
+  useEffect(() => {
+    if (batchProgressLoading || !batchProgress) return;
+
+    const selectedStage = GRADUATION_STAGES.find((stage) => stage.key === activeTab);
+    const isLockedStage =
+      selectedStage && selectedStage.number > 3 && selectedStage.number > currentStageNum;
+
+    if (isLockedStage) {
+      const currentStage = GRADUATION_STAGES.find((stage) => stage.number === currentStageNum);
+      if (currentStage) {
+        setActiveTab(currentStage.key);
+        onSubtabChange?.(currentStage.key);
+      }
+    }
+  }, [activeTab, batchProgress, batchProgressLoading, currentStageNum, onSubtabChange]);
 
   // Sync subtab from searchParams or global event
   useEffect(() => {
@@ -528,7 +550,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                     ? `Chờ GVHD duyệt để mở Giai đoạn ${tab.number}`
                     : isCurrent
                     ? `Giai đoạn hiện tại (${tab.number}/6) - Đang thực hiện`
-                    : `Giai đoạn ${tab.number} (Đã hoàn thành)`
+                    : isCompleted
+                    ? `Giai đoạn ${tab.number} (Đã hoàn thành)`
+                    : `Giai đoạn ${tab.number} (Có thể truy cập)`
                 }
               >
                 <span>{isLocked ? '🔒' : tab.icon}</span>

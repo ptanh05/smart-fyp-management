@@ -4,6 +4,7 @@ import utcLogo from '../asset/images/utc_logo.webp';
 import type { Student, Supervisor, CommitteeMember, UserType } from '../types';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
+import { BatchProgressProvider } from '../contexts/BatchProgressContext';
 import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
 import { formatFullName } from '../utils/nameHelper';
 import ChangePasswordModal from './ChangePasswordModal';
@@ -178,7 +179,10 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
 
   // For Student: Determine the single current active stage to display on the sidebar
   const studentProject = (user as any)?.graduation_project;
-  const effectiveStageNumber = currentStageNumber || getProjectStageNumber(studentProject);
+  // Trạng thái của đợt là nguồn chuẩn cho toàn bộ giao diện tiến trình.
+  // Chỉ dùng trạng thái suy luận từ đề tài trong lúc API tiến trình chưa tải xong.
+  const effectiveStageNumber =
+    batchProgress?.current_stage_number || currentStageNumber || getProjectStageNumber(studentProject);
 
   const handleNotificationNavigate = (url: string) => {
     const [path, queryString] = url.split('?');
@@ -210,7 +214,12 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   };
 
   return (
-    <div className={`utc-dashboard-wrapper ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
+    <BatchProgressProvider
+      progress={batchProgress}
+      loading={batchProgressLoading}
+      refresh={fetchBatchProgress}
+    >
+      <div className={`utc-dashboard-wrapper ${sidebarOpen ? 'sidebar-expanded' : 'sidebar-collapsed'}`}>
       {/* Mobile Backdrop Overlay */}
       {sidebarOpen && (
         <div
@@ -747,7 +756,8 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
         initialCategory={newsPortalCategory}
         onSelectNews={(item) => setSelectedNewsArticle(item)}
       />
-    </div>
+      </div>
+    </BatchProgressProvider>
   );
 };
 
