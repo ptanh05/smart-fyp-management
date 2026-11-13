@@ -242,13 +242,14 @@ const StudentDashboard: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <span
                     style={{
-                      background: '#e0f2fe',
-                      color: '#0369a1',
+                      background: '#eef3fb',
+                      color: '#2D469E',
                       fontSize: '0.72rem',
                       fontWeight: 800,
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      letterSpacing: '0.5px',
+                      padding: '3px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid #d2e0f5',
+                      letterSpacing: '0.3px',
                     }}
                   >
                     {tabInfo.badge}
@@ -262,7 +263,7 @@ const StudentDashboard: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#002B49' }}>
+                <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#101B3E' }}>
                   {tabInfo.title}
                 </h1>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.88rem', color: '#64748b' }}>
@@ -283,6 +284,10 @@ const StudentDashboard: React.FC = () => {
                     padding: '8px 14px',
                     borderRadius: '8px',
                     fontSize: '0.88rem',
+                    color: '#2D469E',
+                    borderColor: '#cbd5e1',
+                    background: '#ffffff',
+                    fontWeight: 600,
                   }}
                 >
                   🔄 Tải Lại

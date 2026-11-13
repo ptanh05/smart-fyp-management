@@ -232,45 +232,54 @@
   box-shadow: 0 6px 20px rgba(45, 70, 158, 0.5);
 }
 
-/* 6. Task Board & Secondary Buttons */
+/* 6. Task Board & Secondary Buttons (UTC Ocean Blue Palette) */
 .utc-btn-deliverable {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, rgba(45, 70, 158, 0.3) 0%, rgba(29, 50, 123, 0.45) 100%);
+  color: #a8c2fd;
+  border: 1px solid rgba(114, 144, 236, 0.45);
   padding: 7px 14px;
   font-size: 0.8rem;
+  font-weight: 600;
   border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(45, 70, 158, 0.2);
 }
 
 .utc-btn-deliverable:hover {
-  background: #059669;
+  background: linear-gradient(135deg, #2D469E 0%, #1D327B 100%);
   color: #ffffff;
-  border-color: #059669;
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+  border-color: #7290ec;
+  box-shadow: 0 4px 14px rgba(45, 70, 158, 0.45);
 }
 
 .utc-btn-task-note {
-  background: #1e293b;
-  color: #cbd5e1;
-  border: 1px solid #334155;
+  background: rgba(16, 27, 62, 0.8);
+  color: #c5d5f2;
+  border: 1px solid rgba(69, 101, 201, 0.35);
   padding: 7px 14px;
   font-size: 0.8rem;
+  font-weight: 600;
   border-radius: 6px;
 }
 
 .utc-btn-task-note:hover {
-  background: #334155;
+  background: #1e3170;
   color: #ffffff;
-  border-color: #475569;
+  border-color: #5575db;
 }
 
 .utc-btn-ghost {
-  background: #1e293b;
-  color: #cbd5e1;
-  border: 1px solid #334155;
+  background: rgba(16, 27, 62, 0.8);
+  color: #c5d5f2;
+  border: 1px solid rgba(69, 101, 201, 0.35);
   padding: 8px 16px;
   font-size: 0.82rem;
   border-radius: 8px;
+}
+
+.utc-btn-ghost:hover {
+  background: #1e3170;
+  color: #ffffff;
+  border-color: #5575db;
 }
 
 .utc-btn-ghost:hover {
@@ -508,6 +517,102 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
+}
+
+/* 8.2. Task Board & Supervision Styling (GĐ 5 - Chuẩn UTC Blue) */
+.utc-task-progress-box {
+  padding: 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(16, 27, 62, 0.8) 0%, rgba(12, 21, 47, 0.9) 100%);
+  border: 1px solid rgba(45, 70, 158, 0.35);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.05);
+}
+
+.utc-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 9999px;
+  background: rgba(45, 70, 158, 0.25);
+  border: 1px solid rgba(45, 70, 158, 0.3);
+  overflow: hidden;
+}
+
+.utc-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2D469E 0%, #3D5BC7 50%, #10B981 100%);
+  border-radius: 9999px;
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 12px rgba(45, 70, 158, 0.6);
+}
+
+.utc-filter-btn {
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid rgba(45, 70, 158, 0.3);
+  background: rgba(16, 27, 62, 0.7);
+  color: #c5d5f2;
+}
+
+.utc-filter-btn:hover {
+  background: #1e3170;
+  color: #ffffff;
+  border-color: #5575db;
+}
+
+.utc-filter-btn.active {
+  background: #2D469E;
+  color: #ffffff;
+  border-color: #7290ec;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(45, 70, 158, 0.5);
+}
+
+.utc-task-card {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #233772;
+  background: linear-gradient(135deg, #101b3e 0%, #0c152f 100%);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .utc-task-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.utc-task-card:hover {
+  border-color: #4d6fd9;
+  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.22);
+  transform: translateY(-1px);
+}
+
+.utc-task-card.completed {
+  opacity: 0.85;
+  background: linear-gradient(135deg, rgba(14, 24, 56, 0.65) 0%, rgba(10, 17, 39, 0.75) 100%);
+  border-color: rgba(35, 55, 114, 0.6);
+}
+
+.utc-meeting-log-card {
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid #233772;
+  background: linear-gradient(135deg, #101b3e 0%, #0c152f 100%);
+  transition: all 0.2s ease;
+}
+
+.utc-meeting-log-card:hover {
+  border-color: #4d6fd9;
+  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.22);
 }
 
 /* 9. Deferral Modal Styling */

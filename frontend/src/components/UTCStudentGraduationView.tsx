@@ -1480,23 +1480,23 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       {activeTab === 'supervision' && (
         <div className="space-y-6">
           {/* Header */}
-          <div className="utc-graduation-card shadow-xl space-y-4">
+          <div className="utc-graduation-card space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <h3 className="utc-card-title">
                   <span>📋</span> Ban Nhiệm Vụ Đồ Án (Task Board) & Tiến Độ Hoàn Thành
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="utc-card-subtitle">
                   Theo dõi danh sách công việc được GVHD giao, đánh dấu hoàn thành và cập nhật kết quả thực hiện.
                 </p>
               </div>
 
               {tasksData?.stats && (
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-500/15 text-blue-200 border border-blue-400/30">
                     Tổng số: {tasksData.stats.total} việc
                   </span>
-                  <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">
                     Đã xong: {tasksData.stats.completed}
                   </span>
                 </div>
@@ -1505,16 +1505,16 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
             {/* Progress Bar */}
             {tasksData?.stats && (
-              <div className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800/80">
+              <div className="utc-task-progress-box space-y-2">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-slate-300">Tiến độ hoàn thành nhiệm vụ được giao</span>
+                  <span className="font-semibold text-blue-100">Tiến độ hoàn thành nhiệm vụ được giao</span>
                   <span className="font-bold text-emerald-400 text-sm">
                     {tasksData.stats.completed} / {tasksData.stats.total} ({tasksData.stats.completion_rate}%)
                   </span>
                 </div>
-                <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+                <div className="utc-progress-track">
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 via-teal-400 to-emerald-400 transition-all duration-500"
+                    className="utc-progress-fill"
                     style={{ width: `${tasksData.stats.completion_rate}%` }}
                   />
                 </div>
@@ -1522,8 +1522,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
             )}
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800">
-              <span className="text-xs text-slate-400 font-medium mr-1">Bộ lọc:</span>
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-blue-900/40">
+              <span className="text-xs text-blue-200/80 font-medium mr-1">Bộ lọc:</span>
               {[
                 { key: 'ALL', label: 'Tất cả nhiệm vụ' },
                 { key: 'TODO', label: 'Cần làm (Todo)' },
@@ -1532,12 +1532,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               ].map((f) => (
                 <button
                   key={f.key}
+                  type="button"
                   onClick={() => setTaskFilter(f.key as any)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
-                    taskFilter === f.key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                  }`}
+                  className={`utc-filter-btn ${taskFilter === f.key ? 'active' : ''}`}
                 >
                   {f.label}
                 </button>
@@ -1557,10 +1554,12 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                 if (filtered.length === 0) {
                   return (
-                    <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
-                      {list.length === 0
-                        ? 'Chưa có nhiệm vụ nào được giao từ Giảng viên hướng dẫn.'
-                        : 'Không có nhiệm vụ nào phù hợp với bộ lọc hiện tại.'}
+                    <div className="utc-empty-grade-box" style={{ padding: '32px 16px' }}>
+                      <p className="utc-empty-grade-title">
+                        {list.length === 0
+                          ? 'Chưa có nhiệm vụ nào được giao từ Giảng viên hướng dẫn.'
+                          : 'Không có nhiệm vụ nào phù hợp với bộ lọc hiện tại.'}
+                      </p>
                     </div>
                   );
                 }
@@ -1570,11 +1569,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   return (
                     <div
                       key={task.id}
-                      className={`p-4 rounded-xl border transition flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
-                        task.is_completed
-                          ? 'bg-slate-950/60 border-slate-800/80 opacity-80'
-                          : 'bg-slate-950 border-slate-800 hover:border-slate-700 shadow-md'
-                      }`}
+                      className={`utc-task-card ${task.is_completed ? 'completed' : ''}`}
                     >
                       <div className="flex items-start gap-3.5 flex-1">
                         {/* Interactive Checkbox */}
@@ -1583,7 +1578,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                             type="checkbox"
                             checked={task.is_completed}
                             onChange={() => handleToggleTaskComplete(task)}
-                            className="w-5 h-5 rounded border-slate-700 text-emerald-500 focus:ring-emerald-500/20 bg-slate-900 cursor-pointer accent-emerald-500"
+                            className="w-5 h-5 rounded border-blue-700 text-emerald-500 focus:ring-emerald-500/20 bg-slate-900 cursor-pointer accent-emerald-500"
                             title="Đánh dấu hoàn thành nhiệm vụ"
                           />
                         </div>
@@ -1602,12 +1597,12 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
                                 task.priority === 'URGENT'
-                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                  ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
                                   : task.priority === 'HIGH'
-                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                                   : task.priority === 'LOW'
-                                  ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-                                  : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                  ? 'bg-slate-500/15 text-slate-300 border border-slate-500/30'
+                                  : 'bg-[#2D469E]/30 text-[#A8C2FD] border border-[#2D469E]/50'
                               }`}
                             >
                               {task.priority_display || task.priority}
@@ -1615,11 +1610,11 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                             {/* Status Badge */}
                             {task.is_completed ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                                 ✅ Hoàn thành
                               </span>
                             ) : (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-500/10 text-blue-300">
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30">
                                 {task.status_display || 'Cần làm'}
                               </span>
                             )}
@@ -1645,7 +1640,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-1">
                             <span>
                               GV giao:{' '}
-                              <b className="text-slate-300">{task.assigned_by_name || 'GVHD'}</b>
+                              <b className="text-slate-200">{task.assigned_by_name || 'GVHD'}</b>
                             </span>
                             {task.due_date && (
                               <span className={isOverdue ? 'text-rose-400 font-bold' : ''}>
@@ -1661,16 +1656,16 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                           {/* Phase 5: Deliverable display */}
                           {(task.deliverable_file || task.deliverable_url) && (
-                            <div className="mt-2 p-2.5 rounded bg-slate-900 border border-slate-800 text-xs space-y-1">
+                            <div className="mt-2 p-2.5 rounded bg-slate-900/90 border border-blue-900/40 text-xs space-y-1">
                               <span className="font-semibold text-emerald-400">📦 Sản phẩm / Báo cáo kết quả:</span>
                               <div className="flex flex-wrap items-center gap-3">
                                 {task.deliverable_file && (
-                                  <a href={task.deliverable_file} target="_blank" rel="noreferrer" className="text-blue-400 underline font-medium hover:text-blue-300">
+                                  <a href={task.deliverable_file} target="_blank" rel="noreferrer" className="text-blue-300 underline font-medium hover:text-blue-200">
                                     File đính kèm ↗
                                   </a>
                                 )}
                                 {task.deliverable_url && (
-                                  <a href={task.deliverable_url} target="_blank" rel="noreferrer" className="text-blue-400 underline font-medium hover:text-blue-300">
+                                  <a href={task.deliverable_url} target="_blank" rel="noreferrer" className="text-blue-300 underline font-medium hover:text-blue-200">
                                     Link sản phẩm (Git/Drive/Demo) ↗
                                   </a>
                                 )}
@@ -1694,7 +1689,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                           {/* Student Notes Display */}
                           {task.student_notes && (
-                            <div className="mt-2 p-2.5 rounded bg-blue-950/20 border border-blue-500/20 text-xs text-blue-200">
+                            <div className="mt-2 p-2.5 rounded bg-blue-950/30 border border-blue-500/30 text-xs text-blue-200">
                               <span className="font-semibold text-blue-400">📝 Ghi chú SV:</span>{' '}
                               {task.student_notes}
                             </div>
@@ -1734,29 +1729,40 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
           {/* Supervision Meeting Logs Section */}
           <div className="utc-graduation-card space-y-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                <span>🗓️</span> Nhật Ký Hướng Dẫn Định Kỳ (Supervision Meeting Logs)
+            <div className="utc-card-header">
+              <h3 className="utc-card-title">
+                <span>🗓️</span>
+                <span>Nhật Ký Hướng Dẫn Định Kỳ (Supervision Meeting Logs)</span>
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="utc-card-subtitle">
                 Biên bản ghi nhận các buổi làm việc định kỳ giữa Giảng viên hướng dẫn và Sinh viên.
               </p>
             </div>
 
             {meetingLogs.length === 0 ? (
-              <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
-                Chưa có buổi họp/hướng dẫn nào được ghi nhận từ GVHD.
+              <div className="utc-empty-grade-box">
+                <div className="utc-empty-grade-icon">🗓️</div>
+                <h4 className="utc-empty-grade-title">Chưa có buổi họp / hướng dẫn nào được ghi nhận</h4>
+                <p className="utc-empty-grade-desc">
+                  Biên bản sẽ hiển thị tại đây sau các buổi trao đổi định kỳ trực tiếp hoặc trực tuyến giữa Giảng viên hướng dẫn và bạn.
+                </p>
+                <div className="utc-empty-grade-pill">
+                  <span>⭐ Căn cứ đánh giá điểm quá trình ĐATN</span>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
                 {meetingLogs.map((log, idx) => (
                   <div
                     key={log.id}
-                    className="p-5 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition space-y-3"
+                    className="utc-meeting-log-card space-y-3"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-900/40 pb-3">
                       <div className="flex items-center gap-3">
-                        <span className="w-7 h-7 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center text-xs font-bold border border-blue-500/30">
+                        <span
+                          className="w-7 h-7 rounded-full text-white flex items-center justify-center text-xs font-bold shadow-sm"
+                          style={{ background: '#2D469E', border: '1px solid #7290ec' }}
+                        >
                           #{meetingLogs.length - idx}
                         </span>
                         <div>
@@ -1783,7 +1789,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                             href={log.location_or_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition shadow-sm"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-white font-semibold text-xs transition shadow-sm"
+                            style={{ background: '#2D469E', border: '1px solid #7290ec' }}
                             title="Bấm để tham gia phòng họp trực tuyến Google Meet / Zoom"
                           >
                             <span>📹</span>
@@ -1800,7 +1807,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                     <div className="space-y-2 text-xs">
                       <div>
                         <span className="font-semibold text-slate-300">Nội dung trao đổi & tiến độ:</span>
-                        <p className="text-slate-200 mt-1 whitespace-pre-line bg-slate-900/60 p-3 rounded-lg border border-slate-800/60">
+                        <p className="text-slate-200 mt-1 whitespace-pre-line p-3 rounded-lg border border-blue-900/40" style={{ background: 'rgba(16, 27, 62, 0.6)' }}>
                           {log.content_discussed}
                         </p>
                       </div>
@@ -1815,7 +1822,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                       )}
 
                       {log.tasks && log.tasks.length > 0 && (
-                        <div className="p-3 rounded-lg bg-blue-950/20 border border-blue-500/20 space-y-1.5">
+                        <div className="p-3 rounded-lg border space-y-1.5" style={{ background: 'rgba(45, 70, 158, 0.15)', borderColor: 'rgba(45, 70, 158, 0.3)' }}>
                           <span className="font-bold text-blue-300">📌 Nhiệm vụ GVHD giao tuần tới:</span>
                           {log.tasks.map((t: any) => (
                             <div key={t.id} className="flex items-center justify-between text-slate-200 pl-2">
@@ -1831,7 +1838,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                       {log.next_meeting_plan && (
                         <div>
                           <span className="font-semibold text-amber-400">Kế hoạch kỳ tới:</span>
-                          <p className="text-slate-300 mt-1 whitespace-pre-line bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/60">
+                          <p className="text-slate-300 mt-1 whitespace-pre-line p-2.5 rounded-lg border border-blue-900/40" style={{ background: 'rgba(16, 27, 62, 0.6)' }}>
                             {log.next_meeting_plan}
                           </p>
                         </div>
