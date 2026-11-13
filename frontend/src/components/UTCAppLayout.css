@@ -330,30 +330,74 @@
   min-width: 100px;
 }
 
-.utc-header-global-search .global-search-input-wrap {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+.utc-header-global-search .global-search-input-wrap,
+[data-theme="dark"] .utc-header-global-search .global-search-input-wrap {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 9999px !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease-in-out;
+}
+
+.utc-header-global-search .global-search-input-wrap:hover,
+[data-theme="dark"] .utc-header-global-search .global-search-input-wrap:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.utc-header-global-search .global-search-input-wrap:focus-within,
+[data-theme="dark"] .utc-header-global-search .global-search-input-wrap:focus-within {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.65) !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2) !important;
+}
+
+.utc-header-global-search .global-search-input,
+.utc-header-global-search input.global-search-input,
+.utc-header-global-search input[type="text"].global-search-input,
+[data-theme="dark"] .utc-header-global-search .global-search-input,
+[data-theme="dark"] .utc-header-global-search input.global-search-input,
+[data-theme="dark"] .utc-header-global-search input[type="text"].global-search-input {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  padding: 4px 0 !important;
+  height: auto !important;
+}
+
+.utc-header-global-search .global-search-input::placeholder,
+.utc-header-global-search input.global-search-input::placeholder,
+[data-theme="dark"] .utc-header-global-search .global-search-input::placeholder,
+[data-theme="dark"] .utc-header-global-search input[type="text"].global-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.utc-header-global-search .global-search-icon,
+[data-theme="dark"] .utc-header-global-search .global-search-icon {
+  opacity: 0.85;
+}
+
+.utc-header-global-search .global-search-clear-btn,
+[data-theme="dark"] .utc-header-global-search .global-search-clear-btn {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.utc-header-global-search .global-search-clear-btn:hover,
+[data-theme="dark"] .utc-header-global-search .global-search-clear-btn:hover {
   color: #ffffff;
 }
 
-.utc-header-global-search .global-search-input {
-  color: #ffffff;
-}
-
-.utc-header-global-search .global-search-input::placeholder {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.utc-header-global-search .global-search-input-wrap:focus-within {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
-}
-
-.utc-header-global-search .global-search-shortcut kbd {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.3);
+.utc-header-global-search .global-search-shortcut kbd,
+[data-theme="dark"] .utc-header-global-search .global-search-shortcut kbd {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: 600;
 }
 
 .utc-topbar-right {
