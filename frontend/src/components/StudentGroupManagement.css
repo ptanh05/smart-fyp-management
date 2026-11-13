@@ -494,3 +494,24 @@
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
+
+[data-theme="dark"] .group-mgmt-container { color: var(--text-body); }
+[data-theme="dark"] .section-card,
+[data-theme="dark"] .member-card,
+[data-theme="dark"] .recruiting-card,
+[data-theme="dark"] .custom-modal { background: var(--surface-1); border-color: var(--divider); color: var(--text-body); box-shadow: var(--shadow-soft); }
+[data-theme="dark"] .group-mgmt-header h2,
+[data-theme="dark"] .section-card-header h3,
+[data-theme="dark"] .member-name,
+[data-theme="dark"] .recruiting-group-name,
+[data-theme="dark"] .custom-modal-header h3 { color: var(--text-strong); }
+[data-theme="dark"] .group-mgmt-header p,
+[data-theme="dark"] .member-reg,
+[data-theme="dark"] .my-group-detail-label { color: var(--text-soft); }
+[data-theme="dark"] .my-group-detail-item,
+[data-theme="dark"] .custom-modal-header,
+[data-theme="dark"] .custom-modal-footer { background: var(--surface-2); border-color: var(--divider); }
+[data-theme="dark"] .form-field select,
+[data-theme="dark"] .form-field input,
+[data-theme="dark"] .form-field textarea { background: var(--input-surface); border-color: var(--border-strong); color: var(--text-strong); }
+[data-theme="dark"] .custom-modal-overlay { background: var(--surface-overlay); }

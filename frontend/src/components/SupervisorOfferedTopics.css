@@ -469,3 +469,22 @@
   transform: translateY(-1px);
   box-shadow: 0 4px 6px rgba(217, 119, 6, 0.35);
 }
+
+[data-theme="dark"] .supervisor-topics-container { color: var(--text-body); }
+[data-theme="dark"] .topic-card,
+[data-theme="dark"] .topic-edit-modal,
+[data-theme="dark"] .khoa-feedback-box { background: var(--surface-1); border-color: var(--divider); color: var(--text-body); }
+[data-theme="dark"] .supervisor-topics-header h2,
+[data-theme="dark"] .topic-title,
+[data-theme="dark"] .empty-topics h4 { color: var(--text-strong); }
+[data-theme="dark"] .supervisor-topics-header .subtitle,
+[data-theme="dark"] .topic-description,
+[data-theme="dark"] .meta-label,
+[data-theme="dark"] .empty-topics p { color: var(--text-soft); }
+[data-theme="dark"] .supervisor-topics-controls,
+[data-theme="dark"] .topic-actions { border-color: var(--divider); }
+[data-theme="dark"] .search-box input,
+[data-theme="dark"] .select-filter,
+[data-theme="dark"] .topic-edit-modal textarea,
+[data-theme="dark"] .topic-edit-modal input { background: var(--input-surface); border-color: var(--border-strong); color: var(--text-strong); }
+[data-theme="dark"] .topic-card:hover { box-shadow: var(--shadow-elevated); }

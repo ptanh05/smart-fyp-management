@@ -1003,3 +1003,63 @@
   border-color: #2D469E;
   box-shadow: 0 4px 16px rgba(45, 70, 158, 0.1);
 }
+
+/* Dark mode: student workflow, cards, forms, tables and dialogs. */
+[data-theme="dark"] .utc-stepper-bar,
+[data-theme="dark"] .utc-graduation-card,
+[data-theme="dark"] .utc-score-component-card,
+[data-theme="dark"] .utc-task-card,
+[data-theme="dark"] .utc-meeting-log-card,
+[data-theme="dark"] .utc-sub-card,
+[data-theme="dark"] .utc-info-box,
+[data-theme="dark"] .utc-process-guide-box,
+[data-theme="dark"] .utc-step-nav-card,
+[data-theme="dark"] .utc-weekly-report-card,
+[data-theme="dark"] .utc-empty-grade-box {
+  background: var(--surface-1); border-color: var(--divider);
+  color: var(--text-body); box-shadow: var(--shadow-soft);
+}
+[data-theme="dark"] .utc-card-header,
+[data-theme="dark"] .utc-modal-header,
+[data-theme="dark"] .utc-modal-footer { border-color: var(--divider); }
+[data-theme="dark"] .utc-card-title,
+[data-theme="dark"] .utc-modal-title,
+[data-theme="dark"] .utc-stepper-label,
+[data-theme="dark"] .utc-empty-grade-title,
+[data-theme="dark"] .utc-score-component-label { color: var(--text-strong); }
+[data-theme="dark"] .utc-card-subtitle,
+[data-theme="dark"] .utc-modal-subtitle,
+[data-theme="dark"] .utc-empty-grade-desc { color: var(--text-soft); }
+[data-theme="dark"] .utc-stepper-item,
+[data-theme="dark"] .utc-filter-btn {
+  background: var(--surface-2); border-color: var(--border-strong); color: var(--text-body);
+}
+[data-theme="dark"] .utc-stepper-item:hover,
+[data-theme="dark"] .utc-filter-btn:hover { background: var(--interactive-hover); border-color: var(--utc-primary); }
+[data-theme="dark"] .utc-stepper-item.active,
+[data-theme="dark"] .utc-filter-btn.active {
+  background: var(--interactive-selected); border-color: var(--utc-primary); color: #dbeafe;
+}
+[data-theme="dark"] .utc-modal-overlay { background: var(--surface-overlay); }
+[data-theme="dark"] .utc-modal-card {
+  background: var(--surface-elevated); border-color: var(--divider);
+  color: var(--text-body); box-shadow: var(--shadow-elevated);
+}
+[data-theme="dark"] .utc-form-textarea,
+[data-theme="dark"] .utc-modal-textarea,
+[data-theme="dark"] .utc-graduation-card input,
+[data-theme="dark"] .utc-graduation-card select,
+[data-theme="dark"] .utc-graduation-card textarea {
+  background: var(--input-surface); border-color: var(--border-strong); color: var(--text-strong);
+}
+[data-theme="dark"] .utc-form-textarea::placeholder,
+[data-theme="dark"] .utc-modal-textarea::placeholder,
+[data-theme="dark"] .utc-graduation-card input::placeholder,
+[data-theme="dark"] .utc-graduation-card textarea::placeholder { color: var(--input-placeholder); }
+[data-theme="dark"] .utc-form-textarea:focus,
+[data-theme="dark"] .utc-modal-textarea:focus,
+[data-theme="dark"] .utc-graduation-card input:focus,
+[data-theme="dark"] .utc-graduation-card select:focus,
+[data-theme="dark"] .utc-graduation-card textarea:focus {
+  border-color: var(--utc-primary); box-shadow: 0 0 0 3px var(--focus-ring);
+}

@@ -870,3 +870,34 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Complete theme mapping for the UTC shell. */
+[data-theme="dark"] .utc-dashboard-wrapper { background: var(--app-bg); color: var(--text-body); }
+[data-theme="dark"] .utc-main-container,
+[data-theme="dark"] .utc-dashboard-body-content { background: var(--app-bg); }
+[data-theme="dark"] .utc-sidebar,
+[data-theme="dark"] .utc-sidebar-logo { background: var(--utc-navy-deep); }
+[data-theme="dark"] .utc-topbar { background: #102a52; box-shadow: var(--shadow-soft); }
+[data-theme="dark"] .utc-user-dropdown,
+[data-theme="dark"] .utc-quick-card,
+[data-theme="dark"] .utc-news-card {
+  background: var(--surface-elevated); border-color: var(--divider);
+  color: var(--text-body); box-shadow: var(--shadow-soft);
+}
+[data-theme="dark"] .utc-user-dropdown .dropdown-header,
+[data-theme="dark"] .utc-user-dropdown .dropdown-item,
+[data-theme="dark"] .utc-news-list li { border-color: var(--divider); }
+[data-theme="dark"] .utc-user-dropdown .dropdown-item:hover,
+[data-theme="dark"] .utc-quick-card:hover,
+[data-theme="dark"] .utc-news-list li:hover { background: var(--interactive-hover); }
+[data-theme="dark"] .qc-title,
+[data-theme="dark"] .utc-news-title,
+[data-theme="dark"] .news-content a,
+[data-theme="dark"] .utc-display-name { color: var(--text-strong); }
+[data-theme="dark"] .qc-tag,
+[data-theme="dark"] .news-date,
+[data-theme="dark"] .utc-role-tag,
+[data-theme="dark"] .utc-user-dropdown .role-sub { color: var(--text-soft); }
+.utc-top-btn:focus-visible,
+.utc-toggle-sidebar-btn:focus-visible,
+.utc-nav-item:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }

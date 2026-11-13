@@ -1160,3 +1160,52 @@
     transform: scale(1);
   }
 }
+
+/* Dark mode: group workspace and chat surfaces. */
+[data-theme="dark"] .utc-group-chat-container,
+[data-theme="dark"] .utc-group-workspace { color: var(--text-body); }
+[data-theme="dark"] .utc-group-empty-card,
+[data-theme="dark"] .utc-group-header-card,
+[data-theme="dark"] .utc-group-members-col,
+[data-theme="dark"] .utc-group-chat-col,
+[data-theme="dark"] .utc-member-item,
+[data-theme="dark"] .utc-chat-input-bar,
+[data-theme="dark"] .utc-emoji-picker-popup {
+  background: var(--surface-1); border-color: var(--divider);
+  color: var(--text-body); box-shadow: var(--shadow-soft);
+}
+[data-theme="dark"] .utc-chat-header,
+[data-theme="dark"] .utc-col-header,
+[data-theme="dark"] .utc-member-search-box,
+[data-theme="dark"] .utc-pinned-banner,
+[data-theme="dark"] .utc-reply-preview-bar,
+[data-theme="dark"] .utc-selected-file-chip { background: var(--surface-2); border-color: var(--divider); }
+[data-theme="dark"] .utc-member-item:hover,
+[data-theme="dark"] .utc-action-icon-btn:hover,
+[data-theme="dark"] .utc-emoji-option-btn:hover { background: var(--interactive-hover); }
+[data-theme="dark"] .utc-sup-name,
+[data-theme="dark"] .utc-member-name,
+[data-theme="dark"] .utc-chat-title-group h4,
+[data-theme="dark"] .utc-msg-sender-name,
+[data-theme="dark"] .utc-attachment-name,
+[data-theme="dark"] .utc-pinned-text { color: var(--text-strong); }
+[data-theme="dark"] .utc-sup-meta,
+[data-theme="dark"] .utc-member-sub,
+[data-theme="dark"] .utc-chat-subtitle,
+[data-theme="dark"] .utc-attachment-size,
+[data-theme="dark"] .utc-reply-snippet,
+[data-theme="dark"] .utc-quoted-snippet { color: var(--text-soft); }
+[data-theme="dark"] .utc-message-row.message-in .utc-msg-bubble,
+[data-theme="dark"] .utc-quoted-reply-box {
+  background: var(--surface-3); border-color: var(--divider); color: var(--text-body);
+}
+[data-theme="dark"] .utc-chat-textarea,
+[data-theme="dark"] .utc-member-search-box input {
+  background: var(--input-surface); border-color: var(--border-strong); color: var(--text-strong);
+}
+[data-theme="dark"] .utc-chat-textarea::placeholder,
+[data-theme="dark"] .utc-member-search-box input::placeholder { color: var(--input-placeholder); }
+[data-theme="dark"] .utc-chat-textarea:focus,
+[data-theme="dark"] .utc-member-search-box input:focus {
+  border-color: var(--utc-primary); box-shadow: 0 0 0 3px var(--focus-ring);
+}

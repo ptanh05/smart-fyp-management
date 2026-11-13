@@ -499,7 +499,13 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               {i18n.language.startsWith('vi') ? '🇻🇳 VI' : '🇬🇧 EN'}
             </button>
 
-            <button className="utc-top-btn" onClick={toggleTheme} title="Theme">
+            <button
+              className="utc-top-btn"
+              onClick={toggleTheme}
+              title={isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+              aria-label={isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+              aria-pressed={isDark}
+            >
               {isDark ? '☀️' : '🌙'}
             </button>
 

@@ -1023,3 +1023,24 @@
   }
 }
 
+[data-theme="dark"] .utc-portal-wrapper { background: var(--app-bg); color: var(--text-body); }
+[data-theme="dark"] .utc-portal-header,
+[data-theme="dark"] .utc-info-card,
+[data-theme="dark"] .utc-login-card,
+[data-theme="dark"] .utc-feature-card,
+[data-theme="dark"] .utc-demo-interactive-card { background: var(--surface-1); border-color: var(--divider); color: var(--text-body); box-shadow: var(--shadow-soft); }
+[data-theme="dark"] .utc-portal-title-block h1,
+[data-theme="dark"] .utc-hero-title,
+[data-theme="dark"] .utc-login-title,
+[data-theme="dark"] .utc-feat-content h4 { color: var(--text-strong); }
+[data-theme="dark"] .utc-portal-title-block p,
+[data-theme="dark"] .utc-hero-subtitle,
+[data-theme="dark"] .utc-feat-content p { color: var(--text-soft); }
+[data-theme="dark"] .utc-role-tabs,
+[data-theme="dark"] .utc-highlights-banner,
+[data-theme="dark"] .utc-info-footer-bar { background: var(--surface-2); border-color: var(--divider); }
+[data-theme="dark"] .utc-role-tab { color: var(--text-soft); }
+[data-theme="dark"] .utc-role-tab.active { background: var(--interactive-selected); color: #dbeafe; }
+[data-theme="dark"] .utc-input-group input { background: var(--input-surface); border-color: var(--border-strong); color: var(--text-strong); }
+[data-theme="dark"] .utc-input-group input::placeholder { color: var(--input-placeholder); }
+
