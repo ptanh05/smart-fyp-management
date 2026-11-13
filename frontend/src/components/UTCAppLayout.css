@@ -515,7 +515,7 @@
   font-weight: 600;
 }
 
-.utc-hero-badge {
+.utc-hero-banner .utc-hero-badge {
   width: 90px;
   height: 90px;
   background: rgba(255, 255, 255, 0.15);
@@ -834,7 +834,7 @@
   .utc-hero-user-name {
     font-size: 1.6rem;
   }
-  .utc-hero-badge {
+  .utc-hero-banner .utc-hero-badge {
     display: none;
   }
 }

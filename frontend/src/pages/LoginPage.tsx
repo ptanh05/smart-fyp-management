@@ -226,7 +226,7 @@ const LoginPage: React.FC = () => {
         {/* Left Side Welcome Info Card - Modern UTC Capstone Showcase */}
         <section className="utc-info-card">
           {/* Official University Badge */}
-          <div className="utc-hero-badge">
+          <div className="utc-portal-hero-badge">
             <span className="utc-badge-pulse"></span>
             <span className="utc-badge-school">{t('portal.schoolName', 'TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI')}</span>
             <span className="utc-badge-divider">•</span>
