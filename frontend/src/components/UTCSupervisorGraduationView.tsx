@@ -878,13 +878,13 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         <div className="space-y-6">
           {/* Card 1: Danh sách sinh viên khảo sát nguyện vọng chọn GVHD */}
           <div className="utc-supervisor-card space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
-                <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+                <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                   <span>📝</span>
                   <span>Giai Đoạn 2: Khảo Sát Nguyện Vọng & Đề Tài Gợi Ý Của Giảng Viên</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Danh sách sinh viên đăng ký nguyện vọng hướng dẫn và phiếu khảo sát thực tập giai đoạn 2.
                 </p>
               </div>
@@ -895,23 +895,23 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="font-semibold text-sm text-slate-200 flex items-center gap-2">
+                <h4 className="font-semibold text-sm text-slate-900 flex items-center gap-2">
                   <span>👥</span>
                   <span>Sinh viên đăng ký nguyện vọng chọn Thầy/Cô ({stage2Projects.length})</span>
                 </h4>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-500">
                   {stage2Projects.length > 0 ? 'Sinh viên đã hoàn tất phiếu khảo sát nguyện vọng & đề tài' : 'Chưa có sinh viên đăng ký'}
                 </span>
               </div>
 
               {stage2Projects.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-sm bg-slate-950/40 rounded-xl border border-slate-800/80">
+                <div className="text-center py-8 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
                   Chưa có sinh viên nào đăng ký nguyện vọng chọn Thầy/Cô trong đợt khảo sát này.
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-800">
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-950 text-slate-400 uppercase font-semibold">
+                    <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200">
                       <tr>
                         <th className="p-3">MSSV</th>
                         <th className="p-3">Họ và tên sinh viên</th>
@@ -922,12 +922,12 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         <th className="p-3">Thông tin liên hệ</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800 text-slate-300">
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
                       {stage2Projects.map((p) => (
-                        <tr key={p.id} className="hover:bg-slate-950/40 transition">
-                          <td className="p-3 font-mono font-semibold text-blue-400 whitespace-nowrap">{p.student_reg_no}</td>
-                          <td className="p-3 font-medium text-slate-100 whitespace-nowrap">{p.student_name}</td>
-                          <td className="p-3 text-slate-400 whitespace-nowrap">{p.student_class || 'Chưa cập nhật'}</td>
+                        <tr key={p.id} className="hover:bg-slate-50/80 transition">
+                          <td className="p-3 font-mono font-bold text-[#2D469E] whitespace-nowrap">{p.student_reg_no}</td>
+                          <td className="p-3 font-bold text-slate-900 whitespace-nowrap">{p.student_name}</td>
+                          <td className="p-3 text-slate-600 whitespace-nowrap">{p.student_class || 'Chưa cập nhật'}</td>
                           <td className="p-3 whitespace-nowrap">
                             {p.preference_rank === 1 ? (
                               <span className="px-2.5 py-1 rounded text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold inline-flex items-center gap-1">
@@ -966,7 +966,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                                 )}
                               </div>
                             ) : (
-                              <span className="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-400 border border-slate-700/60 font-medium">
+                              <span className="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600 border border-slate-200 font-semibold">
                                 Chưa đi thực tập
                               </span>
                             )}
@@ -994,37 +994,39 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 3: Outlines Review */}
       {activeTab === 'outlines' && (
         <div className="utc-supervisor-card space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-bold text-base text-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <h3 className="font-bold text-base text-slate-900">
               Danh sách Đề cương Giai đoạn 3 được phân công thẩm định ({stage3OutlineReviews.length})
             </h3>
-            <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+            <span className="text-xs px-3 py-1 rounded bg-[#EEF3FB] text-[#2D469E] border border-[#B9D1F8] font-bold">
               Hiện có {stageCounts[3] || 0} sinh viên ở giai đoạn này
             </span>
           </div>
           {stage3OutlineReviews.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có đề cương nào của sinh viên Giai đoạn 3 được phân công cho Nhóm của Thầy/Cô.</div>
+            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              Chưa có đề cương nào của sinh viên Giai đoạn 3 được phân công cho Nhóm của Thầy/Cô.
+            </div>
           ) : (
             <div className="space-y-3">
               {stage3OutlineReviews.map((r) => (
-                <div key={r.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+                <div key={r.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-[#2D469E] hover:shadow-md transition flex items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-blue-400">{r.student_reg_no}</span>
-                      <span className="font-semibold text-sm text-slate-100">{r.student_name}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
-                        r.verdict === 'APPROVED' ? 'bg-emerald-500/10 text-emerald-400' :
-                        r.verdict === 'REVISION_REQUIRED' ? 'bg-amber-500/10 text-amber-400' :
-                        r.verdict === 'REJECTED' ? 'bg-rose-500/10 text-rose-400' :
-                        'bg-blue-500/10 text-blue-400'
+                      <span className="font-mono text-xs font-bold text-[#2D469E]">{r.student_reg_no}</span>
+                      <span className="font-bold text-sm text-slate-900">{r.student_name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded font-bold border ${
+                        r.verdict === 'APPROVED' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                        r.verdict === 'REVISION_REQUIRED' ? 'bg-amber-50 text-amber-800 border-amber-300' :
+                        r.verdict === 'REJECTED' ? 'bg-rose-50 text-rose-800 border-rose-300' :
+                        'bg-blue-50 text-blue-800 border-blue-300'
                       }`}>
                         {r.verdict === 'APPROVED' ? 'Đã duyệt' : 
                          r.verdict === 'REVISION_REQUIRED' ? 'Yêu cầu sửa' : 
                          r.verdict === 'REJECTED' ? 'Không đạt' : 'Chờ xét duyệt'}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-300"><b>Đề tài:</b> {r.topic_title}</p>
-                    <p className="text-xs text-slate-400"><b>Nhóm thẩm định:</b> {r.group_name} {r.reviewer_name ? `(Người duyệt: ${r.reviewer_name})` : ''}</p>
+                    <p className="text-xs text-slate-700"><b>Đề tài:</b> {r.topic_title}</p>
+                    <p className="text-xs text-slate-500"><b>Nhóm thẩm định:</b> {r.group_name} {r.reviewer_name ? `(Người duyệt: ${r.reviewer_name})` : ''}</p>
                   </div>
 
                   <button
@@ -1034,7 +1036,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       setVerdict(r.verdict && r.verdict !== 'PENDING' ? r.verdict : 'APPROVED');
                       setShowOutlineModal(true);
                     }}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition"
+                    className="px-4 py-2 bg-[#2D469E] hover:bg-[#1D327B] text-white rounded-lg text-xs font-bold transition shadow-sm"
                   >
                     Thẩm định Đề cương
                   </button>
@@ -1048,41 +1050,43 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 3: Weekly Reports */}
       {activeTab === 'weekly' && (
         <div className="utc-supervisor-card space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-bold text-base text-slate-100">Đánh giá Báo cáo tiến độ tuần - Giai đoạn 4 ({stage4Projects.length} SV)</h3>
-            <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <h3 className="font-bold text-base text-slate-900">Đánh giá Báo cáo tiến độ tuần - Giai đoạn 4 ({stage4Projects.length} SV)</h3>
+            <span className="text-xs px-3 py-1 rounded bg-[#EEF3FB] text-[#2D469E] border border-[#B9D1F8] font-bold">
               Hiện có {stageCounts[4] || 0} sinh viên ở giai đoạn này
             </span>
           </div>
           {stage4Projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào ở Giai đoạn 4.</div>
+            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              Chưa có sinh viên nào ở Giai đoạn 4.
+            </div>
           ) : (
           <div className="space-y-4">
             {stage4Projects.map((p) => (
-              <div key={p.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div key={p.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-[#2D469E] hover:shadow-md transition space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <div>
-                    <span className="font-bold text-sm text-slate-100">{p.student_name}</span>
-                    <span className="text-xs text-slate-400 ml-2">({p.student_reg_no})</span>
+                    <span className="font-bold text-sm text-slate-900">{p.student_name}</span>
+                    <span className="text-xs text-slate-500 ml-2">({p.student_reg_no})</span>
                   </div>
-                  <span className="text-xs text-slate-400">Đã nộp: {p.weekly_reports?.length || 0} / 15 tuần</span>
+                  <span className="text-xs font-semibold text-slate-500">Đã nộp: <b className="text-[#2D469E]">{p.weekly_reports?.length || 0}</b> / 15 tuần</span>
                 </div>
 
                 {p.weekly_reports?.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic">Sinh viên chưa nộp báo cáo tuần nào.</p>
+                  <p className="text-xs text-slate-400 italic">Sinh viên chưa nộp báo cáo tuần nào.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {p.weekly_reports?.map((r: any) => (
-                      <div key={r.id} className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-1.5">
+                      <div key={r.id} className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1.5 hover:border-[#2D469E] transition">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-blue-400">Tuần {r.week_number}</span>
-                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold">
+                          <span className="font-bold text-[#2D469E]">Tuần {r.week_number}</span>
+                          <span className="px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200 font-bold">
                             {r.supervisor_rating_display || r.supervisor_rating}
                           </span>
                         </div>
-                        <p className="text-slate-300 line-clamp-2">{r.summary_content}</p>
+                        <p className="text-slate-700 line-clamp-2">{r.summary_content}</p>
                         {r.supervisor_feedback && (
-                          <p className="text-emerald-400 italic">Nhận xét: {r.supervisor_feedback}</p>
+                          <p className="text-emerald-700 italic font-medium">Nhận xét: {r.supervisor_feedback}</p>
                         )}
                         <button
                           onClick={() => {
@@ -1090,7 +1094,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                             setWeeklyFeedback(r.supervisor_feedback || '');
                             setShowWeeklyModal(true);
                           }}
-                          className="mt-1 text-xs text-blue-400 hover:underline"
+                          className="mt-1 text-xs text-[#2D469E] hover:underline font-bold"
                         >
                           ✏️ Đánh giá / Sửa nhận xét
                         </button>
@@ -1108,23 +1112,25 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 5: Supervision Tasks & Meeting Logs */}
       {activeTab === 'supervision' && (
         <div className="utc-supervisor-card space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
-              <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                 <span>📋</span>
                 <span>Giai Đoạn 5: Quản Lý Nhiệm Vụ (Task Board) & Nhật Ký Hướng Dẫn</span>
               </h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Theo dõi tiến độ hoàn thành nhiệm vụ, sản phẩm sinh viên nộp và biên bản họp hướng dẫn định kỳ.
               </p>
             </div>
-            <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+            <span className="text-xs px-3 py-1 rounded bg-[#EEF3FB] text-[#2D469E] border border-[#B9D1F8] font-bold">
               Hiện có {stageCounts[5] || 0} sinh viên ở giai đoạn này
             </span>
           </div>
 
           {stage5Projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào ở Giai đoạn 5.</div>
+            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              Chưa có sinh viên nào ở Giai đoạn 5.
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {stage5Projects.map((p) => {
@@ -1135,39 +1141,39 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                 const pendingDeliverables = p.tasks?.filter((t: any) => (t.deliverable_file || t.deliverable_url) && (!t.review_verdict || t.review_verdict === 'NOT_SUBMITTED' || t.review_verdict === 'PENDING')).length || 0;
 
                 return (
-                  <div key={p.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 hover:border-slate-700 transition">
+                  <div key={p.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-[#2D469E] hover:shadow-md transition space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-blue-400">{p.student_reg_no}</span>
-                          <span className="font-bold text-sm text-slate-100">{p.student_name}</span>
+                          <span className="font-mono text-xs font-bold text-[#2D469E]">{p.student_reg_no}</span>
+                          <span className="font-bold text-sm text-slate-900">{p.student_name}</span>
                         </div>
-                        <p className="text-xs text-slate-300 mt-1 line-clamp-1"><b>Đề tài:</b> {p.topic_title_vi}</p>
+                        <p className="text-xs text-slate-700 mt-1 line-clamp-1"><b>Đề tài:</b> {p.topic_title_vi}</p>
                       </div>
-                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap">
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-semibold whitespace-nowrap">
                         {p.student_class}
                       </span>
                     </div>
 
                     {/* Progress Bar */}
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[11px] text-slate-400">
-                        <span>Tiến độ nhiệm vụ: <b>{completedTasks}/{totalTasks}</b> đã xong</span>
-                        <span className="font-bold text-blue-400">{percent}%</span>
+                      <div className="flex justify-between text-[11px] text-slate-600">
+                        <span>Tiến độ nhiệm vụ: <b className="text-slate-900">{completedTasks}/{totalTasks}</b> đã xong</span>
+                        <span className="font-bold text-[#2D469E]">{percent}%</span>
                       </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 border border-slate-200 h-2.5 rounded-full overflow-hidden">
                         <div
-                          className="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full transition-all duration-300"
+                          className="bg-gradient-to-r from-[#2D469E] to-emerald-500 h-full rounded-full transition-all duration-300"
                           style={{ width: `${percent}%` }}
                         />
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-900 text-xs text-slate-400">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
                       <div className="flex items-center gap-3">
-                        <span>🗓️ <b>{meetingsCount}</b> buổi họp</span>
+                        <span>🗓️ <b className="text-slate-900">{meetingsCount}</b> buổi họp</span>
                         {pendingDeliverables > 0 && (
-                          <span className="text-amber-400 font-bold animate-pulse">
+                          <span className="text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-bold animate-pulse">
                             📦 {pendingDeliverables} sản phẩm chờ duyệt
                           </span>
                         )}
@@ -1175,7 +1181,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
                       <button
                         onClick={() => handleOpenSupervision(p)}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                        className="px-3.5 py-1.5 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
                       >
                         <span>📋</span>
                         <span>Quản lý nhiệm vụ & Nhật ký ➔</span>
@@ -1192,40 +1198,42 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 6: Final Supervisor Evaluation */}
       {activeTab === 'eval' && (
         <div className="utc-supervisor-card space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-bold text-base text-slate-100">Đánh giá Sơ khảo & Chấm điểm GVHD (40%) - Giai đoạn 6 ({stage6Projects.length} SV)</h3>
-            <span className="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <h3 className="font-bold text-base text-slate-900">Đánh giá Sơ khảo & Chấm điểm GVHD (40%) - Giai đoạn 6 ({stage6Projects.length} SV)</h3>
+            <span className="text-xs px-3 py-1 rounded bg-[#EEF3FB] text-[#2D469E] border border-[#B9D1F8] font-bold">
               Hiện có {stageCounts[6] || 0} sinh viên ở giai đoạn này
             </span>
           </div>
           {stage6Projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có sinh viên nào ở Giai đoạn 6.</div>
+            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              Chưa có sinh viên nào ở Giai đoạn 6.
+            </div>
           ) : (
           <div className="space-y-3">
             {stage6Projects.map((p) => (
-              <div key={p.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+              <div key={p.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-[#2D469E] hover:shadow-md transition flex items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-slate-100">{p.student_name}</span>
-                    <span className="text-xs text-slate-400">({p.student_reg_no})</span>
+                    <span className="font-mono text-xs font-bold text-[#2D469E]">({p.student_reg_no})</span>
+                    <span className="font-bold text-sm text-slate-900">{p.student_name}</span>
                     {p.is_eligible_for_defense && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                      <span className="text-xs px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold">
                         ĐỦ ĐIỀU KIỆN BẢO VỆ
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-300"><b>Đề tài:</b> {p.topic_title_vi}</p>
+                  <p className="text-xs text-slate-700"><b>Đề tài:</b> {p.topic_title_vi}</p>
                   <div className="flex items-center gap-2 pt-0.5">
-                    <span className="text-xs text-emerald-400 font-semibold">
+                    <span className="text-xs text-emerald-700 font-bold">
                       Điểm GVHD: {p.supervisor_score !== null ? `${p.supervisor_score} / 10đ` : 'Chưa chấm'}
                     </span>
                     {p.supervisor_score !== null && (
                       p.supervisor_score_is_draft ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300">
                           BẢN NHÁP
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300">
                           CHÍNH THỨC
                         </span>
                       )
@@ -1241,7 +1249,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     setIsEligible(p.is_eligible_for_defense);
                     setShowEvalModal(true);
                   }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition shadow-md shadow-emerald-600/30"
+                  className="px-4 py-2 bg-[#2D469E] hover:bg-[#1D327B] text-white rounded-lg text-xs font-bold transition shadow-sm"
                 >
                   {p.supervisor_score !== null ? 'Sửa điểm GVHD' : 'Chấm điểm GVHD'}
                 </button>
@@ -1255,32 +1263,36 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 5: Reviewer Evaluation */}
       {activeTab === 'reviewer' && (
         <div className="utc-supervisor-card space-y-4">
-          <h3 className="font-bold text-base text-slate-100">Đồ án được phân công Phản biện độc lập (20%)</h3>
+          <div className="border-b border-slate-200 pb-3">
+            <h3 className="font-bold text-base text-slate-900">Đồ án được phân công Phản biện độc lập (20%)</h3>
+          </div>
           {reviewerProjects.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">Chưa có đồ án nào được phân công cho Thầy/Cô phản biện.</div>
+            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              Chưa có đồ án nào được phân công cho Thầy/Cô phản biện.
+            </div>
           ) : (
             <div className="space-y-3">
               {reviewerProjects.map((p) => (
-                <div key={p.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+                <div key={p.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-[#2D469E] hover:shadow-md transition flex items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-slate-100">{p.student_name}</span>
-                      <span className="text-xs text-slate-400">({p.student_reg_no})</span>
-                      <span className="text-xs text-slate-400">GVHD: {p.supervisor?.full_name}</span>
+                      <span className="font-mono text-xs font-bold text-[#2D469E]">({p.student_reg_no})</span>
+                      <span className="font-bold text-sm text-slate-900">{p.student_name}</span>
+                      <span className="text-xs text-slate-500">GVHD: {p.supervisor?.full_name}</span>
                     </div>
-                    <p className="text-xs text-slate-300"><b>Đề tài:</b> {p.topic_title_vi}</p>
+                    <p className="text-xs text-slate-700"><b>Đề tài:</b> {p.topic_title_vi}</p>
                     <div className="flex items-center gap-3 pt-0.5">
-                      <span className="text-xs text-indigo-400 font-semibold">
+                      <span className="text-xs text-[#2D469E] font-bold">
                         Điểm GVPB: {p.reviewer_score !== null ? `${p.reviewer_score} / 10đ` : 'Chưa chấm phản biện'}
                       </span>
                       {p.reviewer_verdict && (
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
                             p.reviewer_verdict === 'APPROVED'
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                               : p.reviewer_verdict === 'CONDITIONAL'
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                              : 'bg-rose-50 text-rose-800 border-rose-300'
                           }`}
                         >
                           {p.reviewer_verdict_display ||
@@ -1302,7 +1314,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       setRevVerdict(p.reviewer_verdict || 'APPROVED');
                       setShowReviewerModal(true);
                     }}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition shadow-md shadow-indigo-600/30"
+                    className="px-4 py-2 bg-[#2D469E] hover:bg-[#1D327B] text-white rounded-lg text-xs font-bold transition shadow-sm"
                   >
                     {p.reviewer_score !== null ? 'Sửa điểm Phản biện' : 'Chấm Phản biện'}
                   </button>
@@ -1316,19 +1328,21 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Modal Outline Review */}
       {showOutlineModal && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
           onClick={outlineGuard.handleOverlayClick}
         >
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
-            <h3 className="text-base font-bold text-slate-100 mb-2">Xét duyệt Đề cương ĐATN</h3>
-            <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
-            <form onSubmit={handleReviewOutline} className="space-y-3">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-[#2D469E] p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4">
+            <div className="border-b border-slate-200 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Xét duyệt Đề cương ĐATN</h3>
+              <p className="text-xs text-slate-500 mt-1">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
+            </div>
+            <form onSubmit={handleReviewOutline} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Kết luận xét duyệt</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Kết luận xét duyệt</label>
                 <select
                   value={verdict}
                   onChange={(e) => setVerdict(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 >
                   <option value="APPROVED">ĐẠT YÊU CẦU (Phê duyệt thực hiện)</option>
                   <option value="REVISION_REQUIRED">YÊU CẦU CHỈNH SỬA LẠI</option>
@@ -1337,27 +1351,27 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Ý kiến & Nhận xét</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Ý kiến & Nhận xét</label>
                 <textarea
                   rows={3}
                   value={outlineComments}
                   onChange={(e) => setOutlineComments(e.target.value)}
                   placeholder="Ghi chú chi tiết cho sinh viên chỉnh sửa..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={outlineGuard.requestClose}
-                  className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500"
+                  className="px-4 py-2 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition"
                 >
                   Lưu kết quả
                 </button>
@@ -1370,18 +1384,20 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Modal Weekly Feedback */}
       {showWeeklyModal && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
           onClick={weeklyGuard.handleOverlayClick}
         >
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
-            <h3 className="text-base font-bold text-slate-100 mb-4">Đánh giá Báo cáo Tuần {selectedReport?.week_number}</h3>
-            <form onSubmit={handleFeedbackWeekly} className="space-y-3">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-[#2D469E] p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4">
+            <div className="border-b border-slate-200 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Đánh giá Báo cáo Tuần {selectedReport?.week_number}</h3>
+            </div>
+            <form onSubmit={handleFeedbackWeekly} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Xếp loại tuần</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Xếp loại tuần</label>
                 <select
                   value={weeklyRating}
                   onChange={(e) => setWeeklyRating(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 >
                   <option value="GOOD">Tốt / Đạt tiến độ</option>
                   <option value="ACCEPTABLE">Chấp nhận được</option>
@@ -1391,27 +1407,27 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Nhận xét của GVHD</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nhận xét của GVHD</label>
                 <textarea
                   rows={3}
                   value={weeklyFeedback}
                   onChange={(e) => setWeeklyFeedback(e.target.value)}
                   placeholder="Ghi chú góp ý cho sinh viên..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={weeklyGuard.requestClose}
-                  className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500"
+                  className="px-4 py-2 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition"
                 >
                   Lưu nhận xét
                 </button>
@@ -1424,15 +1440,17 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Modal Supervisor Eval */}
       {showEvalModal && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
           onClick={evalGuard.handleOverlayClick}
         >
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
-            <h3 className="text-base font-bold text-slate-100 mb-2">Phiếu Đánh giá của Giảng viên hướng dẫn</h3>
-            <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
-            <form onSubmit={(e) => { e.preventDefault(); handleSupervisorEvaluation(false); }} className="space-y-3">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-[#2D469E] p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4">
+            <div className="border-b border-slate-200 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Phiếu Đánh giá của Giảng viên hướng dẫn</h3>
+              <p className="text-xs text-slate-500 mt-1">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleSupervisorEvaluation(false); }} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Điểm hướng dẫn (Thang 10, tối đa 10.0đ)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Điểm hướng dẫn (Thang 10, tối đa 10.0đ)</label>
                 <input
                   type="number"
                   step="0.1"
@@ -1442,7 +1460,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   placeholder="VD: 8.5"
                   value={evalScore}
                   onChange={(e) => setEvalScore(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
 
@@ -1452,42 +1470,44 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     type="checkbox"
                     checked={isEligible}
                     onChange={(e) => setIsEligible(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 bg-slate-900 border-slate-700"
+                    className="w-4 h-4 rounded text-[#2D469E] bg-white border-slate-300 focus:ring-[#2D469E]"
                   />
-                  <span className="text-xs font-bold text-emerald-400">Đồng ý cho sinh viên bảo vệ trước Hội đồng</span>
+                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
+                    Đồng ý cho sinh viên bảo vệ trước Hội đồng
+                  </span>
                 </label>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Nhận xét chi tiết về thái độ & kết quả ĐATN</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nhận xét chi tiết về thái độ & kết quả ĐATN</label>
                 <textarea
                   rows={3}
                   value={evalFeedback}
                   onChange={(e) => setEvalFeedback(e.target.value)}
                   placeholder="Sinh viên hoàn thành đầy đủ khối lượng công việc, ứng dụng demo chạy tốt..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={evalGuard.requestClose}
-                  className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                 >
                   Hủy
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSupervisorEvaluation(true)}
-                  className="px-3 py-2 rounded bg-amber-600/90 hover:bg-amber-600 text-white text-xs font-semibold"
+                  className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition shadow-sm"
                 >
                   💾 Lưu nháp (Draft)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSupervisorEvaluation(false)}
-                  className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+                  className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
                 >
                   ✓ Lưu chính thức
                 </button>
@@ -1500,15 +1520,17 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Modal Reviewer Eval */}
       {showReviewerModal && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
           onClick={reviewerGuard.handleOverlayClick}
         >
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-md w-full shadow-2xl">
-            <h3 className="text-base font-bold text-slate-100 mb-2">Phiếu Chấm Giảng viên Phản biện (20%)</h3>
-            <p className="text-xs text-slate-400 mb-4">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
-            <form onSubmit={handleReviewerEvaluation} className="space-y-3">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-[#2D469E] p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-4">
+            <div className="border-b border-slate-200 pb-3">
+              <h3 className="text-base font-bold text-slate-900">Phiếu Chấm Giảng viên Phản biện (20%)</h3>
+              <p className="text-xs text-slate-500 mt-1">{selectedProject?.student_name} - {selectedProject?.topic_title_vi}</p>
+            </div>
+            <form onSubmit={handleReviewerEvaluation} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Điểm phản biện (Thang 10, tối đa 10.0đ)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Điểm phản biện (Thang 10, tối đa 10.0đ)</label>
                 <input
                   type="number"
                   step="0.1"
@@ -1518,18 +1540,18 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   placeholder="VD: 8.0"
                   value={revScore}
                   onChange={(e) => setRevScore(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">
-                  Kết luận phản biện <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Kết luận phản biện <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={revVerdict}
                   onChange={(e) => setRevVerdict(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 >
                   <option value="APPROVED">Cho phép bảo vệ</option>
                   <option value="CONDITIONAL">Bảo vệ có điều kiện</option>
@@ -1538,27 +1560,27 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Nhận xét & Câu hỏi phản biện</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nhận xét & Câu hỏi phản biện</label>
                 <textarea
                   rows={3}
                   value={revFeedback}
                   onChange={(e) => setRevFeedback(e.target.value)}
                   placeholder="Đề tài có tính ứng dụng cao, câu hỏi phản biện: Phương pháp bảo mật xác thực được thực hiện ra sao?..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={reviewerGuard.requestClose}
-                  className="px-4 py-2 rounded bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-500"
+                  className="px-4 py-2 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition"
                 >
                   Lưu điểm & Kết luận
                 </button>
@@ -1571,43 +1593,43 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Modal Quản lý Nhật ký & Giao việc cho SV */}
       {showSupervisionModal && (
         <div
-          className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
           onClick={supervisionGuard.handleOverlayClick}
         >
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-5">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-[#2D469E] p-6 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-5 text-slate-900">
             {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+            <div className="flex items-start justify-between border-b border-slate-200 pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-blue-400">
+                  <span className="font-mono text-xs font-bold text-[#2D469E]">
                     {supervisionProject?.student_reg_no}
                   </span>
-                  <span className="text-base font-bold text-slate-100">
+                  <span className="text-base font-bold text-slate-900">
                     {supervisionProject?.student_name}
                   </span>
-                  <span className="text-xs text-slate-400">({supervisionProject?.student_class})</span>
+                  <span className="text-xs text-slate-500 font-semibold">({supervisionProject?.student_class})</span>
                 </div>
-                <h4 className="text-xs font-medium text-slate-300 mt-1">
+                <h4 className="text-xs font-medium text-slate-700 mt-1">
                   <b>Đề tài:</b> {supervisionProject?.topic_title_vi}
                 </h4>
               </div>
 
               <button
                 onClick={supervisionGuard.requestClose}
-                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm"
+                className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold transition"
               >
                 ✕
               </button>
             </div>
 
             {/* Sub Tabs */}
-            <div className="flex gap-2 border-b border-slate-800 pb-2">
+            <div className="flex gap-2 border-b border-slate-200 pb-2">
               <button
                 onClick={() => setSupervisionSubTab('tasks')}
                 className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
                   supervisionSubTab === 'tasks'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    ? 'bg-[#2D469E] text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
                 <span>📌</span>
@@ -1617,8 +1639,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                 onClick={() => setSupervisionSubTab('logs')}
                 className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
                   supervisionSubTab === 'logs'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    ? 'bg-[#2D469E] text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
                 <span>🗓️</span>
@@ -1631,14 +1653,14 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h5 className="text-sm font-bold text-slate-200">Danh sách công việc giao cho sinh viên</h5>
-                    <p className="text-xs text-slate-400">
+                    <h5 className="text-sm font-bold text-slate-900">Danh sách công việc giao cho sinh viên</h5>
+                    <p className="text-xs text-slate-500">
                       Sinh viên sẽ nhận được thông báo và theo dõi hạn nộp trên Task Board cá nhân.
                     </p>
                   </div>
                   <button
                     onClick={() => setShowAddTaskForm(!showAddTaskForm)}
-                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
                   >
                     <span>{showAddTaskForm ? '✕ Đóng form' : '+ Giao việc mới'}</span>
                   </button>
@@ -1646,27 +1668,27 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
                 {/* Add Task Form */}
                 {showAddTaskForm && (
-                  <form onSubmit={handleCreateTask} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                    <h6 className="text-xs font-bold text-blue-400 uppercase">Thêm nhiệm vụ mới</h6>
+                  <form onSubmit={handleCreateTask} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                    <h6 className="text-xs font-bold text-[#2D469E] uppercase">Thêm nhiệm vụ mới</h6>
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">Tên nhiệm vụ / công việc *</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Tên nhiệm vụ / công việc *</label>
                       <input
                         type="text"
                         required
                         placeholder="Ví dụ: Hoàn thành thiết kế giao diện Figma cho phân hệ sinh viên"
                         value={taskTitle}
                         onChange={(e) => setTaskTitle(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-1">Mức độ ưu tiên</label>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Mức độ ưu tiên</label>
                         <select
                           value={taskPriority}
                           onChange={(e) => setTaskPriority(e.target.value as any)}
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                         >
                           <option value="LOW">Thấp</option>
                           <option value="MEDIUM">Trung bình</option>
@@ -1676,40 +1698,39 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-1">Hạn nộp (Deadline)</label>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Hạn nộp (Deadline)</label>
                         <input
                           type="date"
                           value={taskDueDate}
                           onChange={(e) => setTaskDueDate(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
-                        >
-                        </input>
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
+                        />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">Mô tả chi tiết / Hướng dẫn</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Mô tả chi tiết / Hướng dẫn</label>
                       <textarea
                         rows={2}
                         placeholder="Ghi chú cụ thể các tiêu chuẩn, link tài liệu tham khảo..."
                         value={taskDesc}
                         onChange={(e) => setTaskDesc(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                       />
                     </div>
 
-                    <div className="flex justify-end gap-2 pt-1">
+                    <div className="flex justify-end gap-2 pt-1 border-t border-slate-200">
                       <button
                         type="button"
                         onClick={() => setShowAddTaskForm(false)}
-                        className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                        className="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                       >
                         Hủy
                       </button>
                       <button
                         type="submit"
                         disabled={savingTask}
-                        className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow disabled:opacity-50"
+                        className="px-4 py-1.5 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm disabled:opacity-50"
                       >
                         {savingTask ? 'Đang lưu...' : 'Giao việc ngay'}
                       </button>
@@ -1719,9 +1740,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
                 {/* Tasks List */}
                 {loadingSupervision ? (
-                  <div className="py-8 text-center text-slate-400 text-xs">Đang tải danh sách nhiệm vụ...</div>
+                  <div className="py-8 text-center text-slate-500 text-xs">Đang tải danh sách nhiệm vụ...</div>
                 ) : supervisionTasks.length === 0 ? (
-                  <div className="p-6 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
+                  <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-slate-500 text-xs">
                     Chưa có nhiệm vụ nào được giao cho sinh viên này. Bấm nút <b>"+ Giao việc mới"</b> ở trên để giao bài.
                   </div>
                 ) : (
@@ -1729,26 +1750,26 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     {supervisionTasks.map((t) => (
                       <div
                         key={t.id}
-                        className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-3 hover:border-slate-700 transition"
+                        className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-sm flex items-start justify-between gap-3 hover:border-[#2D469E] transition"
                       >
                         <div className="space-y-1 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className={`text-xs font-semibold ${t.is_completed ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                            <span className={`text-xs font-bold ${t.is_completed ? 'line-through text-slate-400' : 'text-slate-900'}`}>
                               {t.title}
                             </span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                              t.priority === 'URGENT' ? 'bg-rose-500/10 text-rose-400' :
-                              t.priority === 'HIGH' ? 'bg-amber-500/10 text-amber-400' :
-                              'bg-blue-500/10 text-blue-400'
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase border ${
+                              t.priority === 'URGENT' ? 'bg-rose-50 text-rose-800 border-rose-300' :
+                              t.priority === 'HIGH' ? 'bg-amber-50 text-amber-800 border-amber-300' :
+                              'bg-[#EEF3FB] text-[#2D469E] border-[#B9D1F8]'
                             }`}>
                               {t.priority_display || t.priority}
                             </span>
                             {t.is_completed ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300">
                                 ✅ Đã hoàn thành
                               </span>
                             ) : (
-                              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-semibold">
                                 ⏳ Chưa xong
                               </span>
                             )}
@@ -1756,9 +1777,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                             {/* Phase 5 Verdict Badge */}
                             {t.review_verdict && t.review_verdict !== 'NOT_SUBMITTED' && (
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                t.review_verdict === 'ACCEPTED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
-                                t.review_verdict === 'REVISION_REQUIRED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
-                                'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                t.review_verdict === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                                t.review_verdict === 'REVISION_REQUIRED' ? 'bg-rose-50 text-rose-800 border-rose-300' :
+                                'bg-amber-50 text-amber-800 border-amber-300'
                               }`}>
                                 {t.review_verdict === 'ACCEPTED' ? '🎯 Đạt' :
                                  t.review_verdict === 'REVISION_REQUIRED' ? '⚠️ Cần sửa' :
@@ -1766,11 +1787,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                               </span>
                             )}
                           </div>
-                          {t.description && <p className="text-xs text-slate-400">{t.description}</p>}
-                          <div className="text-[11px] text-slate-400 flex items-center gap-3 pt-0.5">
-                            {t.due_date && <span>Hạn: <b>{t.due_date}</b></span>}
+                          {t.description && <p className="text-xs text-slate-600">{t.description}</p>}
+                          <div className="text-[11px] text-slate-500 flex items-center gap-3 pt-0.5">
+                            {t.due_date && <span>Hạn: <b className="text-slate-700">{t.due_date}</b></span>}
                             {t.completed_at && (
-                              <span className="text-emerald-400">
+                              <span className="text-emerald-700 font-semibold">
                                 Hoàn thành lúc: {new Date(t.completed_at).toLocaleDateString('vi-VN')}
                               </span>
                             )}
@@ -1778,16 +1799,16 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
                           {/* Phase 5: Student Deliverable */}
                           {(t.deliverable_file || t.deliverable_url) && (
-                            <div className="mt-1.5 p-2 rounded bg-slate-900 border border-slate-800 text-[11px] space-y-1">
-                              <span className="font-semibold text-emerald-400">📦 Sản phẩm SV nộp:</span>
+                            <div className="mt-1.5 p-2 rounded bg-slate-50 border border-slate-200 text-[11px] space-y-1">
+                              <span className="font-bold text-emerald-800">📦 Sản phẩm SV nộp:</span>
                               <div className="flex flex-wrap items-center gap-3">
                                 {t.deliverable_file && (
-                                  <a href={t.deliverable_file} target="_blank" rel="noreferrer" className="text-blue-400 underline font-medium hover:text-blue-300">
+                                  <a href={t.deliverable_file} target="_blank" rel="noreferrer" className="text-[#2D469E] underline font-bold hover:text-blue-700">
                                     File đính kèm ↗
                                   </a>
                                 )}
                                 {t.deliverable_url && (
-                                  <a href={t.deliverable_url} target="_blank" rel="noreferrer" className="text-blue-400 underline font-medium hover:text-blue-300">
+                                  <a href={t.deliverable_url} target="_blank" rel="noreferrer" className="text-[#2D469E] underline font-bold hover:text-blue-700">
                                     Link sản phẩm (Git/Drive) ↗
                                   </a>
                                 )}
@@ -1796,18 +1817,18 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                           )}
 
                           {t.student_notes && (
-                            <div className="mt-1 p-2 rounded bg-blue-950/20 border border-blue-500/20 text-[11px] text-blue-200">
-                              <span className="font-semibold text-blue-400">📝 Ghi chú từ SV:</span> {t.student_notes}
+                            <div className="mt-1 p-2 rounded bg-blue-50 border border-blue-200 text-[11px] text-blue-900">
+                              <span className="font-bold text-[#2D469E]">📝 Ghi chú từ SV:</span> {t.student_notes}
                             </div>
                           )}
 
                           {t.supervisor_review_notes && (
                             <div className={`mt-1 p-2 rounded text-[11px] border ${
                               t.review_verdict === 'REVISION_REQUIRED'
-                                ? 'bg-rose-950/20 border-rose-500/30 text-rose-300'
-                                : 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                                ? 'bg-rose-50 border-rose-300 text-rose-900'
+                                : 'bg-emerald-50 border-emerald-300 text-emerald-900'
                             }`}>
-                              <span className="font-semibold">
+                              <span className="font-bold">
                                 {t.review_verdict === 'REVISION_REQUIRED' ? '⚠️ Yêu cầu sửa của GV:' : '💬 Nhận xét của GV:'}
                               </span>{' '}
                               {t.supervisor_review_notes}
@@ -1818,7 +1839,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         <div className="flex flex-col items-end gap-1.5">
                           <button
                             onClick={() => handleOpenTaskReview(t)}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition flex items-center gap-1"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold transition flex items-center gap-1 shadow-sm"
                             title="Đánh giá sản phẩm nhiệm vụ của SV"
                           >
                             <span>⚖️</span>
@@ -1826,7 +1847,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                           </button>
                           <button
                             onClick={() => handleDeleteTask(t.id)}
-                            className="px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[11px] transition"
+                            className="px-2 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-semibold transition"
                             title="Xóa nhiệm vụ"
                           >
                             Xóa
@@ -1844,14 +1865,14 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h5 className="text-sm font-bold text-slate-200">Biên bản / Nhật ký các buổi làm việc</h5>
-                    <p className="text-xs text-slate-400">
+                    <h5 className="text-sm font-bold text-slate-900">Biên bản / Nhật ký các buổi làm việc</h5>
+                    <p className="text-xs text-slate-500">
                       Ghi nhận định kỳ nội dung trao đổi, tiến độ và nhận xét của GVHD.
                     </p>
                   </div>
                   <button
                     onClick={() => setShowAddLogForm(!showAddLogForm)}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
                   >
                     <span>{showAddLogForm ? '✕ Đóng form' : '+ Thêm nhật ký'}</span>
                   </button>
@@ -1859,35 +1880,35 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
                 {/* Add Meeting Log Form */}
                 {showAddLogForm && (
-                  <form onSubmit={handleCreateMeetingLog} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                    <h6 className="text-xs font-bold text-emerald-400 uppercase">Ghi nhận buổi làm việc mới</h6>
+                  <form onSubmit={handleCreateMeetingLog} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                    <h6 className="text-xs font-bold text-emerald-800 uppercase">Ghi nhận buổi làm việc mới</h6>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-1">Ngày làm việc *</label>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Ngày làm việc *</label>
                         <input
                           type="date"
                           required
                           value={meetingDate}
                           onChange={(e) => setMeetingDate(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-1">Thời gian</label>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Thời gian</label>
                         <input
                           type="text"
                           value={meetingTime}
                           onChange={(e) => setMeetingTime(e.target.value)}
                           placeholder="VD: 09:00 - 10:30"
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-1">Hình thức</label>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Hình thức</label>
                         <select
                           value={meetingType}
                           onChange={(e) => setMeetingType(e.target.value as any)}
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                         >
                           <option value="OFFLINE">Gặp trực tiếp</option>
                           <option value="ONLINE">Trực tuyến (Meet/Zoom)</option>
@@ -1896,7 +1917,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         {meetingType === 'ONLINE' ? 'Link phòng họp trực tuyến (Google Meet / Zoom) *' : 'Địa điểm họp trực tiếp'}
                       </label>
                       <input
@@ -1905,71 +1926,71 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         placeholder={meetingType === 'ONLINE' ? 'VD: https://meet.google.com/abc-defg-hij hoặc https://zoom.us/j/...' : 'VD: Văn phòng bộ môn P405 hoặc phòng LAB...'}
                         value={locationOrLink}
                         onChange={(e) => setLocationOrLink(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">Nội dung đã trao đổi / Tiến độ *</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Nội dung đã trao đổi / Tiến độ *</label>
                       <textarea
                         rows={3}
                         required
                         placeholder="Tóm tắt nội dung sinh viên báo cáo, vấn đề thảo luận..."
                         value={contentDiscussed}
                         onChange={(e) => setContentDiscussed(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">Góp ý & Nhận xét của GVHD</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Góp ý & Nhận xét của GVHD</label>
                       <textarea
                         rows={2}
                         placeholder="Đánh giá kết quả tuần qua, yêu cầu cần bổ sung chỉnh sửa..."
                         value={supervisorNotes}
                         onChange={(e) => setSupervisorNotes(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                       />
                     </div>
 
                     {/* Feature 5: Giao việc tuần tới làm căn cứ đánh giá điểm quá trình */}
-                    <div className="p-3 bg-slate-900/90 rounded-lg border border-slate-800 space-y-3">
+                    <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-amber-400">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-amber-800">
                           <input
                             type="checkbox"
                             checked={logAssignTask}
                             onChange={(e) => setLogAssignTask(e.target.checked)}
-                            className="rounded border-slate-700 text-blue-600 focus:ring-0"
+                            className="rounded border-slate-300 text-[#2D469E] focus:ring-0"
                           />
                           <span>📌 Giao nhiệm vụ cho tuần tới (Lưu làm căn cứ chấm điểm quá trình)</span>
                         </label>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold">
                           ⭐ Căn cứ điểm quá trình
                         </span>
                       </div>
 
                       {logAssignTask && (
-                        <div className="space-y-2.5 pt-1 border-t border-slate-800">
+                        <div className="space-y-2.5 pt-2 border-t border-slate-200">
                           <div>
-                            <label className="block text-[11px] font-medium text-slate-300 mb-1">Tên công việc / nhiệm vụ *</label>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">Tên công việc / nhiệm vụ *</label>
                             <input
                               type="text"
                               required={logAssignTask}
                               placeholder="VD: Thiết kế cơ sở dữ liệu và dựng API phân hệ xác thực"
                               value={logTaskTitle}
                               onChange={(e) => setLogTaskTitle(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                              className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                             />
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                             <div>
-                              <label className="block text-[11px] font-medium text-slate-300 mb-1">Mức độ ưu tiên</label>
+                              <label className="block text-[11px] font-bold text-slate-700 mb-1">Mức độ ưu tiên</label>
                               <select
                                 value={logTaskPriority}
                                 onChange={(e) => setLogTaskPriority(e.target.value as any)}
-                                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                               >
                                 <option value="LOW">Thấp</option>
                                 <option value="MEDIUM">Trung bình</option>
@@ -1978,24 +1999,24 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                               </select>
                             </div>
                             <div>
-                              <label className="block text-[11px] font-medium text-slate-300 mb-1">Hạn nộp (Deadline)</label>
+                              <label className="block text-[11px] font-bold text-slate-700 mb-1">Hạn nộp (Deadline)</label>
                               <input
                                 type="date"
                                 value={logTaskDueDate}
                                 onChange={(e) => setLogTaskDueDate(e.target.value)}
-                                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                               />
                             </div>
                           </div>
 
                           <div>
-                            <label className="block text-[11px] font-medium text-slate-300 mb-1">Chi tiết yêu cầu & Hướng dẫn</label>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">Chi tiết yêu cầu & Hướng dẫn</label>
                             <textarea
                               rows={2}
                               placeholder="Ghi chú chi tiết kết quả cần đạt, tài liệu đính kèm..."
                               value={logTaskDesc}
                               onChange={(e) => setLogTaskDesc(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                              className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                             />
                           </div>
                         </div>
@@ -2003,28 +2024,28 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">Kế hoạch kỳ họp tiếp theo</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Kế hoạch kỳ họp tiếp theo</label>
                       <input
                         type="text"
                         placeholder="VD: Báo cáo kết quả kiểm thử và hoàn thiện báo cáo bản nháp"
                         value={nextMeetingPlan}
                         onChange={(e) => setNextMeetingPlan(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                       />
                     </div>
 
-                    <div className="flex justify-end gap-2 pt-1">
+                    <div className="flex justify-end gap-2 pt-1 border-t border-slate-200">
                       <button
                         type="button"
                         onClick={() => setShowAddLogForm(false)}
-                        className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                        className="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                       >
                         Hủy
                       </button>
                       <button
                         type="submit"
                         disabled={savingLog}
-                        className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow disabled:opacity-50"
+                        className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm disabled:opacity-50"
                       >
                         {savingLog ? 'Đang lưu...' : 'Lưu nhật ký & Căn cứ đánh giá'}
                       </button>
@@ -2034,30 +2055,30 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
                 {/* Logs List */}
                 {loadingSupervision ? (
-                  <div className="py-8 text-center text-slate-400 text-xs">Đang tải nhật ký...</div>
+                  <div className="py-8 text-center text-slate-500 text-xs">Đang tải nhật ký...</div>
                 ) : supervisionLogs.length === 0 ? (
-                  <div className="p-6 text-center bg-slate-950 rounded-xl border border-slate-800 text-slate-400 text-xs">
+                  <div className="p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-slate-500 text-xs">
                     Chưa có nhật ký buổi họp nào được lưu. Bấm <b>"+ Thêm nhật ký"</b> để tạo buổi đầu tiên.
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {supervisionLogs.map((log, idx) => (
-                      <div key={log.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                      <div key={log.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2.5">
                         <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-200">
+                            <span className="font-bold text-slate-900">
                               #{supervisionLogs.length - idx} - Ngày {log.meeting_date} ({log.meeting_time})
                             </span>
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold">
                               ⭐ Căn cứ điểm quá trình
                             </span>
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold border ${
                               log.meeting_type === 'ONLINE'
-                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                                : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                ? 'bg-purple-50 text-purple-800 border-purple-300'
+                                : 'bg-blue-50 text-blue-800 border-blue-300'
                             }`}>
                               {log.meeting_type_display || (log.meeting_type === 'ONLINE' ? 'Trực tuyến (Meet/Zoom)' : 'Gặp trực tiếp')}
                             </span>
@@ -2066,7 +2087,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                                 href={log.location_or_link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 text-[10px] font-semibold transition"
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#EEF3FB] hover:bg-blue-100 text-[#2D469E] border border-[#B9D1F8] text-[10px] font-bold transition"
                               >
                                 <span>📹 Tham gia cuộc họp ↗</span>
                               </a>
@@ -2075,29 +2096,29 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         </div>
 
                         {log.location_or_link && !(log.meeting_type === 'ONLINE' || log.location_or_link.startsWith('http')) && (
-                          <div className="text-[11px] text-slate-400">
-                            📍 Địa điểm: <span className="text-slate-300">{log.location_or_link}</span>
+                          <div className="text-[11px] text-slate-500">
+                            📍 Địa điểm: <span className="text-slate-800 font-semibold">{log.location_or_link}</span>
                           </div>
                         )}
 
-                        <div className="text-xs text-slate-300 bg-slate-900/50 p-2.5 rounded border border-slate-800/80">
-                          <span className="font-semibold text-slate-400">Nội dung trao đổi:</span> {log.content_discussed}
+                        <div className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                          <span className="font-bold text-slate-900">Nội dung trao đổi:</span> {log.content_discussed}
                         </div>
 
                         {log.supervisor_notes && (
-                          <div className="text-xs text-emerald-300 bg-emerald-950/20 p-2 rounded border border-emerald-500/20">
-                            <span className="font-semibold">Nhận xét GVHD:</span> {log.supervisor_notes}
+                          <div className="text-xs text-emerald-800 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
+                            <span className="font-bold">Nhận xét GVHD:</span> {log.supervisor_notes}
                           </div>
                         )}
 
                         {log.tasks && log.tasks.length > 0 && (
-                          <div className="p-2.5 rounded bg-slate-900/80 border border-slate-800 space-y-1.5 text-xs">
-                            <span className="font-bold text-amber-400">📌 Nhiệm vụ giao tuần tới (Căn cứ đánh giá):</span>
+                          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+                            <span className="font-bold text-amber-800">📌 Nhiệm vụ giao tuần tới (Căn cứ đánh giá):</span>
                             {log.tasks.map((t: any) => (
-                              <div key={t.id} className="flex items-center justify-between text-slate-300 pl-2">
-                                <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-400">(Hạn: {t.due_date})</span>}</span>
-                                <span className={`text-[10px] px-1.5 py-0.2 rounded uppercase ${
-                                  t.priority === 'URGENT' ? 'bg-rose-500/10 text-rose-400' : 'bg-slate-800 text-slate-300'
+                              <div key={t.id} className="flex items-center justify-between text-slate-700 pl-2">
+                                <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-500">(Hạn: {t.due_date})</span>}</span>
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded uppercase font-bold border ${
+                                  t.priority === 'URGENT' ? 'bg-rose-50 text-rose-800 border-rose-300' : 'bg-slate-100 text-slate-700 border-slate-300'
                                 }`}>
                                   {t.priority_display || t.priority}
                                 </span>
@@ -2107,7 +2128,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         )}
 
                         {log.next_meeting_plan && (
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-[11px] text-slate-500">
                             <b>Kế hoạch kỳ tới:</b> {log.next_meeting_plan}
                           </div>
                         )}
@@ -2123,58 +2144,60 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       {/* Modal Phase 3: Xác nhận đề tài của Giảng viên hướng dẫn */}
       {showTopicConfirmModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <span className="text-xs text-amber-400 font-semibold uppercase tracking-wider">Giai đoạn 3: GV Xác nhận đề tài</span>
-              <h3 className="text-base font-bold text-slate-100 mt-1">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-[#2D469E] p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4 text-slate-900">
+            <div className="border-b border-slate-200 pb-3">
+              <span className="text-xs text-amber-800 font-bold uppercase tracking-wider bg-amber-50 px-2.5 py-0.5 rounded border border-amber-300">
+                Giai đoạn 3: GV Xác nhận đề tài
+              </span>
+              <h3 className="text-base font-bold text-slate-900 mt-2">
                 {selectedTopicProject?.student_name} ({selectedTopicProject?.student_reg_no})
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 GVHD và SV cùng thống nhất tên đề tài trước khi trình Khoa phê duyệt chính thức.
               </p>
             </div>
 
             <form onSubmit={handleConfirmTopic} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Việt (*)</label>
+                <label className="block text-slate-700 font-bold mb-1">Tên đề tài tiếng Việt (*)</label>
                 <textarea
                   rows={3}
                   required
                   value={topicConfirmVi}
                   onChange={(e) => setTopicConfirmVi(e.target.value)}
                   placeholder="Nhập tên đề tài tiếng Việt chính xác..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Anh</label>
+                <label className="block text-slate-700 font-bold mb-1">Tên đề tài tiếng Anh</label>
                 <textarea
                   rows={2}
                   value={topicConfirmEn}
                   onChange={(e) => setTopicConfirmEn(e.target.value)}
                   placeholder="Nhập tên đề tài tiếng Anh (nếu có)..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
 
-              <div className="p-3 rounded-lg bg-blue-950/30 border border-blue-500/30 text-blue-300 text-[11px]">
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-[#2D469E] text-[11px] font-medium">
                 ℹ️ Sau khi GV bấm xác nhận, đề tài sẽ chuyển trạng thái <b>TOPIC_CONFIRMED</b> và sẵn sàng trình Ban Chủ nhiệm Khoa duyệt.
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowTopicConfirmModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={confirmingTopic}
-                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
+                  className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
                 >
                   {confirmingTopic ? 'Đang xác nhận...' : '✓ Xác nhận đề tài'}
                 </button>
@@ -2186,19 +2209,21 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       {/* Modal Phase 5: GV Đánh giá kết quả nhiệm vụ của sinh viên */}
       {showTaskReviewModal && selectedTaskForReview && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">Giai đoạn 5: Đánh giá nhiệm vụ</span>
-              <h3 className="text-base font-bold text-slate-100 mt-1">{selectedTaskForReview.title}</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-[#2D469E] p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4 text-slate-900">
+            <div className="border-b border-slate-200 pb-3">
+              <span className="text-xs text-emerald-800 font-bold uppercase tracking-wider bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-300">
+                Giai đoạn 5: Đánh giá nhiệm vụ
+              </span>
+              <h3 className="text-base font-bold text-slate-900 mt-2">{selectedTaskForReview.title}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
                 Xem sản phẩm sinh viên nộp và đưa ra kết luận Đạt hoặc Yêu cầu sửa đổi.
               </p>
             </div>
 
             {/* Deliverable details */}
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-2">
-              <h5 className="font-bold text-slate-300">Kết quả sinh viên đã nộp:</h5>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+              <h5 className="font-bold text-slate-900">Kết quả sinh viên đã nộp:</h5>
               {selectedTaskForReview.deliverable_file || selectedTaskForReview.deliverable_url ? (
                 <div className="flex flex-wrap items-center gap-3">
                   {selectedTaskForReview.deliverable_file && (
@@ -2206,7 +2231,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       href={selectedTaskForReview.deliverable_file}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 font-semibold hover:bg-blue-600/30"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#EEF3FB] text-[#2D469E] border border-[#B9D1F8] font-bold hover:bg-blue-100"
                     >
                       <span>📥</span> Tải file sản phẩm ↗
                     </a>
@@ -2216,30 +2241,30 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       href={selectedTaskForReview.deliverable_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600/20 text-purple-300 border border-purple-500/30 font-semibold hover:bg-purple-600/30"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 font-bold hover:bg-purple-100"
                     >
                       <span>🔗</span> Link kho lưu trữ / Demo ↗
                     </a>
                   )}
                 </div>
               ) : (
-                <p className="text-slate-500 italic">Sinh viên chưa đính kèm file hoặc link trực tuyến.</p>
+                <p className="text-slate-400 italic">Sinh viên chưa đính kèm file hoặc link trực tuyến.</p>
               )}
 
               {selectedTaskForReview.student_notes && (
-                <div className="pt-1 text-slate-300">
-                  <span className="text-slate-400 font-semibold">Ghi chú từ sinh viên:</span> {selectedTaskForReview.student_notes}
+                <div className="pt-1 text-slate-700">
+                  <span className="text-slate-900 font-bold">Ghi chú từ sinh viên:</span> {selectedTaskForReview.student_notes}
                 </div>
               )}
             </div>
 
             <form onSubmit={handleSubmitTaskReview} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1">Kết luận đánh giá (*)</label>
+                <label className="block text-slate-700 font-bold mb-1">Kết luận đánh giá (*)</label>
                 <select
                   value={taskReviewVerdict}
                   onChange={(e) => setTaskReviewVerdict(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 >
                   <option value="ACCEPTED">🎯 ĐẠT YÊU CẦU (Hoàn thành nhiệm vụ)</option>
                   <option value="REVISION_REQUIRED">⚠️ CHƯA ĐẠT / YÊU CẦU SỬA LẠI</option>
@@ -2247,7 +2272,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               </div>
 
               <div>
-                <label className="block text-slate-300 font-medium mb-1">
+                <label className="block text-slate-700 font-bold mb-1">
                   Nhận xét & Hướng dẫn sửa đổi (nếu có):
                 </label>
                 <textarea
@@ -2255,22 +2280,22 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   value={taskReviewNotes}
                   onChange={(e) => setTaskReviewNotes(e.target.value)}
                   placeholder="Ghi nhận xét đánh giá, chỉ ra điểm cần khắc phục hoặc sửa lại..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowTaskReviewModal(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                 >
                   Đóng
                 </button>
                 <button
                   type="submit"
                   disabled={reviewingTask}
-                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/30 disabled:opacity-50"
+                  className="px-5 py-2 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
                 >
                   {reviewingTask ? 'Đang lưu...' : 'Lưu kết quả đánh giá'}
                 </button>
@@ -2282,31 +2307,31 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Tab 6: Deferrals Management for Khoa / Ban Chu Nhiem (FLOW_24) */}
       {activeTab === 'deferrals' && (
         <div className="utc-supervisor-card space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
-              <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                 <span>📋</span> Quản lý Đơn Xin Bảo Lưu Đồ Án Tốt Nghiệp ({deferralRequests.length})
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Khoa phê duyệt chuyển trạng thái sang <b>DEFERRED (Bảo lưu)</b> hoặc từ chối loại khỏi đợt (DISQUALIFIED).
               </p>
             </div>
             <button
               onClick={() => fetchData()}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+              className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition shadow-sm"
             >
               🔄 Tải lại danh sách
             </button>
           </div>
 
           {deferralRequests.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">
+            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
               Hiện tại không có đơn xin bảo lưu đồ án nào cần xử lý.
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-950 text-slate-400 uppercase font-semibold">
+                <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200">
                   <tr>
                     <th className="p-3">MSSV</th>
                     <th className="p-3">Sinh viên</th>
@@ -2318,21 +2343,21 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     <th className="p-3 text-right">Khoa duyệt bảo lưu</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800 text-slate-300">
+                <tbody className="divide-y divide-slate-100 text-slate-700">
                   {deferralRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-950/40">
-                      <td className="p-3 font-mono font-semibold text-blue-400">
+                    <tr key={req.id} className="hover:bg-slate-50/80 transition">
+                      <td className="p-3 font-mono font-bold text-[#2D469E]">
                         {req.student?.registration_no || req.student_registration_no || 'N/A'}
                       </td>
-                      <td className="p-3 font-medium text-slate-100">
+                      <td className="p-3 font-bold text-slate-900">
                         {req.student?.full_name || req.student_name || 'Sinh viên'}
                       </td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
+                        <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300 font-bold">
                           {req.reason_category_display || req.reason_category || 'Bảo lưu'}
                         </span>
                       </td>
-                      <td className="p-3 text-slate-300 max-w-xs whitespace-pre-line">
+                      <td className="p-3 text-slate-700 max-w-xs whitespace-pre-line">
                         {req.reason || req.reason_details}
                       </td>
                       <td className="p-3">
@@ -2341,22 +2366,22 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                             href={req.evidence_file}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-blue-400 underline font-medium hover:text-blue-300 inline-flex items-center gap-1"
+                            className="text-[#2D469E] underline font-bold hover:text-blue-700 inline-flex items-center gap-1"
                           >
                             <span>📎</span> Xem file ↗
                           </a>
                         ) : (
-                          <span className="text-slate-500 italic">Không có</span>
+                          <span className="text-slate-400 italic">Không có</span>
                         )}
                       </td>
-                      <td className="p-3 text-slate-400 whitespace-nowrap">
+                      <td className="p-3 text-slate-500 whitespace-nowrap">
                         {req.submitted_at || req.created_at ? new Date(req.submitted_at || req.created_at).toLocaleString('vi-VN') : 'N/A'}
                       </td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded text-xs font-bold border ${
-                          req.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' :
-                          req.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' :
-                          'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                          req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                          req.status === 'REJECTED' ? 'bg-rose-50 text-rose-800 border-rose-300' :
+                          'bg-amber-50 text-amber-800 border-amber-300'
                         }`}>
                           {req.status === 'APPROVED' ? 'Đã duyệt bảo lưu' :
                            req.status === 'REJECTED' ? 'Bị từ chối' : 'Chờ Khoa duyệt'}
@@ -2367,7 +2392,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                           <button
                             onClick={() => handleReviewDeferral(req.id, 'APPROVED')}
                             disabled={reviewingDeferral}
-                            className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow shadow-emerald-600/30 flex items-center gap-1 disabled:opacity-50"
+                            className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm flex items-center gap-1 disabled:opacity-50"
                             title="Khoa chấp thuận bảo lưu đồ án (Chuyển sang DEFERRED)"
                           >
                             <span>✓</span> Duyệt Bảo lưu
@@ -2375,7 +2400,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                           <button
                             onClick={() => handleReviewDeferral(req.id, 'REJECTED')}
                             disabled={reviewingDeferral}
-                            className="px-2.5 py-1 rounded bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 font-bold text-xs transition flex items-center gap-1 disabled:opacity-50"
+                            className="px-2.5 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs transition flex items-center gap-1 disabled:opacity-50"
                             title="Không duyệt bảo lưu (Sinh viên bị loại khỏi đợt)"
                           >
                             <span>✕</span> Từ chối
@@ -2393,22 +2418,24 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
       {/* Modal FLOW_14: Khoa từ chối đề tài bắt buộc nhập lý do */}
       {adminTopicModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <span className="text-xs text-rose-400 font-semibold uppercase tracking-wider">Khoa từ chối / Yêu cầu sửa đề tài</span>
-              <h3 className="text-base font-bold text-slate-100 mt-1">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-rose-600 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4 text-slate-900">
+            <div className="border-b border-slate-200 pb-3">
+              <span className="text-xs text-rose-800 font-bold uppercase tracking-wider bg-rose-50 px-2.5 py-0.5 rounded border border-rose-300">
+                Khoa từ chối / Yêu cầu sửa đề tài
+              </span>
+              <h3 className="text-base font-bold text-slate-900 mt-2">
                 {adminTopicModal.student_name} ({adminTopicModal.student_reg_no})
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Đề tài: <b>{adminTopicModal.topic_title_vi}</b>
               </p>
             </div>
 
             <form onSubmit={handleSubmitAdminTopicReject} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-300 font-medium mb-1">
-                  Lý do từ chối / Yêu cầu chỉnh sửa (*) <span className="text-rose-400 font-bold">(Bắt buộc)</span>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Lý do từ chối / Yêu cầu chỉnh sửa (*) <span className="text-rose-600 font-bold">(Bắt buộc)</span>
                 </label>
                 <textarea
                   rows={4}
@@ -2416,26 +2443,26 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   value={adminTopicNotes}
                   onChange={(e) => setAdminTopicNotes(e.target.value)}
                   placeholder="Ghi rõ lý do Khoa từ chối hoặc các điểm cần chỉnh sửa lại để SV và GVHD hoàn thiện..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-rose-500/40 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-rose-400"
+                  className="w-full px-3 py-2 bg-white border border-rose-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-rose-600"
                 />
               </div>
 
-              <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-500/30 text-rose-300 text-[11px]">
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-[11px] font-medium">
                 ⚠️ Chú ý: Hệ thống không cho phép để trống ô lý do khi từ chối đề tài.
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setAdminTopicModal(null)}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={adminTopicSubmitting}
-                  className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md shadow-rose-600/30 disabled:opacity-50"
+                  className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
                 >
                   {adminTopicSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu sửa đổi'}
                 </button>

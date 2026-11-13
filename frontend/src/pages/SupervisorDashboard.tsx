@@ -316,9 +316,9 @@ const SupervisorDashboard: React.FC = () => {
 
         <div className="tabs">
           <button
-            className={`tab ${activeTab === 'utc_graduation' ? 'active' : ''}`}
+            className={`tab ${isGraduationStageTab ? 'active' : ''}`}
             onClick={() => setActiveTab('utc_graduation')}
-            style={{ fontWeight: 'bold', background: activeTab === 'utc_graduation' ? '#2D469E' : undefined, color: activeTab === 'utc_graduation' ? '#fff' : undefined }}
+            style={{ fontWeight: 'bold', background: isGraduationStageTab ? '#2D469E' : undefined, color: isGraduationStageTab ? '#fff' : undefined }}
           >
             🎓 Quản lý ĐATN UTC (Duyệt Đề cương, Báo cáo & Chấm Điểm)
           </button>
