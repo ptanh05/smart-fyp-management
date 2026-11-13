@@ -265,3 +265,233 @@
     margin-right: 0;
   }
 }
+
+/* ==============================================================================
+ * EXECUTIVE PAGE HEADER & UTC MEETINGS WIDGET
+ * ============================================================================== */
+.utc-page-header-card {
+  background: var(--bg-secondary, #ffffff);
+  border-radius: 12px;
+  padding: 18px 24px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  box-shadow: 0 2px 8px rgba(0, 43, 73, 0.04);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  transition: all 0.3s ease;
+}
+
+.utc-header-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.utc-header-badge {
+  background: #eef3fb;
+  color: #2D469E;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid #d2e0f5;
+  letter-spacing: 0.3px;
+}
+
+.utc-header-meta {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.utc-header-meta strong {
+  color: #1e293b;
+}
+
+.utc-header-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #101B3E;
+}
+
+.utc-header-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.utc-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.utc-header-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  color: #2D469E;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.utc-header-refresh-btn:hover {
+  background: #f1f5f9;
+  border-color: #2D469E;
+}
+
+/* Meeting & Supervision Log */
+.utc-empty-meeting-box {
+  padding: 24px;
+  text-align: center;
+  background: #f8fafc;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 0.9rem;
+  border: 1px dashed #cbd5e1;
+}
+
+.utc-meeting-item {
+  padding: 16px 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.utc-meeting-item.is-online {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.utc-meeting-type-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background-color: #e2e8f0;
+  color: #475569;
+}
+
+.utc-meeting-type-badge.badge-online {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border-color: #7dd3fc;
+}
+
+.utc-meeting-time {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.utc-btn-view-sheet {
+  background: rgba(45, 70, 158, 0.08);
+  border: 1px solid #2D469E;
+  color: #2D469E;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(45, 70, 158, 0.12);
+}
+
+.utc-btn-view-sheet:hover {
+  background: #2D469E;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(45, 70, 158, 0.22);
+}
+
+/* ==============================================================================
+ * DARK MODE DASHBOARD OVERRIDES
+ * ============================================================================== */
+[data-theme="dark"] .utc-page-header-card {
+  background: var(--surface-1, #111c44) !important;
+  border-color: var(--divider, rgba(255, 255, 255, 0.1)) !important;
+  box-shadow: var(--shadow-soft) !important;
+}
+
+[data-theme="dark"] .utc-header-badge {
+  background: rgba(45, 70, 158, 0.25) !important;
+  color: #93c5fd !important;
+  border-color: rgba(61, 91, 199, 0.45) !important;
+}
+
+[data-theme="dark"] .utc-header-meta {
+  color: var(--text-soft, #94a3b8) !important;
+}
+
+[data-theme="dark"] .utc-header-meta strong {
+  color: var(--text-strong, #ffffff) !important;
+}
+
+[data-theme="dark"] .utc-header-title {
+  color: var(--text-strong, #ffffff) !important;
+}
+
+[data-theme="dark"] .utc-header-subtitle {
+  color: var(--text-soft, #94a3b8) !important;
+}
+
+[data-theme="dark"] .utc-header-refresh-btn {
+  background: rgba(45, 70, 158, 0.2) !important;
+  color: #93c5fd !important;
+  border-color: rgba(61, 91, 199, 0.45) !important;
+}
+
+[data-theme="dark"] .utc-header-refresh-btn:hover {
+  background: #2D469E !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .utc-empty-meeting-box {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--divider, rgba(255, 255, 255, 0.12)) !important;
+  color: var(--text-soft, #94a3b8) !important;
+}
+
+[data-theme="dark"] .utc-meeting-item {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--divider, rgba(255, 255, 255, 0.12)) !important;
+  color: var(--text-body) !important;
+}
+
+[data-theme="dark"] .utc-meeting-item.is-online {
+  background: rgba(45, 70, 158, 0.18) !important;
+  border-color: rgba(61, 91, 199, 0.45) !important;
+}
+
+[data-theme="dark"] .utc-meeting-time {
+  color: var(--text-strong, #ffffff) !important;
+}
+
+[data-theme="dark"] .utc-btn-view-sheet {
+  background: rgba(45, 70, 158, 0.22) !important;
+  border-color: #3D5BC7 !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .utc-btn-view-sheet:hover {
+  background: #2D469E !important;
+  color: #ffffff !important;
+}

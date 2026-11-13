@@ -222,73 +222,35 @@ const StudentDashboard: React.FC = () => {
         {(() => {
           const tabInfo = getTabHeaderInfo(activeTab);
           return (
-            <div
-              className="utc-page-header-card"
-              style={{
-                background: '#ffffff',
-                borderRadius: '12px',
-                padding: '18px 24px',
-                marginBottom: '20px',
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 2px 8px rgba(0, 43, 73, 0.04)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '12px',
-              }}
-            >
+            <div className="utc-page-header-card">
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span
-                    style={{
-                      background: '#eef3fb',
-                      color: '#2D469E',
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      padding: '3px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid #d2e0f5',
-                      letterSpacing: '0.3px',
-                    }}
-                  >
+                <div className="utc-header-meta-row">
+                  <span className="utc-header-badge">
                     {tabInfo.badge}
                   </span>
-                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                  <span className="utc-header-meta">
                     MSSV: <strong>{profile?.registration_no || (student as any)?.registration_no || '---'}</strong>
                   </span>
                   {profile?.department && (
-                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                    <span className="utc-header-meta">
                       | Khoa: <strong>{profile.department}</strong>
                     </span>
                   )}
                 </div>
-                <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#101B3E' }}>
+                <h1 className="utc-header-title">
                   {tabInfo.title}
                 </h1>
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.88rem', color: '#64748b' }}>
+                <p className="utc-header-subtitle">
                   {tabInfo.subtitle}
                 </p>
               </div>
 
               {/* Action buttons on header */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div className="utc-header-actions">
                 <button
                   type="button"
-                  className="btn btn-outline"
+                  className="utc-header-refresh-btn"
                   onClick={loadData}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    fontSize: '0.88rem',
-                    color: '#2D469E',
-                    borderColor: '#cbd5e1',
-                    background: '#ffffff',
-                    fontWeight: 600,
-                  }}
                 >
                   🔄 Tải Lại
                 </button>
@@ -433,34 +395,8 @@ const StudentDashboard: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <h2 style={{ margin: 0 }}>{t('profile.title', 'Thông Tin Cá Nhân & Hồ Sơ UTC')}</h2>
                   <button
-                    className="btn btn-outline"
+                    className="btn utc-btn-view-sheet"
                     onClick={() => setShowUTCSheet(true)}
-                    style={{
-                      background: 'rgba(0, 51, 102, 0.08)',
-                      borderColor: '#003366',
-                      color: '#003366',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                      boxShadow: '0 2px 6px rgba(0, 51, 102, 0.12)',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 51, 102, 0.22)';
-                      e.currentTarget.style.background = '#003366';
-                      e.currentTarget.style.color = '#ffffff';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 51, 102, 0.12)';
-                      e.currentTarget.style.background = 'rgba(0, 51, 102, 0.08)';
-                      e.currentTarget.style.color = '#003366';
-                    }}
                     title="Mở biểu mẫu biên bản đánh giá ĐATN UTC có chữ ký và điểm chi tiết"
                   >
                     <span>📄</span>
@@ -507,7 +443,7 @@ const StudentDashboard: React.FC = () => {
                     Đang tải lịch hẹn gặp từ giảng viên...
                   </div>
                 ) : supervisionLogs.length === 0 ? (
-                  <div style={{ padding: '24px', textAlign: 'center', background: '#f8fafc', borderRadius: '8px', color: '#64748b', fontSize: '0.9rem', border: '1px dashed #cbd5e1' }}>
+                  <div className="utc-empty-meeting-box">
                     Chưa có lịch hẹn gặp trực tuyến hoặc buổi họp nào được lên lịch từ GVHD.
                   </div>
                 ) : (
@@ -517,50 +453,32 @@ const StudentDashboard: React.FC = () => {
                       return (
                         <div
                           key={meeting.id}
-                          style={{
-                            padding: '16px 20px',
-                            background: isOnline ? '#f0f9ff' : '#f8fafc',
-                            border: `1px solid ${isOnline ? '#bae6fd' : '#e2e8f0'}`,
-                            borderRadius: '10px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            gap: '12px',
-                          }}
+                          className={`utc-meeting-item ${isOnline ? 'is-online' : 'is-offline'}`}
                         >
                           <div style={{ flex: '1 1 300px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                              <span style={{
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                backgroundColor: isOnline ? '#e0f2fe' : '#e2e8f0',
-                                color: isOnline ? '#0369a1' : '#475569',
-                                border: `1px solid ${isOnline ? '#7dd3fc' : '#cbd5e1'}`,
-                              }}>
+                              <span className={`utc-meeting-type-badge ${isOnline ? 'badge-online' : ''}`}>
                                 {isOnline ? '📹 TRỰC TUYẾN (MEET/ZOOM)' : '📍 GẶP TRỰC TIẾP'}
                               </span>
-                              <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.95rem' }}>
+                              <span className="utc-meeting-time">
                                 Ngày: {meeting.meeting_date} ({meeting.meeting_time})
                               </span>
                             </div>
 
                             {meeting.content_discussed && (
-                              <p style={{ margin: '4px 0', fontSize: '0.88rem', color: '#334155' }}>
+                              <p style={{ margin: '4px 0', fontSize: '0.88rem' }}>
                                 <strong>Nội dung:</strong> {meeting.content_discussed}
                               </p>
                             )}
 
                             {meeting.supervisor_notes && (
-                              <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#047857' }}>
+                              <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#10b981' }}>
                                 <strong>Nhận xét GV:</strong> {meeting.supervisor_notes}
                               </p>
                             )}
 
                             {!isOnline && meeting.location_or_link && (
-                              <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#64748b' }}>
+                              <p style={{ margin: '4px 0', fontSize: '0.85rem' }}>
                                 <strong>Địa điểm:</strong> {meeting.location_or_link}
                               </p>
                             )}

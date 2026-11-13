@@ -42,7 +42,7 @@
 
 .utc-timeline-header h3 {
   margin: 0;
-  color: #003366;
+  color: #2D469E;
   font-size: 1.15rem;
   font-weight: 800;
   display: flex;
@@ -52,9 +52,9 @@
 }
 
 .utc-timeline-badge {
-  background: #f1f5f9;
-  color: #0f4c81;
-  border: 1px solid #cbd5e1;
+  background: #eef3fb;
+  color: #2D469E;
+  border: 1px solid #d2e0f5;
   padding: 4px 12px;
   border-radius: 16px;
   font-size: 0.82rem;
@@ -118,8 +118,8 @@
 }
 
 .utc-step-item.active .utc-step-icon {
-  background: #003366;
-  border-color: #d97706;
+  background: #2D469E;
+  border-color: #f59e0b;
   color: #ffffff;
   animation: activePulse 2.5s infinite;
 }
@@ -127,13 +127,71 @@
 .utc-step-title {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #334155;
+  color: #101B3E;
   margin-bottom: 4px;
 }
 
 .utc-step-time {
   font-size: 0.78rem;
   color: #64748b;
+}
+
+/* ==============================================================================
+ * DARK MODE STYLES
+ * ============================================================================== */
+[data-theme="dark"] .utc-timeline-card {
+  background: var(--surface-1, #111c44);
+  border-color: var(--divider, rgba(255, 255, 255, 0.1));
+  box-shadow: var(--shadow-soft);
+}
+
+[data-theme="dark"] .utc-timeline-header h3 {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .utc-timeline-badge {
+  background: rgba(45, 70, 158, 0.25);
+  color: #93c5fd;
+  border-color: rgba(61, 91, 199, 0.45);
+}
+
+[data-theme="dark"] .utc-timeline-steps::before {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .utc-step-icon {
+  background: var(--surface-2, #1b2858);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .utc-step-item.completed .utc-step-icon {
+  background: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .utc-step-item.active .utc-step-icon {
+  background: #2D469E;
+  border-color: #f59e0b;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+}
+
+[data-theme="dark"] .utc-step-title {
+  color: var(--text-strong, #ffffff);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .utc-step-time {
+  color: var(--text-soft, #94a3b8);
+}
+
+[data-theme="dark"] .utc-step-time em {
+  color: #93c5fd;
+  font-style: normal;
+  font-weight: 600;
 }
 
 /* Mobile Responsiveness */
