@@ -1065,20 +1065,24 @@
 }
 
 [data-theme="dark"] .utc-action-banner-approved {
-  background: rgba(16, 185, 129, 0.15) !important;
-  border-color: rgba(52, 211, 153, 0.45) !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.15) 100%) !important;
+  border: 1.5px solid #10b981 !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2) !important;
   color: #ecfdf5 !important;
 }
 [data-theme="dark"] .utc-action-banner-approved h4,
 [data-theme="dark"] .utc-action-banner-approved .font-bold {
-  color: #a7f3d0 !important;
+  color: #34d399 !important;
+  font-weight: 800 !important;
 }
 [data-theme="dark"] .utc-action-banner-approved p,
 [data-theme="dark"] .utc-action-banner-approved span {
-  color: #d1fae5 !important;
+  color: #e2e8f0 !important;
 }
-[data-theme="dark"] .utc-action-banner-approved b {
-  color: #ffffff !important;
+[data-theme="dark"] .utc-action-banner-approved b,
+[data-theme="dark"] .utc-action-banner-approved strong {
+  color: #6ee7b7 !important;
+  font-weight: 700 !important;
 }
 
 [data-theme="dark"] .utc-action-banner-revision {
@@ -1097,3 +1101,158 @@
 [data-theme="dark"] .utc-action-banner-revision strong {
   color: #ffffff !important;
 }
+
+/* Survey Form & Stages Subcomponents */
+.utc-cpa-badge {
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.utc-survey-intern-box {
+  padding: 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #dbe7f6;
+}
+
+.utc-survey-intern-box .intern-label {
+  color: #1e293b;
+}
+
+.utc-topic-suggestion-box {
+  padding: 16px;
+  border-radius: 12px;
+  background: #f0f5fc;
+  border: 1px solid #bfdbfe;
+}
+
+.utc-topic-suggestion-box .suggestion-title {
+  color: #1e3a8a;
+}
+
+.utc-btn-toggle-all-sv {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.utc-matched-sv-selected {
+  background: #2D469E !important;
+  color: #ffffff !important;
+  border-color: #2D469E !important;
+}
+
+.utc-matched-sv-item {
+  background: #ffffff;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+.utc-outline-review-status-box {
+  padding: 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #dbe7f6;
+}
+
+.utc-outline-review-status-box .status-title {
+  color: #1e293b;
+}
+
+.utc-log-content-box {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #1e293b;
+}
+
+.utc-log-notes-box {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #064e3b;
+}
+
+.utc-log-tasks-box {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.utc-log-plan-box {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #78350f;
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] .utc-cpa-badge {
+  background: var(--surface-2) !important;
+  color: var(--text-strong) !important;
+  border-color: var(--divider) !important;
+}
+
+[data-theme="dark"] .utc-survey-intern-box {
+  background: var(--surface-2) !important;
+  border-color: var(--divider) !important;
+}
+
+[data-theme="dark"] .utc-survey-intern-box .intern-label {
+  color: var(--text-strong) !important;
+}
+
+[data-theme="dark"] .utc-topic-suggestion-box {
+  background: rgba(45, 70, 158, 0.2) !important;
+  border-color: rgba(61, 91, 199, 0.45) !important;
+}
+
+[data-theme="dark"] .utc-topic-suggestion-box .suggestion-title {
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .utc-btn-toggle-all-sv {
+  background: var(--surface-2) !important;
+  border-color: var(--divider) !important;
+  color: var(--text-strong) !important;
+}
+
+[data-theme="dark"] .utc-matched-sv-item {
+  background: var(--surface-2) !important;
+  border-color: var(--divider) !important;
+  color: var(--text-body) !important;
+}
+
+[data-theme="dark"] .utc-outline-review-status-box {
+  background: var(--surface-2) !important;
+  border-color: var(--divider) !important;
+}
+
+[data-theme="dark"] .utc-outline-review-status-box .status-title {
+  color: var(--text-strong) !important;
+}
+
+[data-theme="dark"] .utc-log-content-box {
+  background: var(--surface-2) !important;
+  border-color: var(--divider) !important;
+  color: var(--text-strong) !important;
+}
+
+[data-theme="dark"] .utc-log-notes-box {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  color: #a7f3d0 !important;
+}
+
+[data-theme="dark"] .utc-log-tasks-box {
+  background: rgba(45, 70, 158, 0.18) !important;
+  border-color: rgba(61, 91, 199, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-log-plan-box {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #fde68a !important;
+}
+

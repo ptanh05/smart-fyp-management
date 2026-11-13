@@ -290,28 +290,46 @@ const SupervisorDashboard: React.FC = () => {
       stageCounts={stageCounts}
     >
       <div className="container">
-        <div className="dashboard-header">
+        <div className="utc-page-header-card">
           <div>
-            <h1>{t('dashboard.supervisorTitle', 'Bảng Điều Khiển Giảng Viên Hướng Dẫn')}</h1>
-            <p>{t('dashboard.welcome', 'Xin chào')}, {supervisor?.user?.username}</p>
+            <div className="utc-header-meta-row">
+              <span className="utc-header-badge">Giảng Viên Hướng Dẫn</span>
+              <span className="utc-header-meta">
+                Mã GV: <strong>{supervisor?.supervisor_id || supervisor?.user?.username || '---'}</strong>
+              </span>
+              {supervisor?.academic_title && (
+                <span className="utc-header-meta">
+                  | Học vị: <strong>{supervisor.academic_title}</strong>
+                </span>
+              )}
+            </div>
+            <h1 className="utc-header-title">
+              {t('dashboard.supervisorTitle', 'Bảng Điều Khiển Giảng Viên Hướng Dẫn')}
+            </h1>
+            <p className="utc-header-subtitle">
+              Quản lý phân công đề tài, theo dõi tiến độ tuần 1 - 15 và phê duyệt đề cương sinh viên ĐATN UTC
+            </p>
           </div>
-          <button
-            className="btn btn-primary"
-            onClick={handleExportReport}
-            disabled={exporting}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            {exporting ? (
-              <>
-                <span className="spinner-small"></span>
-                {t('common.loading', 'Đang tải...')}
-              </>
-            ) : (
-              <>
-                📊 {t('actions.exportReport', 'Xuất Báo Cáo Excel UTC')}
-              </>
-            )}
-          </button>
+          <div className="utc-header-actions">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleExportReport}
+              disabled={exporting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '8px', fontWeight: 700 }}
+            >
+              {exporting ? (
+                <>
+                  <span className="spinner-small"></span>
+                  {t('common.loading', 'Đang tải...')}
+                </>
+              ) : (
+                <>
+                  📊 {t('actions.exportReport', 'Xuất Báo Cáo Excel UTC')}
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="tabs">

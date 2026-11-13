@@ -1209,3 +1209,56 @@
 [data-theme="dark"] .utc-member-search-box input:focus {
   border-color: var(--utc-primary); box-shadow: 0 0 0 3px var(--focus-ring);
 }
+
+/* Chat Notice Banner in Dark Mode */
+[data-theme="dark"] .utc-chat-notice-banner {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-bottom: 1px solid rgba(52, 211, 153, 0.35) !important;
+  color: #a7f3d0 !important;
+}
+
+[data-theme="dark"] .utc-chat-notice-banner p {
+  color: #ecfdf5 !important;
+}
+
+/* Messages Stream & Chat Bubbles in Dark Mode */
+[data-theme="dark"] .utc-messages-stream {
+  background: var(--app-bg) !important;
+}
+
+[data-theme="dark"] .utc-msg-sender-info {
+  color: var(--text-soft, #94a3b8) !important;
+}
+
+[data-theme="dark"] .utc-msg-sender-name {
+  color: #93c5fd !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .utc-msg-role-tag.sup {
+  background: #d97706 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .utc-msg-role-tag.student {
+  background: var(--surface-3) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid var(--divider) !important;
+}
+
+[data-theme="dark"] .utc-msg-avatar.sup-avatar {
+  background: rgba(245, 158, 11, 0.22) !important;
+  border: 1px solid rgba(245, 158, 11, 0.5) !important;
+}
+
+[data-theme="dark"] .utc-msg-avatar.student-avatar {
+  background: var(--surface-3) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .utc-message-row.message-in .utc-msg-bubble {
+  background: var(--surface-2, #18224d) !important;
+  border: 1px solid var(--divider, rgba(255, 255, 255, 0.1)) !important;
+  color: var(--text-strong, #ffffff) !important;
+}
+

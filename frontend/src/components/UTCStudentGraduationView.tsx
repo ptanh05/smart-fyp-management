@@ -670,8 +670,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">🎉</span>
                       <div>
-                        <h4 className="font-bold text-sm text-emerald-950">Đề Tài Đã Được Khoa Phê Duyệt Chính Thức</h4>
-                        <p className="text-xs text-emerald-800 font-medium">Đề tài đã hoàn tất phê duyệt. Sinh viên tiến hành bước kế tiếp: Xuất & Ký nộp Đề cương.</p>
+                        <h4 className="font-bold text-sm">Đề Tài Đã Được Khoa Phê Duyệt Chính Thức</h4>
+                        <p className="text-xs font-medium">Đề tài đã hoàn tất phê duyệt. Sinh viên tiến hành bước kế tiếp: Xuất & Ký nộp Đề cương.</p>
                       </div>
                     </div>
                     <button
@@ -858,7 +858,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   {surveyData.student.degree_program === 'ENGINEER' ? '⚙️ CT Kỹ sư (Engineer)' : '🎓 CT Cử nhân (Bachelor)'}
                 </span>
                 {surveyData.student.cpa !== undefined && (
-                  <span className="text-xs px-2.5 py-1 rounded font-mono font-bold" style={{ background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1' }}>
+                  <span className="utc-cpa-badge text-xs px-2.5 py-1 rounded font-mono font-bold">
                     CPA: <b>{surveyData.student.cpa}</b>
                   </span>
                 )}
@@ -903,7 +903,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               </div>
             </div>
 
-            <div className="p-4 rounded-xl border space-y-3" style={{ background: '#f8fafc', borderColor: '#dbe7f6' }}>
+            <div className="utc-survey-intern-box space-y-3">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -911,7 +911,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   onChange={(e) => setIsInterning(e.target.checked)}
                   className="w-4 h-4 rounded text-blue-600 bg-white border-slate-300 focus:ring-0"
                 />
-                <span className="text-sm font-semibold text-slate-800">Hiện tại đang đi thực tập tại Doanh nghiệp / Công ty</span>
+                <span className="text-sm font-semibold intern-label">Hiện tại đang đi thực tập tại Doanh nghiệp / Công ty</span>
               </label>
 
               {isInterning && (
@@ -952,10 +952,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
             {/* Gợi ý giảng viên theo chuyên ngành đã chọn */}
             {selectedTopicArea && (
-              <div className="p-4 rounded-xl border space-y-3" style={{ background: '#f0f5fc', borderColor: '#bfdbfe' }}>
+              <div className="utc-topic-suggestion-box space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-sm font-bold text-blue-900">
+                    <div className="text-sm font-bold suggestion-title">
                       🎯 Giảng viên gợi ý cho chuyên ngành “{selectedTopicArea.name}”
                     </div>
                     <div className="text-[11px] text-slate-600 mt-0.5">
@@ -967,8 +967,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   <button
                     type="button"
                     onClick={() => setShowAllSupervisors((v) => !v)}
-                    className="text-[11px] px-2.5 py-1 rounded border transition-colors shadow-sm"
-                    style={{ background: '#ffffff', borderColor: '#cbd5e1', color: '#1e293b' }}
+                    className="utc-btn-toggle-all-sv"
                   >
                     {showAllSupervisors
                       ? '✕ Chỉ xem GV đúng chuyên ngành'
@@ -990,12 +989,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                         title={`Chuyên ngành: ${(s.topic_areas || []).join(', ')}`}
                         className={`text-left px-2.5 py-1.5 rounded-lg border text-[11px] transition-colors shadow-sm ${
                           String(preference1Id) === String(s.id)
-                            ? 'border-blue-600 text-white'
-                            : 'border-slate-300 text-slate-800 hover:border-blue-500'
+                            ? 'utc-matched-sv-selected'
+                            : 'utc-matched-sv-item'
                         }`}
-                        style={{
-                          background: String(preference1Id) === String(s.id) ? '#2D469E' : '#ffffff'
-                        }}
                       >
                         <span className="font-semibold">{s.full_name}</span>
                         <span className={`block text-[10px] ${String(preference1Id) === String(s.id) ? 'text-blue-100' : 'text-slate-500'}`}>
@@ -1187,9 +1183,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               <div className="utc-action-banner-approved space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🎉</span>
-                  <span className="font-bold text-sm text-emerald-950">Đề Tài Đã Được Khoa Phê Duyệt Chính Thức</span>
+                  <span className="font-bold text-sm">Đề Tài Đã Được Khoa Phê Duyệt Chính Thức</span>
                 </div>
-                <p className="text-emerald-800 text-xs leading-relaxed font-medium">
+                <p className="text-xs leading-relaxed font-medium">
                   Tên đề tài đã được chốt và khóa chỉnh sửa. Vui lòng chuyển xuống <b>Mục 2 (Tải Đề Cương Tự Động)</b> để xuất PDF, in lấy chữ ký GVHD và tải bản scan lên <b>Mục 3 (Ký Nộp Đề Cương)</b>.
                 </p>
               </div>
@@ -1325,9 +1321,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
           {/* Traditional Outline Review Status */}
           {projectData?.outline_review && (
-            <div className="p-4 rounded-xl border space-y-2 text-xs" style={{ background: '#f8fafc', borderColor: '#dbe7f6' }}>
+            <div className="utc-outline-review-status-box space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800">Tình trạng xét duyệt đề cương chi tiết:</span>
+                <span className="font-bold status-title">Tình trạng xét duyệt đề cương chi tiết:</span>
                 <span className={`px-2.5 py-0.5 rounded font-bold ${
                   projectData.status === 'OUTLINE_APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                   projectData.outline_review.verdict === 'APPROVED' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
@@ -1866,28 +1862,28 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                     <div className="space-y-2 text-xs">
                       <div>
-                        <span className="font-semibold text-slate-700">Nội dung trao đổi & tiến độ:</span>
-                        <p className="text-slate-800 mt-1 whitespace-pre-line p-3 rounded-lg border border-slate-200" style={{ background: '#f8fafc' }}>
+                        <span className="font-semibold text-slate-400">Nội dung trao đổi & tiến độ:</span>
+                        <p className="utc-log-content-box mt-1 whitespace-pre-line p-3 rounded-lg border">
                           {log.content_discussed}
                         </p>
                       </div>
 
                       {log.supervisor_notes && (
                         <div>
-                          <span className="font-semibold text-emerald-700">Góp ý & Nhận xét của GVHD:</span>
-                          <p className="text-emerald-900 mt-1 whitespace-pre-line p-3 rounded-lg border border-emerald-200" style={{ background: '#ecfdf5' }}>
+                          <span className="font-semibold text-emerald-400">Góp ý & Nhận xét của GVHD:</span>
+                          <p className="utc-log-notes-box mt-1 whitespace-pre-line p-3 rounded-lg border">
                             {log.supervisor_notes}
                           </p>
                         </div>
                       )}
 
                       {log.tasks && log.tasks.length > 0 && (
-                        <div className="p-3 rounded-lg border space-y-1.5" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
-                          <span className="font-bold text-blue-900">📌 Nhiệm vụ GVHD giao tuần tới:</span>
+                        <div className="utc-log-tasks-box p-3 rounded-lg border space-y-1.5">
+                          <span className="font-bold text-blue-400">📌 Nhiệm vụ GVHD giao tuần tới:</span>
                           {log.tasks.map((t: any) => (
-                            <div key={t.id} className="flex items-center justify-between text-slate-800 pl-2">
-                              <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-500">(Hạn nộp: {t.due_date})</span>}</span>
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.is_completed ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-slate-100 text-slate-700 border border-slate-300'}`}>
+                            <div key={t.id} className="flex items-center justify-between text-slate-300 pl-2">
+                              <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-400">(Hạn nộp: {t.due_date})</span>}</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.is_completed ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700 text-slate-300 border border-slate-600'}`}>
                                 {t.is_completed ? '✅ Đã xong' : '⏳ Cần làm'}
                               </span>
                             </div>
@@ -1897,8 +1893,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                       {log.next_meeting_plan && (
                         <div>
-                          <span className="font-semibold text-amber-700">Kế hoạch kỳ tới:</span>
-                          <p className="text-amber-900 mt-1 whitespace-pre-line p-2.5 rounded-lg border border-amber-200" style={{ background: '#fffbeb' }}>
+                          <span className="font-semibold text-amber-400">Kế hoạch kỳ tới:</span>
+                          <p className="utc-log-plan-box mt-1 whitespace-pre-line p-2.5 rounded-lg border">
                             {log.next_meeting_plan}
                           </p>
                         </div>

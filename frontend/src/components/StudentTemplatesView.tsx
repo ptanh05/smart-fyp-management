@@ -128,45 +128,30 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
   });
 
   return (
-    <div className="student-templates-view card" style={{ padding: '24px', borderRadius: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+    <div className="student-templates-view card">
+      <div className="utc-templates-header-wrapper">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span style={{
-              background: '#e0f2fe',
-              color: '#0369a1',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              padding: '3px 10px',
-              borderRadius: '20px',
-              letterSpacing: '0.5px'
-            }}>
+          <div className="utc-templates-badge-row">
+            <span className="utc-templates-badge">
               QUY CHẾ ĐÀO TẠO UTC
             </span>
-            <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Trường Đại học Giao thông Vận tải</span>
+            <span className="utc-templates-org">Trường Đại học Giao thông Vận tải</span>
           </div>
-          <h2 style={{ margin: '0 0 6px 0', fontSize: '1.4rem', color: '#002B49' }}>
+          <h2 className="utc-templates-title">
             Kho Biểu Mẫu Chuẩn Đồ Án Tốt Nghiệp (UTC Official Templates)
           </h2>
-          <p style={{ margin: 0, color: '#475569', fontSize: '0.92rem' }}>
+          <p className="utc-templates-subtitle">
             Tải về và tra cứu các biểu mẫu quy chuẩn ban hành theo quy chế ĐATN UTC: từ phiếu đề cương, nhật ký hướng dẫn đến biểu mẫu đánh giá của GVHD, GVPB và Hội đồng.
           </p>
         </div>
 
         {/* Filter by category */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <label style={{ fontSize: '0.88rem', fontWeight: 600, color: '#334155' }}>Lọc theo loại:</label>
+        <div className="utc-templates-filter-wrap">
+          <label className="utc-templates-filter-label">Lọc theo loại:</label>
           <select
             value={selectedFilter}
             onChange={(e) => setSelectedFilter(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '0.88rem',
-              backgroundColor: '#fff',
-              cursor: 'pointer',
-            }}
+            className="utc-templates-select"
           >
             <option value="all">Tất cả biểu mẫu (7 mẫu chuẩn)</option>
             <option value="outline">Mẫu 01: Đề cương ĐATN</option>
@@ -179,53 +164,33 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
       </div>
 
       {/* Official UTC Templates Grid */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '32px' }}>
+      <div className="utc-templates-grid">
         {filteredOfficialTemplates.map((template) => (
           <div
             key={template.code}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '16px',
-              padding: '18px 20px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '10px',
-              transition: 'all 0.2s ease',
-            }}
+            className="utc-template-card"
           >
-            <div style={{ flex: '1 1 400px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                <span
-                  style={{
-                    backgroundColor: '#002B49',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    fontSize: '0.75rem',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                  }}
-                >
+            <div className="utc-template-info">
+              <div className="utc-template-badges-row">
+                <span className="utc-template-code-badge">
                   {template.code}
                 </span>
-                <span style={{ fontSize: '0.78rem', color: '#0369a1', fontWeight: 700, backgroundColor: '#e0f2fe', padding: '2px 8px', borderRadius: '4px' }}>
+                <span className="utc-template-stage-badge">
                   {template.stage}
                 </span>
                 {template.weight && (
-                  <span style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700, backgroundColor: '#d1fae5', padding: '2px 8px', borderRadius: '4px' }}>
+                  <span className="utc-template-weight-badge">
                     ⚖️ {template.weight}
                   </span>
                 )}
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                <span className="utc-template-format-tag">
                   [{template.format}]
                 </span>
               </div>
-              <h3 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', color: '#1e293b', fontWeight: 700 }}>
+              <h3 className="utc-template-title">
                 {template.title}
               </h3>
-              <p style={{ margin: 0, fontSize: '0.88rem', color: '#475569', lineHeight: 1.5 }}>
+              <p className="utc-template-desc">
                 {template.description}
               </p>
             </div>
@@ -233,22 +198,8 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="utc-template-download-btn"
                 onClick={() => handleDownload(template)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '0.88rem',
-                  backgroundColor: '#0284c7',
-                  border: 'none',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)',
-                }}
               >
                 <span>📥</span>
                 <span>Tải Mẫu Biểu</span>
@@ -260,8 +211,8 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
 
       {/* Uploaded Department Templates if any */}
       {customTemplates.length > 0 && (
-        <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
-          <h3 style={{ fontSize: '1.1rem', color: '#002B49', marginBottom: '12px' }}>
+        <div className="utc-dept-templates-section">
+          <h3 className="utc-dept-templates-title">
             📁 Biểu Mẫu Bổ Sung Do Khoa/Bộ Môn Đăng Tải
           </h3>
           <div className="templates-table-wrapper">
