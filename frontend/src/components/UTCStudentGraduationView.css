@@ -1063,3 +1063,37 @@
 [data-theme="dark"] .utc-graduation-card textarea:focus {
   border-color: var(--utc-primary); box-shadow: 0 0 0 3px var(--focus-ring);
 }
+
+[data-theme="dark"] .utc-action-banner-approved {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(52, 211, 153, 0.45) !important;
+  color: #ecfdf5 !important;
+}
+[data-theme="dark"] .utc-action-banner-approved h4,
+[data-theme="dark"] .utc-action-banner-approved .font-bold {
+  color: #a7f3d0 !important;
+}
+[data-theme="dark"] .utc-action-banner-approved p,
+[data-theme="dark"] .utc-action-banner-approved span {
+  color: #d1fae5 !important;
+}
+[data-theme="dark"] .utc-action-banner-approved b {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .utc-action-banner-revision {
+  background: rgba(225, 29, 72, 0.15) !important;
+  border-color: rgba(244, 63, 94, 0.45) !important;
+  color: #ffe4e6 !important;
+}
+[data-theme="dark"] .utc-action-banner-revision h4,
+[data-theme="dark"] .utc-action-banner-revision .font-bold {
+  color: #fda4af !important;
+}
+[data-theme="dark"] .utc-action-banner-revision p,
+[data-theme="dark"] .utc-action-banner-revision span {
+  color: #fecdd3 !important;
+}
+[data-theme="dark"] .utc-action-banner-revision strong {
+  color: #ffffff !important;
+}
