@@ -253,20 +253,20 @@
 }
 
 /* 9. Global Contrast & Typography Overrides inside .utc-supervisor-view */
-.utc-supervisor-view .text-slate-100,
-.utc-supervisor-view .text-slate-200 {
+:root:not([data-theme="dark"]) .utc-supervisor-view .text-slate-100,
+:root:not([data-theme="dark"]) .utc-supervisor-view .text-slate-200 {
   color: #0f172a !important;
 }
 
-.utc-supervisor-view .text-slate-300 {
+:root:not([data-theme="dark"]) .utc-supervisor-view .text-slate-300 {
   color: #334155 !important;
 }
 
-.utc-supervisor-view .text-slate-400 {
+:root:not([data-theme="dark"]) .utc-supervisor-view .text-slate-400 {
   color: #64748b !important;
 }
 
-.utc-supervisor-view .text-slate-500 {
+:root:not([data-theme="dark"]) .utc-supervisor-view .text-slate-500 {
   color: #64748b !important;
 }
 
@@ -407,6 +407,7 @@
 [data-theme="dark"] .utc-supervisor-view .bg-slate-950,
 [data-theme="dark"] .utc-supervisor-view .bg-slate-900,
 [data-theme="dark"] .utc-supervisor-view .bg-slate-800 { background-color: var(--surface-2) !important; }
+[data-theme="dark"] .utc-supervisor-view .text-slate-100,
 [data-theme="dark"] .utc-supervisor-view .text-slate-200,
 [data-theme="dark"] .utc-supervisor-view .text-slate-300 { color: var(--text-body) !important; }
 [data-theme="dark"] .utc-supervisor-view .text-slate-400,

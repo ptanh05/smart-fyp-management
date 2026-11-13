@@ -436,123 +436,123 @@
 }
 
 /* Tự động tối ưu độ tương phản cho text trong thẻ sáng */
-.utc-graduation-card .text-slate-100,
-.utc-graduation-card .text-slate-200 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-slate-100,
+:root:not([data-theme="dark"]) .utc-graduation-card .text-slate-200 {
   color: #0f172a !important;
 }
 
-.utc-graduation-card .text-slate-300 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-slate-300 {
   color: #334155 !important;
 }
 
-.utc-graduation-card .text-slate-400 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-slate-400 {
   color: #64748b !important;
 }
 
-.utc-graduation-card .text-slate-500 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-slate-500 {
   color: #94a3b8 !important;
 }
 
-.utc-graduation-card .border-slate-800,
-.utc-graduation-card .border-slate-700 {
+:root:not([data-theme="dark"]) .utc-graduation-card .border-slate-800,
+:root:not([data-theme="dark"]) .utc-graduation-card .border-slate-700 {
   border-color: #e2e8f0 !important;
 }
 
-.utc-graduation-card .bg-slate-950,
-.utc-graduation-card .bg-slate-900 {
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-slate-950,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-slate-900 {
   background-color: #f8fafc !important;
   border-color: #e2e8f0 !important;
   color: #1e293b !important;
 }
 
-.utc-graduation-card .border-blue-900\/40,
-.utc-graduation-card .border-blue-900\/30 {
+:root:not([data-theme="dark"]) .utc-graduation-card .border-blue-900\/40,
+:root:not([data-theme="dark"]) .utc-graduation-card .border-blue-900\/30 {
   border-color: #dbe7f6 !important;
 }
 
 /* Tối ưu độ tương phản cho các nhãn trạng thái và badge trên nền sáng */
-.utc-graduation-card .text-emerald-100 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-emerald-100 {
   color: #064e3b !important;
 }
-.utc-graduation-card .text-emerald-200,
-.utc-graduation-card .text-emerald-300 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-emerald-200,
+:root:not([data-theme="dark"]) .utc-graduation-card .text-emerald-300 {
   color: #065f46 !important;
 }
-.utc-graduation-card .text-emerald-400 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-emerald-400 {
   color: #047857 !important;
 }
 
-.utc-graduation-card .text-blue-100 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-blue-100 {
   color: #1e3a8a !important;
 }
-.utc-graduation-card .text-blue-200 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-blue-200 {
   color: #1d4ed8 !important;
 }
-.utc-graduation-card .text-blue-300 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-blue-300 {
   color: #1e40af !important;
 }
-.utc-graduation-card .text-blue-400 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-blue-400 {
   color: #2563eb !important;
 }
 
-.utc-graduation-card .text-amber-100,
-.utc-graduation-card .text-amber-200,
-.utc-graduation-card .text-amber-300 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-amber-100,
+:root:not([data-theme="dark"]) .utc-graduation-card .text-amber-200,
+:root:not([data-theme="dark"]) .utc-graduation-card .text-amber-300 {
   color: #92400e !important;
 }
-.utc-graduation-card .text-amber-400 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-amber-400 {
   color: #b45309 !important;
 }
 
-.utc-graduation-card .text-rose-100,
-.utc-graduation-card .text-rose-200,
-.utc-graduation-card .text-rose-300 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-rose-100,
+:root:not([data-theme="dark"]) .utc-graduation-card .text-rose-200,
+:root:not([data-theme="dark"]) .utc-graduation-card .text-rose-300 {
   color: #9f1239 !important;
 }
-.utc-graduation-card .text-rose-400 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-rose-400 {
   color: #be123c !important;
 }
 
-.utc-graduation-card .text-purple-100,
-.utc-graduation-card .text-purple-200,
-.utc-graduation-card .text-purple-300 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-purple-100,
+:root:not([data-theme="dark"]) .utc-graduation-card .text-purple-200,
+:root:not([data-theme="dark"]) .utc-graduation-card .text-purple-300 {
   color: #581c87 !important;
 }
-.utc-graduation-card .text-purple-400 {
+:root:not([data-theme="dark"]) .utc-graduation-card .text-purple-400 {
   color: #6b21a8 !important;
 }
 
-.utc-graduation-card .bg-blue-500\/10,
-.utc-graduation-card .bg-blue-500\/15,
-.utc-graduation-card .bg-blue-500\/20 {
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-blue-500\/10,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-blue-500\/15,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-blue-500\/20 {
   background-color: #eef3fb !important;
   border-color: #b9d1f8 !important;
 }
 
-.utc-graduation-card .bg-emerald-500\/10,
-.utc-graduation-card .bg-emerald-500\/15,
-.utc-graduation-card .bg-emerald-500\/20 {
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-emerald-500\/10,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-emerald-500\/15,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-emerald-500\/20 {
   background-color: #ecfdf5 !important;
   border-color: #a7f3d0 !important;
 }
 
-.utc-graduation-card .bg-amber-500\/10,
-.utc-graduation-card .bg-amber-500\/15,
-.utc-graduation-card .bg-amber-500\/20 {
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-amber-500\/10,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-amber-500\/15,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-amber-500\/20 {
   background-color: #fffbeb !important;
   border-color: #fde68a !important;
 }
 
-.utc-graduation-card .bg-rose-500\/10,
-.utc-graduation-card .bg-rose-500\/15,
-.utc-graduation-card .bg-rose-500\/20 {
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-rose-500\/10,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-rose-500\/15,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-rose-500\/20 {
   background-color: #fff1f2 !important;
   border-color: #fecdd3 !important;
 }
 
-.utc-graduation-card .bg-purple-500\/10,
-.utc-graduation-card .bg-purple-500\/15,
-.utc-graduation-card .bg-purple-500\/20 {
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-purple-500\/10,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-purple-500\/15,
+:root:not([data-theme="dark"]) .utc-graduation-card .bg-purple-500\/20 {
   background-color: #faf5ff !important;
   border-color: #e9d5ff !important;
 }
@@ -1254,5 +1254,93 @@
   background: rgba(245, 158, 11, 0.15) !important;
   border-color: rgba(245, 158, 11, 0.35) !important;
   color: #fde68a !important;
+}
+
+/* Dark mode text and badge contrast in .utc-graduation-card */
+[data-theme="dark"] .utc-graduation-card .text-slate-100,
+[data-theme="dark"] .utc-graduation-card .text-slate-200 {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-slate-300 {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-slate-600,
+[data-theme="dark"] .utc-graduation-card .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .border-blue-900\/40,
+[data-theme="dark"] .utc-graduation-card .border-blue-900\/30 {
+  border-color: rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .border-slate-800,
+[data-theme="dark"] .utc-graduation-card .border-slate-700 {
+  border-color: var(--divider) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .bg-slate-950,
+[data-theme="dark"] .utc-graduation-card .bg-slate-900 {
+  background-color: var(--surface-2) !important;
+  border-color: var(--divider) !important;
+  color: var(--text-strong) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-emerald-100,
+[data-theme="dark"] .utc-graduation-card .text-emerald-200,
+[data-theme="dark"] .utc-graduation-card .text-emerald-300 {
+  color: #6ee7b7 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-blue-100,
+[data-theme="dark"] .utc-graduation-card .text-blue-200,
+[data-theme="dark"] .utc-graduation-card .text-blue-300 {
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-amber-100,
+[data-theme="dark"] .utc-graduation-card .text-amber-200,
+[data-theme="dark"] .utc-graduation-card .text-amber-300 {
+  color: #fde68a !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-rose-100,
+[data-theme="dark"] .utc-graduation-card .text-rose-200,
+[data-theme="dark"] .utc-graduation-card .text-rose-300 {
+  color: #fecdd3 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-purple-100,
+[data-theme="dark"] .utc-graduation-card .text-purple-200,
+[data-theme="dark"] .utc-graduation-card .text-purple-300 {
+  color: #e9d5ff !important;
+}
+
+/* Degree Program badges in dark mode */
+[data-theme="dark"] .utc-graduation-card .bg-\[\#EEF3FB\] {
+  background-color: rgba(37, 99, 235, 0.2) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .bg-purple-50 {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+  color: #d8b4fe !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-purple-900,
+[data-theme="dark"] .utc-graduation-card .text-purple-950 {
+  color: #e9d5ff !important;
 }
 
