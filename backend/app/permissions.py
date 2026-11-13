@@ -29,18 +29,19 @@ class IsSupervisor(BasePermission):
 
 class IsCommitteeMember(BasePermission):
     """
-    Chỉ dành cho thành viên Hội đồng (committee_member) và Admin hệ thống.
-
-    Lưu ý RBAC: Giảng viên hướng dẫn (supervisor) KHÔNG được phép truy cập
-    các API chuyên biệt của Hội đồng (profile, groups, analytics) - tránh
-    vi phạm ranh giới vai trò giữa GVHD và Ủy viên/Thư ký Hội đồng.
+    Cho phép thành viên Hội đồng đánh giá (CouncilMember), 
+    người dùng có user_type == 'committee_member', giảng viên (supervisor) và admin.
     """
     message = "You must be a committee member to access this resource."
 
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return getattr(request.user, 'user_type', None) in ['committee_member', 'admin']
+        user_type = getattr(request.user, 'user_type', None)
+        if user_type in ['committee_member', 'supervisor', 'admin', 'external_examiner']:
+            return True
+        from app.models import CouncilMember
+        return CouncilMember.objects.filter(user=request.user).exists()
 
 
 class IsExternalExaminer(BasePermission):

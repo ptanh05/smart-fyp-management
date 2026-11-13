@@ -1485,23 +1485,34 @@ class CommitteeMemberProfileView(APIView):
                 "room": cm.council.defense_room,
             }
 
-        # Ưu tiên hồ sơ Ủy viên Hội đồng (CommitteeMember) để lấy mã hội đồng,
-        # sau đó mới fallback sang hồ sơ Giảng viên hoặc username.
+        # Ưu tiên hồ sơ Ủy viên Hội đồng (CouncilMember / Supervisor) để lấy mã hội đồng
         committee_id = user.username
-        legacy_cm = getattr(user, "committee_member_profile", None)
-        if legacy_cm is not None and getattr(legacy_cm, "committee_id", None):
-            committee_id = legacy_cm.committee_id
+        if cm and cm.supervisor and getattr(cm.supervisor, "supervisor_id", None):
+            committee_id = cm.supervisor.supervisor_id
         else:
-            sup = getattr(user, "supervisor_profile", None)
-            if sup and getattr(sup, "supervisor_id", None):
-                committee_id = sup.supervisor_id
+            try:
+                sup = getattr(user, "supervisor_profile", None)
+                if sup and getattr(sup, "supervisor_id", None):
+                    committee_id = sup.supervisor_id
+            except Exception:
+                pass
+
+        try:
+            legacy_cm = getattr(user, "committee_member_profile", None)
+            if legacy_cm is not None and getattr(legacy_cm, "committee_id", None):
+                committee_id = legacy_cm.committee_id
+        except Exception:
+            legacy_cm = None
 
         panel_data = None
-        if legacy_cm is not None and getattr(legacy_cm, "panel", None):
-            panel_data = {
-                "id": legacy_cm.panel.id,
-                "name": legacy_cm.panel.name,
-            }
+        try:
+            if legacy_cm is not None and getattr(legacy_cm, "panel", None):
+                panel_data = {
+                    "id": legacy_cm.panel.id,
+                    "name": legacy_cm.panel.name,
+                }
+        except Exception:
+            panel_data = None
 
         return Response({
             "id": user.id,
@@ -2085,12 +2096,10 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
     serializer_class = SupervisorOfStudentGroupSerializer
 
     def list(self, request, *args, **kwargs):
-        try:
-            return super().list(request, *args, **kwargs)
-        except Exception:
-            from app.models import CouncilMember, GraduationProject
-            c_members = CouncilMember.objects.filter(user=request.user)
-            council_ids = [cm.council_id for cm in c_members if cm.council_id]
+        from app.models import CouncilMember, GraduationProject
+        c_members = CouncilMember.objects.filter(user=request.user)
+        council_ids = [cm.council_id for cm in c_members if cm.council_id]
+        if council_ids:
             projects = GraduationProject.objects.filter(council_id__in=council_ids).select_related('student', 'student__user', 'supervisor', 'supervisor__user')
             results = []
             for gp in projects:
@@ -2120,6 +2129,10 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
                     "created_at": gp.created_at.isoformat() if gp.created_at else None
                 })
             return Response({"count": len(results), "next": None, "previous": None, "results": results})
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception:
+            return Response({"count": 0, "next": None, "previous": None, "results": []})
 
     def get_queryset(self):
         user = self.request.user
@@ -2135,7 +2148,7 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
                 'group__student_1', 'group__student_2',
                 'group__student_1__user', 'group__student_2__user'
             ).order_by('-created_at')
-        except CommitteeMember.DoesNotExist:
+        except Exception:
             return SupervisorOfStudentGroup.objects.none()
 
 
@@ -4047,10 +4060,16 @@ from django.shortcuts import render
 def admin_dashboard(request):
     """Custom admin dashboard view with statistics and recent activity."""
     
+    try:
+        committee_count = CommitteeMember.objects.count()
+    except Exception:
+        from app.models import CouncilMember
+        committee_count = CouncilMember.objects.count()
+
     statistics = {
         'students': Student.objects.count(),
         'supervisors': Supervisor.objects.count(),
-        'committee_members': CommitteeMember.objects.count(),
+        'committee_members': committee_count,
         'external_examiners': ExternalExaminer.objects.filter(is_active=True).count(),
         'active_groups': SupervisorOfStudentGroup.objects.filter(status='accepted').count(),
         'external_groups': ExternalGroup.objects.count(),
@@ -4295,14 +4314,22 @@ class AuditLogExportAPIView(APIView):
                 queryset = queryset.filter(supervisor_group__in=sup_groups)
             except Supervisor.DoesNotExist:
                 queryset = AuditLog.objects.none()
-        elif user.user_type == "committee_member":
+        elif user.user_type in ["committee_member", "supervisor", "external_examiner"]:
             try:
                 committee_member = CommitteeMember.objects.get(user=user)
                 panel_projects = Project.objects.filter(panel=committee_member.panel)
                 panel_groups = SupervisorOfStudentGroup.objects.filter(project__in=panel_projects).values_list("id", flat=True)
                 queryset = queryset.filter(supervisor_group__in=panel_groups)
-            except CommitteeMember.DoesNotExist:
-                queryset = AuditLog.objects.none()
+            except Exception:
+                from app.models import CouncilMember, GraduationProject
+                c_members = CouncilMember.objects.filter(user=user)
+                council_ids = [cm.council_id for cm in c_members if cm.council_id]
+                if council_ids:
+                    proj_ids = GraduationProject.objects.filter(council_id__in=council_ids).values_list("id", flat=True)
+                    sup_groups = SupervisorOfStudentGroup.objects.filter(project_id__in=proj_ids).values_list("id", flat=True)
+                    queryset = queryset.filter(supervisor_group__in=sup_groups)
+                else:
+                    queryset = AuditLog.objects.none()
 
         evaluation_type = request.GET.get("evaluation_type")
         from_date = request.GET.get("from_date")
