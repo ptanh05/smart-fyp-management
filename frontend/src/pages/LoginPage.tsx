@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { apiService } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import './LoginPage.css';
@@ -8,6 +9,7 @@ import utcLogo from '../asset/images/utc_logo.webp';
 
 const LoginPage: React.FC = () => {
   const { t, i18n } = useTranslation();
+  const { theme, toggleTheme } = useTheme();
   const [userType, setUserType] = useState<'student' | 'supervisor' | 'committee_member' | 'external_examiner'>('student');
   const [registrationNo, setRegistrationNo] = useState('');
   const [email, setEmail] = useState('');
@@ -210,9 +212,20 @@ const LoginPage: React.FC = () => {
               <span className="utc-school-name-sub">{t('portal.schoolSub', 'UNIVERSITY OF TRANSPORT AND COMMUNICATIONS')}</span>
             </div>
           </div>
-          <button onClick={toggleLanguage} className="utc-lang-btn">
-            {i18n.language.startsWith('vi') ? '🇻🇳 Tiếng Việt' : '🇬🇧 English'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button onClick={toggleLanguage} className="utc-lang-btn">
+              {i18n.language.startsWith('vi') ? '🇻🇳 Tiếng Việt' : '🇬🇧 English'}
+            </button>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="utc-theme-btn"
+              title={theme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+              aria-label="Toggle Theme"
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+          </div>
         </div>
 
         <div className="utc-portal-title-block">
