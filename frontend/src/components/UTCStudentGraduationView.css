@@ -615,11 +615,11 @@
   box-shadow: 0 6px 20px rgba(45, 70, 158, 0.22);
 }
 
-/* 9. Deferral Modal Styling */
+/* 9. Deferral Modal Styling (Chuẩn UTC) */
 .utc-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(4, 9, 23, 0.8);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -630,14 +630,15 @@
 }
 
 .utc-modal-card {
-  background: #0f172a;
-  border: 1px solid #1e293b;
+  background: linear-gradient(135deg, #101b3e 0%, #0c152f 100%);
+  border: 1px solid #233772;
+  border-top: 4px solid #2d469e;
   border-radius: 16px;
   max-width: 580px;
   width: 100%;
   padding: 24px;
   color: #f8fafc;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -653,7 +654,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid rgba(45, 70, 158, 0.3);
   padding-bottom: 14px;
 }
 
@@ -669,14 +670,14 @@
 
 .utc-modal-subtitle {
   font-size: 0.78rem;
-  color: #94a3b8;
+  color: #9cb1dc;
   margin: 4px 0 0 0;
 }
 
 .utc-modal-close-btn {
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #94a3b8;
+  background: rgba(16, 27, 62, 0.8);
+  border: 1px solid rgba(45, 70, 158, 0.4);
+  color: #9cb1dc;
   width: 32px;
   height: 32px;
   border-radius: 8px;
@@ -690,8 +691,9 @@
 }
 
 .utc-modal-close-btn:hover {
-  background: #334155;
+  background: #1e3170;
   color: #ffffff;
+  border-color: #5575db;
 }
 
 .utc-modal-input,
@@ -699,28 +701,148 @@
 .utc-modal-textarea {
   width: 100%;
   box-sizing: border-box;
-  background: #020617;
-  border: 1px solid #334155;
+  background: rgba(10, 17, 39, 0.85);
+  border: 1px solid #283e7f;
   border-radius: 8px;
   color: #f8fafc;
   padding: 9px 12px;
   font-size: 0.82rem;
   font-family: inherit;
-  transition: border-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .utc-modal-input:focus,
 .utc-modal-select:focus,
 .utc-modal-textarea:focus {
   outline: none;
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+  border-color: #5575db;
+  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.35);
+  background: rgba(14, 23, 52, 0.95);
 }
 
 .utc-modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  border-top: 1px solid #1e293b;
+  border-top: 1px solid rgba(45, 70, 158, 0.3);
   padding-top: 16px;
+}
+
+/* 10. UTC Sub-cards and Form Controls (Dùng cho GĐ 1, 2, 3, 4) */
+.utc-sub-card {
+  background: linear-gradient(135deg, rgba(16, 27, 62, 0.75) 0%, rgba(12, 21, 47, 0.85) 100%);
+  border: 1px solid #233772;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(16, 27, 62, 0.25);
+  transition: all 0.2s ease;
+}
+
+.utc-sub-card:hover {
+  border-color: #3d5bc7;
+}
+
+/* Info box for GVHD / GVPB / Council in Tab 1 */
+.utc-info-box {
+  background: linear-gradient(135deg, rgba(16, 27, 62, 0.85) 0%, rgba(12, 21, 47, 0.95) 100%);
+  border: 1px solid #233772;
+  border-radius: 10px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.utc-info-box:hover {
+  border-color: #4d6fd9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(45, 70, 158, 0.25);
+}
+
+.utc-info-box-gvhd {
+  border-top: 3px solid #10b981;
+}
+
+.utc-info-box-gvpb {
+  border-top: 3px solid #2D469E;
+}
+
+.utc-info-box-council {
+  border-top: 3px solid #f58220;
+}
+
+/* Process guide box in Tab 1 */
+.utc-process-guide-box {
+  background: linear-gradient(135deg, rgba(45, 70, 158, 0.12) 0%, rgba(16, 27, 62, 0.7) 100%);
+  border: 1px solid rgba(45, 70, 158, 0.35);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+/* Step navigation cards (Bước 1 & Bước 2 in Tab 1) */
+.utc-step-nav-card {
+  background: linear-gradient(135deg, rgba(16, 27, 62, 0.9) 0%, rgba(12, 21, 47, 0.95) 100%);
+  border: 1px solid #233772;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.utc-step-nav-card:hover {
+  border-color: #5575db;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(45, 70, 158, 0.35);
+}
+
+/* Form inputs & selects across Tabs */
+.utc-form-input,
+.utc-form-select,
+.utc-form-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(10, 17, 39, 0.85);
+  border: 1px solid #283e7f;
+  border-radius: 8px;
+  color: #f1f5f9;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.utc-form-input:focus,
+.utc-form-select:focus,
+.utc-form-textarea:focus {
+  outline: none;
+  border-color: #5575db;
+  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.35);
+  background: rgba(14, 23, 52, 0.95);
+}
+
+.utc-form-input::placeholder,
+.utc-form-textarea::placeholder {
+  color: #64748b;
+}
+
+.utc-form-input:disabled,
+.utc-form-select:disabled,
+.utc-form-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Weekly Report Item */
+.utc-weekly-report-card {
+  background: linear-gradient(135deg, rgba(16, 27, 62, 0.75) 0%, rgba(12, 21, 47, 0.85) 100%);
+  border: 1px solid #233772;
+  border-radius: 10px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.utc-weekly-report-card:hover {
+  border-color: #4d6fd9;
+  box-shadow: 0 4px 16px rgba(45, 70, 158, 0.2);
 }
