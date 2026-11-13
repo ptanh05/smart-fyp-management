@@ -234,14 +234,18 @@
 
 /* 6. Task Board & Secondary Buttons (UTC Ocean Blue Palette - Clean Light Theme) */
 .utc-btn-deliverable {
-  background: #eef3fb;
-  color: #2D469E;
-  border: 1px solid #cbdcf7;
-  padding: 7px 14px;
-  font-size: 0.8rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1.5px solid #bfdbfe;
+  padding: 7px 15px;
+  font-size: 0.82rem;
   font-weight: 700;
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(45, 70, 158, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .utc-btn-deliverable:hover {
@@ -249,22 +253,29 @@
   color: #ffffff;
   border-color: #2D469E;
   box-shadow: 0 4px 14px rgba(45, 70, 158, 0.35);
+  transform: translateY(-1px);
 }
 
 .utc-btn-task-note {
-  background: #f1f5f9;
+  background: #ffffff;
   color: #334155;
-  border: 1px solid #cbd5e1;
-  padding: 7px 14px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border-radius: 6px;
+  border: 1.5px solid #cbd5e1;
+  padding: 7px 15px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .utc-btn-task-note:hover {
-  background: #e2e8f0;
+  background: #f1f5f9;
   color: #0f172a;
   border-color: #94a3b8;
+  transform: translateY(-1px);
 }
 
 .utc-btn-ghost {
@@ -287,20 +298,38 @@
   padding: 16px 20px;
   border-radius: 12px;
   background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
-  border: 1px solid #fecdd3;
+  border: 1.5px solid #fecdd3;
   color: #9f1239;
   margin-bottom: 16px;
   box-shadow: 0 4px 14px rgba(225, 29, 72, 0.08);
+}
+
+.utc-action-banner-revision h4,
+.utc-action-banner-revision .font-bold {
+  color: #881337 !important;
+}
+
+.utc-action-banner-revision p {
+  color: #9f1239 !important;
 }
 
 .utc-action-banner-approved {
   padding: 16px 20px;
   border-radius: 12px;
   background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
-  border: 1px solid #a7f3d0;
-  color: #065f46;
+  border: 1.5px solid #a7f3d0;
+  color: #064e3b;
   margin-bottom: 16px;
   box-shadow: 0 4px 14px rgba(5, 150, 105, 0.08);
+}
+
+.utc-action-banner-approved h4,
+.utc-action-banner-approved .font-bold {
+  color: #064e3b !important;
+}
+
+.utc-action-banner-approved p {
+  color: #065f46 !important;
 }
 
 /* 8. Stepper Process Bar - Chuẩn Bộ Nhận Diện Thương Hiệu UTC (#2D469E) - Clean Light Theme */
@@ -439,6 +468,93 @@
 .utc-graduation-card .border-blue-900\/40,
 .utc-graduation-card .border-blue-900\/30 {
   border-color: #dbe7f6 !important;
+}
+
+/* Tối ưu độ tương phản cho các nhãn trạng thái và badge trên nền sáng */
+.utc-graduation-card .text-emerald-100 {
+  color: #064e3b !important;
+}
+.utc-graduation-card .text-emerald-200,
+.utc-graduation-card .text-emerald-300 {
+  color: #065f46 !important;
+}
+.utc-graduation-card .text-emerald-400 {
+  color: #047857 !important;
+}
+
+.utc-graduation-card .text-blue-100 {
+  color: #1e3a8a !important;
+}
+.utc-graduation-card .text-blue-200 {
+  color: #1d4ed8 !important;
+}
+.utc-graduation-card .text-blue-300 {
+  color: #1e40af !important;
+}
+.utc-graduation-card .text-blue-400 {
+  color: #2563eb !important;
+}
+
+.utc-graduation-card .text-amber-100,
+.utc-graduation-card .text-amber-200,
+.utc-graduation-card .text-amber-300 {
+  color: #92400e !important;
+}
+.utc-graduation-card .text-amber-400 {
+  color: #b45309 !important;
+}
+
+.utc-graduation-card .text-rose-100,
+.utc-graduation-card .text-rose-200,
+.utc-graduation-card .text-rose-300 {
+  color: #9f1239 !important;
+}
+.utc-graduation-card .text-rose-400 {
+  color: #be123c !important;
+}
+
+.utc-graduation-card .text-purple-100,
+.utc-graduation-card .text-purple-200,
+.utc-graduation-card .text-purple-300 {
+  color: #581c87 !important;
+}
+.utc-graduation-card .text-purple-400 {
+  color: #6b21a8 !important;
+}
+
+.utc-graduation-card .bg-blue-500\/10,
+.utc-graduation-card .bg-blue-500\/15,
+.utc-graduation-card .bg-blue-500\/20 {
+  background-color: #eef3fb !important;
+  border-color: #b9d1f8 !important;
+}
+
+.utc-graduation-card .bg-emerald-500\/10,
+.utc-graduation-card .bg-emerald-500\/15,
+.utc-graduation-card .bg-emerald-500\/20 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+
+.utc-graduation-card .bg-amber-500\/10,
+.utc-graduation-card .bg-amber-500\/15,
+.utc-graduation-card .bg-amber-500\/20 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+.utc-graduation-card .bg-rose-500\/10,
+.utc-graduation-card .bg-rose-500\/15,
+.utc-graduation-card .bg-rose-500\/20 {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+}
+
+.utc-graduation-card .bg-purple-500\/10,
+.utc-graduation-card .bg-purple-500\/15,
+.utc-graduation-card .bg-purple-500\/20 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
 }
 
 .utc-card-header {
