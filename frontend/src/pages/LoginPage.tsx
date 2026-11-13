@@ -206,7 +206,7 @@ const LoginPage: React.FC = () => {
       <header className="utc-portal-header">
         <div className="utc-brand-container">
           <div className="utc-logo-badge">
-            <img src={utcLogo} alt="UTC Logo" className="utc-logo-icon" style={{ backgroundColor: '#fff', padding: '2px', objectFit: 'contain' }} />
+            <img src={utcLogo} alt="UTC Logo" className="utc-logo-icon" style={{ objectFit: 'contain' }} />
             <div className="utc-logo-text">
               <span className="utc-school-name">{t('portal.schoolName', 'TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI')}</span>
               <span className="utc-school-name-sub">{t('portal.schoolSub', 'UNIVERSITY OF TRANSPORT AND COMMUNICATIONS')}</span>
