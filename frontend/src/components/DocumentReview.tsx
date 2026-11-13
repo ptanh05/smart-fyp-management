@@ -314,18 +314,7 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
             {groups.map((group) => (
               <label
                 key={group.id}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  backgroundColor: selectedGroupIds.includes(group.id) ? '#e0f2fe' : 'white',
-                  border: selectedGroupIds.includes(group.id) ? '1px solid #38bdf8' : '1px solid #cbd5e1',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}
+                className={`doc-review-group-chip ${selectedGroupIds.includes(group.id) ? 'is-selected' : ''}`}
               >
                 <input
                   type="checkbox"
@@ -590,7 +579,6 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
                         borderRadius: '6px',
                         border: '1px solid #cbd5e1',
                         fontSize: '0.85rem',
-                        backgroundColor: 'white',
                       }}
                     >
                       <option value="general">Nhận xét chung toàn bộ tài liệu</option>

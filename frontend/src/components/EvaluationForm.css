@@ -449,3 +449,52 @@
   font-weight: 500;
   font-size: 0.9rem;
 }
+
+/* ==============================================================================
+ * DARK MODE STYLES FOR EVALUATION FORM & CARDS
+ * ============================================================================== */
+[data-theme="dark"] .evaluation-card {
+  background: var(--surface-1, #111c35) !important;
+  border-color: var(--divider, rgba(255, 255, 255, 0.12)) !important;
+  color: var(--text-body, #cbd5e1) !important;
+}
+
+[data-theme="dark"] .evaluation-card:hover {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25) !important;
+}
+
+[data-theme="dark"] .evaluation-card h3 {
+  color: var(--text-strong, #f8fafc) !important;
+}
+
+[data-theme="dark"] .evaluation-card-marks .current {
+  color: var(--text-strong, #f8fafc) !important;
+}
+
+[data-theme="dark"] .evaluation-card-marks .max {
+  color: var(--text-soft, #94a3b8) !important;
+}
+
+[data-theme="dark"] .evaluation-card-action {
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .evaluation-form-content {
+  background: var(--surface-1, #111c35) !important;
+  border: 1px solid var(--divider, rgba(255, 255, 255, 0.12)) !important;
+  color: var(--text-body, #cbd5e1) !important;
+}
+
+[data-theme="dark"] .criterion-card {
+  background: var(--surface-2, #14223c) !important;
+  border-color: var(--divider, rgba(255, 255, 255, 0.12)) !important;
+}
+
+[data-theme="dark"] .criterion-title {
+  color: var(--text-strong, #f8fafc) !important;
+}
+
+[data-theme="dark"] .criterion-description {
+  color: var(--text-soft, #94a3b8) !important;
+}

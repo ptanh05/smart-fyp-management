@@ -351,3 +351,62 @@
     min-width: auto;
   }
 }
+
+/* Group filter chips */
+.doc-review-group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  color: #1e293b;
+}
+
+.doc-review-group-chip.is-selected {
+  background-color: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+/* ==============================================================================
+ * DARK MODE STYLES FOR DOCUMENT REVIEW
+ * ============================================================================== */
+[data-theme="dark"] .document-card {
+  background: var(--surface-1, #111c35) !important;
+  border-color: var(--divider, rgba(255, 255, 255, 0.12)) !important;
+  color: var(--text-body, #cbd5e1) !important;
+}
+
+[data-theme="dark"] .document-card-header,
+[data-theme="dark"] .document-card-actions {
+  background-color: var(--surface-2, #14223c) !important;
+  border-color: var(--divider, rgba(255, 255, 255, 0.12)) !important;
+}
+
+[data-theme="dark"] .document-title {
+  color: var(--text-strong, #f8fafc) !important;
+}
+
+[data-theme="dark"] .doc-review-group-chip {
+  background-color: var(--surface-2, #14223c) !important;
+  border-color: var(--divider, rgba(255, 255, 255, 0.12)) !important;
+  color: var(--text-body, #cbd5e1) !important;
+}
+
+[data-theme="dark"] .doc-review-group-chip.is-selected {
+  background-color: rgba(45, 70, 158, 0.3) !important;
+  border-color: #3b82f6 !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .document-filters {
+  background-color: var(--surface-1, #111c35) !important;
+  border: 1px solid var(--divider, rgba(255, 255, 255, 0.12)) !important;
+}

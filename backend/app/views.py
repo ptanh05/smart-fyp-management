@@ -2109,17 +2109,30 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
                         "id": gp.student.id if gp.student else gp.id,
                         "group_name": f"Đồ án tốt nghiệp - {gp.student.user.get_full_name() if gp.student and gp.student.user else 'SV'}",
                         "project_name": gp.topic_title_vi,
-                        "student_1": {
+                        "student_1": gp.student.id if gp.student else 0,
+                        "student_1_details": {
                             "id": gp.student.id if gp.student else 0,
                             "registration_no": gp.student.registration_no if gp.student else "",
-                            "name": gp.student.user.get_full_name() if gp.student and gp.student.user else "",
-                            "gpa": float(gp.gpa_score or 0)
-                        }
+                            "user": {
+                                "id": gp.student.user.id if gp.student and gp.student.user else 0,
+                                "username": gp.student.user.username if gp.student and gp.student.user else "",
+                                "first_name": gp.student.user.first_name if gp.student and gp.student.user else "",
+                                "last_name": gp.student.user.last_name if gp.student and gp.student.user else "",
+                            } if gp.student and gp.student.user else None
+                        } if gp.student else None,
+                        "student_2": None,
+                        "student_2_details": None,
                     },
                     "supervisor": {
                         "id": gp.supervisor.id if gp.supervisor else 0,
                         "name": gp.supervisor.user.get_full_name() if gp.supervisor and gp.supervisor.user else "",
-                        "academic_title": gp.supervisor.academic_title if gp.supervisor else ""
+                        "academic_title": gp.supervisor.academic_title if gp.supervisor else "",
+                        "user": {
+                            "id": gp.supervisor.user.id if gp.supervisor and gp.supervisor.user else 0,
+                            "username": gp.supervisor.user.username if gp.supervisor and gp.supervisor.user else "",
+                            "first_name": gp.supervisor.user.first_name if gp.supervisor and gp.supervisor.user else "",
+                            "last_name": gp.supervisor.user.last_name if gp.supervisor and gp.supervisor.user else "",
+                        } if gp.supervisor and gp.supervisor.user else None
                     },
                     "project": {
                         "id": gp.id,

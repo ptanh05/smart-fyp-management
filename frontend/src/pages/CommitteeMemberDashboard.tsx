@@ -19,6 +19,7 @@ import CouncilConflictManager from '../components/CouncilConflictManager';
 import { SkeletonProfile, SkeletonCardGrid, SkeletonEvaluationGrid } from '../components/SkeletonLoader';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import './Dashboard.css';
+import './CommitteeMemberDashboard.css';
 import '../components/EvaluationForm.css';
 import '../components/SkeletonLoader.css';
 import '../components/ExternalManagement.css';
@@ -165,39 +166,25 @@ const CommitteeMemberDashboard: React.FC = () => {
                   
                   {profile.panel_info.members && profile.panel_info.members.length > 0 ? (
                     <div style={{ marginTop: '15px' }}>
-                      <h4 style={{ marginBottom: '10px', color: '#555' }}>Other Panel Members</h4>
+                      <h4 style={{ marginBottom: '10px' }}>Other Panel Members</h4>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                         {profile.panel_info.members.map(member => (
-                          <div 
-                            key={member.id} 
-                            style={{ 
-                              padding: '10px 15px', 
-                              backgroundColor: '#f0f4f8', 
-                              borderRadius: '6px',
-                              border: '1px solid #e0e0e0'
-                            }}
-                          >
-                            <span style={{ fontWeight: '500' }}>
+                          <div key={member.id} className="panel-member-chip">
+                            <span style={{ fontWeight: '600' }}>
                               {formatFullName(member.user)}
                             </span>
-                            <span style={{ color: '#666', fontSize: '0.9em', marginLeft: '8px' }}>
-                              ({member.committee_id})
+                            <span className="student-reg-badge">
+                              {member.committee_id}
                             </span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <p style={{ color: '#666', marginTop: '15px' }}>You are the only member in this panel.</p>
+                    <p className="dashboard-section-desc" style={{ marginTop: '15px' }}>You are the only member in this panel.</p>
                   )}
                   
-                  <div style={{ 
-                    marginTop: '20px', 
-                    padding: '12px', 
-                    backgroundColor: '#e8f4f8', 
-                    borderRadius: '4px',
-                    border: '1px solid #bee5eb'
-                  }}>
+                  <div className="panel-info-banner">
                     <p style={{ margin: 0, fontSize: '0.9rem' }}>
                       <strong>Groups Assigned:</strong> {panelGroups.length} group(s) are assigned to your panel for evaluation.
                     </p>
@@ -226,7 +213,7 @@ const CommitteeMemberDashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
-              <p style={{ color: '#666', marginBottom: '20px' }}>
+              <p className="dashboard-section-desc">
                 These are the student groups assigned to your panel for evaluation. 
                 Select a group to evaluate or view their submitted documents.
               </p>
@@ -250,9 +237,9 @@ const CommitteeMemberDashboard: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                     <div>
                       <h2>Documents - Group #{selectedGroup.id}</h2>
-                      <p style={{ color: '#666', marginTop: '8px' }}>
+                      <p className="dashboard-section-desc" style={{ marginTop: '8px' }}>
                         <strong>Project:</strong> {selectedGroup.project?.project_name || 'N/A'} | 
-                        <strong> Students:</strong> {selectedGroup.group?.student_1_details?.user?.username || 'N/A'} & {selectedGroup.group?.student_2_details?.user?.username || 'N/A'}
+                        <strong> Students:</strong> {selectedGroup.group?.student_1_details?.user ? formatFullName(selectedGroup.group.student_1_details.user) : (selectedGroup.group as any)?.student_1?.name || selectedGroup.group?.student_1_details?.user?.username || 'N/A'}
                       </p>
                     </div>
                     <button
@@ -288,9 +275,9 @@ const CommitteeMemberDashboard: React.FC = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
                         <h2>Evaluations for Group #{selectedGroup.id}</h2>
-                        <p style={{ color: '#666', marginTop: '8px' }}>
+                        <p className="dashboard-section-desc" style={{ marginTop: '8px' }}>
                           <strong>Project:</strong> {selectedGroup.project?.project_name || 'N/A'} | 
-                          <strong> Students:</strong> {selectedGroup.group?.student_1_details?.user?.username || 'N/A'} & {selectedGroup.group?.student_2_details?.user?.username || 'N/A'}
+                          <strong> Students:</strong> {selectedGroup.group?.student_1_details?.user ? formatFullName(selectedGroup.group.student_1_details.user) : (selectedGroup.group as any)?.student_1?.name || selectedGroup.group?.student_1_details?.user?.username || 'N/A'}
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -333,7 +320,7 @@ const CommitteeMemberDashboard: React.FC = () => {
             <div>
               <div className="card" style={{ marginBottom: '20px' }}>
                 <h2>Templates Management</h2>
-                <p style={{ color: '#666', marginBottom: '20px' }}>
+                <p className="dashboard-section-desc">
                   Upload document templates for students. Students can download these templates to use as guidelines.
                 </p>
                 <div className="form-group">
@@ -414,82 +401,89 @@ const PanelGroupsList: React.FC<{
   }
 
   return (
-    <div className="grid">
-      {groups.map((group) => (
-        <div
-          key={group.id}
-          className="card"
-          style={{
-            border: selectedGroupId === group.id ? '2px solid #007bff' : '1px solid #ddd',
-            backgroundColor: selectedGroupId === group.id ? '#f0f8ff' : 'white',
-            position: 'relative',
-          }}
-        >
-          {selectedGroupId === group.id && (
-            <span style={{
-              position: 'absolute',
-              top: '10px',
-              right: '10px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              fontSize: '0.7rem',
-              padding: '2px 8px',
-              borderRadius: '10px',
-              fontWeight: 'bold',
-            }}>
-              Selected
-            </span>
-          )}
-          <h3 style={{ marginBottom: '12px' }}>Group #{group.id}</h3>
-          <div style={{ fontSize: '0.9rem', lineHeight: '1.6' }}>
-            <p style={{ margin: '4px 0' }}>
-              <strong>Project:</strong> {group.project?.project_name || 'N/A'}
-            </p>
-            <p style={{ margin: '4px 0' }}>
-              <strong>Students:</strong><br />
-              <span style={{ marginLeft: '8px' }}>
-                {group.group?.student_1_details?.user?.username || 'N/A'} 
-                {group.group?.student_1_details?.registration_no && (
-                  <span style={{ color: '#666', fontSize: '0.85rem' }}> ({group.group.student_1_details.registration_no})</span>
-                )}
-              </span><br />
-              <span style={{ marginLeft: '8px' }}>
-                {group.group?.student_2_details?.user?.username || 'N/A'}
-                {group.group?.student_2_details?.registration_no && (
-                  <span style={{ color: '#666', fontSize: '0.85rem' }}> ({group.group.student_2_details.registration_no})</span>
-                )}
+    <div className="grid panel-groups-grid">
+      {groups.map((group) => {
+        const isSelected = selectedGroupId === group.id;
+        const student1Name = group.group?.student_1_details?.user
+          ? formatFullName(group.group.student_1_details.user)
+          : (group.group as any)?.student_1?.name || group.group?.student_1_details?.user?.username || 'N/A';
+        const student1Reg = group.group?.student_1_details?.registration_no || (group.group as any)?.student_1?.registration_no;
+        const student2Name = group.group?.student_2_details?.user
+          ? formatFullName(group.group.student_2_details.user)
+          : (group.group as any)?.student_2?.name || group.group?.student_2_details?.user?.username;
+        const student2Reg = group.group?.student_2_details?.registration_no || (group.group as any)?.student_2?.registration_no;
+        const supervisorName = group.supervisor?.user
+          ? formatFullName(group.supervisor.user)
+          : (group.supervisor as any)?.name || group.supervisor?.user?.username || 'N/A';
+
+        return (
+          <div
+            key={group.id}
+            className={`card panel-group-card ${isSelected ? 'is-selected' : ''}`}
+          >
+            {isSelected && (
+              <span className="selected-badge">
+                Selected
               </span>
-            </p>
-            <p style={{ margin: '4px 0' }}>
-              <strong>Supervisor:</strong> {group.supervisor?.user?.username || 'N/A'}
-            </p>
-            <p style={{ margin: '4px 0' }}>
-              <strong>Status:</strong>{' '}
-              <span className={`badge badge-${group.status === 'accepted' ? 'success' : 'pending'}`}>
-                {group.status}
-              </span>
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => onSelectGroup(group)}
-              style={{ flex: 1 }}
-            >
-              📝 Evaluate
-            </button>
-            {showDocumentsButton && onViewDocuments && (
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => onViewDocuments(group)}
-                style={{ flex: 1 }}
-              >
-                📄 Documents
-              </button>
             )}
+            <h3 className="panel-group-title">Group #{group.id}</h3>
+            <div className="panel-group-body">
+              <p className="panel-group-item">
+                <span className="item-label">Project:</span>
+                <span className="item-value">{group.project?.project_name || 'N/A'}</span>
+              </p>
+              <div className="panel-group-item">
+                <span className="item-label">Students:</span>
+                <div className="students-list">
+                  <div className="student-entry">
+                    <span className="student-name">{student1Name}</span>
+                    {student1Reg && (
+                      <span className="student-reg-badge">{student1Reg}</span>
+                    )}
+                  </div>
+                  {student2Name && (
+                    <div className="student-entry">
+                      <span className="student-name">{student2Name}</span>
+                      {student2Reg && (
+                        <span className="student-reg-badge">{student2Reg}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="panel-group-item">
+                <span className="item-label">Supervisor:</span>
+                <span className="item-value">{supervisorName}</span>
+              </p>
+              <p className="panel-group-item">
+                <span className="item-label">Status:</span>
+                <div>
+                  <span className={`badge badge-${group.status === 'accepted' ? 'success' : 'pending'}`}>
+                    {group.status}
+                  </span>
+                </div>
+              </p>
+            </div>
+            <div className="panel-group-actions">
+              <button
+                className="btn btn-primary btn-sm btn-evaluate"
+                onClick={() => onSelectGroup(group)}
+              >
+                📝 Evaluate
+              </button>
+              {showDocumentsButton && onViewDocuments && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => onViewDocuments(group)}
+                  style={{ flex: 1 }}
+                >
+                  📄 Documents
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
@@ -744,7 +738,7 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
 
         return (
           <div key={docType.value} style={{ marginBottom: '30px' }}>
-            <h3 style={{ marginBottom: '15px', color: '#333', borderBottom: '2px solid #e0e0e0', paddingBottom: '8px' }}>
+            <h3 style={{ marginBottom: '15px', borderBottom: '2px solid var(--divider, #e0e0e0)', paddingBottom: '8px' }}>
               {docType.label}
             </h3>
             <table className="table">
@@ -765,7 +759,7 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
                         {doc.status.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td style={{ fontSize: '0.85rem', color: '#666' }}>
+                    <td style={{ fontSize: '0.85rem', color: 'var(--text-soft, #64748b)' }}>
                       {formatDate(doc.uploaded_at)}
                     </td>
                     <td>

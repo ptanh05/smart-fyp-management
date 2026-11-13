@@ -1148,12 +1148,7 @@ const GroupsList: React.FC<{
               return (
                 <div
                   key={group.id}
-                  className="card"
-                  style={{
-                    border: selectedGroupId === group.id ? '2px solid #007bff' : '1px solid #ddd',
-                    backgroundColor: selectedGroupId === group.id ? '#f0f8ff' : 'white',
-                    position: 'relative',
-                  }}
+                  className={`card panel-group-card ${selectedGroupId === group.id ? 'is-selected' : ''}`}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <h3 style={{ margin: 0 }}>Group #{group.id}</h3>
