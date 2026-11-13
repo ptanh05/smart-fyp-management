@@ -131,18 +131,19 @@
 }
 
 .utc-btn-topic-save {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #2D469E 0%, #1D327B 100%);
   color: #ffffff;
   padding: 10px 22px;
   border-radius: 8px;
   font-size: 0.85rem;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(45, 70, 158, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .utc-btn-topic-save:hover {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+  background: linear-gradient(135deg, #3D5BC7 0%, #2D469E 100%);
+  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.5);
 }
 
 .utc-btn-topic-save-revision {
@@ -180,52 +181,55 @@
 }
 
 .utc-btn-upload-outline {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  background: linear-gradient(135deg, #2D469E 0%, #1D327B 100%);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 10px 20px;
   width: 100%;
   font-size: 0.85rem;
+  font-weight: 700;
   border-radius: 8px;
-  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.3);
+  box-shadow: 0 3px 10px rgba(45, 70, 158, 0.3);
 }
 
 .utc-btn-upload-outline:hover {
-  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
-  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
+  background: linear-gradient(135deg, #3D5BC7 0%, #2D469E 100%);
+  box-shadow: 0 6px 18px rgba(45, 70, 158, 0.45);
 }
 
 /* 5. Survey & Common Submit Buttons */
 .utc-btn-survey-now {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #2D469E 0%, #1D327B 100%);
   color: #ffffff;
   padding: 11px 24px;
   font-size: 0.92rem;
+  font-weight: 700;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 16px rgba(45, 70, 158, 0.4);
 }
 
 .utc-btn-survey-now:hover {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  box-shadow: 0 6px 22px rgba(37, 99, 235, 0.55);
+  background: linear-gradient(135deg, #3D5BC7 0%, #2D469E 100%);
+  box-shadow: 0 6px 22px rgba(45, 70, 158, 0.55);
 }
 
 .utc-btn-survey-submit,
 .utc-btn-weekly-submit {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #2D469E 0%, #1D327B 100%);
   color: #ffffff;
   padding: 10px 24px;
   font-size: 0.88rem;
+  font-weight: 700;
   border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(45, 70, 158, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .utc-btn-survey-submit:hover,
 .utc-btn-weekly-submit:hover {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+  background: linear-gradient(135deg, #3D5BC7 0%, #2D469E 100%);
+  box-shadow: 0 6px 20px rgba(45, 70, 158, 0.5);
 }
 
 /* 6. Task Board & Secondary Buttons */
@@ -295,38 +299,38 @@
   box-shadow: 0 8px 24px rgba(5, 150, 105, 0.15);
 }
 
-/* 8. Stepper Process Bar */
+/* 8. Stepper Process Bar - Chuẩn Bộ Nhận Diện Thương Hiệu UTC (#2D469E) */
 .utc-stepper-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  background: #0f172a;
-  border: 1px solid #1e293b;
+  gap: 12px;
+  background: linear-gradient(135deg, #101b3e 0%, #172757 45%, #2d469e 100%);
+  border: 1px solid rgba(45, 70, 158, 0.45);
   border-radius: 12px;
-  padding: 10px 14px;
-  margin-bottom: 18px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(45, 70, 158, 0.25);
 }
 
 .utc-stepper-label {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #94a3b8;
+  color: #dce7fa;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .utc-stepper-pulse {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: #38bdf8;
-  box-shadow: 0 0 8px #38bdf8;
+  background: #5b7ee5;
+  box-shadow: 0 0 10px #7b99ef;
   animation: pulse 1.8s infinite;
 }
 
@@ -338,37 +342,172 @@
 .utc-stepper-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .utc-stepper-item {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
+  padding: 8px 13px;
   border-radius: 8px;
-  font-size: 0.78rem;
+  font-size: 0.79rem;
   font-weight: 600;
-  background: #1e293b;
-  color: #94a3b8;
-  border: 1px solid #334155;
+  background: rgba(16, 27, 62, 0.65);
+  color: #c5d5f2;
+  border: 1px solid rgba(69, 101, 201, 0.35);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(4px);
+  user-select: none;
 }
 
 .utc-stepper-item:hover {
-  background: #334155;
+  background: #1e3170;
   color: #ffffff;
-  border-color: #475569;
+  border-color: #5575db;
+  transform: translateY(-1px);
 }
 
 .utc-stepper-item.active {
-  background: #0284c7;
+  background: #2d469e;
   color: #ffffff;
-  border-color: #38bdf8;
+  border: 1.5px solid #7290ec;
+  font-weight: 800;
+  box-shadow: 0 4px 16px rgba(45, 70, 158, 0.6);
+  transform: scale(1.03);
+}
+
+.utc-stepper-badge-current {
+  background: linear-gradient(135deg, #f58220 0%, #ea580c 100%);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1.5px 6.5px;
+  border-radius: 8px;
+  margin-left: 5px;
+  box-shadow: 0 2px 6px rgba(245, 130, 32, 0.4);
+  letter-spacing: 0.2px;
+}
+
+/* 8.1. UTC Graduation Card Container (Dùng cho cả 6 Tab ĐATN) */
+.utc-graduation-card {
+  background: linear-gradient(180deg, #101b3e 0%, #0c152f 100%);
+  border: 1px solid #233772;
+  border-top: 4px solid #2d469e;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 8px 30px rgba(16, 27, 62, 0.35);
+  position: relative;
+  transition: all 0.25s ease;
+}
+
+.utc-card-header {
+  border-bottom: 1px solid rgba(45, 70, 158, 0.25);
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+}
+
+.utc-card-title {
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.utc-card-subtitle {
+  color: #9bb0db;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin: 6px 0 0 0;
+}
+
+/* Empty State khi chưa có dữ liệu điểm */
+.utc-empty-grade-box {
+  text-align: center;
+  padding: 44px 20px;
+  background: rgba(45, 70, 158, 0.08);
+  border: 1.5px dashed rgba(69, 101, 201, 0.35);
+  border-radius: 12px;
+  margin: 12px 0;
+  transition: all 0.2s ease;
+}
+
+.utc-empty-grade-icon {
+  font-size: 2.4rem;
+  margin-bottom: 10px;
+  display: inline-block;
+  filter: drop-shadow(0 2px 8px rgba(45, 70, 158, 0.4));
+}
+
+.utc-empty-grade-title {
+  color: #ffffff;
+  font-size: 1rem;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
-  transform: scale(1.02);
+  margin-bottom: 6px;
+}
+
+.utc-empty-grade-desc {
+  color: #8da3cf;
+  font-size: 0.82rem;
+  max-width: 480px;
+  margin: 0 auto 16px auto;
+  line-height: 1.55;
+}
+
+.utc-empty-grade-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(45, 70, 158, 0.28);
+  color: #d8e5ff;
+  border: 1px solid rgba(114, 144, 236, 0.4);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(45, 70, 158, 0.2);
+}
+
+/* Điểm thành phần khi có dữ liệu */
+.utc-score-component-card {
+  background: linear-gradient(135deg, #13214a 0%, #0e1838 100%);
+  border: 1px solid #283e7f;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.utc-score-component-card:hover {
+  border-color: #4565c9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(45, 70, 158, 0.2);
+}
+
+.utc-score-component-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9cb1dc;
+}
+
+/* Banner Điểm tổng kết cuối cùng chuẩn UTC */
+.utc-final-score-banner {
+  background: linear-gradient(135deg, #172757 0%, #22377a 45%, #2d469e 100%);
+  border: 1px solid #4a6bd8;
+  border-radius: 12px;
+  padding: 24px;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(45, 70, 158, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 /* 9. Deferral Modal Styling */

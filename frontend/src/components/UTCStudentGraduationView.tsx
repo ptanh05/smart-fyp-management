@@ -534,17 +534,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 <span>{isLocked ? '🔒' : tab.icon}</span>
                 <span>{tab.shortLabel}</span>
                 {isCurrent && (
-                  <span
-                    style={{
-                      background: '#0284c7',
-                      color: '#fff',
-                      fontSize: '0.65rem',
-                      fontWeight: 800,
-                      padding: '1px 5px',
-                      borderRadius: '8px',
-                      marginLeft: '4px',
-                    }}
-                  >
+                  <span className="utc-stepper-badge-current">
                     Đang làm
                   </span>
                 )}
@@ -559,7 +549,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
       {/* Tab 1: Project Overview */}
       {activeTab === 'project' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6 shadow-xl">
+        <div className="utc-graduation-card space-y-6">
           {projectData ? (
             <>
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 pb-4">
@@ -817,7 +807,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
       {/* Tab 2: Survey & Preferences */}
       {activeTab === 'survey' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6 shadow-xl max-w-3xl">
+        <div className="utc-graduation-card space-y-6 max-w-3xl">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
             <div>
               <h3 className="text-lg font-bold text-slate-100">Phiếu Khảo sát Thực tập & Đăng ký Nguyện vọng ĐATN</h3>
@@ -1098,7 +1088,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
       {/* Tab 3: Outline Submission & Phase 3 Topic Draft */}
       {activeTab === 'outline' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6 shadow-xl max-w-3xl">
+        <div className="utc-graduation-card space-y-6 max-w-3xl">
           <div>
             <h3 className="text-lg font-bold text-slate-100">Xây dựng Đề tài & Nộp Đề cương ĐATN (Giai đoạn 3)</h3>
             <p className="text-xs text-slate-400">Quy trình: Thảo luận Đề tài Draft → GVHD xác nhận → Khoa duyệt → Xuất PDF → Ký nộp lưu hồ sơ</p>
@@ -1367,7 +1357,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       {activeTab === 'weekly' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Submit form */}
-          <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+          <div className="lg:col-span-1 utc-graduation-card p-5 space-y-4">
             <h3 className="font-bold text-base text-slate-100">Nộp Báo cáo Tuần</h3>
             <form onSubmit={handleSubmitWeeklyReport} className="space-y-3">
               <div>
@@ -1441,7 +1431,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           </div>
 
           {/* List of submitted reports */}
-          <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+          <div className="lg:col-span-2 utc-graduation-card p-5 space-y-4">
             <h3 className="font-bold text-base text-slate-100">Lịch sử Báo cáo & Nhận xét của GVHD</h3>
             {weeklyReports.length === 0 ? (
               <div className="text-center py-12 text-slate-400 text-xs">Chưa có báo cáo tuần nào được nộp.</div>
@@ -1490,7 +1480,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       {activeTab === 'supervision' && (
         <div className="space-y-6">
           {/* Header */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
+          <div className="utc-graduation-card shadow-xl space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
@@ -1743,7 +1733,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           </div>
 
           {/* Supervision Meeting Logs Section */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-4">
+          <div className="utc-graduation-card space-y-4">
             <div>
               <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                 <span>🗓️</span> Nhật Ký Hướng Dẫn Định Kỳ (Supervision Meeting Logs)
@@ -1857,48 +1847,55 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
       {/* Tab 6: Final Grade Summary */}
       {activeTab === 'grade' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-6 shadow-xl max-w-3xl">
-          <div>
-            <h3 className="text-lg font-bold text-slate-100">Bảng Điểm Tổng kết Đồ án Tốt nghiệp</h3>
-            <p className="text-xs text-slate-400">Tính toán tự động theo Quy chế tín chỉ UTC (40% GVHD + 20% GVPB + 40% Hội đồng)</p>
+        <div className="utc-graduation-card space-y-6 max-w-3xl">
+          <div className="utc-card-header">
+            <h3 className="utc-card-title">
+              <span>🏆</span>
+              <span>Bảng Điểm Tổng kết Đồ án Tốt nghiệp</span>
+            </h3>
+            <p className="utc-card-subtitle">
+              Tính toán tự động theo Quy chế tín chỉ UTC (30% GVHD + 20% GVPB + 50% Hội đồng)
+            </p>
           </div>
 
           {projectData?.final_grade ? (
             <div className="space-y-6">
               {/* Component Scores */}
               <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-400">Điểm GVHD (40%)</span>
+                <div className="utc-score-component-card">
+                  <span className="utc-score-component-label">Điểm GVHD (30%)</span>
                   <p className="text-2xl font-bold text-emerald-400 mt-1">
                     {projectData.final_grade.supervisor_score !== null ? projectData.final_grade.supervisor_score : '-'}
                   </p>
                 </div>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-400">Điểm GVPB (20%)</span>
-                  <p className="text-2xl font-bold text-indigo-400 mt-1">
+                <div className="utc-score-component-card">
+                  <span className="utc-score-component-label">Điểm GVPB (20%)</span>
+                  <p className="text-2xl font-bold text-blue-300 mt-1">
                     {projectData.final_grade.reviewer_score !== null ? projectData.final_grade.reviewer_score : '-'}
                   </p>
                 </div>
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                  <span className="text-xs text-slate-400">Điểm Hội đồng (40%)</span>
-                  <p className="text-2xl font-bold text-blue-400 mt-1">
+                <div className="utc-score-component-card">
+                  <span className="utc-score-component-label">Điểm Hội đồng (50%)</span>
+                  <p className="text-2xl font-bold text-indigo-300 mt-1">
                     {projectData.final_grade.council_avg_score !== null ? projectData.final_grade.council_avg_score : '-'}
                   </p>
                 </div>
               </div>
 
               {/* Total Final Score Card */}
-              <div className="bg-gradient-to-r from-blue-900/40 to-slate-900 p-6 rounded-xl border border-blue-500/30 flex items-center justify-between">
+              <div className="utc-final-score-banner">
                 <div>
-                  <span className="text-xs text-blue-300 font-semibold uppercase">Điểm Tổng kết cuối cùng</span>
+                  <span className="text-xs text-blue-200 font-semibold uppercase tracking-wider">
+                    Điểm Tổng kết cuối cùng
+                  </span>
                   <div className="flex items-baseline gap-3 mt-1">
                     <span className="text-4xl font-extrabold text-white">
                       {projectData.final_grade.final_score_10 !== null ? projectData.final_grade.final_score_10 : '-'}
                     </span>
-                    <span className="text-base text-slate-300">/ 10</span>
+                    <span className="text-base text-blue-200">/ 10</span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Quy đổi Thang 4: <b>{projectData.final_grade.final_score_4 !== null ? projectData.final_grade.final_score_4 : '-'}</b>
+                  <p className="text-xs text-blue-200 mt-1">
+                    Quy đổi Thang 4: <b className="text-white">{projectData.final_grade.final_score_4 !== null ? projectData.final_grade.final_score_4 : '-'}</b>
                   </p>
                 </div>
 
@@ -1906,16 +1903,16 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   <span className="text-3xl font-black text-amber-400">
                     {projectData.final_grade.final_letter_grade || '-'}
                   </span>
-                  <p className="text-xs font-semibold text-slate-300">
+                  <p className="text-xs font-semibold text-blue-100">
                     Xếp loại: {projectData.final_grade.classification || 'Đang cập nhật'}
                   </p>
                   <div>
                     {projectData.final_grade.is_passed ? (
-                      <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold">
-                        ĐẠT YÊU CẦU
+                      <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold">
+                        ✅ ĐẠT YÊU CẦU
                       </span>
                     ) : (
-                      <span className="px-3 py-1 rounded-full bg-slate-800 text-slate-400 text-xs">
+                      <span className="px-3 py-1 rounded-full bg-slate-800/80 text-blue-200 text-xs">
                         Đang bảo vệ
                       </span>
                     )}
@@ -1924,7 +1921,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               </div>
 
               {/* Deferral Quick Action Banner in Tab 6 */}
-              <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-slate-950 border border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-slate-900/70 border border-blue-900/40">
                 <div>
                   <h4 className="text-sm font-bold text-slate-200">Đơn Xin Hoãn / Bảo Lưu Đồ Án Tốt Nghiệp</h4>
                   <p className="text-xs text-slate-400">Trường hợp chưa đủ điều kiện bảo vệ hoặc lý do học vụ cần bảo lưu kết quả sang đợt sau.</p>
@@ -1941,8 +1938,15 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               </div>
             </div>
           ) : (
-            <div className="text-center py-12 text-slate-400 text-sm">
-              Chưa có dữ liệu điểm tổng kết cho đồ án của bạn.
+            <div className="utc-empty-grade-box">
+              <div className="utc-empty-grade-icon">📊</div>
+              <h4 className="utc-empty-grade-title">Chưa có dữ liệu điểm tổng kết cho đồ án của bạn</h4>
+              <p className="utc-empty-grade-desc">
+                Điểm đánh giá sẽ hiển thị tại đây sau khi Giảng viên hướng dẫn, Cán bộ Phản biện và Hội đồng bảo vệ hoàn tất chấm điểm và khóa kết quả.
+              </p>
+              <div className="utc-empty-grade-pill">
+                <span>⚡ Tỷ lệ tính điểm chuẩn UTC: 30% GVHD + 20% GVPB + 50% Hội đồng</span>
+              </div>
             </div>
           )}
         </div>
