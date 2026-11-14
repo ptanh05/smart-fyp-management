@@ -147,7 +147,9 @@ const LoginPage: React.FC = () => {
       } else if (userType === 'supervisor') {
         response = await apiService.supervisorLogin(email.trim(), password);
       } else if (userType === 'committee_member') {
-        response = await apiService.committeeMemberLogin(email.trim(), password);
+        // Thành viên hội đồng đồng thời là giảng viên UTC, dùng chung tài khoản
+        // và mật khẩu giảng viên; tab được chọn chỉ quyết định portal sau đăng nhập.
+        response = await apiService.supervisorLogin(email.trim(), password);
       } else {
         response = await apiService.externalExaminerLogin(email.trim(), password);
       }
@@ -429,7 +431,7 @@ const LoginPage: React.FC = () => {
           </div>
 
           {/* Quick Demo Accounts Interactive Helper */}
-          <div className="utc-demo-interactive-card">
+          {false && <div className="utc-demo-interactive-card">
             <div className="utc-demo-interactive-header">
               <span className="utc-demo-badge">⚡ ĐIỀN MẪU TEST NHANH</span>
               <span className="utc-demo-hint">Click 1 chạm để tự điền thông tin</span>
@@ -547,7 +549,7 @@ const LoginPage: React.FC = () => {
                 {filledAccountInfo}
               </div>
             )}
-          </div>
+          </div>}
 
           <form onSubmit={handleSubmit} className="utc-login-form" noValidate>
             {userType === 'student' ? (
