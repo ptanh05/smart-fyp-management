@@ -69,6 +69,38 @@ from .concurrency import retry_on_db_lock
 
 logger = logging.getLogger(__name__)
 
+BATCH_STAGE_NUMBERS = {
+    "PHASE_1_SETUP": 1,
+    "PHASE_2_ALLOCATING": 2,
+    "PHASE_2_LOCKED": 2,
+    "PHASE_3_TOPIC": 3,
+    "PHASE_4_ELIGIBILITY": 4,
+    "PHASE_5_IN_PROGRESS": 5,
+    "PHASE_6_DEFENSE": 6,
+    "COMPLETED": 6,
+}
+
+
+def require_project_batch_stage(project, minimum_stage):
+    """Chặn nghiệp vụ chạy trước khi đợt được Khoa chuyển sang giai đoạn tương ứng."""
+    batch = getattr(project, "batch", None)
+    if not batch:
+        return None
+    current_stage = BATCH_STAGE_NUMBERS.get(batch.current_stage, 1)
+    if current_stage < minimum_stage:
+        return Response(
+            {
+                "detail": (
+                    f"Giai đoạn {minimum_stage} chưa được mở. "
+                    f"Đợt hiện vẫn đang ở giai đoạn {current_stage}; hãy hoàn tất giai đoạn trước."
+                ),
+                "current_stage": current_stage,
+                "required_stage": minimum_stage,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+    return None
+
 
 # ==============================================================================
 # MODULE 1: BATCH INITIALIZATION & STUDENT IMPORT APIS (TC_031, TC_032, TC_033)
@@ -960,6 +992,10 @@ class StudentOutlineSubmissionAPIView(APIView):
         project = GraduationProject.objects.filter(student=student).first()
         if not project:
             return Response({"detail": "Chưa được phân công đề tài."}, status=status.HTTP_400_BAD_REQUEST)
+
+        stage_error = require_project_batch_stage(project, 3)
+        if stage_error:
+            return stage_error
 
         topic_title_vi = request.data.get("topic_title_vi", "").strip()
         topic_title_en = request.data.get("topic_title_en", "").strip()
@@ -3340,6 +3376,10 @@ class TopicDraftAPIView(APIView):
         else:
             project = get_object_or_404(GraduationProject, id=project_id)
 
+        stage_error = require_project_batch_stage(project, 3)
+        if stage_error:
+            return stage_error
+
         project.topic_title_vi = topic_title_vi
         if topic_title_en:
             project.topic_title_en = topic_title_en
@@ -3376,6 +3416,10 @@ class SupervisorConfirmTopicAPIView(APIView):
 
         project_id = request.data.get("project_id")
         project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+
+        stage_error = require_project_batch_stage(project, 3)
+        if stage_error:
+            return stage_error
 
         topic_title_vi = request.data.get("topic_title_vi", "").strip()
         topic_title_en = request.data.get("topic_title_en", "").strip()
@@ -3441,6 +3485,10 @@ class TopicReSubmitAPIView(APIView):
 
         if not project:
             return Response({"detail": "Không tìm thấy đồ án tốt nghiệp cần nộp lại đề tài."}, status=status.HTTP_404_NOT_FOUND)
+
+        stage_error = require_project_batch_stage(project, 3)
+        if stage_error:
+            return stage_error
 
         if not topic_title_vi:
             topic_title_vi = project.topic_title_vi
@@ -3578,6 +3626,10 @@ class ExportOutlinePdfAPIView(APIView):
             GraduationProject.objects.select_related("student__user", "supervisor__user", "topic_category", "batch"),
             id=pk
         )
+
+        stage_error = require_project_batch_stage(project, 3)
+        if stage_error:
+            return stage_error
 
         import io
         import os
@@ -3718,6 +3770,10 @@ class UploadSignedOutlineAPIView(APIView):
         user = request.user
         student = getattr(user, "student_profile", None)
         project = get_object_or_404(GraduationProject, id=pk)
+
+        stage_error = require_project_batch_stage(project, 3)
+        if stage_error:
+            return stage_error
 
         signed_file = request.FILES.get("signed_outline_file")
         if not signed_file:

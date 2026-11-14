@@ -34,8 +34,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
     // Giai đoạn 1 (Đề tài/GVHD), Giai đoạn 2 (Khảo sát/Nguyện vọng), Giai đoạn 3 (Đề cương) luôn mở cho sinh viên
-    if (targetStage && targetStage.number > 3 && targetStage.number > currentStageNum) {
-      alert(`⚠️ Bạn cần hoàn thành và được Hội đồng Khoa & GVHD duyệt Đề cương (Giai đoạn 3) để mở ${targetStage.label}!`);
+    if (targetStage && targetStage.number > currentStageNum) {
+      alert(`⚠️ Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
       return;
     }
     setActiveTab(tabKey);
@@ -57,8 +57,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     if (batchProgressLoading || !batchProgress) return;
 
     const selectedStage = GRADUATION_STAGES.find((stage) => stage.key === activeTab);
-    const isLockedStage =
-      selectedStage && selectedStage.number > 3 && selectedStage.number > currentStageNum;
+    const isLockedStage = selectedStage && selectedStage.number > currentStageNum;
 
     if (isLockedStage) {
       const currentStage = GRADUATION_STAGES.find((stage) => stage.number === currentStageNum);
@@ -532,7 +531,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
             const isCurrent = tab.number === currentStageNum;
             const isCompleted = tab.number < currentStageNum;
             // GĐ 1, 2, 3 không bao giờ bị khóa để sinh viên tự do thực hiện hồ sơ & đề cương
-            const isLocked = tab.number > 3 && tab.number > currentStageNum;
+              const isLocked = tab.number > currentStageNum;
 
             return (
               <button
