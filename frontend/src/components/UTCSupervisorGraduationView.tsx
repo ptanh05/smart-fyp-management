@@ -16,12 +16,18 @@ export interface UTCSupervisorGraduationViewProps {
   initialTab?: SupervisorGradTab;
   onSubtabChange?: (tab: SupervisorGradTab) => void;
   onProjectsLoaded?: (projects: any[]) => void;
+  batches?: any[];
+  selectedBatchId?: number | null;
+  onBatchChange?: (batchId: number) => void;
 }
 
 export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewProps> = ({
   initialTab,
   onSubtabChange,
   onProjectsLoaded,
+  batches: controlledBatches,
+  selectedBatchId: controlledBatchId,
+  onBatchChange,
 }) => {
   const [activeTab, setActiveTab] = useState<SupervisorGradTab>(initialTab || 'students');
   const [projects, setProjects] = useState<any[]>([]);
@@ -36,6 +42,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<number | 'all'>('all');
   const [loadingBatches, setLoadingBatches] = useState(true);
+  const effectiveBatches = controlledBatches ?? batches;
+  const effectiveBatchId = controlledBatchId ?? (selectedBatchId === 'all' ? null : selectedBatchId);
 
   // Sync with initialTab prop if changed from outside
   useEffect(() => {
@@ -286,7 +294,14 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const fetchData = async () => {
     try {
       setLoading(true);
-      const batchParam = selectedBatchId !== 'all' ? `?batch_id=${selectedBatchId}` : '';
+      if (!effectiveBatchId) {
+        setProjects([]);
+        setReviewerProjects([]);
+        setOutlineReviews([]);
+        onProjectsLoaded?.([]);
+        return;
+      }
+      const batchParam = `?batch_id=${effectiveBatchId}`;
       const [projRes, revRes, outRes, defRes] = await Promise.all([
         axios.get(`${API_BASE}/supervisor/graduation-projects/${batchParam}`, { headers: getHeaders() }).catch(() => null),
         axios.get(`${API_BASE}/reviewer/assigned-projects/${batchParam}`, { headers: getHeaders() }).catch(() => null),
@@ -310,12 +325,13 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   };
 
   useEffect(() => {
-    fetchBatches();
-  }, []);
+    if (controlledBatches === undefined) fetchBatches();
+    else setLoadingBatches(false);
+  }, [controlledBatches]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedBatchId]);
+  }, [effectiveBatchId]);
 
   const handleOpenSupervision = async (project: any) => {
     setSupervisionProject(project);
@@ -683,19 +699,18 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           </div>
         </div>
         <select
-          value={selectedBatchId}
+          value={effectiveBatchId ?? ''}
           onChange={(e) => {
-            const val = e.target.value === 'all' ? 'all' : Number(e.target.value);
+            const val = Number(e.target.value);
             setSelectedBatchId(val);
-            if (val !== 'all') {
-              localStorage.setItem('supervisor_selected_batch_id', String(val));
-            }
+            onBatchChange?.(val);
+            localStorage.setItem('supervisor_selected_batch_id', String(val));
           }}
           disabled={loadingBatches}
           className="utc-batch-selector-select"
         >
-          <option value="all">🌐 Tất cả các đợt</option>
-          {batches.map((batch) => (
+          {effectiveBatches.length === 0 && <option value="">Chưa có đợt được phân công</option>}
+          {effectiveBatches.map((batch) => (
             <option key={batch.id} value={batch.id}>
               {batch.is_active && !batch.is_closed ? '🟢' : '⚫'} {batch.batch_code} - {batch.batch_name}
             </option>

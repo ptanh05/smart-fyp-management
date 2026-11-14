@@ -327,6 +327,42 @@
   align-items: center;
 }
 
+.utc-supervisor-batch-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.utc-supervisor-batch-filter select {
+  min-width: 230px;
+  max-width: 360px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .utc-supervisor-batch-filter {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .utc-supervisor-batch-filter select {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 .utc-header-refresh-btn {
   display: flex;
   align-items: center;

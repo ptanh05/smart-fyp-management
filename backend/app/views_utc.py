@@ -854,7 +854,6 @@ class StudentSurveyAPIView(APIView):
         tentative_title = data.get("tentative_title", "").strip()
         phone_number = data.get("phone_number", "").strip()
         email = data.get("email", "").strip()
-        new_password = data.get("new_password", "").strip()
 
         # Validation
         if is_interning and not company_name:
@@ -892,8 +891,6 @@ class StudentSurveyAPIView(APIView):
 
             if email:
                 user.email = email
-            if new_password and len(new_password) >= 6:
-                user.set_password(new_password)
             user.save()
 
             # Update or create InternshipInfo
@@ -1268,12 +1265,13 @@ class SupervisorMyBatchesAPIView(APIView):
 
         from django.db.models import Q
 
-        # Lấy các batch mà supervisor này có project (hướng dẫn hoặc phản biện)
-        batch_ids = GraduationProject.objects.filter(
+        # Các đợt giảng viên được cấu hình tham gia, hướng dẫn hoặc phản biện.
+        project_batch_ids = GraduationProject.objects.filter(
             Q(supervisor=supervisor) | Q(reviewer=supervisor)
         ).values_list("batch_id", flat=True).distinct()
-
-        batches = AcademicBatch.objects.filter(id__in=batch_ids).order_by("-id")
+        batches = AcademicBatch.objects.filter(
+            Q(id__in=project_batch_ids) | Q(supervisor_quotas__supervisor=supervisor)
+        ).distinct().order_by("-id")
 
         from .serializers.utc_graduation_serializers import AcademicBatchSerializer
         return Response(AcademicBatchSerializer(batches, many=True).data, status=status.HTTP_200_OK)
@@ -1291,6 +1289,11 @@ class SupervisorGraduationProjectsAPIView(APIView):
         from django.db.models import Q, Prefetch
 
         batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
+        if not batch_id:
+            return Response(
+                {"detail": "Vui lòng chọn đợt đồ án (batch_id) trước khi tải dữ liệu giảng viên."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         tasks_qs = SupervisionTask.objects.select_related("assigned_by__user")
         meeting_logs_qs = SupervisionMeetingLog.objects.select_related(
@@ -1433,6 +1436,11 @@ class SupervisorOutlineGroupReviewListAPIView(APIView):
 
         from django.db.models import Q
         batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
+        if not batch_id:
+            return Response(
+                {"detail": "Vui lòng chọn đợt đồ án (batch_id) trước khi tải danh sách đề cương."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         query = Q(project__supervisor=supervisor)
         if review_groups.exists():
             query |= Q(review_group__in=review_groups)
@@ -1899,6 +1907,11 @@ class ReviewerAssignedProjectsAPIView(APIView):
             return Response({"detail": "Chỉ dành cho Giảng viên phản biện."}, status=status.HTTP_403_FORBIDDEN)
 
         batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
+        if not batch_id:
+            return Response(
+                {"detail": "Vui lòng chọn đợt đồ án (batch_id) trước khi tải danh sách phản biện."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         projects_qs = GraduationProject.objects.filter(reviewer=supervisor)
         if batch_id:
             projects_qs = projects_qs.filter(batch_id=batch_id)

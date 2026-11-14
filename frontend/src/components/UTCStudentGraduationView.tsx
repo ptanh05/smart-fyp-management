@@ -101,7 +101,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const [showAllSupervisors, setShowAllSupervisors] = useState(false);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [surveySaving, setSurveySaving] = useState(false);
 
   // Lọc & đề xuất giảng viên theo chuyên ngành (hướng nghiên cứu) đã chọn
@@ -310,7 +309,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           tentative_title: tentativeTitle,
           phone_number: phone,
           email: email,
-          new_password: newPassword || undefined,
         },
         { headers: getHeaders() }
       );
@@ -1091,17 +1089,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 placeholder="VD: Xây dựng hệ thống quản lý chuỗi cung ứng bằng Blockchain..."
                 value={tentativeTitle}
                 onChange={(e) => setTentativeTitle(e.target.value)}
-                className="utc-form-input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Đổi mật khẩu mới (nếu muốn thay đổi)</label>
-              <input
-                type="password"
-                placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
                 className="utc-form-input"
               />
             </div>

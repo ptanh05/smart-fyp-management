@@ -59,6 +59,9 @@ const SupervisorDashboard: React.FC = () => {
   }, [searchParams]);
   const [profile, setProfile] = useState<Supervisor | null>(null);
   const [graduationProjects, setGraduationProjects] = useState<any[]>([]);
+  const [supervisorBatches, setSupervisorBatches] = useState<any[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+  const [batchesLoading, setBatchesLoading] = useState(true);
   const [supervisorRequests, setSupervisorRequests] = useState<SupervisorOfStudentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState<SupervisorOfStudentGroup | null>(null);
@@ -159,8 +162,41 @@ const SupervisorDashboard: React.FC = () => {
 
 
   useEffect(() => {
-    loadData();
+    const initializeBatches = async () => {
+      try {
+        setBatchesLoading(true);
+        const token = localStorage.getItem('access_token');
+        const res = await axios.get(`${API_BASE_URL}/supervisor/my-batches/`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const list = Array.isArray(res.data) ? res.data : [];
+        setSupervisorBatches(list);
+        const savedId = Number(localStorage.getItem('supervisor_selected_batch_id'));
+        const savedBatch = list.find((batch: any) => batch.id === savedId);
+        const activeBatch = list.find((batch: any) => batch.is_active && !batch.is_closed);
+        const initialBatch = savedBatch || activeBatch || list[0];
+        setSelectedBatchId(initialBatch?.id ?? null);
+      } catch (error) {
+        console.error('Failed to load supervisor batches:', error);
+        setSupervisorBatches([]);
+        setSelectedBatchId(null);
+        setLoading(false);
+      } finally {
+        setBatchesLoading(false);
+      }
+    };
+    initializeBatches();
   }, []);
+
+  useEffect(() => {
+    if (selectedBatchId) {
+      localStorage.setItem('supervisor_selected_batch_id', String(selectedBatchId));
+      loadData(selectedBatchId);
+    } else if (!batchesLoading) {
+      setGraduationProjects([]);
+      setLoading(false);
+    }
+  }, [selectedBatchId, batchesLoading]);
 
   // Reload requests when requests tab is clicked
   useEffect(() => {
@@ -172,21 +208,21 @@ const SupervisorDashboard: React.FC = () => {
   // Auto-sync when internet reconnects without page reload
   useEffect(() => {
     const handleOnlineSync = () => {
-      loadData();
+      if (selectedBatchId) loadData(selectedBatchId);
     };
     window.addEventListener('app:online-sync', handleOnlineSync);
     return () => {
       window.removeEventListener('app:online-sync', handleOnlineSync);
     };
-  }, []);
+  }, [selectedBatchId]);
 
-  const loadData = async () => {
+  const loadData = async (batchId: number) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('access_token');
       const [profileData, projRes] = await Promise.all([
         apiService.getSupervisorProfile(),
-        axios.get(`${API_BASE_URL}/supervisor/graduation-projects/`, {
+        axios.get(`${API_BASE_URL}/supervisor/graduation-projects/?batch_id=${batchId}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         }).catch(() => null),
       ]);
@@ -311,6 +347,21 @@ const SupervisorDashboard: React.FC = () => {
             </p>
           </div>
           <div className="utc-header-actions">
+            <label className="utc-supervisor-batch-filter">
+              <span>📅 Đợt ĐATN</span>
+              <select
+                value={selectedBatchId ?? ''}
+                onChange={(event) => setSelectedBatchId(Number(event.target.value))}
+                disabled={batchesLoading || supervisorBatches.length === 0}
+              >
+                {supervisorBatches.length === 0 && <option value="">Chưa có đợt được phân công</option>}
+                {supervisorBatches.map((batch) => (
+                  <option key={batch.id} value={batch.id}>
+                    {batch.batch_code} - {batch.batch_name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
               className="btn btn-primary"
@@ -396,6 +447,9 @@ const SupervisorDashboard: React.FC = () => {
               initialTab={getSupervisorGraduationSubtab(activeTab)}
               onSubtabChange={(st) => setActiveTab(st)}
               onProjectsLoaded={(projs) => setGraduationProjects(projs)}
+              batches={supervisorBatches}
+              selectedBatchId={selectedBatchId}
+              onBatchChange={setSelectedBatchId}
             />
           )}
 
@@ -638,7 +692,7 @@ const SupervisorDashboard: React.FC = () => {
 
           {activeTab === 'offered_topics' && (
             <div className="card">
-              <SupervisorOfferedTopics onTopicChanged={loadData} />
+              <SupervisorOfferedTopics onTopicChanged={() => selectedBatchId && loadData(selectedBatchId)} />
             </div>
           )}
 

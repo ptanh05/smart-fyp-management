@@ -88,7 +88,7 @@ class SupervisorDashboardPerformanceTestCase(APITestCase):
             user_type="student"
         )
 
-        self.endpoint = "/api/supervisor/graduation-projects/"
+        self.endpoint = f"/api/supervisor/graduation-projects/?batch_id={self.batch.id}"
 
     def _create_student(self, index, batch=None):
         batch = batch or self.batch
