@@ -34,7 +34,7 @@ const UTC_OFFICIAL_TEMPLATES: UTCOfficialTemplate[] = [
     stage: 'GĐ 3: Đề Cương ĐATN',
     description: 'Biểu mẫu đề cương song ngữ Việt - Anh chuẩn UTC, tóm tắt mục tiêu, phạm vi nghiên cứu và chữ ký GVHD',
     format: 'PDF / DOCX',
-    downloadUrl: '/api/utc/templates/mau-01-de-cuong.pdf',
+    downloadUrl: '/attachments/mau-01-de-cuong.pdf',
   },
   {
     code: 'MẪU 02',
@@ -42,7 +42,7 @@ const UTC_OFFICIAL_TEMPLATES: UTCOfficialTemplate[] = [
     stage: 'GĐ 4 & 5: Tiến Độ & Task Board',
     description: 'Sổ theo dõi lịch làm việc định kỳ giữa SV và GVHD, ghi nhận các buổi họp trực tiếp/online từ Tuần 1 đến 15',
     format: 'DOCX / XLSX',
-    downloadUrl: '/api/utc/templates/mau-02-nhat-ky.docx',
+    downloadUrl: '/attachments/mau-02-nhat-ky.docx',
   },
   {
     code: 'MẪU 03',
@@ -51,7 +51,7 @@ const UTC_OFFICIAL_TEMPLATES: UTCOfficialTemplate[] = [
     description: 'Phiếu cho điểm quá trình đồ án theo thang điểm 10, đánh giá thái độ, tiến độ và khối lượng công việc hoàn thành',
     weight: '40% tổng điểm',
     format: 'PDF',
-    downloadUrl: '/api/utc/templates/mau-03-danh-gia-gvhd.pdf',
+    downloadUrl: '/attachments/mau-03-danh-gia-gvhd.pdf',
   },
   {
     code: 'MẪU 04',
@@ -60,7 +60,7 @@ const UTC_OFFICIAL_TEMPLATES: UTCOfficialTemplate[] = [
     description: 'Phiếu chấm điểm phản biện độc lập theo thang điểm 10, đánh giá tính mới, cơ sở khoa học và chất lượng báo cáo',
     weight: '20% tổng điểm',
     format: 'PDF',
-    downloadUrl: '/api/utc/templates/mau-04-danh-gia-gvpb.pdf',
+    downloadUrl: '/attachments/mau-04-danh-gia-gvpb.pdf',
   },
   {
     code: 'MẪU 05',
@@ -69,7 +69,7 @@ const UTC_OFFICIAL_TEMPLATES: UTCOfficialTemplate[] = [
     description: 'Biên bản họp Hội đồng chấm ĐATN, câu hỏi bảo vệ, điểm trung bình của 5 thành viên Hội đồng',
     weight: '40% tổng điểm',
     format: 'PDF',
-    downloadUrl: '/api/utc/templates/mau-05-bien-ban-hoi-dong.pdf',
+    downloadUrl: '/attachments/mau-05-bien-ban-hoi-dong.pdf',
   },
   {
     code: 'MẪU 06',
@@ -77,7 +77,7 @@ const UTC_OFFICIAL_TEMPLATES: UTCOfficialTemplate[] = [
     stage: 'GĐ 6: Báo Cáo ĐATN',
     description: 'Quy cách định dạng chuẩn Font, Margin, Bìa cứng mạ vàng, thứ tự các trang Lời cảm ơn, Mục lục, Danh mục hình vẽ',
     format: 'DOCX / PDF',
-    downloadUrl: '/api/utc/templates/mau-06-huong-dan-trinh-bay.docx',
+    downloadUrl: '/attachments/mau-06-huong-dan-trinh-bay.docx',
   },
   {
     code: 'MẪU 07',
@@ -85,7 +85,7 @@ const UTC_OFFICIAL_TEMPLATES: UTCOfficialTemplate[] = [
     stage: 'Học vụ & Bảo lưu',
     description: 'Mẫu đơn dành cho sinh viên xin hoãn bảo vệ hoặc bảo lưu đợt làm đồ án do nợ tín chỉ hoặc lý do đặc biệt',
     format: 'DOCX / PDF',
-    downloadUrl: '/api/utc/templates/mau-07-don-xin-bao-luu.docx',
+    downloadUrl: '/attachments/mau-07-don-xin-bao-luu.docx',
   },
 ];
 
@@ -112,9 +112,44 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
     }
   };
 
-  const handleDownload = (template: UTCOfficialTemplate) => {
-    // Show download confirmation / notice
-    alert(`Đang tải xuống tài liệu: ${template.title} (${template.format}). Biểu mẫu ban hành theo quy chuẩn Đào tạo UTC.`);
+  const handleDownload = async (template: UTCOfficialTemplate) => {
+    let fileUrl = template.downloadUrl || '';
+    let fileName = '';
+    if (fileUrl.startsWith('/api/utc/templates/')) {
+      fileName = fileUrl.replace('/api/utc/templates/', '');
+      fileUrl = `/attachments/${fileName}`;
+    } else if (fileUrl.startsWith('/attachments/')) {
+      fileName = fileUrl.replace('/attachments/', '');
+    } else {
+      fileName = `${template.code.toLowerCase().replace(/\s+/g, '-')}.${template.format.includes('PDF') ? 'pdf' : 'docx'}`;
+      fileUrl = `/attachments/${fileName}`;
+    }
+
+    try {
+      const res = await fetch(fileUrl);
+      if (res.ok) {
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(blobUrl);
+        return;
+      }
+    } catch (err) {
+      console.warn('Download error:', err);
+    }
+    // Fallback: direct anchor download
+    const a = document.createElement('a');
+    a.href = fileUrl;
+    a.download = fileName;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   const filteredOfficialTemplates = UTC_OFFICIAL_TEMPLATES.filter((tpl) => {
@@ -196,14 +231,20 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
             </div>
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <button
-                type="button"
+              <a
+                href={template.downloadUrl || '#'}
+                download
                 className="utc-template-download-btn"
-                onClick={() => handleDownload(template)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDownload(template);
+                }}
+                style={{ textDecoration: 'none' }}
+                title={`Tải xuống ${template.title}`}
               >
                 <span>📥</span>
                 <span>Tải Mẫu Biểu</span>
-              </button>
+              </a>
             </div>
           </div>
         ))}

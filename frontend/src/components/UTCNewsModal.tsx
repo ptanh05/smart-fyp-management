@@ -301,8 +301,34 @@ export const UTCNewsModal: React.FC<UTCNewsModalProps> = ({
     }
   };
 
-  const handleDownload = (fileName: string) => {
-    alert(`📥 Đang kết nối tải tệp đính kèm: "${fileName}" từ Cổng thông tin đào tạo UTC...`);
+  const handleDownload = async (fileName: string) => {
+    const cleanName = fileName.trim();
+    const fileUrl = `/attachments/${encodeURIComponent(cleanName)}`;
+    try {
+      const res = await fetch(fileUrl);
+      if (res.ok) {
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = cleanName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(blobUrl);
+        return;
+      }
+    } catch (err) {
+      console.warn('Fetch blob download failed, falling back to direct anchor:', err);
+    }
+    // Fallback direct anchor download
+    const a = document.createElement('a');
+    a.href = fileUrl;
+    a.download = cleanName;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   // 1. DETAIL READER VIEW (When reading a specific article)
@@ -382,13 +408,18 @@ export const UTCNewsModal: React.FC<UTCNewsModalProps> = ({
                         <span className="utc-attachment-size">({att.size})</span>
                       </div>
                     </div>
-                    <button
-                      type="button"
+                    <a
+                      href={`/attachments/${encodeURIComponent(att.name.trim())}`}
+                      download={att.name.trim()}
                       className="utc-btn-download-attach"
-                      onClick={() => handleDownload(att.name)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDownload(att.name);
+                      }}
+                      title={`Tải xuống ${att.name}`}
                     >
                       Tải về
-                    </button>
+                    </a>
                   </div>
                 ))}
               </div>

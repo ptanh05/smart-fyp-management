@@ -256,11 +256,18 @@
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.1s ease;
 }
 
 .utc-btn-download-attach:hover {
   background: #0369a1;
+  color: #ffffff;
+  text-decoration: none;
+  transform: translateY(-1px);
 }
 
 /* Contact box */

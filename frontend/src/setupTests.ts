@@ -3,7 +3,6 @@
  * This file is loaded before each test file runs
  */
 
-import { beforeAll, afterAll } from 'vitest';
 import '@testing-library/jest-dom';
 
 // Mock window.matchMedia for responsive component tests
@@ -45,21 +44,23 @@ Object.defineProperty(window, 'ResizeObserver', {
   value: MockResizeObserver,
 });
 
-// Suppress console errors during tests (optional - can be removed if you want to see errors)
-const originalError = console.error;
-beforeAll(() => {
-  console.error = (...args: any[]) => {
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Warning: ReactDOM.render') ||
-        args[0].includes('Warning: An update to'))
-    ) {
-      return;
-    }
-    originalError.call(console, ...args);
-  };
-});
+// Mock window.URL methods
+if (typeof window.URL.createObjectURL === 'undefined') {
+  window.URL.createObjectURL = () => 'blob:mock-url';
+}
+if (typeof window.URL.revokeObjectURL === 'undefined') {
+  window.URL.revokeObjectURL = () => {};
+}
 
-afterAll(() => {
-  console.error = originalError;
-});
+// Suppress noisy react console errors during tests
+const originalError = console.error;
+console.error = (...args: any[]) => {
+  if (
+    typeof args[0] === 'string' &&
+    (args[0].includes('Warning: ReactDOM.render') ||
+      args[0].includes('Warning: An update to'))
+  ) {
+    return;
+  }
+  originalError.call(console, ...args);
+};
