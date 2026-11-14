@@ -150,6 +150,16 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const getUserDisplayName = () => {
     if (!user) return 'Người dùng UTC';
     if ('user' in user && user.user) {
+      // Sinh viên UTC được import theo chuẩn Django:
+      // last_name chứa họ + tên đệm, first_name chứa tên gọi (có thể nhiều từ).
+      // Luôn ghép theo thứ tự tên tiếng Việt, tránh heuristic đảo "Mai Đình Phong"
+      // thành "Đình Phong Mai".
+      if (userType === 'student') {
+        const firstName = (user.user.first_name || '').trim();
+        const lastName = (user.user.last_name || '').trim();
+        const vietnameseFullName = `${lastName} ${firstName}`.trim();
+        if (vietnameseFullName) return vietnameseFullName;
+      }
       return formatFullName(user.user);
     }
     return formatFullName(user as any, null, 'Người dùng UTC');
