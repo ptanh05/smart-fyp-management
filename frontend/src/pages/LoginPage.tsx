@@ -244,7 +244,7 @@ const LoginPage: React.FC = () => {
             <span className="utc-badge-school">{t('portal.schoolName', 'TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI')}</span>
             <span className="utc-badge-divider">•</span>
             <span className="utc-badge-dept">KHOA CÔNG NGHỆ THÔNG TIN</span>
-            <span className="utc-badge-tag">CHÍNH THỨC</span>
+                <span className="utc-badge-tag">THỬ NGHIỆM</span>
           </div>
 
           {/* Header Title & Branding */}

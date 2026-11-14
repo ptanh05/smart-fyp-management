@@ -3093,16 +3093,34 @@ class BatchProgressAPIView(APIView):
 
         user = request.user
         batch = None
+        requested_batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
 
         # Ưu tiên đợt mà sinh viên đang tham gia
         student = getattr(user, "student_profile", None)
-        if student is not None and student.academic_batch_id:
+        if requested_batch_id and student is not None:
+            if str(student.academic_batch_id) != str(requested_batch_id):
+                return Response({"detail": "Bạn không thuộc đợt đồ án này."}, status=status.HTTP_403_FORBIDDEN)
+            batch = student.academic_batch
+        elif student is not None and student.academic_batch_id:
             batch = student.academic_batch
 
         # Giảng viên: ưu tiên đợt có đề tài đang hướng dẫn
         if batch is None:
             supervisor = getattr(user, "supervisor_profile", None)
-            if supervisor is not None:
+            if supervisor is not None and requested_batch_id:
+                from django.db.models import Q
+                batch = AcademicBatch.objects.filter(
+                    Q(id=requested_batch_id),
+                    Q(graduation_projects__supervisor=supervisor)
+                    | Q(graduation_projects__reviewer=supervisor)
+                    | Q(supervisor_quotas__supervisor=supervisor),
+                ).distinct().first()
+                if batch is None:
+                    return Response(
+                        {"detail": "Giảng viên không tham gia đợt đồ án đã chọn."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+            elif supervisor is not None:
                 batch = (
                     GraduationProject.objects.filter(supervisor=supervisor)
                     .select_related("batch")

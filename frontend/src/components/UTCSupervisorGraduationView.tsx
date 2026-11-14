@@ -44,6 +44,38 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const [loadingBatches, setLoadingBatches] = useState(true);
   const effectiveBatches = controlledBatches ?? batches;
   const effectiveBatchId = controlledBatchId ?? (selectedBatchId === 'all' ? null : selectedBatchId);
+  const selectedBatch = effectiveBatches.find((batch: any) => batch.id === effectiveBatchId);
+  const batchStageNumbers: Record<string, number> = {
+    PHASE_1_SETUP: 1,
+    PHASE_2_ALLOCATING: 2,
+    PHASE_2_LOCKED: 2,
+    PHASE_3_TOPIC: 3,
+    PHASE_4_ELIGIBILITY: 4,
+    PHASE_5_IN_PROGRESS: 5,
+    PHASE_6_DEFENSE: 6,
+    COMPLETED: 6,
+  };
+  const currentBatchStage = batchStageNumbers[selectedBatch?.current_stage] ?? 1;
+
+  useEffect(() => {
+    const tabStages: Partial<Record<SupervisorGradTab, number>> = {
+      students: 1,
+      survey: 2,
+      outlines: 3,
+      weekly: 4,
+      supervision: 5,
+      eval: 6,
+    };
+    const activeStage = tabStages[activeTab];
+    if (activeStage && activeStage > currentBatchStage) {
+      const fallbackTabs: Record<number, SupervisorGradTab> = {
+        1: 'students', 2: 'survey', 3: 'outlines', 4: 'weekly', 5: 'supervision', 6: 'eval',
+      };
+      const fallbackTab = fallbackTabs[currentBatchStage] || 'students';
+      setActiveTab(fallbackTab);
+      onSubtabChange?.(fallbackTab);
+    }
+  }, [activeTab, currentBatchStage, onSubtabChange]);
 
   // Sync with initialTab prop if changed from outside
   useEffect(() => {
@@ -721,24 +753,34 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Navigation Tabs (Aligned with 6 UTC Stages + Student Counts) */}
       <div className="utc-supervisor-tabs animate-fadeInUp">
         {[
-          { key: 'students' as SupervisorGradTab, label: `GĐ 1: Đề tài & Phân công (${stageCounts[1] || 0} SV)`, icon: '🎓' },
-          { key: 'survey' as SupervisorGradTab, label: `GĐ 2: Khảo sát & Đề tài gợi ý (${stageCounts[2] || 0} SV)`, icon: '📝' },
-          { key: 'outlines' as SupervisorGradTab, label: `GĐ 3: Duyệt Đề cương & Ký số (${stageCounts[3] || 0} SV)`, icon: '📄' },
-          { key: 'weekly' as SupervisorGradTab, label: `GĐ 4: Báo cáo tuần (${stageCounts[4] || 0} SV)`, icon: '📅' },
-          { key: 'supervision' as SupervisorGradTab, label: `GĐ 5: Task board & Nhật ký (${stageCounts[5] || 0} SV)`, icon: '📋' },
-          { key: 'eval' as SupervisorGradTab, label: `GĐ 6: Đánh giá & Bảo vệ (${stageCounts[6] || 0} SV)`, icon: '🏆' },
+          { key: 'students' as SupervisorGradTab, number: 1, label: `GĐ 1: Đề tài & Phân công (${stageCounts[1] || 0} SV)`, icon: '🎓' },
+          { key: 'survey' as SupervisorGradTab, number: 2, label: `GĐ 2: Khảo sát & Đề tài gợi ý (${stageCounts[2] || 0} SV)`, icon: '📝' },
+          { key: 'outlines' as SupervisorGradTab, number: 3, label: `GĐ 3: Duyệt Đề cương & Ký số (${stageCounts[3] || 0} SV)`, icon: '📄' },
+          { key: 'weekly' as SupervisorGradTab, number: 4, label: `GĐ 4: Báo cáo tuần (${stageCounts[4] || 0} SV)`, icon: '📅' },
+          { key: 'supervision' as SupervisorGradTab, number: 5, label: `GĐ 5: Task board & Nhật ký (${stageCounts[5] || 0} SV)`, icon: '📋' },
+          { key: 'eval' as SupervisorGradTab, number: 6, label: `GĐ 6: Đánh giá & Bảo vệ (${stageCounts[6] || 0} SV)`, icon: '🏆' },
           { key: 'reviewer' as SupervisorGradTab, label: `Đồ án Phản biện (${reviewerProjects.length})`, icon: '🔍' },
           { key: 'deferrals' as SupervisorGradTab, label: `Đơn Bảo lưu (${deferralRequests.length})`, icon: '📋' },
-        ].map((tab) => (
+        ].map((tab) => {
+          const isLocked = Boolean(tab.number && tab.number > currentBatchStage);
+          return (
           <button
             key={tab.key}
-            onClick={() => handleSelectTab(tab.key)}
-            className={`utc-supervisor-tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+            onClick={() => {
+              if (isLocked) {
+                alert(`⚠️ Đợt đang ở GĐ ${currentBatchStage}. Hãy hoàn thành giai đoạn trước.`);
+                return;
+              }
+              handleSelectTab(tab.key);
+            }}
+            className={`utc-supervisor-tab-btn ${activeTab === tab.key ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
+            disabled={isLocked}
           >
-            <span>{tab.icon}</span>
+            <span>{isLocked ? '🔒' : tab.icon}</span>
             <span>{tab.label}</span>
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {/* Tab 1: Students List */}

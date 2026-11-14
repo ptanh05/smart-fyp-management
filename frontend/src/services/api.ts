@@ -220,8 +220,10 @@ class ApiService {
   }
 
   // Tiến trình đợt đồ án (6 giai đoạn) — dùng cho thanh tiến trình trên đầu trang
-  async getBatchProgress(): Promise<any> {
-    const response = await this.api.get('/batches/progress/');
+  async getBatchProgress(batchId?: number | null): Promise<any> {
+    const response = await this.api.get('/batches/progress/', {
+      params: batchId ? { batch_id: batchId } : undefined,
+    });
     return response.data;
   }
 

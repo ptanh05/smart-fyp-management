@@ -23,6 +23,7 @@ interface UTCAppLayoutProps {
   onTabChange?: (tab: string) => void;
   currentStageNumber?: number; // 1 to 6 (for student)
   stageCounts?: Record<number, number>; // { 1: count, 2: count, ... 6: count } (for supervisor)
+  selectedBatchId?: number | null;
   /**
    * Portal to render, independent of the account's primary user_type.
    * Needed for dual-role accounts (e.g. a supervisor who is also a committee member):
@@ -39,6 +40,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   onTabChange,
   currentStageNumber,
   stageCounts,
+  selectedBatchId,
   portalRole,
 }) => {
   const { t, i18n } = useTranslation();
@@ -63,7 +65,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const fetchBatchProgress = async () => {
     try {
       setBatchProgressLoading(true);
-      const data = await apiService.getBatchProgress();
+      const data = await apiService.getBatchProgress(selectedBatchId);
       setBatchProgress(data);
     } catch (err) {
       console.error('Failed to load batch progress:', err);
@@ -74,10 +76,11 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   };
 
   React.useEffect(() => {
+    setBatchProgress(null);
     fetchBatchProgress();
     const timer = window.setInterval(fetchBatchProgress, 90000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [selectedBatchId]);
 
   const handleOpenNewsItem = (articleId: string) => {
     const article = UTC_NEWS_DATA.find((item) => item.id === articleId) || null;
@@ -150,16 +153,13 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const getUserDisplayName = () => {
     if (!user) return 'Người dùng UTC';
     if ('user' in user && user.user) {
-      // Sinh viên UTC được import theo chuẩn Django:
-      // last_name chứa họ + tên đệm, first_name chứa tên gọi (có thể nhiều từ).
-      // Luôn ghép theo thứ tự tên tiếng Việt, tránh heuristic đảo "Mai Đình Phong"
-      // thành "Đình Phong Mai".
-      if (userType === 'student') {
-        const firstName = (user.user.first_name || '').trim();
-        const lastName = (user.user.last_name || '').trim();
-        const vietnameseFullName = `${lastName} ${firstName}`.trim();
-        if (vietnameseFullName) return vietnameseFullName;
-      }
+      // Tài khoản UTC lưu theo chuẩn Django: last_name là họ + tên đệm,
+      // first_name là tên gọi (có thể gồm nhiều từ). Luôn ghép theo thứ tự
+      // tên Việt Nam cho mọi vai trò, ví dụ "Đinh" + "Công Tùng".
+      const firstName = (user.user.first_name || '').trim();
+      const lastName = (user.user.last_name || '').trim();
+      const vietnameseFullName = `${lastName} ${firstName}`.trim();
+      if (vietnameseFullName) return vietnameseFullName;
       return formatFullName(user.user);
     }
     return formatFullName(user as any, null, 'Người dùng UTC');
@@ -396,6 +396,8 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               <div className="utc-sidebar-section-title">QUY TRÌNH HƯỚNG DẪN ĐATN</div>
               {GRADUATION_STAGES.map((st) => {
                 const count = stageCounts?.[st.number] ?? 0;
+                const currentBatchStage = batchProgress?.current_stage_number ?? 1;
+                const isAccessible = st.number <= currentBatchStage;
                 const isTabActive =
                   activeTab === `stage_${st.number}` ||
                   activeTab === st.key ||
@@ -409,11 +411,19 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                 return (
                   <div
                     key={st.number}
-                    className={`utc-nav-item ${isTabActive ? 'active' : ''}`}
-                    onClick={() => handleNavClick(`stage_${st.number}`)}
-                    title={`${st.sidebarLabel} - Hiện có ${count} sinh viên đang ở giai đoạn này`}
+                    className={`utc-nav-item ${isTabActive ? 'active' : ''} ${!isAccessible ? 'locked' : ''}`}
+                    onClick={() => {
+                      if (!isAccessible) {
+                        alert(`⚠️ Đợt đang ở GĐ ${currentBatchStage}. Hãy hoàn thành giai đoạn trước để mở ${st.sidebarLabel}.`);
+                        return;
+                      }
+                      handleNavClick(`stage_${st.number}`);
+                    }}
+                    title={!isAccessible
+                      ? `Chưa mở: đợt hiện đang ở GĐ ${currentBatchStage}`
+                      : `${st.sidebarLabel} - Hiện có ${count} sinh viên đang ở giai đoạn này`}
                   >
-                    <span className="utc-nav-icon">{st.icon}</span>
+                    <span className="utc-nav-icon">{isAccessible ? st.icon : '🔒'}</span>
                     <span className="utc-nav-label">{st.sidebarLabel}</span>
                     <span
                       className="utc-nav-badge"

@@ -324,6 +324,7 @@ const SupervisorDashboard: React.FC = () => {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       stageCounts={stageCounts}
+      selectedBatchId={selectedBatchId}
     >
       <div className="container">
         <div className="utc-page-header-card">
