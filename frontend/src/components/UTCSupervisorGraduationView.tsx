@@ -724,30 +724,34 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {/* Batch Selector - Responsive + Animation */}
       <div className="utc-batch-selector-box animate-slideDown">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">📅</span>
+          <div className="utc-batch-selector-icon">
+            <span>📅</span>
+          </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-900">Đợt Đồ Án</h4>
-            <p className="text-xs text-slate-500">Chọn đợt để xem sinh viên</p>
+            <h4 className="utc-batch-selector-title">Đợt Đồ Án</h4>
+            <p className="utc-batch-selector-desc">Chọn đợt để xem sinh viên</p>
           </div>
         </div>
-        <select
-          value={effectiveBatchId ?? ''}
-          onChange={(e) => {
-            const val = Number(e.target.value);
-            setSelectedBatchId(val);
-            onBatchChange?.(val);
-            localStorage.setItem('supervisor_selected_batch_id', String(val));
-          }}
-          disabled={loadingBatches}
-          className="utc-batch-selector-select"
-        >
-          {effectiveBatches.length === 0 && <option value="">Chưa có đợt được phân công</option>}
-          {effectiveBatches.map((batch) => (
-            <option key={batch.id} value={batch.id}>
-              {batch.is_active && !batch.is_closed ? '🟢' : '⚫'} {batch.batch_code} - {batch.batch_name}
-            </option>
-          ))}
-        </select>
+        <div className="utc-batch-selector-input-wrap">
+          <select
+            value={effectiveBatchId ?? ''}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              setSelectedBatchId(val);
+              onBatchChange?.(val);
+              localStorage.setItem('supervisor_selected_batch_id', String(val));
+            }}
+            disabled={loadingBatches}
+            className="utc-batch-selector-select"
+          >
+            {effectiveBatches.length === 0 && <option value="">Chưa có đợt được phân công</option>}
+            {effectiveBatches.map((batch) => (
+              <option key={batch.id} value={batch.id}>
+                {batch.is_active && !batch.is_closed ? '🟢' : '⚫'} {batch.batch_code} - {batch.batch_name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Navigation Tabs (Aligned with 6 UTC Stages + Student Counts) */}
@@ -962,8 +966,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               </div>
 
               {stage2Projects.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                  Chưa có sinh viên nào đăng ký nguyện vọng chọn Thầy/Cô trong đợt khảo sát này.
+                <div className="utc-supervisor-empty-box">
+                  <h4>Chưa có sinh viên đăng ký</h4>
+                  <p className="text-sm">Chưa có sinh viên nào đăng ký nguyện vọng chọn Thầy/Cô trong đợt khảo sát này.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -1060,8 +1065,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             </span>
           </div>
           {stage3OutlineReviews.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              Chưa có đề cương nào của sinh viên Giai đoạn 3 được phân công cho Nhóm của Thầy/Cô.
+            <div className="utc-supervisor-empty-box">
+              <h4>Chưa có đề cương phân công</h4>
+              <p className="text-sm">Chưa có đề cương nào của sinh viên Giai đoạn 3 được phân công cho Nhóm của Thầy/Cô.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -1114,8 +1120,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             </span>
           </div>
           {stage4Projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              Chưa có sinh viên nào ở Giai đoạn 4.
+            <div className="utc-supervisor-empty-box">
+              <h4>Chưa có sinh viên giai đoạn 4</h4>
+              <p className="text-sm">Chưa có sinh viên nào ở Giai đoạn 4.</p>
             </div>
           ) : (
           <div className="space-y-4">
@@ -1185,8 +1192,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           </div>
 
           {stage5Projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              Chưa có sinh viên nào ở Giai đoạn 5.
+            <div className="utc-supervisor-empty-box">
+              <h4>Chưa có sinh viên giai đoạn 5</h4>
+              <p className="text-sm">Chưa có sinh viên nào ở Giai đoạn 5.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1262,8 +1270,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             </span>
           </div>
           {stage6Projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              Chưa có sinh viên nào ở Giai đoạn 6.
+            <div className="utc-supervisor-empty-box">
+              <h4>Chưa có sinh viên giai đoạn 6</h4>
+              <p className="text-sm">Chưa có sinh viên nào ở Giai đoạn 6.</p>
             </div>
           ) : (
           <div className="space-y-3">
@@ -1324,8 +1333,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             <h3 className="font-bold text-base text-slate-900">Đồ án được phân công Phản biện độc lập (20%)</h3>
           </div>
           {reviewerProjects.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              Chưa có đồ án nào được phân công cho Thầy/Cô phản biện.
+            <div className="utc-supervisor-empty-box">
+              <h4>Chưa có đồ án phản biện</h4>
+              <p className="text-sm">Chưa có đồ án nào được phân công cho Thầy/Cô phản biện.</p>
             </div>
           ) : (
             <div className="space-y-3">
