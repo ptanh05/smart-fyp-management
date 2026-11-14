@@ -1,6 +1,7 @@
 import React from 'react';
 import { calculateUTCWeightedScore } from '../utils/utcGradeCalculator';
 import { useModalGuard } from '../utils/modalHooks';
+import { formatFullName } from '../utils/nameHelper';
 import './UTCEvaluationSheetModal.css';
 
 export interface UTCEvaluationSheetModalProps {
@@ -117,21 +118,21 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
             <div className="utc-info-row">
               <div className="utc-info-label">Sinh viên 1:</div>
               <div className="utc-info-value">
-                {groupData.student1Name} (MSSV: <strong>{groupData.student1RegNo}</strong>)
+                {formatFullName(groupData.student1Name)} (MSSV: <strong>{groupData.student1RegNo}</strong>)
               </div>
             </div>
             {groupData.student2Name && (
               <div className="utc-info-row">
                 <div className="utc-info-label">Sinh viên 2:</div>
                 <div className="utc-info-value">
-                  {groupData.student2Name} (MSSV: <strong>{groupData.student2RegNo}</strong>)
+                  {formatFullName(groupData.student2Name)} (MSSV: <strong>{groupData.student2RegNo}</strong>)
                 </div>
               </div>
             )}
             <div className="utc-info-row">
               <div className="utc-info-label">Giảng viên Hướng dẫn:</div>
               <div className="utc-info-value">
-                {groupData.supervisorName || 'PGS.TS. Nguyễn Văn Minh'}
+                {formatFullName(groupData.supervisorName) || 'PGS.TS. Nguyễn Văn Minh'}
               </div>
             </div>
           </div>
@@ -216,15 +217,15 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
           <div className="utc-signatures">
             <div className="utc-sig-box">
               <div className="utc-sig-title">GIẢNG VIÊN HƯỚNG DẪN</div>
-              <div className="utc-sig-name">{groupData.supervisorName || 'TS. Nguyễn Văn Minh'}</div>
+              <div className="utc-sig-name">{formatFullName(groupData.supervisorName) || 'TS. Nguyễn Văn Minh'}</div>
             </div>
             <div className="utc-sig-box">
               <div className="utc-sig-title">CÁN BỘ PHẢN BIỆN</div>
-              <div className="utc-sig-name">{groupData.reviewerName || 'PGS.TS. Trần Thị Mai'}</div>
+              <div className="utc-sig-name">{formatFullName(groupData.reviewerName) || 'PGS.TS. Trần Thị Mai'}</div>
             </div>
             <div className="utc-sig-box">
               <div className="utc-sig-title">CHỦ TỊCH HỘI ĐỒNG UTC</div>
-              <div className="utc-sig-name">{groupData.committeeName || 'PGS.TS. Nguyễn Đức Thắng'}</div>
+              <div className="utc-sig-name">{formatFullName(groupData.committeeName) || 'PGS.TS. Nguyễn Đức Thắng'}</div>
             </div>
           </div>
         </div>

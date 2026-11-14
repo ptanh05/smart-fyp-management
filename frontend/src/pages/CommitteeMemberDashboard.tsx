@@ -364,10 +364,14 @@ const CommitteeMemberDashboard: React.FC = () => {
             groupId: selectedGroup.id,
             projectTitle: selectedGroup.project?.project_name || 'Đồ án tốt nghiệp UTC',
             facultyDepartment: 'Khoa Công nghệ Thông tin - UTC',
-            student1Name: selectedGroup.group?.student_1_details?.user?.username || 'Sinh viên 1',
-            student1RegNo: selectedGroup.group?.student_1_details?.registration_no || 'N/A',
-            student2Name: selectedGroup.group?.student_2_details?.user?.username,
-            student2RegNo: selectedGroup.group?.student_2_details?.registration_no,
+            student1Name: selectedGroup.group?.student_1_details?.user
+              ? formatFullName(selectedGroup.group.student_1_details.user)
+              : (selectedGroup.group as any)?.student_1?.name || selectedGroup.group?.student_1_details?.user?.username || 'Sinh viên 1',
+            student1RegNo: selectedGroup.group?.student_1_details?.registration_no || (selectedGroup.group as any)?.student_1?.registration_no || 'N/A',
+            student2Name: selectedGroup.group?.student_2_details?.user
+              ? formatFullName(selectedGroup.group.student_2_details.user)
+              : (selectedGroup.group as any)?.student_2?.name || selectedGroup.group?.student_2_details?.user?.username,
+            student2RegNo: selectedGroup.group?.student_2_details?.registration_no || (selectedGroup.group as any)?.student_2?.registration_no,
             supervisorName: selectedGroup.supervisor?.user
               ? formatFullName(selectedGroup.supervisor.user)
               : selectedGroup.supervisor?.user?.username || 'GVHD',

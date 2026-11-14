@@ -746,10 +746,14 @@ const SupervisorDashboard: React.FC = () => {
           groupId: selectedGroup?.id || 1,
           projectTitle: selectedGroup?.project?.project_name || 'Hệ thống Quản lý Đồ án Smart FYP UTC',
           facultyDepartment: 'Khoa Công nghệ Thông tin - UTC',
-          student1Name: selectedGroup?.group?.student_1_details?.user?.username || 'Sinh viên 1 (UTC)',
-          student1RegNo: selectedGroup?.group?.student_1_details?.registration_no || '201200101',
-          student2Name: selectedGroup?.group?.student_2_details?.user?.username || 'Sinh viên 2 (UTC)',
-          student2RegNo: selectedGroup?.group?.student_2_details?.registration_no || '201200102',
+          student1Name: selectedGroup?.group?.student_1_details?.user
+            ? formatFullName(selectedGroup.group.student_1_details.user)
+            : (selectedGroup?.group as any)?.student_1?.name || selectedGroup?.group?.student_1_details?.user?.username || 'Sinh viên 1 (UTC)',
+          student1RegNo: selectedGroup?.group?.student_1_details?.registration_no || (selectedGroup?.group as any)?.student_1?.registration_no || '201200101',
+          student2Name: selectedGroup?.group?.student_2_details?.user
+            ? formatFullName(selectedGroup.group.student_2_details.user)
+            : (selectedGroup?.group as any)?.student_2?.name || selectedGroup?.group?.student_2_details?.user?.username || 'Sinh viên 2 (UTC)',
+          student2RegNo: selectedGroup?.group?.student_2_details?.registration_no || (selectedGroup?.group as any)?.student_2?.registration_no || '201200102',
           supervisorName: supervisor?.user ? formatFullName(supervisor.user) : 'TS. Nguyễn Văn Minh',
           reviewerName: 'PGS.TS. Trần Thị Mai',
           committeeName: 'PGS.TS. Nguyễn Đức Thắng',
