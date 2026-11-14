@@ -605,9 +605,12 @@ class AcademicBatchSerializer(serializers.ModelSerializer):
             "id",
             "batch_code",
             "batch_name",
+            "program_type",
+            "current_stage",
             "start_date",
             "end_date",
             "is_active",
+            "is_closed",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]

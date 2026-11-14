@@ -6,6 +6,7 @@ import { useModalGuard } from '../utils/modalHooks';
 import { apiService } from '../services/api';
 import { calculateStageCounts, getProjectStageNumber } from '../utils/graduationStages';
 import { SupervisorOfferedTopics } from './SupervisorOfferedTopics';
+import { useBatchProgress } from '../contexts/BatchProgressContext';
 import './UTCSupervisorGraduationView.css';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
@@ -29,6 +30,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   selectedBatchId: controlledBatchId,
   onBatchChange,
 }) => {
+  const { progress: batchProgress } = useBatchProgress();
   const [activeTab, setActiveTab] = useState<SupervisorGradTab>(initialTab || 'students');
   const [projects, setProjects] = useState<any[]>([]);
   const [reviewerProjects, setReviewerProjects] = useState<any[]>([]);
@@ -55,7 +57,10 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     PHASE_6_DEFENSE: 6,
     COMPLETED: 6,
   };
-  const currentBatchStage = batchStageNumbers[selectedBatch?.current_stage] ?? 1;
+  const progressMatchesSelectedBatch = Number(batchProgress?.batch?.id) === Number(effectiveBatchId);
+  const currentBatchStage = progressMatchesSelectedBatch
+    ? batchProgress?.current_stage_number || 1
+    : batchStageNumbers[selectedBatch?.current_stage] ?? 1;
 
   useEffect(() => {
     const tabStages: Partial<Record<SupervisorGradTab, number>> = {
