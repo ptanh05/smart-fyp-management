@@ -5,6 +5,7 @@ import { apiService } from '../services/api';
 import type { ThesisDeferralRequest } from '../types';
 import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
+import { formatFullName } from '../utils/nameHelper';
 import './UTCStudentGraduationView.css';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
@@ -879,29 +880,39 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
           {surveyData?.survey ? (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">
-                <h4 className="font-bold">✓ Đã gửi danh sách nguyện vọng</h4>
-                <p className="text-xs mt-1">Danh sách đã được ghi nhận và không thể gửi lại để tránh trùng dữ liệu.</p>
+              <div className="p-4 rounded-xl utc-survey-submitted-box bg-emerald-50 border border-emerald-200 text-emerald-900">
+                <div className="flex items-center gap-2">
+                  <span className="utc-survey-check-icon">✓</span>
+                  <h4 className="font-bold text-sm">Đã gửi danh sách nguyện vọng</h4>
+                </div>
+                <p className="text-xs mt-1.5 opacity-90">
+                  Danh sách đã được ghi nhận và không thể gửi lại để tránh trùng dữ liệu.
+                </p>
               </div>
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 utc-survey-table-wrap">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-100 text-slate-700">
-                    <tr><th className="p-3 text-left">Thứ tự</th><th className="p-3 text-left">Giảng viên nguyện vọng</th></tr>
+                    <tr>
+                      <th className="p-3 text-left w-20">Thứ tự</th>
+                      <th className="p-3 text-left">Giảng viên nguyện vọng</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {[1, 2, 3].map((order) => (
                       <tr key={order} className="border-t border-slate-200">
-                        <td className="p-3 font-bold">NV{order}</td>
-                        <td className="p-3">{surveyData.survey[`preference_${order}_name`] || 'Không đăng ký'}</td>
+                        <td className="p-3 font-bold text-sky-600 dark:text-sky-400">NV{order}</td>
+                        <td className="p-3 font-medium">
+                          {formatFullName(surveyData.survey[`preference_${order}_name`]) || 'Không đăng ký'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div><b>Hướng nghiên cứu:</b> {surveyData.survey.topic_direction_name || '—'}</div>
-                <div><b>Thực tập:</b> {surveyData.survey.is_interning ? surveyData.survey.company_name || 'Có' : 'Không'}</div>
-                <div className="md:col-span-2"><b>Đề tài dự kiến:</b> {surveyData.survey.tentative_title || '—'}</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm p-4 rounded-xl bg-slate-50 border border-slate-200 utc-survey-meta-box">
+                <div><span className="font-semibold text-slate-500">Hướng nghiên cứu:</span> <span className="font-medium text-slate-800">{surveyData.survey.topic_direction_name || '—'}</span></div>
+                <div><span className="font-semibold text-slate-500">Thực tập:</span> <span className="font-medium text-slate-800">{surveyData.survey.is_interning ? surveyData.survey.company_name || 'Có' : 'Không'}</span></div>
+                <div className="md:col-span-2"><span className="font-semibold text-slate-500">Đề tài dự kiến:</span> <span className="font-medium text-slate-800">{surveyData.survey.tentative_title || '—'}</span></div>
               </div>
             </div>
           ) : (

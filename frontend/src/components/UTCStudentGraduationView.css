@@ -1394,3 +1394,189 @@
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
 
+/* ==========================================================================
+   Survey & Preference Stage 2 Styling (Light & Dark Mode)
+   ========================================================================== */
+.utc-survey-submitted-box {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.utc-survey-submitted-box h4 {
+  color: #065f46;
+}
+
+.utc-survey-submitted-box p {
+  color: #047857;
+}
+
+.utc-survey-check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.utc-survey-table-wrap table th {
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 700;
+}
+
+.utc-survey-meta-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+/* Dark mode overrides for Survey & Alerts */
+[data-theme="dark"] .utc-survey-submitted-box {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  color: #a7f3d0 !important;
+}
+
+[data-theme="dark"] .utc-survey-submitted-box h4 {
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .utc-survey-submitted-box p {
+  color: #a7f3d0 !important;
+}
+
+[data-theme="dark"] .utc-survey-check-icon {
+  background: #059669 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .utc-survey-table-wrap {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(15, 23, 42, 0.4) !important;
+}
+
+[data-theme="dark"] .utc-survey-table-wrap table thead {
+  background: rgba(30, 41, 59, 0.7) !important;
+}
+
+[data-theme="dark"] .utc-survey-table-wrap table th {
+  background: rgba(30, 41, 59, 0.7) !important;
+  color: #93c5fd !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .utc-survey-table-wrap table tr {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .utc-survey-table-wrap table td {
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .utc-survey-meta-box {
+  background: rgba(15, 23, 42, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .utc-survey-meta-box span.font-medium {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .utc-survey-meta-box span.font-semibold {
+  color: #94a3b8 !important;
+}
+
+/* Comprehensive Alert & Status Pill Colors in Dark Mode */
+[data-theme="dark"] .utc-graduation-card .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-emerald-900,
+[data-theme="dark"] .utc-graduation-card .text-emerald-800,
+[data-theme="dark"] .utc-graduation-card .text-emerald-700 {
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .border-emerald-200,
+[data-theme="dark"] .utc-graduation-card .border-emerald-300 {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .bg-rose-50 {
+  background-color: rgba(244, 63, 94, 0.16) !important;
+  border-color: rgba(244, 63, 94, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-rose-900,
+[data-theme="dark"] .utc-graduation-card .text-rose-800,
+[data-theme="dark"] .utc-graduation-card .text-rose-700 {
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .border-rose-200,
+[data-theme="dark"] .utc-graduation-card .border-rose-300 {
+  border-color: rgba(244, 63, 94, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-amber-900,
+[data-theme="dark"] .utc-graduation-card .text-amber-800,
+[data-theme="dark"] .utc-graduation-card .text-amber-950 {
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .border-amber-200,
+[data-theme="dark"] .utc-graduation-card .border-amber-300 {
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.16) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .text-blue-900,
+[data-theme="dark"] .utc-graduation-card .text-blue-800 {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .border-blue-200,
+[data-theme="dark"] .utc-graduation-card .border-blue-300 {
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .bg-purple-50 {
+  background-color: rgba(168, 85, 247, 0.16) !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .bg-purple-50 p {
+  color: #e9d5ff !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .bg-slate-50 {
+  background-color: rgba(15, 23, 42, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .bg-slate-100 {
+  background-color: rgba(30, 41, 59, 0.6) !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .utc-graduation-card .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
