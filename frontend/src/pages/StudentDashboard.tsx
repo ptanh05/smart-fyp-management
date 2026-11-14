@@ -1,5 +1,5 @@
 import { formatFullName } from '../utils/nameHelper';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -209,6 +209,45 @@ const StudentDashboard: React.FC = () => {
 
   const currentStageInfo = getProjectStageInfo(profile?.graduation_project || (student as any)?.graduation_project);
 
+  // Chỉ mở Xem Phiếu Đánh Giá ĐATN Chuẩn UTC khi ĐÃ KẾT THÚC GIAI ĐOẠN 6 (Đã chấm điểm hoàn tất)
+  const isPhase6Finished = useMemo(() => {
+    const proj = profile?.graduation_project || (student as any)?.graduation_project;
+    if (!proj) return false;
+
+    // 1. Trạng thái đồ án đã hoàn tất bảo vệ / đóng đợt
+    const completedStatuses = ['PASSED', 'FAILED', 'COMPLETED', 'CLOSED', 'ARCHIVED'];
+    if (completedStatuses.includes(proj.status)) {
+      return true;
+    }
+
+    // 2. Bảng điểm tổng hợp đã được khóa chính thức (is_finalized)
+    const finalGrade = proj.final_grade || proj.final_grade_summary;
+    if (finalGrade?.is_finalized) {
+      return true;
+    }
+
+    // 3. Phải ở Giai đoạn 6 VÀ tất cả các đầu điểm (GVHD, Phản biện, Hội đồng) đều đã được nhập
+    const stageNum = currentStageInfo.number;
+    if (stageNum !== 6) {
+      return false;
+    }
+
+    const hasSupervisorScore =
+      proj.supervisor_score !== null &&
+      proj.supervisor_score !== undefined &&
+      proj.supervisor_score !== '';
+    const hasReviewerScore =
+      proj.reviewer_score !== null &&
+      proj.reviewer_score !== undefined &&
+      proj.reviewer_score !== '';
+    const hasCouncilScore =
+      (proj.council_score !== null && proj.council_score !== undefined && proj.council_score !== '') ||
+      (proj.committee_score !== null && proj.committee_score !== undefined && proj.committee_score !== '') ||
+      (finalGrade?.final_score_10 !== null && finalGrade?.final_score_10 !== undefined);
+
+    return Boolean(hasSupervisorScore && hasReviewerScore && hasCouncilScore);
+  }, [profile?.graduation_project, (student as any)?.graduation_project, currentStageInfo.number]);
+
   return (
     <UTCAppLayout
       user={student}
@@ -394,14 +433,31 @@ const StudentDashboard: React.FC = () => {
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <h2 style={{ margin: 0 }}>{t('profile.title', 'Thông Tin Cá Nhân & Hồ Sơ UTC')}</h2>
-                  <button
-                    className="btn utc-btn-view-sheet"
-                    onClick={() => setShowUTCSheet(true)}
-                    title="Mở biểu mẫu biên bản đánh giá ĐATN UTC có chữ ký và điểm chi tiết"
-                  >
-                    <span>📄</span>
-                    <span>Xem Phiếu Đánh Giá ĐATN Chuẩn UTC</span>
-                  </button>
+                  {isPhase6Finished ? (
+                    <button
+                      className="btn utc-btn-view-sheet"
+                      onClick={() => setShowUTCSheet(true)}
+                      title="Mở biểu mẫu biên bản đánh giá ĐATN UTC có chữ ký và điểm chi tiết"
+                    >
+                      <span>📄</span>
+                      <span>Xem Phiếu Đánh Giá ĐATN Chuẩn UTC</span>
+                      <span className="utc-unlocked-badge">✅ Đã công bố</span>
+                    </button>
+                  ) : (
+                    <button
+                      className="btn utc-btn-view-sheet-locked"
+                      onClick={() => {
+                        alert(
+                          `🔒 Phiếu Đánh Giá ĐATN Chuẩn UTC hiện đang khóa.\n\nBiểu mẫu đánh giá và bảng điểm chính thức chỉ được mở sau khi bạn hoàn thành Giai đoạn 6 (Hội đồng bảo vệ hoàn tất chấm điểm & công bố kết quả đồ án).\n\nHiện tại bạn đang ở GĐ ${currentStageInfo.number}: ${currentStageInfo.label}.`
+                        );
+                      }}
+                      title={`Chưa mở: Cần hoàn tất chấm điểm và kết thúc Giai đoạn 6 (Bảo vệ đồ án) mới có thể xem phiếu đánh giá. Hiện tại bạn đang ở GĐ ${currentStageInfo.number}.`}
+                    >
+                      <span>🔒</span>
+                      <span>Xem Phiếu Đánh Giá ĐATN Chuẩn UTC</span>
+                      <span className="utc-locked-badge">Khóa đến hết GĐ 6</span>
+                    </button>
+                  )}
                 </div>
                 <div className="profile-info">
                   <p><strong>{t('profile.registration_no', 'Mã Sinh Viên (MSSV)')}:</strong> {profile?.registration_no}</p>
@@ -530,23 +586,38 @@ const StudentDashboard: React.FC = () => {
         </div>
       </div>
 
-      <UTCEvaluationSheetModal
-        isOpen={showUTCSheet}
-        onClose={() => setShowUTCSheet(false)}
-        groupData={{
-          groupId: profile?.graduation_project?.id || profile?.id || 1,
-          projectTitle: profile?.graduation_project?.topic_title_vi || 'Hệ thống Quản lý Đồ án Smart FYP UTC',
-          facultyDepartment: profile?.department || 'Khoa Công nghệ Thông tin - UTC',
-          student1Name: profile?.user ? formatFullName(profile.user) : 'Sinh viên UTC',
-          student1RegNo: profile?.registration_no || '201200101',
-          supervisorName: profile?.graduation_project?.supervisor_name || 'TS. Nguyễn Văn Minh',
-          reviewerName: 'PGS.TS. Trần Thị Mai',
-          committeeName: 'PGS.TS. Nguyễn Đức Thắng',
-          supervisorScore: (profile?.graduation_project as any)?.supervisor_score ?? 8.5,
-          reviewerScore: (profile?.graduation_project as any)?.reviewer_score ?? 8.0,
-          committeeScore: (profile?.graduation_project as any)?.council_score ?? 8.8,
-        }}
-      />
+      {isPhase6Finished && (
+        <UTCEvaluationSheetModal
+          isOpen={showUTCSheet}
+          onClose={() => setShowUTCSheet(false)}
+          groupData={{
+            groupId: profile?.graduation_project?.id || profile?.id || 1,
+            projectTitle: profile?.graduation_project?.topic_title_vi || 'Hệ thống Quản lý Đồ án Smart FYP UTC',
+            facultyDepartment: profile?.department || 'Khoa Công nghệ Thông tin - UTC',
+            student1Name: profile?.user ? formatFullName(profile.user) : 'Sinh viên UTC',
+            student1RegNo: profile?.registration_no || '201200101',
+            supervisorName: profile?.graduation_project?.supervisor_name || 'TS. Nguyễn Văn Minh',
+            reviewerName: 'PGS.TS. Trần Thị Mai',
+            committeeName: 'PGS.TS. Nguyễn Đức Thắng',
+            supervisorScore: Number(
+              (profile?.graduation_project as any)?.supervisor_score ??
+              (profile?.graduation_project as any)?.final_grade?.supervisor_score ??
+              (profile?.graduation_project as any)?.final_grade_summary?.supervisor_score ?? 0
+            ),
+            reviewerScore: Number(
+              (profile?.graduation_project as any)?.reviewer_score ??
+              (profile?.graduation_project as any)?.final_grade?.reviewer_score ??
+              (profile?.graduation_project as any)?.final_grade_summary?.reviewer_score ?? 0
+            ),
+            committeeScore: Number(
+              (profile?.graduation_project as any)?.council_score ??
+              (profile?.graduation_project as any)?.committee_score ??
+              (profile?.graduation_project as any)?.final_grade?.council_avg_score ??
+              (profile?.graduation_project as any)?.final_grade_summary?.council_avg_score ?? 0
+            ),
+          }}
+        />
+      )}
     </UTCAppLayout>
   );
 };

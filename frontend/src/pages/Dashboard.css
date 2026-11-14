@@ -455,6 +455,50 @@
   box-shadow: 0 4px 12px rgba(45, 70, 158, 0.22);
 }
 
+.utc-btn-view-sheet-locked {
+  background: rgba(100, 116, 139, 0.08) !important;
+  border: 1px dashed rgba(100, 116, 139, 0.4) !important;
+  color: #64748b !important;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: not-allowed;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: none !important;
+}
+
+.utc-btn-view-sheet-locked:hover {
+  background: rgba(100, 116, 139, 0.14) !important;
+  border-color: rgba(100, 116, 139, 0.6) !important;
+  color: #475569 !important;
+  transform: none !important;
+}
+
+.utc-locked-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(100, 116, 139, 0.15);
+  color: #64748b;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+  margin-left: 2px;
+}
+
+.utc-unlocked-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  margin-left: 2px;
+}
+
 /* Panel & Evaluation Group Cards */
 .panel-group-card {
   position: relative;
@@ -569,6 +613,30 @@
 [data-theme="dark"] .utc-btn-view-sheet:hover {
   background: #2D469E !important;
   color: #ffffff !important;
+}
+
+[data-theme="dark"] .utc-btn-view-sheet-locked {
+  background: rgba(30, 41, 59, 0.5) !important;
+  border-color: rgba(100, 116, 139, 0.45) !important;
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .utc-btn-view-sheet-locked:hover {
+  background: rgba(51, 65, 85, 0.55) !important;
+  border-color: rgba(148, 163, 184, 0.6) !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .utc-locked-badge {
+  background: rgba(100, 116, 139, 0.25);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+[data-theme="dark"] .utc-unlocked-badge {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.3);
 }
 
 [data-theme="dark"] .panel-group-card {
