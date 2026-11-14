@@ -1,5 +1,5 @@
 import { formatFullName } from '../utils/nameHelper';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -210,7 +210,7 @@ const StudentDashboard: React.FC = () => {
   const currentStageInfo = getProjectStageInfo(profile?.graduation_project || (student as any)?.graduation_project);
 
   // Chỉ mở Xem Phiếu Đánh Giá ĐATN Chuẩn UTC khi ĐÃ KẾT THÚC GIAI ĐOẠN 6 (Đã chấm điểm hoàn tất)
-  const isPhase6Finished = useMemo(() => {
+  const isPhase6Finished = (() => {
     const proj = profile?.graduation_project || (student as any)?.graduation_project;
     if (!proj) return false;
 
@@ -246,7 +246,7 @@ const StudentDashboard: React.FC = () => {
       (finalGrade?.final_score_10 !== null && finalGrade?.final_score_10 !== undefined);
 
     return Boolean(hasSupervisorScore && hasReviewerScore && hasCouncilScore);
-  }, [profile?.graduation_project, (student as any)?.graduation_project, currentStageInfo.number]);
+  })();
 
   return (
     <UTCAppLayout
