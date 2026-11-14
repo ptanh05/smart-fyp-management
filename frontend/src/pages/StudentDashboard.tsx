@@ -304,6 +304,7 @@ const StudentDashboard: React.FC = () => {
             <UTCStudentGraduationView
               initialTab={(graduationSubtabs.includes(activeTab) ? activeTab : currentStageInfo.key) as any}
               onSubtabChange={(st) => setActiveTab(st)}
+              initialProjectData={profile?.graduation_project || (student as any)?.graduation_project}
             />
           )}
 

@@ -14,11 +14,13 @@ import { API_BASE_URL as API_BASE } from '../services/api';
 export interface UTCStudentGraduationViewProps {
   initialTab?: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade';
   onSubtabChange?: (tab: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => void;
+  initialProjectData?: any;
 }
 
 export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> = ({
   initialTab,
   onSubtabChange,
+  initialProjectData,
 }) => {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade'>(initialTab || 'project');
@@ -26,11 +28,20 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const { progress: batchProgress, loading: batchProgressLoading } = useBatchProgress();
 
   // Project Data
-  const [projectData, setProjectData] = useState<any>(null);
+  const [projectData, setProjectData] = useState<any>(initialProjectData || null);
 
-  // Dùng cùng nguồn dữ liệu với thanh tiến trình phía trên để không thể lệch giai đoạn.
-  const currentStageNum =
-    batchProgress?.current_stage_number || getProjectStageNumber(projectData);
+  useEffect(() => {
+    if (initialProjectData && !projectData) {
+      setProjectData(initialProjectData);
+    }
+  }, [initialProjectData, projectData]);
+
+  // Sinh viên được quyền truy cập theo tiến độ thực tế cao nhất giữa Đợt chung và Đề tài cá nhân
+  const projectStageNum = getProjectStageNumber(projectData || initialProjectData);
+  const currentStageNum = Math.max(
+    batchProgress?.current_stage_number || 1,
+    projectStageNum
+  );
 
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
@@ -1377,6 +1388,38 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   <b>Nhận xét của GV:</b> {projectData.outline_review.comments}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Banner hướng dẫn chuyển sang GĐ 4 khi đề cương đã được Khoa duyệt */}
+          {projectData?.status === 'OUTLINE_APPROVED' && (
+            <div
+              className="p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 shadow-sm"
+              style={{
+                background: 'linear-gradient(135deg, rgba(5, 150, 105, 0.15) 0%, rgba(4, 120, 87, 0.25) 100%)',
+                borderColor: '#10b981',
+              }}
+            >
+              <div className="flex-1 min-w-[260px]">
+                <div className="flex items-center gap-2 font-bold text-sm text-emerald-300">
+                  <span className="text-lg">🎉</span>
+                  <span>Đề Cương ĐATN Đã Được Khoa Phê Duyệt Chính Thức</span>
+                </div>
+                <p className="text-xs text-emerald-100/80 mt-1 leading-relaxed">
+                  Đề cương chi tiết của bạn đã hoàn tất xét duyệt. Giai đoạn 4 (Báo cáo tuần) đã sẵn sàng để bạn nộp tiến độ định kỳ!
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSelectTab('weekly')}
+                className="utc-btn px-4 py-2 rounded-lg text-xs font-bold text-white shadow-md hover:brightness-110 transition-all shrink-0"
+                style={{
+                  background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                  border: '1px solid #34d399',
+                }}
+              >
+                Đến GĐ 4: Báo Cáo Tuần ➔
+              </button>
             </div>
           )}
 

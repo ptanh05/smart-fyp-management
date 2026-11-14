@@ -188,11 +188,13 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const userType = getUserType();
 
   // For Student: Determine the single current active stage to display on the sidebar
+  // Cho phép sinh viên mở các giai đoạn tương ứng với tiến độ thực tế của đề tài cá nhân (ví dụ đã được duyệt đề cương -> mở GĐ 4)
   const studentProject = (user as any)?.graduation_project;
-  // Trạng thái của đợt là nguồn chuẩn cho toàn bộ giao diện tiến trình.
-  // Chỉ dùng trạng thái suy luận từ đề tài trong lúc API tiến trình chưa tải xong.
-  const effectiveStageNumber =
-    batchProgress?.current_stage_number || currentStageNumber || getProjectStageNumber(studentProject);
+  const projectStageNumber = currentStageNumber || getProjectStageNumber(studentProject);
+  const effectiveStageNumber = Math.max(
+    batchProgress?.current_stage_number || 1,
+    projectStageNumber || 1
+  );
 
   const handleNotificationNavigate = (url: string) => {
     const [path, queryString] = url.split('?');
