@@ -522,6 +522,23 @@
   color: #ffffff !important;
 }
 
+[data-theme="dark"] .utc-supervisor-batch-filter {
+  background: var(--input-surface, #14223c) !important;
+  border-color: var(--border-strong, #3a4c6b) !important;
+  color: var(--text-soft, #a9b8ce) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+}
+
+[data-theme="dark"] .utc-supervisor-batch-filter select {
+  background: transparent !important;
+  color: var(--text-strong, #f1f5f9) !important;
+}
+
+[data-theme="dark"] .utc-supervisor-batch-filter select option {
+  background: var(--surface-1, #111c35) !important;
+  color: var(--text-strong, #f1f5f9) !important;
+}
+
 [data-theme="dark"] .utc-empty-meeting-box {
   background: rgba(255, 255, 255, 0.04) !important;
   border-color: var(--divider, rgba(255, 255, 255, 0.12)) !important;

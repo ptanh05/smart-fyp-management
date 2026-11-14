@@ -967,8 +967,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200">
+                  <table className="utc-supervisor-table">
+                    <thead>
                       <tr>
                         <th className="p-3">MSSV</th>
                         <th className="p-3">Họ và tên sinh viên</th>
@@ -979,10 +979,10 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         <th className="p-3">Thông tin liên hệ</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                    <tbody className="divide-y divide-slate-100">
                       {stage2Projects.map((p) => (
-                        <tr key={p.id} className="hover:bg-slate-50/80 transition">
-                          <td className="p-3 font-mono font-bold text-[#2D469E] whitespace-nowrap">{p.student_reg_no}</td>
+                        <tr key={p.id}>
+                          <td className="p-3 utc-sup-mssv whitespace-nowrap">{p.student_reg_no}</td>
                           <td className="p-3 font-bold text-slate-900 whitespace-nowrap">{p.student_name}</td>
                           <td className="p-3 text-slate-600 whitespace-nowrap">{p.student_class || 'Chưa cập nhật'}</td>
                           <td className="p-3 whitespace-nowrap">
@@ -2375,20 +2375,21 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             </div>
             <button
               onClick={() => fetchData()}
-              className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition shadow-sm"
+              className="utc-btn-refresh-deferral"
             >
               🔄 Tải lại danh sách
             </button>
           </div>
 
           {deferralRequests.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              Hiện tại không có đơn xin bảo lưu đồ án nào cần xử lý.
+            <div className="utc-supervisor-empty-box">
+              <h4>Chưa có đơn bảo lưu</h4>
+              <p className="text-sm">Hiện tại không có đơn xin bảo lưu đồ án nào cần xử lý.</p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b border-slate-200">
+              <table className="utc-supervisor-table">
+                <thead>
                   <tr>
                     <th className="p-3">MSSV</th>
                     <th className="p-3">Sinh viên</th>
@@ -2400,21 +2401,21 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     <th className="p-3 text-right">Khoa duyệt bảo lưu</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
+                <tbody className="divide-y divide-slate-100">
                   {deferralRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-50/80 transition">
-                      <td className="p-3 font-mono font-bold text-[#2D469E]">
+                    <tr key={req.id}>
+                      <td className="p-3 utc-sup-mssv">
                         {req.student?.registration_no || req.student_registration_no || 'N/A'}
                       </td>
                       <td className="p-3 font-bold text-slate-900">
                         {req.student?.full_name || req.student_name || 'Sinh viên'}
                       </td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300 font-bold">
+                        <span className="utc-badge-deferral-reason">
                           {req.reason_category_display || req.reason_category || 'Bảo lưu'}
                         </span>
                       </td>
-                      <td className="p-3 text-slate-700 max-w-xs whitespace-pre-line">
+                      <td className="p-3 max-w-xs whitespace-pre-line">
                         {req.reason || req.reason_details}
                       </td>
                       <td className="p-3">
@@ -2423,7 +2424,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                             href={req.evidence_file}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-[#2D469E] underline font-bold hover:text-blue-700 inline-flex items-center gap-1"
+                            className="utc-sup-link"
                           >
                             <span>📎</span> Xem file ↗
                           </a>
@@ -2435,10 +2436,10 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         {req.submitted_at || req.created_at ? new Date(req.submitted_at || req.created_at).toLocaleString('vi-VN') : 'N/A'}
                       </td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-xs font-bold border ${
-                          req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
-                          req.status === 'REJECTED' ? 'bg-rose-50 text-rose-800 border-rose-300' :
-                          'bg-amber-50 text-amber-800 border-amber-300'
+                        <span className={`utc-badge-deferral-status ${
+                          req.status === 'APPROVED' ? 'approved' :
+                          req.status === 'REJECTED' ? 'rejected' :
+                          'pending'
                         }`}>
                           {req.status === 'APPROVED' ? 'Đã duyệt bảo lưu' :
                            req.status === 'REJECTED' ? 'Bị từ chối' : 'Chờ Khoa duyệt'}
@@ -2457,7 +2458,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                           <button
                             onClick={() => handleReviewDeferral(req.id, 'REJECTED')}
                             disabled={reviewingDeferral}
-                            className="px-2.5 py-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs transition flex items-center gap-1 disabled:opacity-50"
+                            className="utc-btn-reject-deferral disabled:opacity-50"
                             title="Không duyệt bảo lưu (Sinh viên bị loại khỏi đợt)"
                           >
                             <span>✕</span> Từ chối
