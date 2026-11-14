@@ -130,17 +130,27 @@ export function getProjectStageNumber(project: any): number {
     return 4;
   }
 
-  // Giai đoạn 1: Mới phân công GVHD ban đầu, đề tài chưa xác nhận / DRAFT / PENDING
+  // Giai đoạn 3: Sinh viên đã nộp đề cương / đang chờ duyệt đề cương
   if (
-    ['ALLOCATED', 'TOPIC_DRAFT'].includes(project.status) &&
-    (!project.topic_review_status || project.topic_review_status === 'DRAFT' || project.topic_review_status === 'PENDING') &&
-    !project.signed_outline_file
+    project.signed_outline_file ||
+    ['OUTLINE_PENDING', 'OUTLINE_REVISION'].includes(project.status) ||
+    project.topic_review_status === 'APPROVED' ||
+    project.topic_review_status === 'GV_CONFIRMED'
   ) {
-    return 1;
+    return 3;
   }
 
-  // Giai đoạn 3: Sinh viên làm việc trên đề tài & nộp đề cương, CHỜ GVHD DUYỆT ĐỀ CƯƠNG
-  return 3;
+  // Giai đoạn 2: Khoa đã phân công GVHD (ALLOCATED / TOPIC_DRAFT) -> Sinh viên cập nhật khảo sát & xây dựng đề cương
+  if (
+    ['ALLOCATED', 'TOPIC_DRAFT'].includes(project.status) ||
+    project.supervisor_id ||
+    project.supervisor
+  ) {
+    return 2;
+  }
+
+  // Giai đoạn 1: Mới khởi tạo đợt, chưa có phân công GVHD
+  return 1;
 }
 
 export function getProjectStageInfo(project: any): StageInfo {

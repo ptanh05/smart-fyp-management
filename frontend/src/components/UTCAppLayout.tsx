@@ -282,8 +282,8 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               </div>
               {GRADUATION_STAGES.map((st) => {
                 const isCurrent = st.number === effectiveStageNumber;
-                // Chỉ cho truy cập giai đoạn hiện tại và các giai đoạn đã hoàn tất.
-                const isAccessible = st.number <= effectiveStageNumber;
+                // GĐ 1, 2, 3 luôn mở cho sinh viên tự do thực hiện hồ sơ & đề cương. Các giai đoạn sau mở theo tiến trình.
+                const isAccessible = st.number <= Math.max(3, effectiveStageNumber);
                 const isActive =
                   activeTab === st.key ||
                   (st.number === 1 && (activeTab === 'project' || activeTab === 'utc_graduation'));

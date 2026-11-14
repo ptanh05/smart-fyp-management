@@ -35,7 +35,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
     // Giai đoạn 1 (Đề tài/GVHD), Giai đoạn 2 (Khảo sát/Nguyện vọng), Giai đoạn 3 (Đề cương) luôn mở cho sinh viên
-    if (targetStage && targetStage.number > currentStageNum) {
+    if (targetStage && targetStage.number > 3 && targetStage.number > currentStageNum) {
       alert(`⚠️ Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
       return;
     }
@@ -58,7 +58,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     if (batchProgressLoading || !batchProgress) return;
 
     const selectedStage = GRADUATION_STAGES.find((stage) => stage.key === activeTab);
-    const isLockedStage = selectedStage && selectedStage.number > currentStageNum;
+    const isLockedStage = selectedStage && selectedStage.number > 3 && selectedStage.number > currentStageNum;
 
     if (isLockedStage) {
       const currentStage = GRADUATION_STAGES.find((stage) => stage.number === currentStageNum);
@@ -530,7 +530,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
             const isCurrent = tab.number === currentStageNum;
             const isCompleted = tab.number < currentStageNum;
             // GĐ 1, 2, 3 không bao giờ bị khóa để sinh viên tự do thực hiện hồ sơ & đề cương
-              const isLocked = tab.number > currentStageNum;
+            const isLocked = tab.number > 3 && tab.number > currentStageNum;
 
             return (
               <button
@@ -777,6 +777,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                       type="button"
                       className="utc-btn self-start text-xs px-3.5 py-1.5 rounded-lg"
                       style={{ background: '#2D469E', color: '#ffffff', border: '1px solid #7290ec' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectTab('survey');
+                      }}
                     >
                       Đến GĐ 2: Khảo Sát ➔
                     </button>
@@ -800,6 +804,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                       type="button"
                       className="utc-btn self-start text-xs px-3.5 py-1.5 rounded-lg"
                       style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#ffffff', border: '1px solid #34d399' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectTab('outline');
+                      }}
                     >
                       Đến GĐ 3: Đề Cương ➔
                     </button>

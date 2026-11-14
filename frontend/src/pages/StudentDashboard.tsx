@@ -255,6 +255,7 @@ const StudentDashboard: React.FC = () => {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       currentStageNumber={currentStageInfo.number}
+      selectedBatchId={profile?.academic_batch?.id || (profile as any)?.academic_batch_id || (student as any)?.academic_batch_id}
     >
       <div className="container">
         {/* Modern Executive Header Card (Left-sidebar first UI like Admin) */}
