@@ -841,6 +841,12 @@ class StudentSurveyAPIView(APIView):
         if not batch:
             return Response({"detail": "Không có đợt làm đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
+        if InternshipInfo.objects.filter(student=student).exists() or StudentPreference.objects.filter(student=student).exists():
+            return Response(
+                {"detail": "Bạn đã gửi danh sách nguyện vọng. Mỗi sinh viên chỉ được gửi một lần."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         data = request.data
         is_interning = str(data.get("is_interning", "false")).lower() in ["true", "1"]
         company_name = data.get("company_name", "").strip()
@@ -878,6 +884,12 @@ class StudentSurveyAPIView(APIView):
             return Response({"detail": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
+            student = Student.objects.select_for_update().get(pk=student.pk)
+            if InternshipInfo.objects.filter(student=student).exists() or StudentPreference.objects.filter(student=student).exists():
+                return Response(
+                    {"detail": "Bạn đã gửi danh sách nguyện vọng. Mỗi sinh viên chỉ được gửi một lần."},
+                    status=status.HTTP_409_CONFLICT,
+                )
             # Update student profile
             fields_to_save = []
             if phone_number:
@@ -894,28 +906,24 @@ class StudentSurveyAPIView(APIView):
             user.save()
 
             # Update or create InternshipInfo
-            survey, _ = InternshipInfo.objects.update_or_create(
+            survey = InternshipInfo.objects.create(
                 student=student,
-                defaults={
-                    "batch": batch,
-                    "is_interning": is_interning,
-                    "company_name": company_name if is_interning else "",
-                    "topic_direction": topic_direction,
-                    "tentative_title": tentative_title
-                }
+                batch=batch,
+                is_interning=is_interning,
+                company_name=company_name if is_interning else "",
+                topic_direction=topic_direction,
+                tentative_title=tentative_title,
             )
 
             # Update or create StudentPreference
-            StudentPreference.objects.update_or_create(
+            StudentPreference.objects.create(
                 student=student,
-                defaults={
-                    "batch": batch,
-                    "topic_direction": topic_direction,
-                    "preference_1": sup1,
-                    "preference_2": sup2,
-                    "preference_3": sup3,
-                    "sub_criteria": secondary_criteria_note
-                }
+                batch=batch,
+                topic_direction=topic_direction,
+                preference_1=sup1,
+                preference_2=sup2,
+                preference_3=sup3,
+                sub_criteria=secondary_criteria_note,
             )
 
         # Cảnh báo (không chặn): GVHD được chọn không thuộc chuyên ngành sinh viên đã chọn
