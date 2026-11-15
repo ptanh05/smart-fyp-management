@@ -1,3 +1,5 @@
+import json
+
 from rest_framework import serializers
 from ..models import (
     Supervisor,
@@ -13,6 +15,7 @@ from ..models import (
     CouncilLiveScore,
     FinalGradeSummary,
     AcademicBatch,
+    AuditLog,
 )
 
 class ProjectTopicAreaSerializer(serializers.ModelSerializer):
@@ -290,6 +293,7 @@ class SupervisionTaskSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     review_verdict_display = serializers.CharField(source="get_review_verdict_display", read_only=True)
     assigned_by_name = serializers.CharField(source="assigned_by.user.get_full_name", read_only=True)
+    submission_history = serializers.SerializerMethodField()
 
     class Meta:
         model = SupervisionTask
@@ -319,8 +323,48 @@ class SupervisionTaskSerializer(serializers.ModelSerializer):
             "submitted_at",
             "created_at",
             "updated_at",
+            "submission_history",
         ]
         read_only_fields = ["assigned_by", "completed_at", "reviewed_at", "is_late", "submitted_at", "created_at", "updated_at"]
+
+    def get_submission_history(self, obj):
+        history = []
+        logs = AuditLog.objects.filter(
+            field_name=f"task:{obj.id}",
+            action_type__in=["task_submission", "task_review"],
+        ).order_by("created_at")
+
+        for log in logs:
+            try:
+                details = json.loads(log.new_value or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                details = {}
+            history.append({
+                "id": log.id,
+                "event": details.get("event") or log.action_type.upper(),
+                "description": log.description,
+                "actor": details.get("actor") or (log.user.get_full_name() if log.user else "Hệ thống"),
+                "notes": details.get("notes", ""),
+                "file_url": details.get("file_url", ""),
+                "deliverable_url": details.get("deliverable_url", ""),
+                "is_late": bool(details.get("is_late", False)),
+                "created_at": log.created_at,
+            })
+
+        # Backward compatibility for submissions created before history logging.
+        if not history and obj.submitted_at:
+            history.append({
+                "id": f"legacy-{obj.id}",
+                "event": "SUBMITTED",
+                "description": "Sinh viên đã nộp sản phẩm nhiệm vụ",
+                "actor": obj.project.student.user.get_full_name() or obj.project.student.user.username,
+                "notes": obj.student_notes or "",
+                "file_url": obj.deliverable_file.url if obj.deliverable_file else "",
+                "deliverable_url": obj.deliverable_url or "",
+                "is_late": obj.is_late,
+                "created_at": obj.submitted_at,
+            })
+        return history
 
 
 class SupervisionMeetingLogSerializer(serializers.ModelSerializer):

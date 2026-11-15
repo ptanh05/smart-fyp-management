@@ -30,7 +30,7 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const chatInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const showToast = (text: string) => {
@@ -683,10 +683,11 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
                 />
               </label>
 
-              <input
+              <textarea
                 ref={chatInputRef}
-                type="text"
-                className="utc-text-input"
+                className="utc-chat-textarea"
+                rows={1}
+                maxLength={2000}
                 placeholder={
                   replyingTo
                     ? `Nhập câu trả lời cho ${formatFullName(replyingTo.sender_name)}...`
@@ -694,15 +695,25 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
                 }
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!sending && (inputText.trim() || selectedFile)) {
+                      e.currentTarget.form?.requestSubmit();
+                    }
+                  }
+                }}
                 disabled={sending}
+                aria-label="Soạn tin nhắn cho nhóm đồ án"
               />
 
               <button
                 type="submit"
-                className="utc-send-btn"
+                className="utc-chat-send-btn"
                 disabled={sending || (!inputText.trim() && !selectedFile)}
               >
-                {sending ? 'Đang gửi...' : 'Gửi ➔'}
+                <span>{sending ? 'Đang gửi...' : 'Gửi'}</span>
+                {!sending && <span className="utc-send-arrow">➔</span>}
               </button>
             </div>
           </form>

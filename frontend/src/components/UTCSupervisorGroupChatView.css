@@ -645,12 +645,14 @@
 
 /* Chat Input Bar */
 .utc-chat-input-bar {
-  padding: 12px 16px;
-  background: #ffffff;
+  width: 100%;
+  padding: 14px 16px 16px;
+  background: #f8fafc;
   border-top: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-sizing: border-box;
 }
 
 .utc-selected-file-chip {
@@ -676,14 +678,16 @@
 
 .utc-input-row {
   display: flex;
-  align-items: center;
+  width: 100%;
+  min-width: 0;
+  align-items: flex-end;
   gap: 10px;
 }
 
 .utc-attach-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   border: 1px solid #cbd5e1;
   background: #f8fafc;
   display: flex;
@@ -696,22 +700,34 @@
 }
 
 .utc-attach-btn:hover {
-  background: #e2e8f0;
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .utc-chat-textarea {
-  flex: 1;
+  display: block;
+  min-width: 0;
+  min-height: 48px;
+  max-height: 120px;
+  flex: 1 1 auto;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 10px 14px;
+  border-radius: 14px;
+  padding: 13px 16px;
+  background: #ffffff;
+  color: #0f172a;
   font-size: 0.9rem;
   outline: none;
-  resize: none;
+  resize: vertical;
+  overflow-y: auto;
   font-family: inherit;
-  line-height: 1.4;
-  height: 42px;
+  line-height: 1.45;
   box-sizing: border-box;
   transition: all 0.2s;
+}
+
+.utc-chat-textarea::placeholder {
+  color: #94a3b8;
 }
 
 .utc-chat-textarea:focus {
@@ -720,11 +736,17 @@
 }
 
 .utc-chat-send-btn {
+  display: inline-flex;
+  height: 48px;
+  min-width: 104px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   background: #0284c7;
   color: #ffffff;
   border: none;
-  border-radius: 8px;
-  padding: 10px 18px;
+  border-radius: 12px;
+  padding: 0 20px;
   font-weight: 700;
   font-size: 0.9rem;
   cursor: pointer;
@@ -741,6 +763,47 @@
 .utc-chat-send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.utc-send-arrow {
+  font-size: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.utc-chat-send-btn:hover:not(:disabled) .utc-send-arrow {
+  transform: translateX(3px);
+}
+
+@media (max-width: 640px) {
+  .utc-chat-input-bar {
+    padding: 10px;
+  }
+
+  .utc-input-row {
+    gap: 7px;
+  }
+
+  .utc-attach-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .utc-chat-textarea {
+    min-height: 44px;
+    padding: 11px 12px;
+  }
+
+  .utc-chat-send-btn {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .utc-chat-send-btn .utc-send-arrow {
+    font-size: 1.1rem;
+  }
 }
 
 

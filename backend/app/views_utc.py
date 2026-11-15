@@ -1,4 +1,5 @@
 import logging
+import json
 import threading
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -4218,6 +4219,25 @@ class StudentTaskDeliverableSubmitAPIView(APIView):
         task.is_late = is_late
         task.save()
 
+        submission_number = AuditLog.objects.filter(
+            field_name=f"task:{task.id}",
+            action_type="task_submission",
+        ).count() + 1
+        AuditLog.objects.create(
+            user=user,
+            action_type="task_submission",
+            field_name=f"task:{task.id}",
+            description=f"Sinh viên nộp sản phẩm lần {submission_number} cho nhiệm vụ '{task.title}'",
+            new_value=json.dumps({
+                "event": "RESUBMITTED" if submission_number > 1 else "SUBMITTED",
+                "actor": student.user.get_full_name() or student.user.username,
+                "notes": task.student_notes or "",
+                "file_url": task.deliverable_file.url if task.deliverable_file else "",
+                "deliverable_url": task.deliverable_url or "",
+                "is_late": is_late,
+            }, ensure_ascii=False),
+        )
+
         # Thông báo tới GVHD
         try:
             NotificationService.create_notification(
@@ -4273,6 +4293,25 @@ class SupervisorReviewTaskAPIView(APIView):
         task.supervisor_review_notes = notes
         task.reviewed_at = timezone.now()
         task.save()
+
+        AuditLog.objects.create(
+            user=user,
+            action_type="task_review",
+            field_name=f"task:{task.id}",
+            description=(
+                f"GVHD xác nhận hoàn thành nhiệm vụ '{task.title}'"
+                if verdict == "ACCEPTED"
+                else f"GVHD yêu cầu chỉnh sửa nhiệm vụ '{task.title}'"
+            ),
+            new_value=json.dumps({
+                "event": verdict,
+                "actor": supervisor.user.get_full_name() or supervisor.user.username,
+                "notes": notes,
+                "file_url": task.deliverable_file.url if task.deliverable_file else "",
+                "deliverable_url": task.deliverable_url or "",
+                "is_late": task.is_late,
+            }, ensure_ascii=False),
+        )
 
         # Thông báo tới SV
         try:

@@ -1746,10 +1746,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
               {tasksData?.stats && (
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#EEF3FB] text-[#2D469E] border border-[#B9D1F8] shadow-sm">
+                  <span className="utc-task-stat-badge total">
                     Tổng số: {tasksData.stats.total} việc
                   </span>
-                  <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#ECFDF5] text-[#047857] border border-[#A7F3D0] shadow-sm">
+                  <span className="utc-task-stat-badge completed">
                     Đã xong: {tasksData.stats.completed}
                   </span>
                 </div>
@@ -1760,8 +1760,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
             {tasksData?.stats && (
               <div className="utc-task-progress-box space-y-2">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-slate-800">Tiến độ hoàn thành nhiệm vụ được giao</span>
-                  <span className="font-extrabold text-emerald-700 text-sm">
+                  <span className="utc-task-progress-label">Tiến độ hoàn thành nhiệm vụ được giao</span>
+                  <span className="utc-task-progress-value">
                     {tasksData.stats.completed} / {tasksData.stats.total} ({tasksData.stats.completion_rate}%)
                   </span>
                 </div>
@@ -1776,7 +1776,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-blue-900/40">
-              <span className="text-xs text-slate-700 font-bold mr-1">Bộ lọc:</span>
+              <span className="utc-task-filter-label text-xs font-bold mr-1">Bộ lọc:</span>
               {[
                 { key: 'ALL', label: 'Tất cả nhiệm vụ' },
                 { key: 'TODO', label: 'Cần làm (Todo)' },
@@ -1909,16 +1909,16 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                           {/* Phase 5: Deliverable display */}
                           {(task.deliverable_file || task.deliverable_url) && (
-                            <div className="mt-2 p-2.5 rounded-lg border text-xs space-y-1" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
-                              <span className="font-semibold text-emerald-800">📦 Sản phẩm / Báo cáo kết quả:</span>
+                            <div className="utc-task-deliverable-box mt-2 p-2.5 rounded-lg border text-xs space-y-1">
+                              <span className="utc-task-deliverable-title font-semibold">📦 Sản phẩm / Báo cáo kết quả:</span>
                               <div className="flex flex-wrap items-center gap-3">
                                 {task.deliverable_file && (
-                                  <a href={task.deliverable_file} target="_blank" rel="noreferrer" className="text-blue-700 underline font-semibold hover:text-blue-900">
+                                  <a href={task.deliverable_file} target="_blank" rel="noreferrer" className="utc-task-deliverable-link">
                                     File đính kèm ↗
                                   </a>
                                 )}
                                 {task.deliverable_url && (
-                                  <a href={task.deliverable_url} target="_blank" rel="noreferrer" className="text-blue-700 underline font-semibold hover:text-blue-900">
+                                  <a href={task.deliverable_url} target="_blank" rel="noreferrer" className="utc-task-deliverable-link">
                                     Link sản phẩm (Git/Drive/Demo) ↗
                                   </a>
                                 )}
@@ -1928,10 +1928,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                           {/* Phase 5: Supervisor review notes */}
                           {task.supervisor_review_notes && (
-                            <div className={`mt-2 p-2.5 rounded-lg border text-xs ${
+                            <div className={`utc-task-review-notes-box mt-2 p-2.5 rounded-lg border text-xs ${
                               task.review_verdict === 'REVISION_REQUIRED'
-                                ? 'bg-rose-50 border-rose-200 text-rose-800'
-                                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                ? 'is-revision'
+                                : 'is-accepted'
                             }`}>
                               <span className="font-semibold">
                                 {task.review_verdict === 'REVISION_REQUIRED' ? '⚠️ Yêu cầu sửa từ GVHD:' : '💬 Nhận xét từ GVHD:'}
@@ -1942,9 +1942,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                           {/* Student Notes Display */}
                           {task.student_notes && (
-                            <div className="mt-2 p-2.5 rounded-lg border text-xs" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
-                              <span className="font-semibold text-blue-900">📝 Ghi chú SV:</span>{' '}
-                              <span className="text-slate-700">{task.student_notes}</span>
+                            <div className="utc-task-notes-box mt-2 p-2.5 rounded-lg border text-xs">
+                              <span className="utc-task-notes-title font-semibold">📝 Ghi chú SV:</span>{' '}
+                              <span className="utc-task-notes-text">{task.student_notes}</span>
                             </div>
                           )}
                         </div>
@@ -1978,6 +1978,61 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 });
               })()}
             </div>
+
+            {(() => {
+              const history = (tasksData?.tasks || [])
+                .flatMap((task: any) =>
+                  (task.submission_history || []).map((entry: any) => ({ ...entry, task }))
+                )
+                .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+              if (history.length === 0) return null;
+
+              const eventLabel: Record<string, string> = {
+                SUBMITTED: 'Đã nộp sản phẩm',
+                RESUBMITTED: 'Đã nộp lại sản phẩm',
+                ACCEPTED: 'GVHD xác nhận đạt',
+                REVISION_REQUIRED: 'GVHD yêu cầu sửa lại',
+              };
+
+              return (
+                <div className="utc-task-history">
+                  <div className="utc-task-history-header">
+                    <div>
+                      <h4>🕘 Lịch sử nộp & đánh giá nhiệm vụ</h4>
+                      <p>Mọi lần nộp, nộp lại và phản hồi của GVHD đều được lưu tại đây.</p>
+                    </div>
+                    <span>{history.length} hoạt động</span>
+                  </div>
+
+                  <div className="utc-task-history-list">
+                    {history.map((entry: any) => (
+                      <div key={`${entry.task.id}-${entry.id}`} className={`utc-task-history-item event-${String(entry.event).toLowerCase()}`}>
+                        <div className="utc-task-history-dot" />
+                        <div className="utc-task-history-content">
+                          <div className="utc-task-history-title-row">
+                            <strong>{eventLabel[entry.event] || entry.description}</strong>
+                            <time>{entry.created_at ? new Date(entry.created_at).toLocaleString('vi-VN') : ''}</time>
+                          </div>
+                          <div className="utc-task-history-task">Nhiệm vụ: <b>{entry.task.title}</b></div>
+                          <div className="utc-task-history-meta">
+                            Người thực hiện: <b>{entry.actor || 'Hệ thống'}</b>
+                            {entry.is_late && <span className="utc-history-late">Nộp muộn</span>}
+                          </div>
+                          {entry.notes && <p className="utc-task-history-notes">“{entry.notes}”</p>}
+                          {(entry.file_url || entry.deliverable_url) && (
+                            <div className="utc-task-history-links">
+                              {entry.file_url && <a href={entry.file_url} target="_blank" rel="noreferrer">📎 Xem file đã nộp</a>}
+                              {entry.deliverable_url && <a href={entry.deliverable_url} target="_blank" rel="noreferrer">🔗 Mở link sản phẩm</a>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Supervision Meeting Logs Section */}

@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from app.models import AcademicBatch, CustomUser, GraduationProject, Student, Supervisor
+from app.models import AcademicBatch, CustomUser, GraduationProject, Student, Supervisor, SupervisionTask
 
 
 class StageAccessControlTests(TestCase):
@@ -134,3 +134,43 @@ class StageAccessControlTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data["current_stage"], 4)
         self.assertTrue(response.data["read_only"])
+
+    def test_task_submission_and_review_history_is_persisted(self):
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
+        self.batch.save(update_fields=["current_stage"])
+        task = SupervisionTask.objects.create(
+            project=self.project,
+            assigned_by=self.supervisor,
+            title="Hoàn thiện chức năng đăng nhập",
+        )
+
+        first_submit = self.client.post(
+            f"/api/student/tasks/{task.id}/submit-deliverable/",
+            {"deliverable_url": "https://example.com/submission-1", "student_notes": "Bản nộp đầu tiên"},
+            format="json",
+        )
+        self.assertEqual(first_submit.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(user=self.supervisor_user)
+        review = self.client.post(
+            f"/api/supervisor/tasks/{task.id}/review/",
+            {"verdict": "REVISION_REQUIRED", "notes": "Cần bổ sung kiểm thử"},
+            format="json",
+        )
+        self.assertEqual(review.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(user=self.student_user)
+        second_submit = self.client.post(
+            f"/api/student/tasks/{task.id}/submit-deliverable/",
+            {"deliverable_url": "https://example.com/submission-2", "student_notes": "Đã bổ sung kiểm thử"},
+            format="json",
+        )
+        self.assertEqual(second_submit.status_code, status.HTTP_200_OK)
+
+        tasks_response = self.client.get("/api/student/tasks/")
+        self.assertEqual(tasks_response.status_code, status.HTTP_200_OK)
+        saved_task = next(item for item in tasks_response.data["tasks"] if item["id"] == task.id)
+        self.assertEqual(
+            [entry["event"] for entry in saved_task["submission_history"]],
+            ["SUBMITTED", "REVISION_REQUIRED", "RESUBMITTED"],
+        )

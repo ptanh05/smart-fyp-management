@@ -1023,3 +1023,7 @@
 [data-theme="dark"] .utc-sup-link:hover {
   color: #93c5fd !important;
 }
+
+[data-theme="dark"] .utc-supervisor-view .text-\[\#2D469E\] {
+  color: #60a5fa !important;
+}
