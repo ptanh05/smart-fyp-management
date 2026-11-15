@@ -191,10 +191,48 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   // Cho phép sinh viên mở các giai đoạn tương ứng với tiến độ thực tế của đề tài cá nhân (ví dụ đã được duyệt đề cương -> mở GĐ 4)
   const studentProject = (user as any)?.graduation_project;
   const projectStageNumber = currentStageNumber || getProjectStageNumber(studentProject);
+  const progressProjectStageNumber = batchProgress?.my_project?.has_project
+    ? getProjectStageNumber(batchProgress.my_project)
+    : 1;
   const effectiveStageNumber = Math.max(
     batchProgress?.current_stage_number || 1,
-    projectStageNumber || 1
+    projectStageNumber || 1,
+    progressProjectStageNumber || 1
   );
+
+  // Student screens use the student's real project progress. Keep the top batch
+  // progress bar, sidebar and inner workflow stepper on one shared stage model.
+  const synchronizedProgress = React.useMemo<BatchProgressData | null>(() => {
+    if (!batchProgress || userType !== 'student') return batchProgress;
+
+    const stages = batchProgress.stages.map((stage) => {
+      const studentStage = GRADUATION_STAGES.find((item) => item.number === stage.number);
+      return {
+        ...stage,
+        label: studentStage?.label || stage.label,
+        short_label: studentStage?.shortLabel || stage.short_label,
+        icon: studentStage?.icon || stage.icon,
+        description: studentStage?.description || stage.description,
+        status: stage.number < effectiveStageNumber
+          ? 'done' as const
+          : stage.number === effectiveStageNumber
+          ? 'active' as const
+          : 'locked' as const,
+        percent: stage.number < effectiveStageNumber ? 100 : stage.number === effectiveStageNumber ? stage.percent : 0,
+      };
+    });
+    const currentStage = stages.find((stage) => stage.number === effectiveStageNumber);
+    const minimumOverallPercent = Math.round(((effectiveStageNumber - 1) / stages.length) * 100);
+
+    return {
+      ...batchProgress,
+      current_stage_number: effectiveStageNumber,
+      current_stage: currentStage,
+      overall_percent: Math.max(batchProgress.overall_percent || 0, minimumOverallPercent),
+      stages,
+      next_actions: currentStage ? [currentStage.description] : batchProgress.next_actions,
+    };
+  }, [batchProgress, effectiveStageNumber, userType]);
 
   const handleNotificationNavigate = (url: string) => {
     const [path, queryString] = url.split('?');
@@ -227,7 +265,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
 
   return (
     <BatchProgressProvider
-      progress={batchProgress}
+      progress={synchronizedProgress}
       loading={batchProgressLoading}
       refresh={fetchBatchProgress}
     >
@@ -284,8 +322,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               </div>
               {GRADUATION_STAGES.map((st) => {
                 const isCurrent = st.number === effectiveStageNumber;
-                // GĐ 1, 2, 3 luôn mở cho sinh viên tự do thực hiện hồ sơ & đề cương. Các giai đoạn sau mở theo tiến trình.
-                const isAccessible = st.number <= Math.max(3, effectiveStageNumber);
+                const isAccessible = st.number <= effectiveStageNumber;
                 const isActive =
                   activeTab === st.key ||
                   (st.number === 1 && (activeTab === 'project' || activeTab === 'utc_graduation'));
@@ -570,7 +607,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
         {/* 2.1 Thanh tiến trình đợt đồ án (theo dõi giai đoạn) */}
         {userType !== 'committee_member' && (
           <BatchProgressBar
-            data={batchProgress}
+            data={synchronizedProgress}
             loading={batchProgressLoading}
             variant="portal"
             onRefresh={fetchBatchProgress}
