@@ -2240,35 +2240,35 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
               {/* Total Final Score Card */}
               <div className="utc-final-score-banner">
-                <div>
-                  <span className="text-xs text-blue-100 font-semibold uppercase tracking-wider">
+                <div className="utc-final-score-main">
+                  <span className="utc-final-score-eyebrow">
                     Điểm Tổng kết cuối cùng
                   </span>
-                  <div className="flex items-baseline gap-3 mt-1">
-                    <span className="text-4xl font-extrabold text-white">
+                  <div className="utc-final-score-number-row">
+                    <span className="utc-final-score-value">
                       {projectData.final_grade.final_score_10 !== null ? projectData.final_grade.final_score_10 : '-'}
                     </span>
-                    <span className="text-base text-blue-100">/ 10</span>
+                    <span className="utc-final-score-scale">/ 10</span>
                   </div>
-                  <p className="text-xs text-blue-100 mt-1">
-                    Quy đổi Thang 4: <b className="text-white">{projectData.final_grade.final_score_4 !== null ? projectData.final_grade.final_score_4 : '-'}</b>
+                  <p className="utc-final-score-scale4">
+                    Quy đổi Thang 4: <b>{projectData.final_grade.final_score_4 !== null ? projectData.final_grade.final_score_4 : '-'}</b>
                   </p>
                 </div>
 
-                <div className="text-right space-y-1">
-                  <span className="text-3xl font-black text-amber-300">
+                <div className="utc-final-score-meta">
+                  <div className="utc-final-score-letter">
                     {projectData.final_grade.final_letter_grade || '-'}
-                  </span>
-                  <p className="text-xs font-semibold text-blue-100">
+                  </div>
+                  <p className="utc-final-score-rank">
                     Xếp loại: {projectData.final_grade.classification || 'Đang cập nhật'}
                   </p>
-                  <div>
+                  <div className="utc-final-score-status">
                     {projectData.final_grade.is_passed ? (
-                      <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400 text-xs font-bold">
+                      <span className="utc-final-status-badge is-passed">
                         ✅ ĐẠT YÊU CẦU
                       </span>
                     ) : (
-                      <span className="px-3 py-1 rounded-full bg-slate-800/80 text-blue-200 text-xs">
+                      <span className="utc-final-status-badge is-pending">
                         Đang bảo vệ
                       </span>
                     )}
@@ -2277,7 +2277,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               </div>
 
               {/* Deferral Quick Action Banner in Tab 6 */}
-              <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="utc-deferral-quick-card flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl">
                 <div>
                   <h4 className="text-sm font-bold text-slate-800">Đơn Xin Hoãn / Bảo Lưu Đồ Án Tốt Nghiệp</h4>
                   <p className="text-xs text-slate-500">Trường hợp chưa đủ điều kiện bảo vệ hoặc lý do học vụ cần bảo lưu kết quả sang đợt sau.</p>
@@ -2492,7 +2492,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       {showDeferralModal && (
         <div className="utc-modal-overlay">
           <div className="utc-modal-card">
-            <div className="utc-modal-header">
+            <div className="utc-modal-header utc-deferral-modal-header">
               <div>
                 <h3 className="utc-modal-title">
                   <span>📝</span> Đơn Xin Bảo Lưu Đồ Án Tốt Nghiệp
