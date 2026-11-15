@@ -1198,7 +1198,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
       {/* Tab 3: Outline Submission & Phase 3 Topic Draft */}
       {activeTab === 'outline' && (
-        <div className="utc-graduation-card space-y-6 max-w-3xl">
+        <div className="utc-graduation-card space-y-6 w-full max-w-none">
           <div className="utc-card-header">
             <h3 className="utc-card-title">
               <span>📄</span>
