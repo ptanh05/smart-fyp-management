@@ -481,6 +481,7 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
     weekly_reports = WeeklyProgressReportSerializer(many=True, read_only=True)
     final_grade = FinalGradeSummarySerializer(source="final_grade_summary", read_only=True)
     signed_outline_file_url = serializers.SerializerMethodField()
+    supervisor_score_is_draft = serializers.SerializerMethodField()
 
     class Meta:
         model = GraduationProject
@@ -545,6 +546,19 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
         if obj.signed_outline_file:
             return getattr(obj.signed_outline_file, "url", f"/media/outlines/{obj.id}_signed.pdf")
         return ""
+
+    def get_supervisor_score_is_draft(self, obj):
+        if obj.supervisor_score is None:
+            return True
+        finalized_in_audit = AuditLog.objects.filter(
+            action_type="supervisor_evaluation_finalized",
+            field_name=f"project:{obj.id}",
+        ).exists()
+        try:
+            finalized_in_summary = obj.final_grade_summary.supervisor_score is not None
+        except Exception:
+            finalized_in_summary = False
+        return not (finalized_in_audit or finalized_in_summary)
 
     def get_is_currently_defending(self, obj):
         if obj.defense_status == "DEFENDING" or obj.status == "DEFENDING":

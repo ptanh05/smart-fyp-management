@@ -1708,6 +1708,21 @@ class SupervisorDefenseEvaluationAPIView(APIView):
             return stage_error
         is_draft = bool(request.data.get("is_draft", False))
 
+        already_finalized = AuditLog.objects.filter(
+            action_type="supervisor_evaluation_finalized",
+            field_name=f"project:{project.id}",
+        ).exists()
+        if not already_finalized:
+            try:
+                already_finalized = project.final_grade_summary.supervisor_score is not None
+            except Exception:
+                already_finalized = False
+        if already_finalized:
+            return Response(
+                {"detail": "Phiếu đánh giá GVHD đã được chốt chính thức và không thể chỉnh sửa."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         with transaction.atomic():
             project.supervisor_score = score
             project.supervisor_feedback = supervisor_feedback
@@ -1728,10 +1743,21 @@ class SupervisorDefenseEvaluationAPIView(APIView):
                 summary.supervisor_score = score
                 policy = EvaluationPolicy.objects.filter(batch=project.batch).first()
                 summary.calculate_and_save(policy=policy)
+                AuditLog.objects.create(
+                    user=user,
+                    action_type="supervisor_evaluation_finalized",
+                    field_name=f"project:{project.id}",
+                    description=f"GVHD chốt phiếu đánh giá cho sinh viên {project.student.registration_no}",
+                    new_value=json.dumps({
+                        "score": score,
+                        "is_eligible_for_defense": bool(is_eligible),
+                        "feedback": supervisor_feedback,
+                    }, ensure_ascii=False),
+                )
             else:
                 project.save()
 
-        msg = "Đã lưu nháp phiếu đánh giá của Giảng viên hướng dẫn! Điểm chưa công bố cho sinh viên." if is_draft else "Đã lưu và công bố phiếu đánh giá của Giảng viên hướng dẫn!"
+        msg = "Đã lưu phiếu đánh giá GVHD. Điểm chưa được chốt." if is_draft else "Đã chốt phiếu đánh giá GVHD chính thức. Phiếu không thể chỉnh sửa thêm."
         return Response({
             "message": msg,
             "project": GraduationProjectDetailSerializer(project).data
