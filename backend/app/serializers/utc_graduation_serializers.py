@@ -212,6 +212,8 @@ class OutlineReviewSerializer(serializers.ModelSerializer):
     group_name = serializers.CharField(source="review_group.name", read_only=True, default="")
     reviewer_name = serializers.SerializerMethodField()
     outline_file_url = serializers.SerializerMethodField()
+    topic_review_status = serializers.CharField(source="project.topic_review_status", read_only=True, default="DRAFT")
+    project_status = serializers.CharField(source="project.status", read_only=True, default="OUTLINE_PENDING")
 
     class Meta:
         model = OutlineReview
@@ -228,6 +230,8 @@ class OutlineReviewSerializer(serializers.ModelSerializer):
             "outline_file",
             "outline_file_url",
             "verdict",
+            "topic_review_status",
+            "project_status",
             "comments",
             "submitted_at",
             "reviewed_at"

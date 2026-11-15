@@ -1124,6 +1124,7 @@ class StudentOutlineSubmissionAPIView(APIView):
             if topic_title_en:
                 project.topic_title_en = topic_title_en
             project.status = "OUTLINE_PENDING"
+            project.topic_review_status = "DRAFT"
             project.save()
 
             review, _ = OutlineReview.objects.select_for_update().get_or_create(project=project)
@@ -1133,7 +1134,7 @@ class StudentOutlineSubmissionAPIView(APIView):
             review.save()
 
         return Response({
-            "message": "Nộp đề cương thành công, đang chờ Giảng viên xét duyệt!",
+            "message": "Nộp đề cương thành công, hồ sơ đã được gửi đến Giảng viên hướng dẫn để xem xét & duyệt!",
             "project": GraduationProjectDetailSerializer(project).data
         }, status=status.HTTP_200_OK)
 
@@ -1627,19 +1628,21 @@ class SupervisorOutlineReviewAPIView(APIView):
             review.save()
 
             if verdict == "APPROVED":
-                # GVHD approval is the first review step.  Keep the project
-                # pending until Khoa/Admin performs the final approval.
+                # GVHD duyệt và chốt đề cương -> Chuyển hồ sơ sang chờ Khoa phê duyệt chính thức
                 project.status = "OUTLINE_PENDING"
+                project.topic_review_status = "GV_CONFIRMED"
             elif verdict == "REVISION_REQUIRED":
                 project.status = "OUTLINE_REVISION"
+                project.topic_review_status = "REVISION_REQUIRED"
             elif verdict == "REJECTED":
                 project.status = "FAILED"
+                project.topic_review_status = "REJECTED"
             project.save()
 
         verdict_display = getattr(review, "get_verdict_display", lambda: verdict)()
         return Response({
             "message": (
-                "GVHD đã chấp nhận đề cương. Hồ sơ đang chờ Khoa/Admin duyệt cuối."
+                "Giảng viên đã chốt duyệt đề cương thành công và chuyển hồ sơ lên Khoa để phê duyệt chính thức!"
                 if verdict == "APPROVED"
                 else f"Đã cập nhật kết quả duyệt đề cương: {verdict_display}"
             ),

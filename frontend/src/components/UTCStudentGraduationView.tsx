@@ -528,7 +528,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       await axios.post(`${API_BASE}/student/outline/submit/`, fd, {
         headers: { ...getHeaders(), 'Content-Type': 'multipart/form-data' },
       });
-      alert('Nộp đề cương thành công, đang chờ GVHD & Nhóm chuyên môn xét duyệt!');
+      alert('Nộp đề cương thành công! Đề cương đã được gửi đến Giảng viên hướng dẫn xem xét & duyệt.');
       fetchData();
     } catch (err: any) {
       alert('Lỗi nộp đề cương: ' + (err.response?.data?.outline_file?.[0] || err.message));
@@ -1494,13 +1494,63 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               <div className="utc-submitted-outline__header">
                 <div className="utc-submitted-outline__success-icon" aria-hidden="true">✓</div>
                 <div className="utc-submitted-outline__heading">
-                  <span className="utc-submitted-outline__eyebrow">HỒ SƠ ĐÃ GỬI THÀNH CÔNG</span>
-                  <h4>Đề cương chi tiết đã được nộp</h4>
-                  <p>Form nộp đã được khóa để tránh gửi trùng. Bạn có thể xem lại hồ sơ bên dưới.</p>
+                  <span className="utc-submitted-outline__eyebrow">HỒ SƠ ĐÃ GỬI CHO GIẢNG VIÊN HƯỚNG DẪN</span>
+                  <h4>Đề cương chi tiết đã gửi sang Giảng viên</h4>
+                  <p>Hồ sơ đã được gửi đến Giảng viên hướng dẫn xem xét và chốt duyệt trước khi chuyển lên Khoa phê duyệt chính thức.</p>
                 </div>
                 <span className={`utc-submitted-outline__status ${projectData.status === 'OUTLINE_APPROVED' ? 'is-approved' : 'is-pending'}`}>
-                  {projectData.status === 'OUTLINE_APPROVED' ? 'Đã được Khoa duyệt' : 'Đang chờ xét duyệt'}
+                  {projectData.status === 'OUTLINE_APPROVED'
+                    ? '🎉 Khoa đã phê duyệt'
+                    : (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED')
+                    ? '🟢 GVHD đã duyệt · Chờ Khoa'
+                    : '🟡 Đã gửi GVHD · Chờ duyệt'}
                 </span>
+              </div>
+
+              {/* Visual 3-Step Flow Tracker */}
+              <div className="mt-3 mb-2 p-3 rounded-xl bg-slate-900/60 border border-blue-900/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold">✓</span>
+                  <span className="font-semibold text-emerald-300">1. Sinh viên nộp đề cương</span>
+                </div>
+                <span className="text-slate-500 font-bold">➔</span>
+                <div className="flex items-center gap-2">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED' || projectData.status === 'OUTLINE_APPROVED')
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-amber-500 text-slate-900 animate-pulse'
+                  }`}>
+                    {(submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED' || projectData.status === 'OUTLINE_APPROVED') ? '✓' : '2'}
+                  </span>
+                  <span className={`font-semibold ${
+                    (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED' || projectData.status === 'OUTLINE_APPROVED')
+                      ? 'text-emerald-300'
+                      : 'text-amber-300'
+                  }`}>
+                    2. GVHD duyệt & chốt
+                  </span>
+                </div>
+                <span className="text-slate-500 font-bold">➔</span>
+                <div className="flex items-center gap-2">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    projectData.status === 'OUTLINE_APPROVED'
+                      ? 'bg-emerald-500 text-white'
+                      : (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED')
+                      ? 'bg-blue-500 text-white animate-pulse'
+                      : 'bg-slate-700 text-slate-400'
+                  }`}>
+                    {projectData.status === 'OUTLINE_APPROVED' ? '✓' : '3'}
+                  </span>
+                  <span className={`font-semibold ${
+                    projectData.status === 'OUTLINE_APPROVED'
+                      ? 'text-emerald-300'
+                      : (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED')
+                      ? 'text-blue-300'
+                      : 'text-slate-500'
+                  }`}>
+                    3. Khoa duyệt & Mở GĐ 4
+                  </span>
+                </div>
               </div>
 
               <div className="utc-submitted-outline__body">
@@ -1510,7 +1560,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                     <strong>{submittedOutlineFileName}</strong>
                     <span>
                       {submittedOutlineUrl
-                        ? 'Tệp đề cương chi tiết đã lưu trên hệ thống'
+                        ? 'Tệp đề cương chi tiết đã gửi Giảng viên'
                         : 'Hồ sơ đã được ghi nhận nhưng không có tệp PDF đính kèm'}
                     </span>
                   </div>
@@ -1548,13 +1598,13 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                     </strong>
                   </div>
                   <div>
-                    <span>Kết quả thẩm định</span>
+                    <span>Tiến trình phê duyệt</span>
                     <strong>
                       {projectData.status === 'OUTLINE_APPROVED'
-                        ? 'Khoa đã phê duyệt'
-                        : submittedOutline?.verdict === 'APPROVED'
-                        ? 'GVHD đã duyệt · Chờ Khoa'
-                        : 'Chờ GVHD / Nhóm chuyên môn'}
+                        ? '🎉 Cả 2 cấp hoàn tất: Khoa đã duyệt chính thức'
+                        : (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED')
+                        ? '🟢 Cấp 1 xong: GVHD đã duyệt & chốt ➔ Chờ Khoa'
+                        : '🟡 Cấp 1: Đã gửi GVHD ➔ Đang chờ GVHD xem xét & duyệt'}
                     </strong>
                   </div>
                 </div>
@@ -1570,7 +1620,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           ) : (
             <form onSubmit={handleSubmitOutline} className="space-y-4 pt-4 border-t border-blue-900/40">
               <h4 className="utc-sub-card-title font-bold text-sm">
-                {projectData?.status === 'OUTLINE_REVISION' ? 'Cập nhật lại Đề cương theo yêu cầu chỉnh sửa' : 'Nộp File Tài Liệu Đề Cương Chi Tiết'}
+                {projectData?.status === 'OUTLINE_REVISION' ? 'Cập nhật lại Đề cương theo yêu cầu chỉnh sửa của Giảng viên' : 'Nộp File Tài Liệu Đề Cương Cho Giảng Viên Hướng Dẫn'}
               </h4>
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Tên đề tài tiếng Việt (*)</label>
@@ -1610,7 +1660,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   className="utc-btn utc-btn-topic-save"
                 >
                   <span>🚀</span>
-                  <span>{outlineSubmitting ? 'Đang nộp đề cương...' : projectData?.status === 'OUTLINE_REVISION' ? 'Nộp lại Đề cương' : 'Nộp Đề cương Chi tiết'}</span>
+                  <span>{outlineSubmitting ? 'Đang nộp đề cương...' : projectData?.status === 'OUTLINE_REVISION' ? 'Nộp lại Đề cương cho GVHD' : 'Gửi Đề cương cho Giảng viên duyệt'}</span>
                 </button>
               </div>
             </form>

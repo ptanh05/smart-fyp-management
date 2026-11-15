@@ -1185,14 +1185,16 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       <span className="font-mono text-xs font-bold text-[#2D469E]">{r.student_reg_no}</span>
                       <span className="font-bold text-sm text-slate-900">{r.student_name}</span>
                       <span className={`text-xs px-2 py-0.5 rounded font-bold border ${
-                        r.verdict === 'APPROVED' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                        r.project_status === 'OUTLINE_APPROVED' ? 'bg-blue-50 text-blue-800 border-blue-300' :
+                        (r.verdict === 'APPROVED' || r.topic_review_status === 'GV_CONFIRMED') ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
                         r.verdict === 'REVISION_REQUIRED' ? 'bg-amber-50 text-amber-800 border-amber-300' :
                         r.verdict === 'REJECTED' ? 'bg-rose-50 text-rose-800 border-rose-300' :
-                        'bg-blue-50 text-blue-800 border-blue-300'
+                        'bg-slate-50 text-slate-800 border-slate-300'
                       }`}>
-                        {r.verdict === 'APPROVED' ? 'Đã duyệt' : 
-                         r.verdict === 'REVISION_REQUIRED' ? 'Yêu cầu sửa' : 
-                         r.verdict === 'REJECTED' ? 'Không đạt' : 'Chờ xét duyệt'}
+                        {r.project_status === 'OUTLINE_APPROVED' ? '🎉 Khoa đã phê duyệt' : 
+                         (r.verdict === 'APPROVED' || r.topic_review_status === 'GV_CONFIRMED') ? '🟢 GV đã chốt ➔ Chờ Khoa' : 
+                         r.verdict === 'REVISION_REQUIRED' ? '⚠️ Yêu cầu sửa' : 
+                         r.verdict === 'REJECTED' ? '❌ Không đạt' : '⏳ Chờ GVHD xem xét & duyệt'}
                       </span>
                     </div>
                     <p className="text-xs text-slate-700"><b>Đề tài:</b> {r.topic_title}</p>
@@ -1208,7 +1210,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     }}
                     className="px-4 py-2 bg-[#2D469E] hover:bg-[#1D327B] text-white rounded-lg text-xs font-bold transition shadow-sm"
                   >
-                    Thẩm định Đề cương
+                    {r.project_status === 'OUTLINE_APPROVED'
+                      ? 'Xem Đề cương'
+                      : (r.verdict === 'APPROVED' || r.topic_review_status === 'GV_CONFIRMED')
+                      ? 'Đã duyệt · Chỉnh sửa'
+                      : 'Duyệt & Chuyển Lên Khoa ➔'}
                   </button>
                 </div>
               ))}
@@ -1514,16 +1520,20 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             </div>
             <form onSubmit={handleReviewOutline} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Kết luận xét duyệt</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Kết luận xét duyệt của GVHD</label>
                 <select
                   value={verdict}
                   onChange={(e) => setVerdict(e.target.value as any)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 >
-                  <option value="APPROVED">ĐẠT YÊU CẦU (Phê duyệt thực hiện)</option>
-                  <option value="REVISION_REQUIRED">YÊU CẦU CHỈNH SỬA LẠI</option>
-                  <option value="REJECTED">KHÔNG ĐẠT / HỦY ĐỀ TÀI</option>
+                  <option value="APPROVED">ĐỒNG Ý DUYỆT & CHUYỂN LÊN KHOA PHÊ DUYỆT</option>
+                  <option value="REVISION_REQUIRED">YÊU CẦU SINH VIÊN CHỈNH SỬA LẠI</option>
+                  <option value="REJECTED">KHÔNG ĐẠT / TỪ CHỐI ĐỀ TÀI</option>
                 </select>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-900 leading-relaxed">
+                ℹ️ <b>Quy trình 2 cấp:</b> Khi Thầy/Cô chọn <b>ĐỒNG Ý DUYỆT</b>, đề cương sẽ được chốt và tự động chuyển sang danh sách chờ duyệt của Khoa. Khi Khoa phê duyệt chính thức, hệ thống sẽ mở khóa Giai đoạn 4 cho sinh viên.
               </div>
 
               <div>
@@ -1532,7 +1542,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   rows={3}
                   value={outlineComments}
                   onChange={(e) => setOutlineComments(e.target.value)}
-                  placeholder="Ghi chú chi tiết cho sinh viên chỉnh sửa..."
+                  placeholder="Ghi chú chi tiết cho sinh viên hoặc gửi Khoa..."
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
                 />
               </div>
@@ -1549,7 +1559,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   type="submit"
                   className="px-4 py-2 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition"
                 >
-                  Lưu kết quả
+                  {verdict === 'APPROVED' ? 'Chốt duyệt & Chuyển lên Khoa ➔' : 'Lưu kết quả thẩm định'}
                 </button>
               </div>
             </form>
