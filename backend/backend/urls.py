@@ -1,3 +1,5 @@
+import os
+
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
@@ -13,7 +15,13 @@ from app.views_media import (
 )
 
 def health_check(request):
-    return JsonResponse({"status": "ok", "service": "Smart FYP Management API"})
+    render_commit = os.environ.get("RENDER_GIT_COMMIT", "")
+    return JsonResponse({
+        "status": "ok",
+        "service": "Smart FYP Management API",
+        "version": render_commit[:7] if render_commit else "local",
+        "workflow_stage_guard": "project-aware-v2",
+    })
 
 urlpatterns = [
     path("", health_check, name="health-check"),
