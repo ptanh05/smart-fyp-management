@@ -179,6 +179,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const [selectedTaskForNotes, setSelectedTaskForNotes] = useState<any | null>(null);
   const [studentNotesInput, setStudentNotesInput] = useState('');
   const [savingTaskNote, setSavingTaskNote] = useState(false);
+  const [taskToComplete, setTaskToComplete] = useState<any | null>(null);
+  const [confirmingTaskComplete, setConfirmingTaskComplete] = useState(false);
 
   // Phase 5: Task Deliverable Submission Modal State
   const [selectedTaskForDeliverable, setSelectedTaskForDeliverable] = useState<any | null>(null);
@@ -289,10 +291,12 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       );
       const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
+      return true;
     } catch (err: any) {
       alert('Lỗi cập nhật nhiệm vụ: ' + (err.response?.data?.detail || err.message));
       const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
+      return false;
     }
   };
 
@@ -1830,7 +1834,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           <input
                             type="checkbox"
                             checked={task.is_completed}
-                            onChange={() => handleToggleTaskComplete(task)}
+                            onChange={() => setTaskToComplete(task)}
                             disabled={task.is_completed}
                             className="w-5 h-5 rounded border-slate-300 text-[#2D469E] focus:ring-[#2D469E]/20 bg-white cursor-pointer accent-[#2D469E] disabled:cursor-default"
                             title={task.is_completed ? 'Nhiệm vụ đã hoàn thành' : 'Đánh dấu hoàn thành nhiệm vụ'}
@@ -2281,6 +2285,50 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       )}
 
       </fieldset>
+
+      {/* Modal: Xác nhận hoàn tất nhiệm vụ */}
+      {taskToComplete && (
+        <div className="utc-modal-overlay" onClick={() => !confirmingTaskComplete && setTaskToComplete(null)}>
+          <div className="utc-modal-card utc-task-complete-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="utc-task-complete-modal-icon" aria-hidden="true">✓</div>
+            <div className="utc-task-complete-modal-content">
+              <span className="utc-task-complete-modal-eyebrow">XÁC NHẬN NHIỆM VỤ</span>
+              <h3>Bạn đã hoàn thành nhiệm vụ này?</h3>
+              <p className="utc-task-complete-modal-task">{taskToComplete.title}</p>
+              <div className="utc-task-complete-modal-note">
+                Sau khi xác nhận, nhiệm vụ sẽ được đánh dấu hoàn thành và chuyển vào bộ lọc <b>Đã hoàn thành</b>.
+              </div>
+            </div>
+            <div className="utc-modal-footer utc-task-complete-modal-actions">
+              <button
+                type="button"
+                className="utc-btn utc-btn-ghost"
+                disabled={confirmingTaskComplete}
+                onClick={() => setTaskToComplete(null)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="utc-task-confirm-btn"
+                disabled={confirmingTaskComplete}
+                onClick={async () => {
+                  try {
+                    setConfirmingTaskComplete(true);
+                    const completed = await handleToggleTaskComplete(taskToComplete);
+                    if (completed) setTaskToComplete(null);
+                  } finally {
+                    setConfirmingTaskComplete(false);
+                  }
+                }}
+              >
+                <span>✓</span>
+                {confirmingTaskComplete ? 'Đang xác nhận...' : 'Xác nhận hoàn tất'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Ghi chú & Nộp link kết quả nhiệm vụ của sinh viên */}
       {selectedTaskForNotes && (

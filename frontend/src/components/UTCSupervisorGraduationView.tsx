@@ -1882,7 +1882,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   </div>
                 ) : (
                   <div className="space-y-2.5">
-                    {supervisionTasks.map((t) => (
+                    {supervisionTasks.map((t) => {
+                      const isReviewed = Boolean(t.reviewed_at) || ['ACCEPTED', 'REVISION_REQUIRED'].includes(t.review_verdict);
+                      return (
                       <div
                         key={t.id}
                         className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-sm flex items-start justify-between gap-3 hover:border-[#2D469E] transition"
@@ -1974,11 +1976,15 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         <div className="flex flex-col items-end gap-1.5">
                           <button
                             onClick={() => handleOpenTaskReview(t)}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold transition flex items-center gap-1 shadow-sm"
-                            title="Đánh giá sản phẩm nhiệm vụ của SV"
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm border ${
+                              isReviewed
+                                ? 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-300'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                            }`}
+                            title={isReviewed ? 'Nhiệm vụ đã được đánh giá - bấm để xem hoặc cập nhật' : 'Đánh giá sản phẩm nhiệm vụ của SV'}
                           >
-                            <span>⚖️</span>
-                            <span>Đánh giá</span>
+                            <span>{isReviewed ? '✓' : '⚖️'}</span>
+                            <span>{isReviewed ? 'Đã đánh giá' : 'Đánh giá'}</span>
                           </button>
                           <button
                             onClick={() => handleDeleteTask(t.id)}
@@ -1989,7 +1995,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                           </button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

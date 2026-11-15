@@ -2279,6 +2279,117 @@
   color: #34d399;
 }
 
+/* Complete-task confirmation dialog */
+.utc-task-complete-modal {
+  max-width: 470px;
+  padding: 0;
+  overflow: hidden;
+  text-align: center;
+}
+
+.utc-task-complete-modal-icon {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  margin: 26px auto 14px;
+  place-items: center;
+  border: 5px solid #d1fae5;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #047857);
+  color: white;
+  font-size: 34px;
+  font-weight: 900;
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.25);
+}
+
+.utc-task-complete-modal-content {
+  padding: 0 28px 22px;
+}
+
+.utc-task-complete-modal-eyebrow {
+  color: #059669;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.utc-task-complete-modal-content h3 {
+  margin: 7px 0 8px;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 850;
+}
+
+.utc-task-complete-modal-task {
+  margin: 0;
+  color: #1e3a8a;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.utc-task-complete-modal-note {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 11px;
+  background: #eff6ff;
+  color: #475569;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.utc-task-complete-modal-actions {
+  justify-content: center;
+  padding: 16px 24px 20px;
+  background: #f8fafc;
+}
+
+.utc-task-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 174px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #10b981, #047857);
+  color: white;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  box-shadow: 0 7px 18px rgba(16, 185, 129, 0.22);
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+
+.utc-task-confirm-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.utc-task-confirm-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+[data-theme="dark"] .utc-task-complete-modal-content h3 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .utc-task-complete-modal-task {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .utc-task-complete-modal-note {
+  border-color: rgba(96, 165, 250, 0.3);
+  background: rgba(30, 64, 175, 0.2);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .utc-task-complete-modal-actions {
+  background: rgba(15, 23, 42, 0.5);
+}
+
 [data-theme="dark"] .utc-task-deliverable-box {
   background: rgba(16, 185, 129, 0.12) !important;
   border: 1px solid rgba(52, 211, 153, 0.35) !important;
