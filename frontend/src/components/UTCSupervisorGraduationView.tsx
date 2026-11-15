@@ -755,41 +755,94 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         </div>
       </div>
 
-      {/* Navigation Tabs (Aligned with 6 UTC Stages + Student Counts) */}
-      <div className="utc-supervisor-tabs animate-fadeInUp">
-        {[
-          { key: 'students' as SupervisorGradTab, number: 1, label: `GĐ 1: Đề tài & Phân công (${stageCounts[1] || 0} SV)`, icon: '🎓' },
-          { key: 'survey' as SupervisorGradTab, number: 2, label: `GĐ 2: Khảo sát & Đề tài gợi ý (${stageCounts[2] || 0} SV)`, icon: '📝' },
-          { key: 'outlines' as SupervisorGradTab, number: 3, label: `GĐ 3: Duyệt Đề cương & Ký số (${stageCounts[3] || 0} SV)`, icon: '📄' },
-          { key: 'weekly' as SupervisorGradTab, number: 4, label: `GĐ 4: Báo cáo tuần (${stageCounts[4] || 0} SV)`, icon: '📅' },
-          { key: 'supervision' as SupervisorGradTab, number: 5, label: `GĐ 5: Task board & Nhật ký (${stageCounts[5] || 0} SV)`, icon: '📋' },
-          { key: 'eval' as SupervisorGradTab, number: 6, label: `GĐ 6: Đánh giá & Bảo vệ (${stageCounts[6] || 0} SV)`, icon: '🏆' },
-          { key: 'reviewer' as SupervisorGradTab, label: `Đồ án Phản biện (${reviewerProjects.length})`, icon: '🔍' },
-          { key: 'deferrals' as SupervisorGradTab, label: `Đơn Bảo lưu (${deferralRequests.length})`, icon: '📋' },
-        ].map((tab) => {
-          const isLocked = Boolean(tab.number && tab.number > currentBatchStage);
-          return (
-          <button
-            key={tab.key}
-            onClick={() => {
-              if (isLocked) {
-                alert(`⚠️ Đợt đang ở GĐ ${currentBatchStage}. Hãy hoàn thành giai đoạn trước.`);
-                return;
-              }
-              handleSelectTab(tab.key);
-            }}
-            className={`utc-supervisor-tab-btn ${activeTab === tab.key ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
-            disabled={isLocked}
-          >
-            <span>{isLocked ? '🔒' : tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-          );
-        })}
+      {/* Navigation Tabs (Aligned with 6 UTC Stages + Auxiliary Tabs) */}
+      <div className="utc-supervisor-nav-card animate-fadeInUp">
+        {/* Main 6 Stages Section */}
+        <div className="utc-supervisor-nav-section">
+          <div className="utc-supervisor-nav-header">
+            <div className="utc-supervisor-nav-title-group">
+              <span className="utc-supervisor-nav-title-icon">📌</span>
+              <span className="utc-supervisor-nav-title">Tiến trình 6 Giai đoạn ĐATN</span>
+            </div>
+            <div className="utc-supervisor-stage-indicator">
+              <span className="utc-stage-indicator-dot" />
+              <span>Tiến độ đợt:</span>
+              <strong className="utc-stage-indicator-badge">GĐ {currentBatchStage}/6</strong>
+            </div>
+          </div>
+          <div className="utc-supervisor-tabs">
+            {[
+              { key: 'students' as SupervisorGradTab, number: 1, title: 'GĐ 1: Đề tài & Phân công', count: stageCounts[1] || 0, icon: '🎓' },
+              { key: 'survey' as SupervisorGradTab, number: 2, title: 'GĐ 2: Khảo sát & Đề tài gợi ý', count: stageCounts[2] || 0, icon: '📝' },
+              { key: 'outlines' as SupervisorGradTab, number: 3, title: 'GĐ 3: Duyệt Đề cương & Ký số', count: stageCounts[3] || 0, icon: '📄' },
+              { key: 'weekly' as SupervisorGradTab, number: 4, title: 'GĐ 4: Báo cáo tuần', count: stageCounts[4] || 0, icon: '📅' },
+              { key: 'supervision' as SupervisorGradTab, number: 5, title: 'GĐ 5: Task board & Nhật ký', count: stageCounts[5] || 0, icon: '📋' },
+              { key: 'eval' as SupervisorGradTab, number: 6, title: 'GĐ 6: Đánh giá & Bảo vệ', count: stageCounts[6] || 0, icon: '🏆' },
+            ].map((tab) => {
+              const isLocked = Boolean(tab.number && tab.number > currentBatchStage);
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    if (isLocked) {
+                      alert(`⚠️ Đợt hiện đang ở GĐ ${currentBatchStage}. Giai đoạn ${tab.number} chưa mở.`);
+                      return;
+                    }
+                    handleSelectTab(tab.key);
+                  }}
+                  className={`utc-supervisor-tab-btn ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
+                  disabled={isLocked}
+                  title={isLocked ? `Chưa mở: Đợt hiện đang ở GĐ ${currentBatchStage}` : `${tab.title} (${tab.count} SV)`}
+                >
+                  <span className="utc-tab-icon">{isLocked ? '🔒' : tab.icon}</span>
+                  <span className="utc-tab-title">{tab.title}</span>
+                  <span className={`utc-tab-badge ${tab.count > 0 ? 'has-count' : 'is-zero'} ${isLocked ? 'is-locked-badge' : ''}`}>
+                    {tab.count} SV
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Auxiliary Tabs Section (Reviewer & Deferrals) */}
+        <div className="utc-supervisor-nav-section utc-auxiliary-section">
+          <div className="utc-supervisor-nav-header">
+            <div className="utc-supervisor-nav-title-group">
+              <span className="utc-supervisor-nav-title-icon">⚡</span>
+              <span className="utc-supervisor-nav-title">Nghiệp vụ bổ sung</span>
+            </div>
+          </div>
+          <div className="utc-supervisor-tabs">
+            {[
+              { key: 'reviewer' as SupervisorGradTab, title: 'Đồ án Phản biện', count: reviewerProjects.length, icon: '🔍' },
+              { key: 'deferrals' as SupervisorGradTab, title: 'Đơn Bảo lưu', count: deferralRequests.length, icon: '📋' },
+            ].map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => handleSelectTab(tab.key)}
+                  className={`utc-supervisor-tab-btn utc-aux-tab-btn ${isActive ? 'active' : ''}`}
+                  title={`${tab.title} (${tab.count})`}
+                >
+                  <span className="utc-tab-icon">{tab.icon}</span>
+                  <span className="utc-tab-title">{tab.title}</span>
+                  <span className={`utc-tab-badge ${tab.count > 0 ? 'has-count' : 'is-zero'}`}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {isViewingPastStage && activeStageNumber && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+        <div className="utc-past-stage-banner rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
           🔒 Giai đoạn {activeStageNumber} đã kết thúc. Thầy/Cô có thể xem lại dữ liệu nhưng các thao tác cập nhật, duyệt và gửi mới đã bị khóa.
         </div>
       )}
