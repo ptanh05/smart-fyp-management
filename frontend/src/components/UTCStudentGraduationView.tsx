@@ -265,6 +265,26 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     fetchData();
   }, []);
 
+  const handleRequestTaskCompletion = (task: any) => {
+    const hasDeliverable = Boolean(task.deliverable_file || task.deliverable_url);
+    const hasNotes = Boolean(task.student_notes?.trim?.());
+    if (!hasDeliverable || !hasNotes) {
+      alert(
+        !hasDeliverable && !hasNotes
+          ? 'Bạn phải nộp sản phẩm và nhập ghi chú kết quả trước khi xác nhận hoàn thành nhiệm vụ.'
+          : !hasDeliverable
+          ? 'Bạn phải nộp file hoặc link sản phẩm trước khi xác nhận hoàn thành nhiệm vụ.'
+          : 'Bạn phải nhập ghi chú kết quả trước khi xác nhận hoàn thành nhiệm vụ.'
+      );
+      setSelectedTaskForDeliverable(task);
+      setDeliverableFile(null);
+      setDeliverableUrl(task.deliverable_url || '');
+      setDeliverableNotes(task.student_notes || '');
+      return;
+    }
+    setTaskToComplete(task);
+  };
+
   const handleToggleTaskComplete = async (task: any) => {
     try {
       const nextCompleted = !task.is_completed;
@@ -434,6 +454,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     if (!selectedTaskForDeliverable) return;
     if (!deliverableFile && !deliverableUrl.trim()) {
       alert('Vui lòng đính kèm file kết quả hoặc nhập link URL sản phẩm (GitHub/Drive/Demo).');
+      return;
+    }
+    if (!deliverableNotes.trim()) {
+      alert('Vui lòng nhập ghi chú tóm tắt kết quả đã thực hiện.');
       return;
     }
     try {
@@ -1834,7 +1858,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           <input
                             type="checkbox"
                             checked={task.is_completed}
-                            onChange={() => setTaskToComplete(task)}
+                            onChange={() => handleRequestTaskCompletion(task)}
                             disabled={task.is_completed}
                             className="w-5 h-5 rounded border-slate-300 text-[#2D469E] focus:ring-[#2D469E]/20 bg-white cursor-pointer accent-[#2D469E] disabled:cursor-default"
                             title={task.is_completed ? 'Nhiệm vụ đã hoàn thành' : 'Đánh dấu hoàn thành nhiệm vụ'}
@@ -2430,9 +2454,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">
-                  Ghi chú tóm tắt kết quả gửi Giảng viên:
+                  Ghi chú tóm tắt kết quả gửi Giảng viên (*):
                 </label>
                 <textarea
+                  required
                   rows={3}
                   value={deliverableNotes}
                   onChange={(e) => setDeliverableNotes(e.target.value)}

@@ -1317,6 +1317,18 @@ class StudentMarkTaskCompletedAPIView(APIView):
         if student_notes is not None:
             task.student_notes = str(student_notes).strip()
 
+        if is_completed:
+            if not (task.deliverable_file or task.deliverable_url):
+                return Response(
+                    {"detail": "Bạn phải nộp file hoặc link sản phẩm trước khi tích hoàn thành nhiệm vụ."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not (task.student_notes or "").strip():
+                return Response(
+                    {"detail": "Bạn phải nhập ghi chú kết quả trước khi tích hoàn thành nhiệm vụ."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         task.is_completed = is_completed
         now = timezone.now()
         if is_completed:
@@ -4110,6 +4122,17 @@ class StudentTaskDeliverableSubmitAPIView(APIView):
         deliverable_url = request.data.get("deliverable_url", "").strip()
         student_notes = request.data.get("student_notes", "").strip()
 
+        if not deliverable_file and not deliverable_url:
+            return Response(
+                {"detail": "Bạn phải đính kèm file hoặc nhập link sản phẩm trước khi hoàn thành nhiệm vụ."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not student_notes:
+            return Response(
+                {"detail": "Bạn phải nhập ghi chú tóm tắt kết quả trước khi hoàn thành nhiệm vụ."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if deliverable_file:
             import os
             ext = os.path.splitext(deliverable_file.name)[1].lower() if deliverable_file.name else ""
@@ -4276,6 +4299,11 @@ class SupervisorReviewTaskAPIView(APIView):
         stage_error = require_exact_batch_stage(task.project, 5)
         if stage_error:
             return stage_error
+        if not (task.deliverable_file or task.deliverable_url) or not (task.student_notes or "").strip():
+            return Response(
+                {"detail": "Sinh viên phải nộp sản phẩm và ghi chú kết quả trước khi GVHD có thể đánh giá nhiệm vụ."},
+                status=status.HTTP_409_CONFLICT,
+            )
         verdict = request.data.get("verdict", "ACCEPTED").upper()  # ACCEPTED or REVISION_REQUIRED
         notes = request.data.get("notes", "").strip()
 
@@ -4358,13 +4386,27 @@ class SupervisorConfirmStage5CompletionAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        incomplete_tasks = tasks.exclude(review_verdict="ACCEPTED")
-        if incomplete_tasks.exists():
+        incomplete_tasks = [
+            task for task in tasks
+            if task.review_verdict != "ACCEPTED"
+            or not (task.deliverable_file or task.deliverable_url)
+            or not (task.student_notes or "").strip()
+        ]
+        if incomplete_tasks:
             return Response(
                 {
-                    "detail": "Chỉ có thể hoàn tất Giai đoạn 5 khi tất cả nhiệm vụ đã được GVHD đánh giá Đạt.",
-                    "incomplete_count": incomplete_tasks.count(),
-                    "incomplete_tasks": list(incomplete_tasks.values("id", "title", "review_verdict")),
+                    "detail": "Chỉ có thể hoàn tất Giai đoạn 5 khi mỗi nhiệm vụ có sản phẩm, ghi chú và đã được GVHD đánh giá Đạt.",
+                    "incomplete_count": len(incomplete_tasks),
+                    "incomplete_tasks": [
+                        {
+                            "id": task.id,
+                            "title": task.title,
+                            "review_verdict": task.review_verdict,
+                            "has_deliverable": bool(task.deliverable_file or task.deliverable_url),
+                            "has_notes": bool((task.student_notes or "").strip()),
+                        }
+                        for task in incomplete_tasks
+                    ],
                 },
                 status=status.HTTP_409_CONFLICT,
             )

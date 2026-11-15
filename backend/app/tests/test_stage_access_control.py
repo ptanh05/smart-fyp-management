@@ -190,6 +190,8 @@ class StageAccessControlTests(TestCase):
             review_verdict="ACCEPTED",
             status="COMPLETED",
             is_completed=True,
+            deliverable_url="https://example.com/accepted",
+            student_notes="Đã hoàn thành đầy đủ",
         )
         pending_task = SupervisionTask.objects.create(
             project=self.project,
@@ -198,6 +200,8 @@ class StageAccessControlTests(TestCase):
             review_verdict="PENDING",
             status="COMPLETED",
             is_completed=True,
+            deliverable_url="https://example.com/pending",
+            student_notes="Chờ giảng viên đánh giá",
         )
         self.client.force_authenticate(user=self.supervisor_user)
 
@@ -214,3 +218,27 @@ class StageAccessControlTests(TestCase):
         self.assertTrue(self.project.is_eligible_for_defense)
         self.assertTrue(self.project.supervisor_defense_confirmed)
         self.assertEqual(self.project.status, "DEFENSE_READY")
+
+    def test_student_cannot_complete_and_supervisor_cannot_review_without_submission_evidence(self):
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
+        self.batch.save(update_fields=["current_stage"])
+        task = SupervisionTask.objects.create(
+            project=self.project,
+            assigned_by=self.supervisor,
+            title="Nhiệm vụ chưa có sản phẩm",
+        )
+
+        student_complete = self.client.patch(
+            f"/api/student/tasks/{task.id}/complete/",
+            {"is_completed": True},
+            format="json",
+        )
+        self.assertEqual(student_complete.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=self.supervisor_user)
+        supervisor_review = self.client.post(
+            f"/api/supervisor/tasks/{task.id}/review/",
+            {"verdict": "ACCEPTED", "notes": "Đạt"},
+            format="json",
+        )
+        self.assertEqual(supervisor_review.status_code, status.HTTP_409_CONFLICT)

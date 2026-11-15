@@ -1819,15 +1819,27 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       onClick={() => supervisionProject && handleConfirmStage5Completion(supervisionProject)}
                       disabled={
                         supervisionTasks.length === 0 ||
-                        supervisionTasks.some((task: any) => task.review_verdict !== 'ACCEPTED') ||
+                        supervisionTasks.some((task: any) =>
+                          task.review_verdict !== 'ACCEPTED' ||
+                          !(task.deliverable_file || task.deliverable_url) ||
+                          !task.student_notes?.trim?.()
+                        ) ||
                         confirmingStage5ProjectId === supervisionProject?.id
                       }
                       className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed"
                       title={
                         supervisionTasks.length === 0
                           ? 'Cần giao và đánh giá nhiệm vụ trước khi hoàn tất GĐ5'
-                          : supervisionTasks.some((task: any) => task.review_verdict !== 'ACCEPTED')
-                          ? `Còn ${supervisionTasks.filter((task: any) => task.review_verdict !== 'ACCEPTED').length} nhiệm vụ chưa được đánh giá Đạt`
+                          : supervisionTasks.some((task: any) =>
+                              task.review_verdict !== 'ACCEPTED' ||
+                              !(task.deliverable_file || task.deliverable_url) ||
+                              !task.student_notes?.trim?.()
+                            )
+                          ? `Còn ${supervisionTasks.filter((task: any) =>
+                              task.review_verdict !== 'ACCEPTED' ||
+                              !(task.deliverable_file || task.deliverable_url) ||
+                              !task.student_notes?.trim?.()
+                            ).length} nhiệm vụ chưa đủ điều kiện: cần sản phẩm, ghi chú và đánh giá Đạt`
                           : 'Xác nhận sinh viên này hoàn thành GĐ5 và mở GĐ6'
                       }
                     >
@@ -1926,6 +1938,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   <div className="space-y-2.5">
                     {supervisionTasks.map((t) => {
                       const isReviewed = Boolean(t.reviewed_at) || ['ACCEPTED', 'REVISION_REQUIRED'].includes(t.review_verdict);
+                      const canReview = Boolean(t.deliverable_file || t.deliverable_url) && Boolean(t.student_notes?.trim?.());
                       return (
                       <div
                         key={t.id}
@@ -2018,12 +2031,19 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         <div className="flex flex-col items-end gap-1.5">
                           <button
                             onClick={() => handleOpenTaskReview(t)}
+                            disabled={!canReview}
                             className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm border ${
                               isReviewed
                                 ? 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-300'
                                 : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
-                            }`}
-                            title={isReviewed ? 'Nhiệm vụ đã được đánh giá - bấm để xem hoặc cập nhật' : 'Đánh giá sản phẩm nhiệm vụ của SV'}
+                            } disabled:opacity-45 disabled:cursor-not-allowed`}
+                            title={
+                              !canReview
+                                ? 'Sinh viên phải nộp sản phẩm và ghi chú trước khi GVHD đánh giá'
+                                : isReviewed
+                                ? 'Nhiệm vụ đã được đánh giá - bấm để xem hoặc cập nhật'
+                                : 'Đánh giá sản phẩm nhiệm vụ của SV'
+                            }
                           >
                             <span>{isReviewed ? '✓' : '⚖️'}</span>
                             <span>{isReviewed ? 'Đã đánh giá' : 'Đánh giá'}</span>
