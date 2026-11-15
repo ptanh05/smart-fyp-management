@@ -190,6 +190,21 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   // For Student: Determine the single current active stage to display on the sidebar
   // Cho phép sinh viên mở các giai đoạn tương ứng với tiến độ thực tế của đề tài cá nhân (ví dụ đã được duyệt đề cương -> mở GĐ 4)
   const studentProject = (user as any)?.graduation_project;
+  const assignedSupervisor = studentProject?.supervisor;
+  const supervisorName = studentProject?.supervisor_name || assignedSupervisor?.full_name || '';
+  const supervisorAcademicTitle = studentProject?.supervisor_academic_title || assignedSupervisor?.academic_title || '';
+  const supervisorEmail = studentProject?.supervisor_email || assignedSupervisor?.email || '';
+  const formatSupervisorDisplayName = (academicTitle: string, fullName: string) => {
+    const cleanName = String(fullName || '')
+      .replace(/^(GS\.?|PGS\.?\s*TS\.?|PGS\.?|TS\.?|ThS\.?|THS\.?|Tiến\s+sĩ|Thạc\s+sĩ)\s*/i, '')
+      .trim();
+    const rawTitle = String(academicTitle || '').trim();
+    const normalizedTitle = rawTitle && /^[A-Za-z.]+$/.test(rawTitle)
+      ? `${rawTitle.replace(/\.+$/, '')}.`
+      : rawTitle;
+    return [normalizedTitle, cleanName].filter(Boolean).join(' ');
+  };
+  const supervisorDisplayName = formatSupervisorDisplayName(supervisorAcademicTitle, supervisorName);
   const projectStageNumber = currentStageNumber || getProjectStageNumber(studentProject);
   const progressProjectStageNumber = batchProgress?.my_project?.has_project
     ? getProjectStageNumber(batchProgress.my_project)
@@ -630,6 +645,26 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                 <img src={utcLogo} alt="UTC Logo" style={{ width: '75%', height: '75%', objectFit: 'contain' }} />
               </div>
             </section>
+
+            {userType === 'student' && (
+              <section className={`utc-supervisor-summary ${supervisorDisplayName ? 'is-assigned' : 'is-unassigned'}`}>
+                <div className="utc-supervisor-summary-icon" aria-hidden="true">
+                  {supervisorDisplayName ? '👨‍🏫' : '⏳'}
+                </div>
+                <div className="utc-supervisor-summary-content">
+                  <span className="utc-supervisor-summary-label">GIẢNG VIÊN HƯỚNG DẪN CỦA BẠN</span>
+                  <h3>{supervisorDisplayName || 'Chưa được phân giảng viên hướng dẫn'}</h3>
+                  <p>
+                    {supervisorDisplayName
+                      ? supervisorEmail || 'Giảng viên đã được Khoa phân công hướng dẫn đồ án của bạn.'
+                      : 'Khoa đang thực hiện phân công. Thông tin giảng viên sẽ xuất hiện tại đây sau khi hoàn tất.'}
+                  </p>
+                </div>
+                <span className="utc-supervisor-summary-status">
+                  {supervisorDisplayName ? '✓ Đã phân công' : 'Đang chờ phân công'}
+                </span>
+              </section>
+            )}
 
             {userType !== 'committee_member' && (
               <>

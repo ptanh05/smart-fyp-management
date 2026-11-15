@@ -581,6 +581,126 @@
   border: 2px solid rgba(255, 255, 255, 0.25);
 }
 
+/* Student supervisor assignment summary */
+.utc-supervisor-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 18px 22px;
+  border: 1px solid #bfdbfe;
+  border-left: 5px solid #2563eb;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 68%);
+  box-shadow: 0 5px 18px rgba(30, 64, 175, 0.08);
+}
+
+.utc-supervisor-summary.is-unassigned {
+  border-color: #fde68a;
+  border-left-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 68%);
+}
+
+.utc-supervisor-summary-icon {
+  display: grid;
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  color: white;
+  font-size: 27px;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+}
+
+.utc-supervisor-summary.is-unassigned .utc-supervisor-summary-icon {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  box-shadow: 0 8px 18px rgba(245, 158, 11, 0.2);
+}
+
+.utc-supervisor-summary-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.utc-supervisor-summary-label {
+  display: block;
+  margin-bottom: 3px;
+  color: #2563eb;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.utc-supervisor-summary.is-unassigned .utc-supervisor-summary-label {
+  color: #b45309;
+}
+
+.utc-supervisor-summary h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.08rem;
+  font-weight: 850;
+}
+
+.utc-supervisor-summary p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.utc-supervisor-summary-status {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid #86efac;
+  border-radius: 999px;
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.utc-supervisor-summary.is-unassigned .utc-supervisor-summary-status {
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #a16207;
+}
+
+[data-theme="dark"] .utc-supervisor-summary {
+  border-color: rgba(96, 165, 250, 0.32);
+  border-left-color: #3b82f6;
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.26), rgba(15, 23, 42, 0.9) 65%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+}
+
+[data-theme="dark"] .utc-supervisor-summary.is-unassigned {
+  border-color: rgba(245, 158, 11, 0.3);
+  border-left-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(146, 64, 14, 0.28), rgba(15, 23, 42, 0.9) 65%);
+}
+
+[data-theme="dark"] .utc-supervisor-summary h3 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .utc-supervisor-summary p {
+  color: #cbd5e1;
+}
+
+@media (max-width: 680px) {
+  .utc-supervisor-summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+
+  .utc-supervisor-summary-status {
+    margin-left: 70px;
+  }
+}
+
 /* 4. 4 Quick Action Cards Grid (Exact UTC Portal Style) */
 .utc-quick-actions-grid {
   display: grid;

@@ -76,6 +76,13 @@ export interface Student {
     final_academic_eligibility?: string;
     supervisor_name?: string;
     supervisor_email?: string;
+    supervisor_academic_title?: string;
+    supervisor?: {
+      id?: number;
+      full_name?: string;
+      academic_title?: string;
+      email?: string;
+    };
     is_eligible_for_defense?: boolean;
   };
 }

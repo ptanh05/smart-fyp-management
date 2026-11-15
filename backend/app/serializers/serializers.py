@@ -119,6 +119,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             sup = getattr(proj, "supervisor", None)
             sup_name = (sup.user.get_full_name() or sup.user.username) if (sup and sup.user) else None
             sup_email = sup.user.email if (sup and sup.user) else None
+            sup_academic_title = sup.academic_title if sup else None
 
             # Stage-relevant nested data so the student sidebar can determine the
             # exact 1 -> 6 stage without falling back to an outdated value.
@@ -158,6 +159,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
                 "final_academic_eligibility": proj.final_academic_eligibility,
                 "supervisor_name": sup_name,
                 "supervisor_email": sup_email,
+                "supervisor_academic_title": sup_academic_title,
                 "supervisor_score": proj.supervisor_score,
                 "supervisor_feedback": proj.supervisor_feedback,
                 "supervisor_defense_confirmed": proj.supervisor_defense_confirmed,
