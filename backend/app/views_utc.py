@@ -102,6 +102,41 @@ def require_project_batch_stage(project, minimum_stage):
     return None
 
 
+def require_exact_batch_stage(batch_or_project, required_stage):
+    """Allow a stage-specific mutation only while its batch is in that stage.
+
+    Read endpoints intentionally remain available for completed stages. This
+    guard is for write actions so an old screen or direct API request cannot
+    modify data after the faculty has advanced the batch.
+    """
+    batch = getattr(batch_or_project, "batch", None) or batch_or_project
+    if not batch:
+        return None
+
+    current_stage = BATCH_STAGE_NUMBERS.get(getattr(batch, "current_stage", ""), 1)
+    if current_stage != required_stage:
+        if current_stage < required_stage:
+            detail = (
+                f"Giai đoạn {required_stage} chưa được mở. "
+                f"Đợt hiện đang ở giai đoạn {current_stage}."
+            )
+        else:
+            detail = (
+                f"Giai đoạn {required_stage} đã kết thúc và hiện chỉ được xem. "
+                f"Đợt đã chuyển sang giai đoạn {current_stage}."
+            )
+        return Response(
+            {
+                "detail": detail,
+                "current_stage": current_stage,
+                "required_stage": required_stage,
+                "read_only": current_stage > required_stage,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+    return None
+
+
 # ==============================================================================
 # MODULE 1: BATCH INITIALIZATION & STUDENT IMPORT APIS (TC_031, TC_032, TC_033)
 # ==============================================================================
@@ -841,6 +876,10 @@ class StudentSurveyAPIView(APIView):
         if not batch:
             return Response({"detail": "Không có đợt làm đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
+        stage_error = require_exact_batch_stage(batch, 2)
+        if stage_error:
+            return stage_error
+
         if InternshipInfo.objects.filter(student=student).exists() or StudentPreference.objects.filter(student=student).exists():
             return Response(
                 {"detail": "Bạn đã gửi danh sách nguyện vọng. Mỗi sinh viên chỉ được gửi một lần."},
@@ -998,7 +1037,7 @@ class StudentOutlineSubmissionAPIView(APIView):
         if not project:
             return Response({"detail": "Chưa được phân công đề tài."}, status=status.HTTP_400_BAD_REQUEST)
 
-        stage_error = require_project_batch_stage(project, 3)
+        stage_error = require_exact_batch_stage(project, 3)
         if stage_error:
             return stage_error
 
@@ -1077,6 +1116,10 @@ class StudentWeeklyReportAPIView(APIView):
         project = GraduationProject.objects.filter(student=student).first()
         if not project:
             return Response({"detail": "Chưa có đồ án."}, status=status.HTTP_400_BAD_REQUEST)
+
+        stage_error = require_exact_batch_stage(project, 4)
+        if stage_error:
+            return stage_error
 
         week_number = request.data.get("week_number")
         summary_content = request.data.get("summary_content", "").strip()
@@ -1206,6 +1249,10 @@ class StudentMarkTaskCompletedAPIView(APIView):
             return Response({"detail": "Chưa được phân công đề tài."}, status=status.HTTP_400_BAD_REQUEST)
 
         task = get_object_or_404(SupervisionTask, id=pk, project=project)
+
+        stage_error = require_exact_batch_stage(project, 5)
+        if stage_error:
+            return stage_error
 
         is_completed_val = request.data.get("is_completed")
         if is_completed_val is not None:
@@ -1491,7 +1538,7 @@ class SupervisorOutlineReviewAPIView(APIView):
             return Response({"detail": "project_id và verdict là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
 
         project = get_object_or_404(GraduationProject, id=project_id)
-        
+
         # Verify permissions: either supervisor of the project OR member of the assigned review group
         is_supervisor = project.supervisor_id == supervisor.id
         review, _ = OutlineReview.objects.get_or_create(project=project)
@@ -1502,6 +1549,10 @@ class SupervisorOutlineReviewAPIView(APIView):
             
         if not is_supervisor and not is_group_reviewer:
             return Response({"detail": "Bạn không có quyền thẩm định đề cương này."}, status=status.HTTP_403_FORBIDDEN)
+
+        stage_error = require_exact_batch_stage(project, 3)
+        if stage_error:
+            return stage_error
 
         with transaction.atomic():
             review.reviewer = supervisor
@@ -1551,6 +1602,9 @@ class SupervisorWeeklyFeedbackAPIView(APIView):
             return Response({"detail": "Mức đánh giá báo cáo tuần không hợp lệ."}, status=status.HTTP_400_BAD_REQUEST)
 
         report = get_object_or_404(WeeklyProgressReport, id=report_id, project__supervisor=supervisor)
+        stage_error = require_exact_batch_stage(report.project, 4)
+        if stage_error:
+            return stage_error
         report.supervisor_rating = rating
         report.supervisor_feedback = feedback
         report.reviewed_at = timezone.now()
@@ -1584,6 +1638,9 @@ class SupervisorDefenseEvaluationAPIView(APIView):
             return Response({"supervisor_score": ["Điểm số không hợp lệ."]}, status=status.HTTP_400_BAD_REQUEST)
 
         project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+        stage_error = require_exact_batch_stage(project, 6)
+        if stage_error:
+            return stage_error
         is_draft = bool(request.data.get("is_draft", False))
 
         with transaction.atomic():
@@ -1654,6 +1711,10 @@ class SupervisorSupervisionLogsAPIView(APIView):
             return Response({"detail": "project_id, meeting_date và content_discussed là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
 
         project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+
+        stage_error = require_exact_batch_stage(project, 5)
+        if stage_error:
+            return stage_error
 
         with transaction.atomic():
             log = SupervisionMeetingLog.objects.create(
@@ -1757,6 +1818,9 @@ class SupervisorTasksAPIView(APIView):
             return Response({"detail": "project_id và title là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
 
         project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
+        stage_error = require_exact_batch_stage(project, 5)
+        if stage_error:
+            return stage_error
         meeting_log = SupervisionMeetingLog.objects.filter(id=meeting_log_id, project=project).first() if meeting_log_id else None
 
         task = SupervisionTask.objects.create(
@@ -1795,6 +1859,10 @@ class SupervisorTasksAPIView(APIView):
         task_id = pk or request.data.get("task_id")
         task = get_object_or_404(SupervisionTask, id=task_id, project__supervisor=supervisor)
 
+        stage_error = require_exact_batch_stage(task.project, 5)
+        if stage_error:
+            return stage_error
+
         for field in ["title", "description", "due_date", "priority", "status", "is_completed"]:
             if field in request.data:
                 val = request.data[field]
@@ -1821,6 +1889,9 @@ class SupervisorTasksAPIView(APIView):
 
         task_id = pk or request.query_params.get("task_id") or request.data.get("task_id")
         task = get_object_or_404(SupervisionTask, id=task_id, project__supervisor=supervisor)
+        stage_error = require_exact_batch_stage(task.project, 5)
+        if stage_error:
+            return stage_error
         task.delete()
         return Response({"message": "Đã xóa nhiệm vụ thành công!"}, status=status.HTTP_200_OK)
 
@@ -1956,6 +2027,10 @@ class ReviewerSubmitEvaluationAPIView(APIView):
             return Response({"reviewer_score": ["Điểm số không hợp lệ."]}, status=status.HTTP_400_BAD_REQUEST)
 
         project = get_object_or_404(GraduationProject, id=project_id, reviewer=supervisor)
+
+        stage_error = require_exact_batch_stage(project, 6)
+        if stage_error:
+            return stage_error
 
         with transaction.atomic():
             project.reviewer_score = score
@@ -3415,7 +3490,7 @@ class TopicDraftAPIView(APIView):
         else:
             project = get_object_or_404(GraduationProject, id=project_id)
 
-        stage_error = require_project_batch_stage(project, 3)
+        stage_error = require_exact_batch_stage(project, 3)
         if stage_error:
             return stage_error
 
@@ -3456,7 +3531,7 @@ class SupervisorConfirmTopicAPIView(APIView):
         project_id = request.data.get("project_id")
         project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
 
-        stage_error = require_project_batch_stage(project, 3)
+        stage_error = require_exact_batch_stage(project, 3)
         if stage_error:
             return stage_error
 
@@ -3525,7 +3600,7 @@ class TopicReSubmitAPIView(APIView):
         if not project:
             return Response({"detail": "Không tìm thấy đồ án tốt nghiệp cần nộp lại đề tài."}, status=status.HTTP_404_NOT_FOUND)
 
-        stage_error = require_project_batch_stage(project, 3)
+        stage_error = require_exact_batch_stage(project, 3)
         if stage_error:
             return stage_error
 
@@ -3808,9 +3883,11 @@ class UploadSignedOutlineAPIView(APIView):
     def post(self, request, pk):
         user = request.user
         student = getattr(user, "student_profile", None)
-        project = get_object_or_404(GraduationProject, id=pk)
+        if not student:
+            return Response({"detail": "Chỉ dành cho sinh viên."}, status=status.HTTP_403_FORBIDDEN)
+        project = get_object_or_404(GraduationProject, id=pk, student=student)
 
-        stage_error = require_project_batch_stage(project, 3)
+        stage_error = require_exact_batch_stage(project, 3)
         if stage_error:
             return stage_error
 
@@ -3973,6 +4050,9 @@ class StudentTaskDeliverableSubmitAPIView(APIView):
             return Response({"detail": "Chỉ dành cho sinh viên."}, status=status.HTTP_403_FORBIDDEN)
 
         task = get_object_or_404(SupervisionTask, id=pk, project__student=student)
+        stage_error = require_exact_batch_stage(task.project, 5)
+        if stage_error:
+            return stage_error
         deliverable_file = request.FILES.get("deliverable_file")
         deliverable_url = request.data.get("deliverable_url", "").strip()
         student_notes = request.data.get("student_notes", "").strip()
@@ -4119,6 +4199,9 @@ class SupervisorReviewTaskAPIView(APIView):
             return Response({"detail": "Chỉ dành cho Giảng viên hướng dẫn."}, status=status.HTTP_403_FORBIDDEN)
 
         task = get_object_or_404(SupervisionTask, id=pk, project__supervisor=supervisor)
+        stage_error = require_exact_batch_stage(task.project, 5)
+        if stage_error:
+            return stage_error
         verdict = request.data.get("verdict", "ACCEPTED").upper()  # ACCEPTED or REVISION_REQUIRED
         notes = request.data.get("notes", "").strip()
 

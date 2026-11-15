@@ -13,7 +13,7 @@ class StageAccessControlTests(TestCase):
             password="password123",
             user_type="student",
         )
-        supervisor_user = CustomUser.objects.create_user(
+        self.supervisor_user = CustomUser.objects.create_user(
             username="stage_guard_supervisor",
             password="password123",
             user_type="supervisor",
@@ -28,13 +28,13 @@ class StageAccessControlTests(TestCase):
             registration_no="241106060",
             academic_batch=self.batch,
         )
-        supervisor = Supervisor.objects.create(
-            user=supervisor_user,
+        self.supervisor = Supervisor.objects.create(
+            user=self.supervisor_user,
             supervisor_id="GV-STAGE-GUARD",
         )
         self.project = GraduationProject.objects.create(
             student=student,
-            supervisor=supervisor,
+            supervisor=self.supervisor,
             batch=self.batch,
             topic_title_vi="Đề tài ban đầu",
         )
@@ -63,3 +63,39 @@ class StageAccessControlTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.project.refresh_from_db()
         self.assertEqual(self.project.topic_title_vi, "Đề tài được phép ở GĐ3")
+
+    def test_student_cannot_modify_completed_stage(self):
+        self.batch.current_stage = "PHASE_4_ELIGIBILITY"
+        self.batch.save(update_fields=["current_stage"])
+
+        response = self.client.post(
+            "/api/graduation-project/topic-draft/",
+            {"topic_title_vi": "Không được sửa lại sau khi qua GĐ3"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data["current_stage"], 4)
+        self.assertEqual(response.data["required_stage"], 3)
+        self.assertTrue(response.data["read_only"])
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.topic_title_vi, "Đề tài ban đầu")
+
+    def test_supervisor_cannot_modify_completed_stage(self):
+        self.batch.current_stage = "PHASE_4_ELIGIBILITY"
+        self.batch.save(update_fields=["current_stage"])
+        self.client.force_authenticate(user=self.supervisor_user)
+
+        response = self.client.post(
+            "/api/graduation-project/confirm-topic/",
+            {
+                "project_id": self.project.id,
+                "topic_title_vi": "GV không được sửa sau khi qua GĐ3",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertTrue(response.data["read_only"])
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.topic_title_vi, "Đề tài ban đầu")

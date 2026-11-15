@@ -13,6 +13,15 @@ import { API_BASE_URL as API_BASE } from '../services/api';
 
 export type SupervisorGradTab = 'students' | 'survey' | 'outlines' | 'weekly' | 'supervision' | 'eval' | 'reviewer' | 'deferrals';
 
+const SUPERVISOR_TAB_STAGES: Partial<Record<SupervisorGradTab, number>> = {
+  students: 1,
+  survey: 2,
+  outlines: 3,
+  weekly: 4,
+  supervision: 5,
+  eval: 6,
+};
+
 export interface UTCSupervisorGraduationViewProps {
   initialTab?: SupervisorGradTab;
   onSubtabChange?: (tab: SupervisorGradTab) => void;
@@ -61,17 +70,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const currentBatchStage = progressMatchesSelectedBatch
     ? batchProgress?.current_stage_number || 1
     : batchStageNumbers[selectedBatch?.current_stage] ?? 1;
+  const activeStageNumber = SUPERVISOR_TAB_STAGES[activeTab];
+  const isViewingPastStage = Boolean(activeStageNumber && activeStageNumber < currentBatchStage);
 
   useEffect(() => {
-    const tabStages: Partial<Record<SupervisorGradTab, number>> = {
-      students: 1,
-      survey: 2,
-      outlines: 3,
-      weekly: 4,
-      supervision: 5,
-      eval: 6,
-    };
-    const activeStage = tabStages[activeTab];
+    const activeStage = SUPERVISOR_TAB_STAGES[activeTab];
     if (activeStage && activeStage > currentBatchStage) {
       const fallbackTabs: Record<number, SupervisorGradTab> = {
         1: 'students', 2: 'survey', 3: 'outlines', 4: 'weekly', 5: 'supervision', 6: 'eval',
@@ -99,29 +102,22 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
   const stageCounts = useMemo(() => calculateStageCounts(projects), [projects]);
 
-  // Each stage tab must only list the students that are actually in that stage.
-  const projectsByStage = useMemo(() => {
-    const map: Record<number, any[]> = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-    projects.forEach((p) => {
-      const stage = getProjectStageNumber(p);
-      if (!map[stage]) map[stage] = [];
-      map[stage].push(p);
-    });
-    return map;
-  }, [projects]);
-
-  const stage1Projects = projectsByStage[1] || [];
-  const stage2Projects = projectsByStage[2] || [];
-  const stage4Projects = projectsByStage[4] || [];
-  const stage5Projects = projectsByStage[5] || [];
-  const stage6Projects = projectsByStage[6] || [];
+  // A completed stage remains visible as history. Projects that have advanced
+  // still appear in their earlier-stage screens, whose controls are read-only.
+  const projectsAtOrPastStage = (stage: number) =>
+    projects.filter((project) => Math.max(getProjectStageNumber(project), currentBatchStage) >= stage);
+  const stage1Projects = projectsAtOrPastStage(1);
+  const stage2Projects = projectsAtOrPastStage(2);
+  const stage4Projects = projectsAtOrPastStage(4);
+  const stage5Projects = projectsAtOrPastStage(5);
+  const stage6Projects = projectsAtOrPastStage(6);
 
   // Outline reviews for MY OWN students must follow the same stage rule: only show
   // students currently in GĐ 3. Reviews assigned for students of other supervisors
   // cannot have their stage resolved from my project list, so keep the active ones.
   const stage3ProjectIds = useMemo(
-    () => new Set((projectsByStage[3] || []).map((p) => Number(p.id))),
-    [projectsByStage]
+    () => new Set(projectsAtOrPastStage(3).map((p) => Number(p.id))),
+    [projects]
   );
   const ownProjectIds = useMemo(
     () => new Set(projects.map((p) => Number(p.id))),
@@ -792,6 +788,18 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         })}
       </div>
 
+      {isViewingPastStage && activeStageNumber && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+          🔒 Giai đoạn {activeStageNumber} đã kết thúc. Thầy/Cô có thể xem lại dữ liệu nhưng các thao tác cập nhật, duyệt và gửi mới đã bị khóa.
+        </div>
+      )}
+
+      <fieldset
+        disabled={isViewingPastStage}
+        aria-label={isViewingPastStage && activeStageNumber ? `Giai đoạn ${activeStageNumber} ở chế độ chỉ xem` : undefined}
+        style={{ border: 0, margin: 0, padding: 0, minWidth: 0, width: '100%' }}
+      >
+
       {/* Tab 1: Students List */}
       {activeTab === 'students' && (
         <div className="utc-supervisor-card space-y-4 animate-fadeInUp">
@@ -1396,6 +1404,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           )}
         </div>
       )}
+
+      </fieldset>
 
       {/* Modal Outline Review */}
       {showOutlineModal && (
