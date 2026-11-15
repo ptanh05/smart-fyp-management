@@ -740,6 +740,27 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     return <div className="p-8 text-center text-slate-400">Đang tải danh sách sinh viên hướng dẫn...</div>;
   }
 
+  const stage5TasksMissingProduct = supervisionTasks.filter(
+    (task: any) => !(task.deliverable_file || task.deliverable_url)
+  ).length;
+  const stage5TasksMissingNotes = supervisionTasks.filter(
+    (task: any) => !task.student_notes?.trim?.()
+  ).length;
+  const stage5TasksNotAccepted = supervisionTasks.filter(
+    (task: any) => task.review_verdict !== 'ACCEPTED'
+  ).length;
+  const stage5InvalidTasks = supervisionTasks.filter(
+    (task: any) =>
+      task.review_verdict !== 'ACCEPTED' ||
+      !(task.deliverable_file || task.deliverable_url) ||
+      !task.student_notes?.trim?.()
+  ).length;
+  const stage5CompletionHint = supervisionTasks.length === 0
+    ? 'Cần giao nhiệm vụ trước khi hoàn tất GĐ5'
+    : stage5InvalidTasks > 0
+    ? `Còn ${stage5InvalidTasks} nhiệm vụ chưa đủ điều kiện (${stage5TasksNotAccepted} chưa đánh giá Đạt, ${stage5TasksMissingProduct} thiếu sản phẩm, ${stage5TasksMissingNotes} thiếu ghi chú)`
+    : 'Xác nhận sinh viên này hoàn thành GĐ5 và mở GĐ6';
+
   return (
     <div className="utc-supervisor-view space-y-6 animate-fadeIn">
       {/* Batch Selector - Responsive + Animation */}
@@ -1819,29 +1840,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       onClick={() => supervisionProject && handleConfirmStage5Completion(supervisionProject)}
                       disabled={
                         supervisionTasks.length === 0 ||
-                        supervisionTasks.some((task: any) =>
-                          task.review_verdict !== 'ACCEPTED' ||
-                          !(task.deliverable_file || task.deliverable_url) ||
-                          !task.student_notes?.trim?.()
-                        ) ||
+                        stage5InvalidTasks > 0 ||
                         confirmingStage5ProjectId === supervisionProject?.id
                       }
                       className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed"
-                      title={
-                        supervisionTasks.length === 0
-                          ? 'Cần giao và đánh giá nhiệm vụ trước khi hoàn tất GĐ5'
-                          : supervisionTasks.some((task: any) =>
-                              task.review_verdict !== 'ACCEPTED' ||
-                              !(task.deliverable_file || task.deliverable_url) ||
-                              !task.student_notes?.trim?.()
-                            )
-                          ? `Còn ${supervisionTasks.filter((task: any) =>
-                              task.review_verdict !== 'ACCEPTED' ||
-                              !(task.deliverable_file || task.deliverable_url) ||
-                              !task.student_notes?.trim?.()
-                            ).length} nhiệm vụ chưa đủ điều kiện: cần sản phẩm, ghi chú và đánh giá Đạt`
-                          : 'Xác nhận sinh viên này hoàn thành GĐ5 và mở GĐ6'
-                      }
+                      title={stage5CompletionHint}
                     >
                       <span>✓</span>
                       <span>{confirmingStage5ProjectId === supervisionProject?.id ? 'Đang chuyển...' : 'Hoàn tất GĐ5 → GĐ6'}</span>
