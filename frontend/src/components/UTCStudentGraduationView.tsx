@@ -1831,8 +1831,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                             type="checkbox"
                             checked={task.is_completed}
                             onChange={() => handleToggleTaskComplete(task)}
-                            className="w-5 h-5 rounded border-slate-300 text-[#2D469E] focus:ring-[#2D469E]/20 bg-white cursor-pointer accent-[#2D469E]"
-                            title="Đánh dấu hoàn thành nhiệm vụ"
+                            disabled={task.is_completed}
+                            className="w-5 h-5 rounded border-slate-300 text-[#2D469E] focus:ring-[#2D469E]/20 bg-white cursor-pointer accent-[#2D469E] disabled:cursor-default"
+                            title={task.is_completed ? 'Nhiệm vụ đã hoàn thành' : 'Đánh dấu hoàn thành nhiệm vụ'}
                           />
                         </div>
 
@@ -1952,26 +1953,38 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
                       {/* Action buttons */}
                       <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedTaskForDeliverable(task);
-                            setDeliverableUrl(task.deliverable_url || '');
-                            setDeliverableNotes(task.student_notes || '');
-                          }}
-                          className="utc-btn utc-btn-deliverable"
-                        >
-                          <span>📤</span>
-                          <span>{task.deliverable_file || task.deliverable_url ? 'Nộp lại sản phẩm' : 'Nộp sản phẩm'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenNotesModal(task)}
-                          className="utc-btn utc-btn-task-note"
-                        >
-                          <span>✏️</span>
-                          <span>{task.student_notes ? 'Sửa ghi chú' : 'Ghi chú'}</span>
-                        </button>
+                        {task.is_completed ? (
+                          <div className="utc-task-completed-label">
+                            <span>✓</span>
+                            <div>
+                              <strong>Đã hoàn thành</strong>
+                              <small>Sản phẩm đã được nộp</small>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedTaskForDeliverable(task);
+                                setDeliverableUrl(task.deliverable_url || '');
+                                setDeliverableNotes(task.student_notes || '');
+                              }}
+                              className="utc-btn utc-btn-deliverable"
+                            >
+                              <span>📤</span>
+                              <span>{task.deliverable_file || task.deliverable_url ? 'Nộp lại sản phẩm' : 'Nộp sản phẩm'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenNotesModal(task)}
+                              className="utc-btn utc-btn-task-note"
+                            >
+                              <span>✏️</span>
+                              <span>{task.student_notes ? 'Sửa ghi chú' : 'Ghi chú'}</span>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   );

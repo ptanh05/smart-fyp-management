@@ -150,6 +150,8 @@ class StageAccessControlTests(TestCase):
             format="json",
         )
         self.assertEqual(first_submit.status_code, status.HTTP_200_OK)
+        self.assertTrue(first_submit.data["task"]["is_completed"])
+        self.assertEqual(first_submit.data["task"]["status"], "COMPLETED")
 
         self.client.force_authenticate(user=self.supervisor_user)
         review = self.client.post(
@@ -158,6 +160,8 @@ class StageAccessControlTests(TestCase):
             format="json",
         )
         self.assertEqual(review.status_code, status.HTTP_200_OK)
+        self.assertFalse(review.data["task"]["is_completed"])
+        self.assertEqual(review.data["task"]["status"], "IN_PROGRESS")
 
         self.client.force_authenticate(user=self.student_user)
         second_submit = self.client.post(
@@ -166,6 +170,7 @@ class StageAccessControlTests(TestCase):
             format="json",
         )
         self.assertEqual(second_submit.status_code, status.HTTP_200_OK)
+        self.assertTrue(second_submit.data["task"]["is_completed"])
 
         tasks_response = self.client.get("/api/student/tasks/")
         self.assertEqual(tasks_response.status_code, status.HTTP_200_OK)

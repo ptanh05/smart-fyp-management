@@ -4194,10 +4194,12 @@ class StudentTaskDeliverableSubmitAPIView(APIView):
         if student_notes:
             task.student_notes = student_notes
 
-        task.status = "IN_PROGRESS"
+        task.status = "COMPLETED"
         task.review_verdict = "PENDING"
         now = timezone.now()
         task.submitted_at = now
+        task.is_completed = True
+        task.completed_at = now
 
         # Validate deadline (TC-031)
         is_late = False
