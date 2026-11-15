@@ -109,11 +109,13 @@ def require_exact_batch_stage(batch_or_project, required_stage):
     guard is for write actions so an old screen or direct API request cannot
     modify data after the faculty has advanced the batch.
     """
+    project = batch_or_project if isinstance(batch_or_project, GraduationProject) else None
     batch = getattr(batch_or_project, "batch", None) or batch_or_project
     if not batch:
         return None
 
-    current_stage = BATCH_STAGE_NUMBERS.get(getattr(batch, "current_stage", ""), 1)
+    batch_stage = BATCH_STAGE_NUMBERS.get(getattr(batch, "current_stage", ""), 1)
+    current_stage = max(batch_stage, get_project_workflow_stage(project)) if project else batch_stage
     if current_stage != required_stage:
         if current_stage < required_stage:
             detail = (
@@ -135,6 +137,56 @@ def require_exact_batch_stage(batch_or_project, required_stage):
             status=status.HTTP_409_CONFLICT,
         )
     return None
+
+
+def get_project_workflow_stage(project):
+    """Resolve the student's real stage from project state.
+
+    A student may advance before the faculty moves the whole batch (for
+    example, an approved outline opens weekly reports). Keep this in sync with
+    frontend/utils/graduationStages.ts so UI and API enforce the same stage.
+    """
+    if not project:
+        return 1
+
+    final_grade = getattr(project, "final_grade_summary", None)
+    has_final_score = bool(
+        final_grade and (
+            getattr(final_grade, "is_finalized", False) or
+            getattr(final_grade, "final_score_10", None) is not None
+        )
+    )
+    if (
+        project.is_eligible_for_defense or
+        project.supervisor_score is not None or
+        project.reviewer_score is not None or
+        has_final_score or
+        project.status in {"DEFENSE_READY", "PASSED", "FAILED", "DEFENDING"}
+    ):
+        return 6
+
+    if project.status == "OUTLINE_APPROVED":
+        reports = project.weekly_reports.all()
+        has_reviewed_weekly = (
+            reports.filter(reviewed_at__isnull=False).exists() or
+            reports.exclude(supervisor_feedback__isnull=True).exclude(supervisor_feedback="").exists() or
+            reports.exclude(supervisor_rating__in=["", "PENDING"]).exists()
+        )
+        if project.tasks.exists() or has_reviewed_weekly or reports.count() >= 5:
+            return 5
+        return 4
+
+    if (
+        project.signed_outline_file or
+        project.status in {"OUTLINE_PENDING", "OUTLINE_REVISION", "TOPIC_APPROVED", "TOPIC_CONFIRMED", "PENDING_REVIEW"} or
+        project.topic_review_status in {"APPROVED", "GV_CONFIRMED"}
+    ):
+        return 3
+
+    if project.status in {"ALLOCATED", "TOPIC_DRAFT"} or project.supervisor_id:
+        return 2
+
+    return 1
 
 
 # ==============================================================================

@@ -537,7 +537,15 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       setWeekFile(null);
       fetchData();
     } catch (err: any) {
-      alert('Lỗi nộp báo cáo: ' + JSON.stringify(err.response?.data || err.message));
+      const errorData = err.response?.data;
+      const errorMessage =
+        errorData?.detail ||
+        errorData?.message ||
+        errorData?.summary_content?.[0] ||
+        errorData?.week_number?.[0] ||
+        err.message ||
+        'Không thể nộp báo cáo tuần.';
+      alert('Lỗi nộp báo cáo: ' + errorMessage);
     } finally {
       setReportSubmitting(false);
     }

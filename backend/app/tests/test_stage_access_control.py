@@ -99,3 +99,38 @@ class StageAccessControlTests(TestCase):
         self.assertTrue(response.data["read_only"])
         self.project.refresh_from_db()
         self.assertEqual(self.project.topic_title_vi, "Đề tài ban đầu")
+
+    def test_approved_outline_opens_weekly_reports_before_batch_advances(self):
+        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.save(update_fields=["current_stage"])
+        self.project.status = "OUTLINE_APPROVED"
+        self.project.save(update_fields=["status"])
+
+        response = self.client.post(
+            "/api/student/weekly-reports/",
+            {
+                "week_number": 1,
+                "summary_content": "Hoàn thành thiết kế cơ sở dữ liệu",
+                "planned_tasks": "Xây dựng API tuần tiếp theo",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["report"]["week_number"], 1)
+
+    def test_approved_outline_makes_phase_3_read_only_even_if_batch_is_phase_3(self):
+        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.save(update_fields=["current_stage"])
+        self.project.status = "OUTLINE_APPROVED"
+        self.project.save(update_fields=["status"])
+
+        response = self.client.post(
+            "/api/graduation-project/topic-draft/",
+            {"topic_title_vi": "Không được quay lại sửa đề tài"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data["current_stage"], 4)
+        self.assertTrue(response.data["read_only"])
