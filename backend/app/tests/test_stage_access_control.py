@@ -179,3 +179,38 @@ class StageAccessControlTests(TestCase):
             [entry["event"] for entry in saved_task["submission_history"]],
             ["SUBMITTED", "REVISION_REQUIRED", "RESUBMITTED"],
         )
+
+    def test_supervisor_can_complete_stage_5_only_after_all_tasks_are_accepted(self):
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
+        self.batch.save(update_fields=["current_stage"])
+        accepted_task = SupervisionTask.objects.create(
+            project=self.project,
+            assigned_by=self.supervisor,
+            title="Nhiệm vụ đã đạt",
+            review_verdict="ACCEPTED",
+            status="COMPLETED",
+            is_completed=True,
+        )
+        pending_task = SupervisionTask.objects.create(
+            project=self.project,
+            assigned_by=self.supervisor,
+            title="Nhiệm vụ chưa đánh giá",
+            review_verdict="PENDING",
+            status="COMPLETED",
+            is_completed=True,
+        )
+        self.client.force_authenticate(user=self.supervisor_user)
+
+        blocked = self.client.post(f"/api/supervisor/projects/{self.project.id}/complete-stage-5/")
+        self.assertEqual(blocked.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(blocked.data["incomplete_count"], 1)
+
+        pending_task.review_verdict = "ACCEPTED"
+        pending_task.save(update_fields=["review_verdict"])
+        completed = self.client.post(f"/api/supervisor/projects/{self.project.id}/complete-stage-5/")
+
+        self.assertEqual(completed.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.assertTrue(self.project.is_eligible_for_defense)
+        self.assertTrue(self.project.supervisor_defense_confirmed)
+        self.assertEqual(self.project.status, "DEFENSE_READY")

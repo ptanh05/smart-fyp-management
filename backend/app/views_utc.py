@@ -4334,6 +4334,80 @@ class SupervisorReviewTaskAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+class SupervisorConfirmStage5CompletionAPIView(APIView):
+    """GVHD chốt sinh viên đã hoàn thành GĐ5 để mở GĐ6 đánh giá & bảo vệ."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        supervisor = getattr(request.user, "supervisor_profile", None)
+        if not supervisor:
+            return Response(
+                {"detail": "Chỉ dành cho Giảng viên hướng dẫn."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        project = get_object_or_404(GraduationProject, id=pk, supervisor=supervisor)
+        stage_error = require_exact_batch_stage(project, 5)
+        if stage_error:
+            return stage_error
+
+        tasks = project.tasks.all()
+        if not tasks.exists():
+            return Response(
+                {"detail": "Chưa có nhiệm vụ nào để xác nhận hoàn thành Giai đoạn 5."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        incomplete_tasks = tasks.exclude(review_verdict="ACCEPTED")
+        if incomplete_tasks.exists():
+            return Response(
+                {
+                    "detail": "Chỉ có thể hoàn tất Giai đoạn 5 khi tất cả nhiệm vụ đã được GVHD đánh giá Đạt.",
+                    "incomplete_count": incomplete_tasks.count(),
+                    "incomplete_tasks": list(incomplete_tasks.values("id", "title", "review_verdict")),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        project.is_eligible_for_defense = True
+        project.supervisor_defense_confirmed = True
+        project.status = "DEFENSE_READY"
+        project.save(update_fields=["is_eligible_for_defense", "supervisor_defense_confirmed", "status"])
+
+        AuditLog.objects.create(
+            user=request.user,
+            action_type="stage_5_completed",
+            field_name=f"project:{project.id}",
+            description=f"GVHD xác nhận sinh viên {project.student.registration_no} hoàn thành Giai đoạn 5",
+            new_value=json.dumps({
+                "event": "STAGE_5_COMPLETED",
+                "project_id": project.id,
+                "student": project.student.registration_no,
+                "confirmed_by": supervisor.user.get_full_name() or supervisor.user.username,
+            }, ensure_ascii=False),
+        )
+
+        try:
+            NotificationService.create_notification(
+                user=project.student.user,
+                notification_type="general",
+                title="[Hoàn thành Giai đoạn 5] Đã mở Giai đoạn 6",
+                message="GVHD đã xác nhận bạn hoàn thành nhiệm vụ và đủ điều kiện chuyển sang Giai đoạn 6: Đánh giá & Bảo vệ.",
+                action_url="/student/dashboard?tab=utc_graduation&subtab=grade",
+                send_email=True,
+            )
+        except Exception as exc:
+            logger.warning("Could not send stage 5 completion notification: %s", exc)
+
+        return Response(
+            {
+                "message": "Đã xác nhận hoàn thành Giai đoạn 5 và mở Giai đoạn 6 cho sinh viên.",
+                "project": GraduationProjectDetailSerializer(project).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 # ==============================================================================
 # PHASE 6: EXPORT MINUTES PDF & BATCH FINAL GRADES EXCEL APIS
 # ==============================================================================

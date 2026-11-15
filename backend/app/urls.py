@@ -59,6 +59,7 @@ from .views_utc import (
     ForceApproveThesisAPIView,
     StudentTaskDeliverableSubmitAPIView,
     SupervisorReviewTaskAPIView,
+    SupervisorConfirmStage5CompletionAPIView,
     CouncilMinutesPdfExportAPIView,
     BatchFinalGradesExcelExportAPIView,
     StudentDeferralRequestAPIView,
@@ -674,6 +675,7 @@ urlpatterns = [
     # Phase 5: Task Deliverables & Review
     path("student/tasks/<int:pk>/submit-deliverable/", StudentTaskDeliverableSubmitAPIView.as_view(), name="utc-student-task-submit-deliverable"),
     path("supervisor/tasks/<int:pk>/review/", SupervisorReviewTaskAPIView.as_view(), name="utc-supervisor-task-review"),
+    path("supervisor/projects/<int:pk>/complete-stage-5/", SupervisorConfirmStage5CompletionAPIView.as_view(), name="utc-supervisor-complete-stage-5"),
 
     # Phase 6: Minutes PDF & Final Grades Excel Export
     path("council/<int:council_id>/export-minutes-pdf/", CouncilMinutesPdfExportAPIView.as_view(), name="utc-council-export-minutes-pdf"),

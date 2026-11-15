@@ -210,6 +210,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const [taskReviewNotes, setTaskReviewNotes] = useState('');
   const [reviewingTask, setReviewingTask] = useState(false);
   const [showTaskReviewModal, setShowTaskReviewModal] = useState(false);
+  const [confirmingStage5ProjectId, setConfirmingStage5ProjectId] = useState<number | null>(null);
 
 
   // Modal Guards with ESC & dirty form protection
@@ -615,6 +616,25 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       alert('Lỗi đánh giá nhiệm vụ: ' + (err.response?.data?.detail || err.message));
     } finally {
       setReviewingTask(false);
+    }
+  };
+
+  const handleConfirmStage5Completion = async (project: any) => {
+    const confirmed = window.confirm(
+      `Xác nhận sinh viên ${project.student_name} đã hoàn thành toàn bộ nhiệm vụ GĐ5 và chuyển sang GĐ6: Đánh giá & Bảo vệ?`
+    );
+    if (!confirmed) return;
+
+    try {
+      setConfirmingStage5ProjectId(project.id);
+      const result = await apiService.confirmStage5Completion(project.id);
+      alert(result.message || 'Đã xác nhận hoàn thành Giai đoạn 5 và mở Giai đoạn 6.');
+      setShowSupervisionModal(false);
+      await fetchData();
+    } catch (err: any) {
+      alert('Không thể hoàn tất Giai đoạn 5: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setConfirmingStage5ProjectId(null);
     }
   };
 
@@ -1793,12 +1813,34 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       Sinh viên sẽ nhận được thông báo và theo dõi hạn nộp trên Task Board cá nhân.
                     </p>
                   </div>
-                  <button
-                    onClick={() => setShowAddTaskForm(!showAddTaskForm)}
-                    className="px-3.5 py-1.5 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
-                  >
-                    <span>{showAddTaskForm ? '✕ Đóng form' : '+ Giao việc mới'}</span>
-                  </button>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => supervisionProject && handleConfirmStage5Completion(supervisionProject)}
+                      disabled={
+                        supervisionTasks.length === 0 ||
+                        supervisionTasks.some((task: any) => task.review_verdict !== 'ACCEPTED') ||
+                        confirmingStage5ProjectId === supervisionProject?.id
+                      }
+                      className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed"
+                      title={
+                        supervisionTasks.length === 0
+                          ? 'Cần giao và đánh giá nhiệm vụ trước khi hoàn tất GĐ5'
+                          : supervisionTasks.some((task: any) => task.review_verdict !== 'ACCEPTED')
+                          ? `Còn ${supervisionTasks.filter((task: any) => task.review_verdict !== 'ACCEPTED').length} nhiệm vụ chưa được đánh giá Đạt`
+                          : 'Xác nhận sinh viên này hoàn thành GĐ5 và mở GĐ6'
+                      }
+                    >
+                      <span>✓</span>
+                      <span>{confirmingStage5ProjectId === supervisionProject?.id ? 'Đang chuyển...' : 'Hoàn tất GĐ5 → GĐ6'}</span>
+                    </button>
+                    <button
+                      onClick={() => setShowAddTaskForm(!showAddTaskForm)}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                    >
+                      <span>{showAddTaskForm ? '✕ Đóng form' : '+ Giao việc mới'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Add Task Form */}

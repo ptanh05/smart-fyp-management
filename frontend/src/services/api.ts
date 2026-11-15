@@ -1402,6 +1402,11 @@ class ApiService {
     return response.data;
   }
 
+  async confirmStage5Completion(projectId: number): Promise<any> {
+    const response = await this.api.post(`/supervisor/projects/${projectId}/complete-stage-5/`);
+    return response.data;
+  }
+
   async getStudentDeferralRequests(): Promise<ThesisDeferralRequest[]> {
     const response = await this.api.get<ThesisDeferralRequest[]>('/student/deferral-request/');
     return response.data;
