@@ -358,7 +358,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                     className={`utc-nav-item ${isActive ? 'active' : ''} ${!isAccessible ? 'locked' : ''}`}
                     onClick={() => {
                       if (!isAccessible) {
-                        notify.warning(`⚠️ Bạn cần hoàn thành và được Khoa/GVHD duyệt các bước trước để mở ${st.label}!`);
+                        notify.warning(`Bạn cần hoàn thành và được Khoa/GVHD duyệt các bước trước để mở ${st.label}!`);
                         return;
                       }
                       handleNavClick(st.key);
@@ -478,7 +478,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                     className={`utc-nav-item ${isTabActive ? 'active' : ''} ${!isAccessible ? 'locked' : ''}`}
                     onClick={() => {
                       if (!isAccessible) {
-                        notify.warning(`⚠️ Đợt đang ở GĐ ${currentBatchStage}. Hãy hoàn thành giai đoạn trước để mở ${st.sidebarLabel}.`);
+                        notify.warning(`Đợt đang ở GĐ ${currentBatchStage}. Hãy hoàn thành giai đoạn trước để mở ${st.sidebarLabel}.`);
                         return;
                       }
                       handleNavClick(`stage_${st.number}`);

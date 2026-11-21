@@ -85,7 +85,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
     if (targetStage && targetStage.number > currentStageNum) {
-      notify.warning(`⚠️ Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
+      notify.warning(`Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
       return;
     }
     setActiveTab(tabKey);

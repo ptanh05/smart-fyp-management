@@ -16,6 +16,11 @@ const getToastIcon = (type: ToastType) => {
   }
 };
 
+const cleanToastMessage = (message: string) => {
+  if (!message) return '';
+  return message.replace(/^([⚠️❌✅ℹ️🔔❗]\s*)+/, '').trim();
+};
+
 export const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useToast();
 
@@ -26,7 +31,7 @@ export const ToastContainer: React.FC = () => {
       {toasts.map((toast) => (
         <div key={toast.id} className={`toast-card toast-${toast.type}`} role="alert">
           <span className="toast-icon">{getToastIcon(toast.type)}</span>
-          <div className="toast-message">{toast.message}</div>
+          <div className="toast-message">{cleanToastMessage(toast.message)}</div>
           <button
             type="button"
             className="toast-close-btn"

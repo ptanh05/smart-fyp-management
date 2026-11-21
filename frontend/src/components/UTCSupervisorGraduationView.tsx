@@ -862,7 +862,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   type="button"
                   onClick={() => {
                     if (isLocked) {
-                      notify.warning(`⚠️ Đợt hiện đang ở GĐ ${currentBatchStage}. Giai đoạn ${tab.number} chưa mở.`);
+                      notify.warning(`Đợt hiện đang ở GĐ ${currentBatchStage}. Giai đoạn ${tab.number} chưa mở.`);
                       return;
                     }
                     handleSelectTab(tab.key);

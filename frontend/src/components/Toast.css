@@ -1,4 +1,4 @@
-﻿/* Toast Notification Portal Styles */
+/* Toast Notification Portal Styles */
 .toast-portal-container {
   position: fixed;
   top: 24px;
@@ -15,16 +15,16 @@
 .toast-card {
   pointer-events: auto;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  padding: 12px 16px;
-  border-radius: 10px;
+  padding: 13px 16px;
+  border-radius: 12px;
   background-color: #ffffff;
   color: #1e293b;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
   border: 1px solid #e2e8f0;
-  font-size: 0.88rem;
-  line-height: 1.4;
+  font-size: 0.9rem;
+  line-height: 1.45;
   animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   transition: all 0.2s ease;
 }
@@ -42,7 +42,9 @@
 
 .toast-icon {
   font-size: 1.2rem;
+  line-height: 1.35;
   flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .toast-message {
@@ -53,42 +55,63 @@
   overflow-wrap: anywhere;
   /* Giữ ký tự xuống dòng (\n) trong thông báo nhiều dòng */
   white-space: pre-line;
+  line-height: 1.45;
 }
 
 .toast-close-btn {
   background: none;
   border: none;
   color: #94a3b8;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   cursor: pointer;
-  padding: 4px;
-  line-height: 1;
+  padding: 2px 6px;
+  line-height: 1.2;
   border-radius: 4px;
-  transition: color 0.15s;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .toast-close-btn:hover {
   color: #1e293b;
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 /* Types */
 .toast-success {
   border-left: 5px solid #10b981;
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.toast-success .toast-message {
+  color: #166534;
 }
 
 .toast-warning {
   border-left: 5px solid #f59e0b;
   background-color: #fffbeb;
+  border-color: #fde68a;
+}
+.toast-warning .toast-message {
+  color: #854d0e;
 }
 
 .toast-error {
   border-left: 5px solid #ef4444;
   background-color: #fef2f2;
+  border-color: #fecaca;
+}
+.toast-error .toast-message {
+  color: #991b1b;
 }
 
 .toast-info {
   border-left: 5px solid #3b82f6;
   background-color: #eff6ff;
+  border-color: #bfdbfe;
+}
+.toast-info .toast-message {
+  color: #1e40af;
 }
 
 /* Dark Mode Overrides */
