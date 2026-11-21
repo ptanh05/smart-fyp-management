@@ -259,6 +259,7 @@
 }
 
 .utc-btn-task-note {
+  display: none !important;
   background: #ffffff;
   color: #334155;
   border: 1.5px solid #cbd5e1;
@@ -267,7 +268,6 @@
   font-weight: 700;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  display: inline-flex;
   align-items: center;
   gap: 6px;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -370,8 +370,17 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.45; transform: scale(0.85); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
 }
 
 .utc-stepper-group {
@@ -476,10 +485,12 @@
 :root:not([data-theme="dark"]) .utc-graduation-card .text-emerald-100 {
   color: #064e3b !important;
 }
+
 :root:not([data-theme="dark"]) .utc-graduation-card .text-emerald-200,
 :root:not([data-theme="dark"]) .utc-graduation-card .text-emerald-300 {
   color: #065f46 !important;
 }
+
 :root:not([data-theme="dark"]) .utc-graduation-card .text-emerald-400 {
   color: #047857 !important;
 }
@@ -487,12 +498,15 @@
 :root:not([data-theme="dark"]) .utc-graduation-card .text-blue-100 {
   color: #1e3a8a !important;
 }
+
 :root:not([data-theme="dark"]) .utc-graduation-card .text-blue-200 {
   color: #1d4ed8 !important;
 }
+
 :root:not([data-theme="dark"]) .utc-graduation-card .text-blue-300 {
   color: #1e40af !important;
 }
+
 :root:not([data-theme="dark"]) .utc-graduation-card .text-blue-400 {
   color: #2563eb !important;
 }
@@ -502,6 +516,7 @@
 :root:not([data-theme="dark"]) .utc-graduation-card .text-amber-300 {
   color: #92400e !important;
 }
+
 :root:not([data-theme="dark"]) .utc-graduation-card .text-amber-400 {
   color: #b45309 !important;
 }
@@ -511,6 +526,7 @@
 :root:not([data-theme="dark"]) .utc-graduation-card .text-rose-300 {
   color: #9f1239 !important;
 }
+
 :root:not([data-theme="dark"]) .utc-graduation-card .text-rose-400 {
   color: #be123c !important;
 }
@@ -520,6 +536,7 @@
 :root:not([data-theme="dark"]) .utc-graduation-card .text-purple-300 {
   color: #581c87 !important;
 }
+
 :root:not([data-theme="dark"]) .utc-graduation-card .text-purple-400 {
   color: #6b21a8 !important;
 }
@@ -945,7 +962,7 @@
   color: #15803d;
 }
 
-.utc-task-completed-label > span {
+.utc-task-completed-label>span {
   display: grid;
   width: 25px;
   height: 25px;
@@ -1017,8 +1034,15 @@
 }
 
 @keyframes modalIn {
-  from { opacity: 0; transform: scale(0.96) translateY(8px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .utc-modal-header {
@@ -1070,7 +1094,7 @@
 /* Keep the deferral close button pinned to the top-right. This scoped rule
    prevents the evaluation modal's global .utc-modal-header styles from
    wrapping the close button under long header copy. */
-.utc-modal-card > .utc-deferral-modal-header {
+.utc-modal-card>.utc-deferral-modal-header {
   position: relative;
   display: flex;
   flex-wrap: nowrap;
@@ -1081,21 +1105,21 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.18);
 }
 
-.utc-modal-card > .utc-deferral-modal-header > div {
+.utc-modal-card>.utc-deferral-modal-header>div {
   min-width: 0;
   flex: 1;
 }
 
-.utc-modal-card > .utc-deferral-modal-header .utc-modal-title {
+.utc-modal-card>.utc-deferral-modal-header .utc-modal-title {
   color: #ffffff;
 }
 
-.utc-modal-card > .utc-deferral-modal-header .utc-modal-subtitle {
+.utc-modal-card>.utc-deferral-modal-header .utc-modal-subtitle {
   color: rgba(255, 255, 255, 0.78);
   line-height: 1.5;
 }
 
-.utc-modal-card > .utc-deferral-modal-header .utc-modal-close-btn {
+.utc-modal-card>.utc-deferral-modal-header .utc-modal-close-btn {
   position: absolute;
   top: 18px;
   right: 18px;
@@ -1104,11 +1128,11 @@
 }
 
 @media (max-width: 560px) {
-  .utc-modal-card > .utc-deferral-modal-header {
+  .utc-modal-card>.utc-deferral-modal-header {
     padding: 18px 56px 16px 18px;
   }
 
-  .utc-modal-card > .utc-deferral-modal-header .utc-modal-close-btn {
+  .utc-modal-card>.utc-deferral-modal-header .utc-modal-close-btn {
     top: 14px;
     right: 14px;
   }
@@ -1291,52 +1315,87 @@
 [data-theme="dark"] .utc-step-nav-card,
 [data-theme="dark"] .utc-weekly-report-card,
 [data-theme="dark"] .utc-empty-grade-box {
-  background: var(--surface-1); border-color: var(--divider);
-  color: var(--text-body); box-shadow: var(--shadow-soft);
+  background: var(--surface-1);
+  border-color: var(--divider);
+  color: var(--text-body);
+  box-shadow: var(--shadow-soft);
 }
+
 [data-theme="dark"] .utc-card-header,
 [data-theme="dark"] .utc-modal-header,
-[data-theme="dark"] .utc-modal-footer { border-color: var(--divider); }
+[data-theme="dark"] .utc-modal-footer {
+  border-color: var(--divider);
+}
+
 [data-theme="dark"] .utc-card-title,
 [data-theme="dark"] .utc-modal-title,
 [data-theme="dark"] .utc-stepper-label,
 [data-theme="dark"] .utc-empty-grade-title,
-[data-theme="dark"] .utc-score-component-label { color: var(--text-strong); }
+[data-theme="dark"] .utc-score-component-label {
+  color: var(--text-strong);
+}
+
 [data-theme="dark"] .utc-card-subtitle,
 [data-theme="dark"] .utc-modal-subtitle,
-[data-theme="dark"] .utc-empty-grade-desc { color: var(--text-soft); }
+[data-theme="dark"] .utc-empty-grade-desc {
+  color: var(--text-soft);
+}
+
 [data-theme="dark"] .utc-stepper-item,
 [data-theme="dark"] .utc-filter-btn {
-  background: var(--surface-2); border-color: var(--border-strong); color: var(--text-body);
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--text-body);
 }
+
 [data-theme="dark"] .utc-stepper-item:hover,
-[data-theme="dark"] .utc-filter-btn:hover { background: var(--interactive-hover); border-color: var(--utc-primary); }
+[data-theme="dark"] .utc-filter-btn:hover {
+  background: var(--interactive-hover);
+  border-color: var(--utc-primary);
+}
+
 [data-theme="dark"] .utc-stepper-item.active,
 [data-theme="dark"] .utc-filter-btn.active {
-  background: var(--interactive-selected); border-color: var(--utc-primary); color: #dbeafe;
+  background: var(--interactive-selected);
+  border-color: var(--utc-primary);
+  color: #dbeafe;
 }
-[data-theme="dark"] .utc-modal-overlay { background: var(--surface-overlay); }
+
+[data-theme="dark"] .utc-modal-overlay {
+  background: var(--surface-overlay);
+}
+
 [data-theme="dark"] .utc-modal-card {
-  background: var(--surface-elevated); border-color: var(--divider);
-  color: var(--text-body); box-shadow: var(--shadow-elevated);
+  background: var(--surface-elevated);
+  border-color: var(--divider);
+  color: var(--text-body);
+  box-shadow: var(--shadow-elevated);
 }
+
 [data-theme="dark"] .utc-form-textarea,
 [data-theme="dark"] .utc-modal-textarea,
 [data-theme="dark"] .utc-graduation-card input,
 [data-theme="dark"] .utc-graduation-card select,
 [data-theme="dark"] .utc-graduation-card textarea {
-  background: var(--input-surface); border-color: var(--border-strong); color: var(--text-strong);
+  background: var(--input-surface);
+  border-color: var(--border-strong);
+  color: var(--text-strong);
 }
+
 [data-theme="dark"] .utc-form-textarea::placeholder,
 [data-theme="dark"] .utc-modal-textarea::placeholder,
 [data-theme="dark"] .utc-graduation-card input::placeholder,
-[data-theme="dark"] .utc-graduation-card textarea::placeholder { color: var(--input-placeholder); }
+[data-theme="dark"] .utc-graduation-card textarea::placeholder {
+  color: var(--input-placeholder);
+}
+
 [data-theme="dark"] .utc-form-textarea:focus,
 [data-theme="dark"] .utc-modal-textarea:focus,
 [data-theme="dark"] .utc-graduation-card input:focus,
 [data-theme="dark"] .utc-graduation-card select:focus,
 [data-theme="dark"] .utc-graduation-card textarea:focus {
-  border-color: var(--utc-primary); box-shadow: 0 0 0 3px var(--focus-ring);
+  border-color: var(--utc-primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 [data-theme="dark"] .utc-action-banner-approved {
@@ -1345,15 +1404,18 @@
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2) !important;
   color: #ecfdf5 !important;
 }
+
 [data-theme="dark"] .utc-action-banner-approved h4,
 [data-theme="dark"] .utc-action-banner-approved .font-bold {
   color: #34d399 !important;
   font-weight: 800 !important;
 }
+
 [data-theme="dark"] .utc-action-banner-approved p,
 [data-theme="dark"] .utc-action-banner-approved span {
   color: #e2e8f0 !important;
 }
+
 [data-theme="dark"] .utc-action-banner-approved b,
 [data-theme="dark"] .utc-action-banner-approved strong {
   color: #6ee7b7 !important;
@@ -1365,14 +1427,17 @@
   border-color: rgba(244, 63, 94, 0.45) !important;
   color: #ffe4e6 !important;
 }
+
 [data-theme="dark"] .utc-action-banner-revision h4,
 [data-theme="dark"] .utc-action-banner-revision .font-bold {
   color: #fda4af !important;
 }
+
 [data-theme="dark"] .utc-action-banner-revision p,
 [data-theme="dark"] .utc-action-banner-revision span {
   color: #fecdd3 !important;
 }
+
 [data-theme="dark"] .utc-action-banner-revision strong {
   color: #ffffff !important;
 }
@@ -2015,7 +2080,7 @@
   margin-top: 14px;
 }
 
-.utc-submitted-outline__details > div {
+.utc-submitted-outline__details>div {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -2069,6 +2134,7 @@
 }
 
 @media (max-width: 720px) {
+
   .utc-submitted-outline__header,
   .utc-submitted-outline__file-card {
     align-items: flex-start;
@@ -2115,7 +2181,7 @@
 }
 
 [data-theme="dark"] .utc-submitted-outline__file-card,
-[data-theme="dark"] .utc-submitted-outline__details > div {
+[data-theme="dark"] .utc-submitted-outline__details>div {
   border-color: rgba(148, 163, 184, 0.2);
   background: rgba(15, 23, 42, 0.68);
 }
@@ -2148,7 +2214,7 @@
   font-size: 11px;
 }
 
-.utc-task-history-header > span {
+.utc-task-history-header>span {
   padding: 5px 10px;
   border: 1px solid #bfdbfe;
   border-radius: 999px;
@@ -2590,6 +2656,7 @@
 }
 
 [data-theme="dark"] .utc-btn-task-note {
+  display: none !important;
   background: rgba(30, 41, 59, 0.75) !important;
   border: 1px solid rgba(148, 163, 184, 0.25) !important;
   color: #e2e8f0 !important;
@@ -2681,4 +2748,3 @@
   background: rgba(217, 119, 6, 0.4) !important;
   color: #ffffff !important;
 }
-
