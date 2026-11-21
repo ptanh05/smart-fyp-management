@@ -1711,12 +1711,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       {/* Tab 5: Supervision Meeting Logs & Interactive Task Board */}
       {activeTab === 'supervision' && (
         <div className="space-y-6">
-          {projectData?.id && (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <SubmissionVersionsPanel projectId={projectData.id} canUpload />
-              <CalendarSyncButtons />
-            </div>
-          )}
           {/* Header */}
           <div className="utc-graduation-card space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -2155,6 +2149,14 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               </div>
             )}
           </div>
+
+          {/* Tiện ích mở rộng: Quản lý phiên bản nộp bài & Đồng bộ lịch cá nhân */}
+          {projectData?.id && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <SubmissionVersionsPanel projectId={projectData.id} canUpload />
+              <CalendarSyncButtons />
+            </div>
+          )}
         </div>
       )}
 

@@ -3,6 +3,7 @@ import { apiService } from '../services/api';
 import type { SubmissionKind, SubmissionVersion, TopicSimilarityResult } from '../services/api';
 import { notify, notifyError } from '../utils/notify';
 import { safeExternalUrl } from '../utils/safeUrl';
+import './FeatureExtensions.css';
 
 const KIND_LABELS: Record<SubmissionKind, string> = {
   OUTLINE: 'Đề cương',
@@ -14,17 +15,16 @@ const KIND_LABELS: Record<SubmissionKind, string> = {
 const ACCEPT = '.pdf,.docx,.zip,.pptx,.txt,.md';
 const MAX_BYTES = 25 * 1024 * 1024;
 
-const levelClass = (level?: string | null) =>
-  level === 'HIGH' ? 'text-red-600 bg-red-50' : level === 'MEDIUM' ? 'text-amber-700 bg-amber-50' : 'text-emerald-700 bg-emerald-50';
-
 export function SimilarityBadge({ version }: { version: SubmissionVersion }) {
   if (version.similarity_status === 'UNSUPPORTED') {
-    return <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-500">Không kiểm tra được nội dung</span>;
+    return <span className="utc-similarity-badge unsupported">Chưa hỗ trợ quét nội dung</span>;
   }
   if (version.similarity_status !== 'CHECKED' || version.similarity_score == null) return null;
+  
+  const level = version.similarity_level?.toLowerCase() || 'low';
   return (
-    <span className={`text-[11px] px-2 py-0.5 rounded font-semibold ${levelClass(version.similarity_level)}`}>
-      Tương đồng {version.similarity_score.toFixed(1)}%
+    <span className={`utc-similarity-badge ${level}`}>
+      ✓ Tương đồng {version.similarity_score.toFixed(1)}%
     </span>
   );
 }
@@ -72,41 +72,108 @@ export function SubmissionVersionsPanel({ projectId, canUpload }: { projectId: n
   };
 
   return (
-    <div className="utc-card p-4 space-y-3 text-xs">
-      <h4 className="font-bold text-sm">Lịch sử phiên bản bài nộp</h4>
+    <div className="utc-feature-card">
+      <div className="utc-feature-card-header">
+        <h4 className="utc-feature-card-title">
+          <span>📦</span> Lịch Sử Phiên Bản Bài Nộp
+        </h4>
+        <p className="utc-feature-card-subtitle">
+          Quản lý các bản nộp (Báo cáo, Đề cương, Slide, Mã nguồn) & đối soát tỷ lệ tương đồng.
+        </p>
+      </div>
+
       {canUpload && (
-        <form onSubmit={submit} className="flex flex-wrap gap-2 items-end">
-          <select value={kind} onChange={(e) => setKind(e.target.value as SubmissionKind)} className="utc-form-input text-xs w-auto">
-            {(Object.keys(KIND_LABELS) as SubmissionKind[]).map((k) => (
-              <option key={k} value={k}>{KIND_LABELS[k]}</option>
-            ))}
-          </select>
-          <input type="file" accept={ACCEPT} onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-xs" />
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ghi chú thay đổi (tuỳ chọn)" className="utc-form-input text-xs flex-1 min-w-[160px]" />
-          <button type="submit" disabled={!file || busy} className="utc-btn">{busy ? 'Đang nộp...' : 'Nộp phiên bản mới'}</button>
+        <form onSubmit={submit} className="utc-version-form">
+          <div className="utc-version-form-grid">
+            <div className="utc-field-group">
+              <label className="utc-field-label">Loại tài liệu (*)</label>
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value as SubmissionKind)}
+                className="utc-version-select"
+              >
+                {(Object.keys(KIND_LABELS) as SubmissionKind[]).map((k) => (
+                  <option key={k} value={k}>
+                    {KIND_LABELS[k]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="utc-field-group">
+              <label className="utc-field-label">Chọn tệp đính kèm (Tối đa 25MB)</label>
+              <input
+                type="file"
+                accept={ACCEPT}
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="utc-version-file-input"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 items-center mt-1">
+            <div className="utc-field-group flex-1 min-w-[200px]">
+              <label className="utc-field-label">Ghi chú thay đổi (tuỳ chọn)</label>
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Ví dụ: Cập nhật sau buổi nhận xét của GVHD..."
+                className="utc-version-text-input"
+              />
+            </div>
+            <div className="self-end">
+              <button
+                type="submit"
+                disabled={!file || busy}
+                className="utc-btn-submit-version"
+              >
+                <span>{busy ? '⏳ Đang nộp...' : '📤 Nộp phiên bản'}</span>
+              </button>
+            </div>
+          </div>
         </form>
       )}
+
       {versions.length === 0 ? (
-        <p className="text-slate-500">Chưa có phiên bản nào.</p>
+        <div className="utc-version-empty">
+          <span className="text-xl">📁</span>
+          <p>Chưa có phiên bản bài nộp nào được lưu trên hệ thống.</p>
+        </div>
       ) : (
-        <ul className="divide-y divide-slate-200">
+        <div className="utc-version-list">
           {versions.map((v) => {
             const href = safeExternalUrl(v.file_url);
             return (
-              <li key={v.id} className="py-2 flex flex-wrap items-center gap-2">
-                <span className="font-semibold">{KIND_LABELS[v.kind]} v{v.version_no}</span>
-                {href ? (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline truncate max-w-[220px]">{v.original_name}</a>
-                ) : (
-                  <span className="truncate max-w-[220px]">{v.original_name}</span>
-                )}
-                <span className="text-slate-500">{new Date(v.created_at).toLocaleString('vi-VN')}</span>
-                <SimilarityBadge version={v} />
-                {v.note && <span className="text-slate-500 italic w-full">{v.note}</span>}
-              </li>
+              <div key={v.id} className="utc-version-item">
+                <div className="utc-version-item-header">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="utc-version-badge">v{v.version_no}</span>
+                    <span className="utc-version-kind">{KIND_LABELS[v.kind]}</span>
+                    {href ? (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="utc-version-filename"
+                        title={v.original_name}
+                      >
+                        📄 {v.original_name} ↗
+                      </a>
+                    ) : (
+                      <span className="utc-version-filename" title={v.original_name}>
+                        📄 {v.original_name}
+                      </span>
+                    )}
+                  </div>
+                  <SimilarityBadge version={v} />
+                </div>
+                <div className="utc-version-item-footer">
+                  <span>🕒 {new Date(v.created_at).toLocaleString('vi-VN')}</span>
+                  {v.note && <span className="utc-version-note">“{v.note}”</span>}
+                </div>
+              </div>
             );
           })}
-        </ul>
+        </div>
       )}
     </div>
   );
@@ -139,9 +206,14 @@ export function TopicSimilarityHint({ title, projectId }: { title: string; proje
 
   if (!result || result.matches.length === 0) return null;
   return (
-    <div className={`mt-2 p-2 rounded text-[11px] ${result.has_duplicate_risk ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`} role="status">
+    <div
+      className={`mt-2 p-2 rounded text-[11px] ${
+        result.has_duplicate_risk ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+      }`}
+      role="status"
+    >
       <p className="font-semibold mb-1">
-        {result.has_duplicate_risk ? 'Đề tài có nguy cơ trùng với đề tài đã có:' : 'Có đề tài tương tự:'}
+        {result.has_duplicate_risk ? '⚠️ Đề tài có nguy cơ trùng với đề tài đã có:' : 'ℹ️ Có đề tài tương tự:'}
       </p>
       <ul className="list-disc pl-4 space-y-0.5">
         {result.matches.slice(0, 3).map((m, i) => (
@@ -186,15 +258,58 @@ export function CalendarSyncButtons() {
   };
 
   return (
-    <div className="utc-card p-4 text-xs space-y-2">
-      <h4 className="font-bold text-sm">Đồng bộ hạn chót vào lịch cá nhân</h4>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className="utc-btn" onClick={download}>Tải file .ics</button>
-        <button type="button" className="utc-btn" onClick={() => subscribe(false)}>Lấy link đăng ký lịch</button>
-        {feedUrl && <button type="button" className="utc-btn" onClick={() => subscribe(true)}>Đổi link (thu hồi link cũ)</button>}
+    <div className="utc-feature-card">
+      <div className="utc-feature-card-header">
+        <h4 className="utc-feature-card-title">
+          <span>📅</span> Đồng Bộ Hạn Chót Vào Lịch Cá Nhân
+        </h4>
+        <p className="utc-feature-card-subtitle">
+          Tích hợp hạn nộp bài, báo cáo tuần và lịch bảo vệ vào Google Calendar, Outlook hoặc Apple Calendar.
+        </p>
       </div>
-      {feedUrl && <input readOnly value={feedUrl} className="utc-form-input text-xs w-full" onFocus={(e) => e.target.select()} />}
-      <p className="text-slate-500">Link đăng ký là bí mật — không chia sẻ cho người khác.</p>
+
+      <div className="utc-calendar-actions">
+        <button type="button" className="utc-calendar-btn" onClick={download}>
+          <span>📥</span> Tải file .ics
+        </button>
+        <button type="button" className="utc-calendar-btn primary" onClick={() => subscribe(false)}>
+          <span>🔗</span> Lấy link đăng ký lịch
+        </button>
+        {feedUrl && (
+          <button type="button" className="utc-calendar-btn warning" onClick={() => subscribe(true)}>
+            <span>🔄</span> Đổi link bảo mật
+          </button>
+        )}
+      </div>
+
+      {feedUrl && (
+        <div className="utc-calendar-feed-box">
+          <label className="utc-field-label">Link đăng ký của bạn:</label>
+          <div className="flex gap-2 items-center mt-1">
+            <input
+              readOnly
+              value={feedUrl}
+              className="utc-calendar-feed-input"
+              onFocus={(e) => e.target.select()}
+            />
+            <button
+              type="button"
+              className="utc-calendar-copy-btn"
+              onClick={async () => {
+                await navigator.clipboard?.writeText(feedUrl).catch(() => undefined);
+                notify.success('Đã sao chép link đăng ký!');
+              }}
+            >
+              Sao chép
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="utc-calendar-notice">
+        <span>🔒</span>
+        <p>Link đăng ký là mã bảo mật riêng của bạn — không chia sẻ cho người khác.</p>
+      </div>
     </div>
   );
 }

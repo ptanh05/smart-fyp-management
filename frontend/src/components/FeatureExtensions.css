@@ -1,0 +1,523 @@
+/* ==========================================================================
+   FeatureExtensions Styles - UTC Design System
+   Submission Versions Panel & Calendar Sync
+   ========================================================================== */
+
+.utc-feature-card {
+  background: #ffffff;
+  border: 1px solid #d8e5f8;
+  border-top: 4px solid #2D469E;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(45, 70, 158, 0.06);
+  transition: all 0.25s ease;
+  color: #1e293b;
+  display: flex;
+  flex-direction: column;
+}
+
+.utc-feature-card:hover {
+  box-shadow: 0 8px 28px rgba(45, 70, 158, 0.1);
+  border-color: #bfdbfe;
+}
+
+.utc-feature-card-header {
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 12px;
+}
+
+.utc-feature-card-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #1e3a8a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px 0;
+}
+
+.utc-feature-card-subtitle {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Submission Form */
+.utc-version-form {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.utc-version-form-grid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .utc-version-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.utc-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.utc-field-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.utc-version-select {
+  height: 38px;
+  padding: 6px 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.utc-version-select:focus {
+  border-color: #2D469E;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.12);
+}
+
+.utc-version-file-input {
+  height: 38px;
+  padding: 4px 8px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #475569;
+  font-size: 0.78rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.utc-version-file-input::-webkit-file-upload-button {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border: 1px solid #bfdbfe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-right: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.utc-version-file-input::-webkit-file-upload-button:hover {
+  background: #dbeafe;
+}
+
+.utc-version-text-input {
+  height: 38px;
+  padding: 6px 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-size: 0.82rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+.utc-version-text-input:focus {
+  border-color: #2D469E;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45, 70, 158, 0.12);
+}
+
+.utc-btn-submit-version {
+  height: 38px;
+  padding: 0 16px;
+  background: linear-gradient(135deg, #2D469E 0%, #1e3a8a 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(45, 70, 158, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.utc-btn-submit-version:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(45, 70, 158, 0.35);
+}
+
+.utc-btn-submit-version:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Version List */
+.utc-version-empty {
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.utc-version-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.utc-version-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  transition: all 0.15s ease;
+}
+
+.utc-version-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.utc-version-item-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.utc-version-badge {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid #bae6fd;
+}
+
+.utc-version-kind {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #1e293b;
+}
+
+.utc-version-filename {
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-decoration: none;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.utc-version-filename:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
+.utc-version-item-footer {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #64748b;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 6px;
+}
+
+.utc-version-note {
+  font-style: italic;
+  color: #475569;
+  background: #ffffff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Similarity Badge */
+.utc-similarity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.utc-similarity-badge.low {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.utc-similarity-badge.medium {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.utc-similarity-badge.high {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.utc-similarity-badge.unsupported {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* Calendar Sync Panel */
+.utc-calendar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.utc-calendar-btn {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.utc-calendar-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+}
+
+.utc-calendar-btn.primary {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+}
+
+.utc-calendar-btn.primary:hover {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+}
+
+.utc-calendar-btn.warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1.5px solid #fde68a;
+}
+
+.utc-calendar-btn.warning:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.utc-calendar-feed-box {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.utc-calendar-feed-input {
+  height: 34px;
+  padding: 4px 10px;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-size: 0.78rem;
+  font-family: monospace;
+  flex: 1;
+}
+
+.utc-calendar-copy-btn {
+  height: 34px;
+  padding: 0 14px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.78rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.utc-calendar-copy-btn:hover {
+  background: #1d4ed8;
+}
+
+.utc-calendar-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.utc-calendar-notice span {
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: -1px;
+}
+
+.utc-calendar-notice p {
+  margin: 0;
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] .utc-feature-card {
+  background: #1e293b;
+  border-color: #334155;
+  border-top-color: #3b82f6;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .utc-feature-card-header {
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .utc-feature-card-title {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .utc-feature-card-subtitle {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .utc-version-form {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .utc-field-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .utc-version-select,
+[data-theme="dark"] .utc-version-file-input,
+[data-theme="dark"] .utc-version-text-input {
+  background-color: #1e293b;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .utc-version-empty {
+  background: #0f172a;
+  border-color: #475569;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .utc-version-item {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .utc-version-item:hover {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .utc-version-kind {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .utc-version-item-footer {
+  border-top-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .utc-version-note {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .utc-calendar-btn {
+  background: #1e293b;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .utc-calendar-feed-box {
+  background: #0f172a;
+  border-color: #1e40af;
+}
+
+[data-theme="dark"] .utc-calendar-feed-input {
+  background: #1e293b;
+  border-color: #3b82f6;
+  color: #bfdbfe;
+}
+
+[data-theme="dark"] .utc-calendar-notice {
+  background: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
