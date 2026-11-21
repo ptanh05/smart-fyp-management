@@ -1,7 +1,7 @@
-/* Banner thông báo cookie — góc dưới bên trái (tránh nút FAB bên phải), dưới modal/dialog */
+/* Banner thông báo cookie — góc dưới bên phải, dưới modal/dialog */
 .cookie-consent {
   position: fixed;
-  left: 24px;
+  right: 24px;
   bottom: 24px;
   z-index: 9990;
   width: min(440px, calc(100% - 48px));
