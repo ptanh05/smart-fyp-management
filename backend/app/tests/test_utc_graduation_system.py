@@ -10,6 +10,7 @@ from app.models import (
     Supervisor,
     SupervisorQuota,
     ProjectTopicArea,
+    StudentPreference,
     InternshipInfo,
     GraduationProject,
     ProposedAllocation,
@@ -193,6 +194,56 @@ class UTCGraduationSystemTests(APITestCase):
         self.assertEqual(info.preferred_supervisor, self.sup1)
         self.student.refresh_from_db()
         self.assertEqual(self.student.phone_number, "0987654321")
+
+    def test_student_survey_phone_validation(self):
+        """Test validation of phone_number in student survey"""
+        self.batch.current_stage = "PHASE_2_ALLOCATING"
+        self.batch.save()
+
+        # Student 1 for bad phone
+        student_bad_user = CustomUser.objects.create_user(
+            username="std_phone_bad", email="phone_bad@utc.edu.vn", password="password123", user_type="student"
+        )
+        Student.objects.create(
+            user=student_bad_user,
+            registration_no="201200198",
+            academic_batch=self.batch,
+            degree_program="BACHELOR",
+            is_eligible_for_thesis=True,
+            cpa=3.2
+        )
+        self.client.force_authenticate(user=student_bad_user)
+
+        res_bad = self.client.post("/app/student/survey/", {
+            "topic_direction": self.topic_software.id,
+            "preference_1": self.sup1.id,
+            "phone_number": "09123"
+        })
+        self.assertEqual(res_bad.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("phone_number", res_bad.data)
+
+        # Student 2 for good phone
+        student_ok_user = CustomUser.objects.create_user(
+            username="std_phone_ok", email="phone_ok@utc.edu.vn", password="password123", user_type="student"
+        )
+        student_ok = Student.objects.create(
+            user=student_ok_user,
+            registration_no="201200199",
+            academic_batch=self.batch,
+            degree_program="BACHELOR",
+            is_eligible_for_thesis=True,
+            cpa=3.2
+        )
+        self.client.force_authenticate(user=student_ok_user)
+
+        res_ok = self.client.post("/app/student/survey/", {
+            "topic_direction": self.topic_software.id,
+            "preference_1": self.sup1.id,
+            "phone_number": "+84987654321"
+        })
+        self.assertEqual(res_ok.status_code, status.HTTP_200_OK)
+        student_ok.refresh_from_db()
+        self.assertEqual(student_ok.phone_number, "0987654321")
 
     def test_outline_submission_and_supervisor_review(self):
         """Test outline submission and approval lifecycle"""
@@ -1411,6 +1462,96 @@ class UTCGraduationSystemTests(APITestCase):
         # Kiểm tra đề tài trong hội đồng đã được gán phản biện đúng chuyên môn
         proj_ai.refresh_from_db()
         self.assertEqual(proj_ai.reviewer, ai_sup)
+
+    def test_supervisor_graduation_projects_stage2_batch_filtering(self):
+        """Test API /supervisor/graduation-projects/?batch_id=X chỉ trả về sinh viên GĐ 2 thuộc đúng đợt X"""
+        # Đợt 2 (đợt cũ / đợt khác)
+        batch2 = AcademicBatch.objects.create(
+            batch_code="2025_OLD_BATCH",
+            batch_name="Đợt ĐATN cũ",
+            is_active=True,
+            current_stage="PHASE_2_ALLOCATING"
+        )
+
+        # Sinh viên 1 thuộc self.batch
+        u1 = CustomUser.objects.create_user(
+            username="sv_batch1_test", email="sv1_test@utc.edu.vn", password="password123",
+            first_name="An", last_name="Trần Văn", user_type="student"
+        )
+        st1 = Student.objects.create(
+            user=u1, registration_no="SV_B1_001", academic_batch=self.batch, course_class=self.course_class
+        )
+        StudentPreference.objects.create(
+            student=st1, batch=self.batch, preference_1=self.sup1, topic_direction=self.topic_software
+        )
+        InternshipInfo.objects.create(
+            student=st1, batch=self.batch, is_interning=True, company_name="FPT", tentative_title="Đề tài Đợt 1"
+        )
+
+        # Sinh viên 2 thuộc batch2
+        u2 = CustomUser.objects.create_user(
+            username="sv_batch2_test", email="sv2_test@utc.edu.vn", password="password123",
+            first_name="Bình", last_name="Lê Thị", user_type="student"
+        )
+        st2 = Student.objects.create(
+            user=u2, registration_no="SV_B2_002", academic_batch=batch2
+        )
+        StudentPreference.objects.create(
+            student=st2, batch=batch2, preference_1=self.sup1, topic_direction=self.topic_ai
+        )
+        InternshipInfo.objects.create(
+            student=st2, batch=batch2, is_interning=False, tentative_title="Đề tài Đợt Cũ"
+        )
+
+        # Đăng nhập GVHD (self.sup1_user)
+        self.client.force_authenticate(user=self.sup1_user)
+
+        # Gọi API với self.batch.id -> Chỉ thấy st1, không thấy st2
+        res1 = self.client.get(f"/api/supervisor/graduation-projects/?batch_id={self.batch.id}")
+        self.assertEqual(res1.status_code, status.HTTP_200_OK)
+        reg_nos_1 = [item.get("student_reg_no") for item in res1.data]
+        self.assertIn("SV_B1_001", reg_nos_1)
+        self.assertNotIn("SV_B2_002", reg_nos_1)
+
+        # Gọi API với batch2.id -> Chỉ thấy st2, không thấy st1
+        res2 = self.client.get(f"/api/supervisor/graduation-projects/?batch_id={batch2.id}")
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+        reg_nos_2 = [item.get("student_reg_no") for item in res2.data]
+        self.assertIn("SV_B2_002", reg_nos_2)
+        self.assertNotIn("SV_B1_001", reg_nos_2)
+
+    def test_supervisor_allocation_notification_sync(self):
+        """Test Giảng viên tự động nhận thông báo kết quả phân công GVHD khi mở danh sách thông báo"""
+        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.is_allocation_published = True
+        self.batch.save()
+
+        # Tạo đồ án cho sinh viên được gán cho self.sup1
+        GraduationProject.objects.create(
+            student=self.student,
+            supervisor=self.sup1,
+            batch=self.batch,
+            topic_category=self.topic_software,
+            topic_title_vi="Hệ thống quản lý thông minh",
+            status="ALLOCATED"
+        )
+
+        # Đăng nhập GVHD (self.sup1_user)
+        self.client.force_authenticate(user=self.sup1_user)
+
+        # Gọi API lấy thông báo: GET /api/notifications/
+        res = self.client.get("/api/notifications/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Kiểm tra thông báo phân công đã được tạo tự động cho GV
+        titles = [n["title"] for n in res.data["results"]]
+        self.assertTrue(any("Kết quả phân công GVHD" in t for t in titles))
+
+        # Kiểm tra số lượng thông báo chưa đọc: GET /api/notifications/unread-count/
+        res_count = self.client.get("/api/notifications/unread-count/")
+        self.assertEqual(res_count.status_code, status.HTTP_200_OK)
+        self.assertGreater(res_count.data["unread_count"], 0)
+
 
 
 

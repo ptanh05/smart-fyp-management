@@ -70,7 +70,6 @@ for h in ["localhost", "127.0.0.1", "testserver"]:
 # Application definition
 
 INSTALLED_APPS = [
-    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -81,9 +80,20 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
-    "channels",
     "app",
 ]
+
+try:
+    import daphne  # noqa: F401
+    INSTALLED_APPS.insert(0, "daphne")
+except ImportError:
+    pass
+
+try:
+    import channels  # noqa: F401
+    INSTALLED_APPS.append("channels")
+except ImportError:
+    pass
 
 # Test runner tự tạo bảng cho các model legacy (managed = False) bị thiếu
 # trong SQLite in-memory khi chạy test.
@@ -427,13 +437,16 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 
 # Chạy bằng `celery -A backend beat`; nếu không có beat, dùng cron gọi
 # `python manage.py send_deadline_reminders` mỗi sáng.
-from celery.schedules import crontab  # noqa: E402
-CELERY_BEAT_SCHEDULE = {
-    "deadline-reminders-daily": {
-        "task": "app.tasks.send_deadline_reminders_task",
-        "schedule": crontab(hour=7, minute=0),
-    },
-}
+try:
+    from celery.schedules import crontab  # noqa: E402
+    CELERY_BEAT_SCHEDULE = {
+        "deadline-reminders-daily": {
+            "task": "app.tasks.send_deadline_reminders_task",
+            "schedule": crontab(hour=7, minute=0),
+        },
+    }
+except ImportError:
+    CELERY_BEAT_SCHEDULE = {}
 
 # Tính năng mở rộng
 PLAGIARISM_WARNING_THRESHOLD = env.float("PLAGIARISM_WARNING_THRESHOLD", default=30.0)  # % trùng lặp

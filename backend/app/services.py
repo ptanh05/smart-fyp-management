@@ -108,7 +108,94 @@ class NotificationService:
     def sync_student_graduation_notifications(user):
         """Tự động đồng bộ các thông báo quan trọng từ Admin/Khoa cho sinh viên nếu chưa được gửi."""
         try:
-            if not user or getattr(user, "user_type", "") != "student":
+            if not user:
+                return
+
+            # 1. Tự động đồng bộ thông báo cho Giảng viên hướng dẫn
+            if getattr(user, "user_type", "") == "supervisor":
+                supervisor = getattr(user, "supervisor_profile", None)
+                if not supervisor:
+                    return
+
+                supervised_projects = list(
+                    GraduationProject.objects.filter(
+                        supervisor=supervisor, student__isnull=False
+                    ).select_related("batch", "student__user")
+                )
+
+                batches_map = {}
+                for p in supervised_projects:
+                    b = p.batch
+                    if b not in batches_map:
+                        batches_map[b] = []
+                    batches_map[b].append(p)
+
+                quotas = SupervisorQuota.objects.filter(supervisor=supervisor).select_related("batch")
+                for q in quotas:
+                    if q.batch and q.batch not in batches_map:
+                        batches_map[q.batch] = []
+
+                for batch, projs in batches_map.items():
+                    is_locked_or_published = (
+                        getattr(batch, "is_allocation_published", False) or
+                        getattr(batch, "current_stage", "") in [
+                            "PHASE_2_LOCKED", "PHASE_3_TOPIC", "PHASE_4_ELIGIBILITY",
+                            "PHASE_5_IN_PROGRESS", "PHASE_6_DEFENSE", "COMPLETED"
+                        ]
+                    )
+                    if not is_locked_or_published:
+                        continue
+
+                    b_name = batch.batch_name or batch.batch_code
+                    has_notif = Notification.objects.filter(
+                        user=user,
+                        title__icontains="Kết quả phân công GVHD"
+                    ).filter(title__icontains=b_name).exists()
+
+                    if not has_notif:
+                        sup_title = supervisor.academic_title or "Thầy/Cô"
+                        sup_name = user.get_full_name() or user.username
+                        count = len(projs)
+
+                        if count > 0:
+                            st_names = []
+                            for pr in projs:
+                                su = pr.student.user
+                                name = f"{su.last_name} {su.first_name}".strip() if (su.last_name or su.first_name) else (su.get_full_name() or su.username)
+                                st_names.append(f"{pr.student.registration_no} - {name}")
+                            preview = ", ".join(st_names[:4])
+                            if count > 4:
+                                preview += f" và {count - 4} sinh viên khác"
+
+                            title = f"🎉 [Kết quả phân công GVHD] Danh sách sinh viên hướng dẫn - {b_name}"
+                            msg = (
+                                f"Kính gửi {sup_title} {sup_name},\n"
+                                f"Khoa CNTT đã công bố kết quả phân công Giảng viên hướng dẫn cho Đợt '{b_name}'.\n"
+                                f"Thầy/Cô được phân công hướng dẫn {count} sinh viên: {preview}.\n"
+                                f"Vui lòng truy cập Cổng Giảng viên để theo dõi danh sách chi tiết và phối hợp cùng sinh viên xây dựng bản thảo đề tài (Giai đoạn 3)."
+                            )
+                            action_url = "/supervisor/dashboard?tab=utc_graduation&subtab=students"
+                        else:
+                            title = f"📢 [Kết quả phân công GVHD] Thông báo đợt - {b_name}"
+                            msg = (
+                                f"Kính gửi {sup_title} {sup_name},\n"
+                                f"Khoa CNTT đã công bố kết quả phân công GVHD cho Đợt '{b_name}'.\n"
+                                f"Trong đợt này, Thầy/Cô hiện chưa được phân công sinh viên."
+                            )
+                            action_url = "/supervisor/dashboard?tab=utc_graduation"
+
+                        Notification.objects.create(
+                            user=user,
+                            notification_type="system",
+                            title=title,
+                            message=msg,
+                            action_url=action_url,
+                            is_read=False,
+                        )
+                return
+
+            # 2. Tự động đồng bộ thông báo cho Sinh viên
+            if getattr(user, "user_type", "") != "student":
                 return
             student = getattr(user, "student_profile", None)
             if not student:

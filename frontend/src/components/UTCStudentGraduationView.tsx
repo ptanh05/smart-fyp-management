@@ -7,10 +7,12 @@ import type { ThesisDeferralRequest } from '../types';
 import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
 import { formatFullName } from '../utils/nameHelper';
+import { isValidEmail, validatePhoneNumber, cleanPhoneNumber } from '../utils/validation';
 import './UTCStudentGraduationView.css';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
 import { CalendarSyncButtons, SubmissionVersionsPanel, TopicSimilarityHint } from './FeatureExtensions';
+import DocumentViewerModal from './DocumentViewerModal';
 
 
 export interface UTCStudentGraduationViewProps {
@@ -31,6 +33,21 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
   // Project Data
   const [projectData, setProjectData] = useState<any>(initialProjectData || null);
+
+  // Document Viewer Modal State
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState('');
+  const [viewerTitle, setViewerTitle] = useState('');
+
+  const handleOpenViewer = (url: string, title?: string) => {
+    if (!url) {
+      notify.warning('Không tìm thấy đường dẫn tệp đề cương.');
+      return;
+    }
+    setViewerUrl(url);
+    setViewerTitle(title || 'Xem tệp Đề cương ĐATN');
+    setViewerOpen(true);
+  };
 
   useEffect(() => {
     if (initialProjectData && !projectData) {
@@ -133,7 +150,11 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const [tentativeTitle, setTentativeTitle] = useState('');
   const [showAllSupervisors, setShowAllSupervisors] = useState(false);
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | undefined>();
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | undefined>();
+  const [emailTouched, setEmailTouched] = useState(false);
   const [surveySaving, setSurveySaving] = useState(false);
 
   // Lọc & đề xuất giảng viên theo chuyên ngành (hướng nghiên cứu) đã chọn
@@ -155,12 +176,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const [outlineTitleEn, setOutlineTitleEn] = useState('');
   const [outlineFile, setOutlineFile] = useState<File | null>(null);
   const [outlineSubmitting, setOutlineSubmitting] = useState(false);
-  const [draftTopicVi, setDraftTopicVi] = useState('');
-  const [draftTopicEn, setDraftTopicEn] = useState('');
-  const [savingDraftTopic, setSavingDraftTopic] = useState(false);
   const [generatingOutlinePdf, setGeneratingOutlinePdf] = useState(false);
-  const [signedOutlineFile, setSignedOutlineFile] = useState<File | null>(null);
-  const [uploadingSignedOutline, setUploadingSignedOutline] = useState(false);
 
   // Weekly Reports Data
   const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
@@ -237,8 +253,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         setProjectData(projRes.data.project);
         setOutlineTitleVi(projRes.data.project.topic_title_vi || '');
         setOutlineTitleEn(projRes.data.project.topic_title_en || '');
-        setDraftTopicVi(projRes.data.project.topic_title_vi || '');
-        setDraftTopicEn(projRes.data.project.topic_title_en || '');
       }
 
       if (weeklyRes?.data) {
@@ -350,6 +364,26 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
   const handleSaveSurvey = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPhoneTouched(true);
+    setEmailTouched(true);
+
+    const pError = validatePhoneNumber(phone, true);
+    if (pError) {
+      setPhoneError(pError);
+      notify.error(pError);
+      return;
+    }
+    setPhoneError(undefined);
+
+    if (email && !isValidEmail(email)) {
+      const eError = 'Email liên hệ không đúng định dạng';
+      setEmailError(eError);
+      notify.error(eError);
+      return;
+    }
+    setEmailError(undefined);
+
+    const cleanPhone = cleanPhoneNumber(phone);
     try {
       setSurveySaving(true);
       const res = await apiClient.post(
@@ -364,8 +398,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           preference_3: preference3Id || null,
           secondary_criteria_note: secondaryCriteriaNote,
           tentative_title: tentativeTitle,
-          phone_number: phone,
-          email: email,
+          phone_number: cleanPhone,
+          email: email.trim(),
         },
         { headers: getHeaders() }
       );
@@ -378,6 +412,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       fetchData();
     } catch (err: any) {
       const msg =
+        err.response?.data?.phone_number?.[0] ||
+        err.response?.data?.email?.[0] ||
         err.response?.data?.error ||
         err.response?.data?.detail ||
         err.response?.data?.preference_1?.[0] ||
@@ -387,28 +423,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       notify.error('Lỗi: ' + msg);
     } finally {
       setSurveySaving(false);
-    }
-  };
-
-  const handleSaveDraftTopic = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!projectData?.id || !draftTopicVi.trim()) {
-      notify.warning('Vui lòng nhập tên đề tài tiếng Việt.');
-      return;
-    }
-    try {
-      setSavingDraftTopic(true);
-      await apiService.submitTopicDraft({
-        project_id: projectData.id,
-        topic_title_vi: draftTopicVi.trim(),
-        topic_title_en: draftTopicEn.trim(),
-      });
-      notify.success('Đã cập nhật bản thảo đề tài (Draft)! Đang chờ GVHD xác nhận.');
-      fetchData();
-    } catch (err: any) {
-      notifyError('Lỗi lưu đề tài', err);
-    } finally {
-      setSavingDraftTopic(false);
     }
   };
 
@@ -429,25 +443,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       notifyError('Lỗi xuất PDF đề cương', err);
     } finally {
       setGeneratingOutlinePdf(false);
-    }
-  };
-
-  const handleUploadSignedOutline = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!projectData?.id || !signedOutlineFile) {
-      notify.warning('Vui lòng chọn file đề cương PDF đã có chữ ký.');
-      return;
-    }
-    try {
-      setUploadingSignedOutline(true);
-      await apiService.uploadSignedOutline(projectData.id, signedOutlineFile);
-      notify.success('Đã nộp đề cương có chữ ký thành công! Khoa đã lưu hồ sơ.');
-      setSignedOutlineFile(null);
-      fetchData();
-    } catch (err: any) {
-      notifyError('Lỗi nộp hồ sơ đề cương', err);
-    } finally {
-      setUploadingSignedOutline(false);
     }
   };
 
@@ -1006,23 +1001,84 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           <form onSubmit={handleSaveSurvey} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Số điện thoại liên hệ</label>
-                <input
-                  type="text"
-                  placeholder="0912345678"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="utc-form-input"
-                />
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  Số điện thoại liên hệ <span className="text-rose-500 font-bold">(*)</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    placeholder="VD: 0912345678"
+                    value={phone}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPhone(val);
+                      if (phoneTouched) {
+                        setPhoneError(validatePhoneNumber(val, true));
+                      }
+                    }}
+                    onBlur={() => {
+                      setPhoneTouched(true);
+                      setPhoneError(validatePhoneNumber(phone, true));
+                    }}
+                    className={`utc-form-input w-full ${
+                      phoneError
+                        ? 'border-rose-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-rose-50/20'
+                        : phoneTouched && phone && !phoneError
+                        ? 'border-emerald-500 focus:border-emerald-500 bg-emerald-50/10'
+                        : ''
+                    }`}
+                  />
+                  {phoneTouched && phone && !phoneError && (
+                    <span className="absolute right-3 top-2.5 text-emerald-500 text-sm font-bold" title="Số điện thoại hợp lệ">✓</span>
+                  )}
+                </div>
+                {phoneError ? (
+                  <p className="mt-1 text-xs text-rose-500 font-medium flex items-center gap-1">
+                    <span>⚠️</span> {phoneError}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Gồm 10 chữ số di động (bắt đầu bằng 03, 05, 07, 08, 09)
+                  </p>
+                )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Email liên hệ</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="utc-form-input"
-                />
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  Email liên hệ <span className="text-rose-500 font-bold">(*)</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    placeholder="VD: sinhvien@utc.edu.vn"
+                    value={email}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEmail(val);
+                      if (emailTouched) {
+                        setEmailError(!isValidEmail(val) ? 'Email liên hệ không đúng định dạng' : undefined);
+                      }
+                    }}
+                    onBlur={() => {
+                      setEmailTouched(true);
+                      setEmailError(!isValidEmail(email) ? 'Email liên hệ không đúng định dạng' : undefined);
+                    }}
+                    className={`utc-form-input w-full ${
+                      emailError
+                        ? 'border-rose-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 bg-rose-50/20'
+                        : emailTouched && email && !emailError
+                        ? 'border-emerald-500 focus:border-emerald-500 bg-emerald-50/10'
+                        : ''
+                    }`}
+                  />
+                  {emailTouched && email && !emailError && (
+                    <span className="absolute right-3 top-2.5 text-emerald-500 text-sm font-bold" title="Email hợp lệ">✓</span>
+                  )}
+                </div>
+                {emailError && (
+                  <p className="mt-1 text-xs text-rose-500 font-medium flex items-center gap-1">
+                    <span>⚠️</span> {emailError}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1234,233 +1290,32 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         </div>
       )}
 
-      {/* Tab 3: Outline Submission & Phase 3 Topic Draft */}
+      {/* Tab 3: Outline Submission (Single Official Flow) */}
       {activeTab === 'outline' && (
         <div className="utc-graduation-card space-y-6 w-full max-w-none">
-          <div className="utc-card-header">
-            <h3 className="utc-card-title">
-              <span>📄</span>
-              <span>Xây dựng Đề tài & Nộp Đề cương ĐATN (Giai đoạn 3)</span>
-            </h3>
-            <p className="utc-card-subtitle">
-              Quy trình: Thảo luận Đề tài Draft → GVHD xác nhận → Khoa duyệt → Xuất PDF → Ký nộp lưu hồ sơ
-            </p>
-          </div>
-
-          {/* Phase 3: Draft Topic Section */}
-          <div className="utc-sub-card space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-900/40 pb-3">
-              <div>
-                <h4 className="utc-sub-card-title text-sm font-bold">1. Bản thảo Đề tài (Topic Draft & Approval)</h4>
-                <p className="text-[11px] text-slate-400">GV và SV cùng xác định tên đề tài trước khi trình Khoa phê duyệt.</p>
-              </div>
-              {(() => {
-                const isTopicApproved = projectData?.topic_review_status === 'APPROVED' || projectData?.status === 'TOPIC_APPROVED';
-                const isTopicRevision = projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION';
-                const isTopicConfirmed = projectData?.topic_review_status === 'GV_CONFIRMED' || projectData?.status === 'TOPIC_CONFIRMED' || projectData?.status === 'PENDING_REVIEW';
-
-                return (
-                  <span className={`text-xs px-2.5 py-1 rounded font-bold border ${
-                    isTopicApproved ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold' :
-                    isTopicRevision ? 'bg-rose-50 text-rose-800 border-rose-300 font-bold animate-pulse' :
-                    isTopicConfirmed ? 'bg-blue-50 text-blue-800 border border-blue-300 font-semibold' :
-                    'bg-amber-50 text-amber-800 border border-amber-300 font-semibold'
-                  }`}>
-                    {isTopicApproved ? '✅ Khoa đã phê duyệt đề tài' :
-                     isTopicRevision ? '⚠️ Khoa yêu cầu sửa đề tài' :
-                     isTopicConfirmed ? '⏳ GV đã xác nhận / Chờ Khoa duyệt' :
-                     'Bản thảo (Draft)'}
-                  </span>
-                );
-              })()}
+          <div className="utc-card-header flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="utc-card-title flex items-center gap-2">
+                <span>📄</span>
+                <span>Nộp Đề Cương Đồ Án Tốt Nghiệp (Giai đoạn 3)</span>
+              </h3>
+              <p className="utc-card-subtitle mt-1">
+                Quy trình thẩm định 2 cấp: Sinh viên nộp đề cương ➔ GVHD thẩm định & chốt duyệt ➔ Khoa phê duyệt chính thức ➔ Mở GĐ 4 (Báo cáo tuần)
+              </p>
             </div>
-
-            {/* Banner: Khoa yêu cầu sửa đề tài */}
-            {(projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION') && (
-              <div className="utc-action-banner-revision space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🚨</span>
-                  <span className="font-bold text-sm text-rose-950">Khoa CNTT Yêu Cầu Chỉnh Sửa Lại Đề Tài:</span>
-                </div>
-                <div className="p-2.5 rounded-lg bg-white/80 border border-rose-200 text-rose-950 font-mono text-xs">
-                  "{projectData?.topic_revision_notes || 'Cần điều chỉnh nội dung nghiên cứu theo góp ý của Khoa'}"
-                </div>
-                <p className="text-rose-800 text-xs font-medium">
-                  Vui lòng điều chỉnh lại tên đề tài bên dưới, trao đổi với GVHD và bấm <b>"Lưu & Nộp Lại Bản Thảo"</b> để gửi lại cho Khoa xét duyệt.
-                </p>
-              </div>
-            )}
-
-            {/* Banner: Khoa đã duyệt đề tài */}
-            {(projectData?.topic_review_status === 'APPROVED' || projectData?.status === 'TOPIC_APPROVED') && (
-              <div className="utc-action-banner-approved space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🎉</span>
-                  <span className="font-bold text-sm">Đề Tài Đã Được Khoa Phê Duyệt Chính Thức</span>
-                </div>
-                <p className="text-xs leading-relaxed font-medium">
-                  Tên đề tài đã được chốt và khóa chỉnh sửa. Vui lòng chuyển xuống <b>Mục 2 (Tải Đề Cương Tự Động)</b> để xuất PDF, in lấy chữ ký GVHD và tải bản scan lên <b>Mục 3 (Ký Nộp Đề Cương)</b>.
-                </p>
-              </div>
-            )}
-
-            {projectData ? (
-              <form onSubmit={handleSaveDraftTopic} className="space-y-3 text-xs">
-                <div>
-                  <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Việt (Bản thảo) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={draftTopicVi}
-                    onChange={(e) => setDraftTopicVi(e.target.value)}
-                    disabled={projectData?.topic_review_status === 'APPROVED' || projectData?.status === 'TOPIC_APPROVED'}
-                    placeholder="VD: Nghiên cứu xây dựng ứng dụng hỗ trợ phân luồng giao thông thông minh..."
-                    className="utc-form-input disabled:opacity-60 text-xs"
-                  />
-                  {projectData?.topic_review_status !== 'APPROVED' && projectData?.status !== 'TOPIC_APPROVED' && (
-                    <TopicSimilarityHint title={draftTopicVi} projectId={projectData?.id} />
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Anh</label>
-                  <input
-                    type="text"
-                    value={draftTopicEn}
-                    onChange={(e) => setDraftTopicEn(e.target.value)}
-                    disabled={projectData?.topic_review_status === 'APPROVED' || projectData?.status === 'TOPIC_APPROVED'}
-                    placeholder="VD: Research and development of an intelligent traffic routing application..."
-                    className="utc-form-input disabled:opacity-60 text-xs"
-                  />
-                </div>
-
-                {projectData?.topic_review_status !== 'APPROVED' && projectData?.status !== 'TOPIC_APPROVED' && (
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="submit"
-                      disabled={savingDraftTopic}
-                      className={
-                        projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION'
-                          ? 'utc-btn utc-btn-topic-save-revision'
-                          : 'utc-btn utc-btn-topic-save'
-                      }
-                    >
-                      <span>
-                        {projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION'
-                          ? '🚀'
-                          : '💾'}
-                      </span>
-                      <span>
-                        {savingDraftTopic
-                          ? 'Đang lưu...'
-                          : projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.status === 'TOPIC_REVISION'
-                          ? 'Lưu & Nộp Lại Bản Thảo Đề Tài'
-                          : 'Lưu Bản Thảo Đề Tài (Draft)'}
-                      </span>
-                    </button>
-                  </div>
-                )}
-              </form>
-            ) : (
-              <p className="text-xs text-slate-400 italic">Chưa được khởi tạo đồ án trong đợt.</p>
+            {projectData && (
+              <button
+                type="button"
+                onClick={handleExportOutlinePdf}
+                disabled={generatingOutlinePdf}
+                className="utc-btn utc-btn-export-pdf text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-2 shrink-0 border border-blue-400/30 hover:border-blue-400 transition"
+                title="Tải biểu mẫu đề cương chi tiết chuẩn UTC"
+              >
+                <span>📄</span>
+                <span>{generatingOutlinePdf ? 'Đang xuất PDF...' : 'Tải Mẫu Đề Cương UTC (PDF)'}</span>
+              </button>
             )}
           </div>
-
-          {/* Phase 3: Export Outline PDF & Upload Signed Copy */}
-          {projectData && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Step 24: Generate Outline PDF */}
-              <div className="utc-sub-card space-y-3 text-xs">
-                <div className="space-y-1">
-                  <h4 className="utc-sub-card-title font-bold text-sm">2. Sinh đề cương & file PDF tự động</h4>
-                  <p className="text-slate-400">
-                    Hệ thống tự động xuất biểu mẫu Đề cương chi tiết ĐATN chuẩn UTC dưới định dạng PDF.
-                  </p>
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handleExportOutlinePdf}
-                    disabled={generatingOutlinePdf}
-                    className="utc-btn utc-btn-export-pdf"
-                  >
-                    <span>📄</span>
-                    <span>{generatingOutlinePdf ? 'Đang xuất PDF...' : 'Tải Đề Cương Tự Động (PDF)'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Step 25: Upload Signed Outline */}
-              <div className="utc-sub-card space-y-3 text-xs">
-                <div className="space-y-1">
-                  <h4 className="utc-sub-card-title font-bold text-sm">3. Ký nộp & Lưu hồ sơ Đề cương</h4>
-                  <p className="text-slate-400">
-                    Sau khi in và có đầy đủ chữ ký của SV & GVHD, scan nộp file PDF để Khoa lưu hồ sơ.
-                  </p>
-                </div>
-
-                {projectData.signed_outline_file && (
-                  <div className="p-2.5 rounded-lg border flex items-center justify-between" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
-                    <span className="text-emerald-800 font-semibold">✅ Đã nộp bản ký:</span>
-                    <a
-                      href={projectData.signed_outline_file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline font-bold text-emerald-700 hover:text-emerald-900"
-                    >
-                      Xem hồ sơ ↗
-                    </a>
-                  </div>
-                )}
-
-                <form onSubmit={handleUploadSignedOutline} className="space-y-2 pt-1">
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    required
-                    onChange={(e) => setSignedOutlineFile(e.target.files?.[0] || null)}
-                    className="w-full text-slate-700 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-blue-50 file:text-[#2D469E] file:font-semibold"
-                  />
-                  <button
-                    type="submit"
-                    disabled={uploadingSignedOutline}
-                    className="utc-btn utc-btn-upload-outline"
-                  >
-                    <span>📤</span>
-                    <span>{uploadingSignedOutline ? 'Đang tải lên...' : 'Nộp File Đề Cương Đã Ký'}</span>
-                  </button>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Traditional Outline Review Status */}
-          {projectData?.outline_review && (
-            <div className="utc-outline-review-status-box space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-bold status-title">Tình trạng xét duyệt đề cương chi tiết:</span>
-                <span className={`px-2.5 py-0.5 rounded font-bold ${
-                  projectData.status === 'OUTLINE_APPROVED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                  projectData.outline_review.verdict === 'APPROVED' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                  projectData.outline_review.verdict === 'REVISION_REQUIRED' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                  projectData.outline_review.verdict === 'REJECTED' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                  'bg-blue-500/10 text-blue-400'
-                }`}>
-                  {projectData.status === 'OUTLINE_APPROVED'
-                    ? 'KHOA ĐÃ DUYỆT'
-                    : projectData.outline_review.verdict === 'APPROVED'
-                      ? 'GVHD ĐÃ DUYỆT - CHỜ KHOA/ADMIN'
-                      : projectData.outline_review.verdict}
-                </span>
-              </div>
-              {projectData.outline_review.comments && (
-                <p className="text-slate-400 mt-1">
-                  <b>Nhận xét của GV:</b> {projectData.outline_review.comments}
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Banner hướng dẫn chuyển sang GĐ 4 khi đề cương đã được Khoa duyệt */}
           {projectData?.status === 'OUTLINE_APPROVED' && (
@@ -1571,9 +1426,14 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   </div>
                   {submittedOutlineUrl && (
                     <div className="utc-submitted-outline__actions">
-                      <a href={submittedOutlineUrl} target="_blank" rel="noopener noreferrer" className="utc-outline-action is-primary">
-                        👁 Xem đề cương
-                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenViewer(submittedOutlineUrl, submittedOutlineFileName)}
+                        className="utc-outline-action is-primary flex items-center gap-1.5"
+                      >
+                        <span>👁</span>
+                        <span>Xem đề cương</span>
+                      </button>
                       <button
                         type="button"
                         className="utc-outline-action"
@@ -1623,52 +1483,88 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               </div>
             </section>
           ) : (
-            <form onSubmit={handleSubmitOutline} className="space-y-4 pt-4 border-t border-blue-900/40">
-              <h4 className="utc-sub-card-title font-bold text-sm">
-                {projectData?.status === 'OUTLINE_REVISION' ? 'Cập nhật lại Đề cương theo yêu cầu chỉnh sửa của Giảng viên' : 'Nộp File Tài Liệu Đề Cương Cho Giảng Viên Hướng Dẫn'}
-              </h4>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Tên đề tài tiếng Việt (*)</label>
-                <input
-                  type="text"
-                  required
-                  value={outlineTitleVi}
-                  onChange={(e) => setOutlineTitleVi(e.target.value)}
-                  className="utc-form-input"
-                />
+            <div className="utc-sub-card space-y-4">
+              <div className="border-b border-blue-900/40 pb-3">
+                <h4 className="utc-sub-card-title font-bold text-sm">
+                  {projectData?.status === 'OUTLINE_REVISION'
+                    ? '⚠️ Cập nhật lại Đề cương theo yêu cầu chỉnh sửa của Giảng viên'
+                    : 'Nộp Đề Cương ĐATN Cho Giảng Viên Hướng Dẫn'}
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Nhập tên đề tài chính thức và đính kèm file đề cương chi tiết (PDF) để nộp trực tiếp cho Giảng viên hướng dẫn.
+                </p>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Tên đề tài tiếng Anh</label>
-                <input
-                  type="text"
-                  value={outlineTitleEn}
-                  onChange={(e) => setOutlineTitleEn(e.target.value)}
-                  className="utc-form-input"
-                />
-              </div>
+              {/* Banner: GVHD yêu cầu sửa đề tài / đề cương */}
+              {(projectData?.status === 'OUTLINE_REVISION' || projectData?.topic_review_status === 'REVISION_REQUIRED' || projectData?.outline_review?.verdict === 'REVISION_REQUIRED') && (
+                <div className="utc-action-banner-revision space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🚨</span>
+                    <span className="font-bold text-sm text-rose-950">Yêu Cầu Chỉnh Sửa Lại Đề Cương:</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-white/80 border border-rose-200 text-rose-950 font-mono text-xs">
+                    "{projectData?.outline_review?.comments || projectData?.topic_revision_notes || 'Cần điều chỉnh nội dung nghiên cứu theo góp ý của Giảng viên hướng dẫn'}"
+                  </div>
+                  <p className="text-rose-800 text-xs font-medium">
+                    Vui lòng điều chỉnh lại tên đề tài hoặc tải lên tệp đề cương mới bên dưới và bấm <b>"Nộp Lại Đề Cương Cho GVHD"</b>.
+                  </p>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">File Đề cương PDF (Tối đa 25MB)</label>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  onChange={(e) => setOutlineFile(e.target.files?.[0] || null)}
-                  className="utc-form-input file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500"
-                />
-              </div>
+              <form onSubmit={handleSubmitOutline} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Việt (*)</label>
+                  <input
+                    type="text"
+                    required
+                    value={outlineTitleVi}
+                    onChange={(e) => setOutlineTitleVi(e.target.value)}
+                    placeholder="VD: Nghiên cứu xây dựng ứng dụng hỗ trợ phân luồng giao thông thông minh..."
+                    className="utc-form-input text-xs"
+                  />
+                  <TopicSimilarityHint title={outlineTitleVi} projectId={projectData?.id} />
+                </div>
 
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={outlineSubmitting}
-                  className="utc-btn utc-btn-topic-save"
-                >
-                  <span>🚀</span>
-                  <span>{outlineSubmitting ? 'Đang nộp đề cương...' : projectData?.status === 'OUTLINE_REVISION' ? 'Nộp lại Đề cương cho GVHD' : 'Gửi Đề cương cho Giảng viên duyệt'}</span>
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Tên đề tài tiếng Anh</label>
+                  <input
+                    type="text"
+                    value={outlineTitleEn}
+                    onChange={(e) => setOutlineTitleEn(e.target.value)}
+                    placeholder="VD: Research and development of an intelligent traffic routing application..."
+                    className="utc-form-input text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">File Đề cương PDF (Tối đa 25MB)</label>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => setOutlineFile(e.target.files?.[0] || null)}
+                    className="utc-form-input file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">Định dạng chấp nhận: PDF (.pdf), dung lượng tối đa 25MB.</p>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={outlineSubmitting}
+                    className="utc-btn utc-btn-topic-save"
+                  >
+                    <span>🚀</span>
+                    <span>
+                      {outlineSubmitting
+                        ? 'Đang nộp đề cương...'
+                        : projectData?.status === 'OUTLINE_REVISION'
+                        ? 'Nộp Lại Đề Cương Cho GVHD'
+                        : 'Nộp Đề Cương Cho Giảng Viên Duyệt'}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
           )}
         </div>
       )}
@@ -2688,6 +2584,14 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           </div>
         </div>
       )}
+      {/* Modal xem trước file Đề cương / Tài liệu */}
+      <DocumentViewerModal
+        isOpen={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        title={viewerTitle}
+        documentUrl={viewerUrl}
+        documentType="Đề cương ĐATN"
+      />
     </div>
   );
 };

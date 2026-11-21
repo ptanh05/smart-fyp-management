@@ -145,6 +145,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"[1] Chuyên ngành: {len(topic_map)} mã"))
 
         # 2. Đảm bảo bộ môn tồn tại
+        from app.utils.department_formatter import normalize_department_name
         dept_cache = {d.code: d for d in Department.objects.all()}
         dept_by_code = {}
         for code, (dept_code, dept_name) in TOPIC_DEPARTMENT.items():
@@ -152,8 +153,13 @@ class Command(BaseCommand):
             if dept is None:
                 dept, _ = Department.objects.get_or_create(
                     code=dept_code,
-                    defaults={"name": dept_name},
+                    defaults={"name": normalize_department_name(dept_name, dept_code)},
                 )
+            else:
+                norm_name = normalize_department_name(dept.name, dept.code)
+                if dept.name != norm_name:
+                    dept.name = norm_name
+                    dept.save(update_fields=["name"])
             dept_by_code[code] = dept
         self.stdout.write(self.style.SUCCESS(f"[2] Bộ môn: {len(dept_by_code)} nhóm"))
 

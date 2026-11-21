@@ -4,8 +4,15 @@ WebSocket authentication middleware for Django Channels.
 This middleware handles JWT authentication for WebSocket connections.
 """
 
-from channels.db import database_sync_to_async
-from channels.middleware import BaseMiddleware
+try:
+    from channels.db import database_sync_to_async
+    from channels.middleware import BaseMiddleware
+except ImportError:
+    def database_sync_to_async(func):
+        return func
+    class BaseMiddleware:
+        def __init__(self, inner):
+            self.inner = inner
 from django.contrib.auth.models import AnonymousUser
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError

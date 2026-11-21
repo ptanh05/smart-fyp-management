@@ -618,6 +618,12 @@ class ApiService {
 
   async fetchDocumentBlob(fileUrl: string): Promise<Blob> {
     let targetUrl = fileUrl;
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '').replace(/\/api\/?$/, '');
+      if (rootUrl && targetUrl.startsWith('/')) {
+        targetUrl = `${rootUrl}${targetUrl}`;
+      }
+    }
     if (targetUrl.includes('?')) {
       targetUrl += '&preview=1';
     } else {

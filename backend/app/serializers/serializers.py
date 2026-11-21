@@ -247,6 +247,11 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 class SupervisorProfileSerializer(serializers.ModelSerializer):
     user = CustomUserSerializer(read_only=True)
     timeline_step = serializers.SerializerMethodField(read_only=True)
+    department_name = serializers.SerializerMethodField(read_only=True)
+
+    def get_department_name(self, obj):
+        from app.utils.department_formatter import normalize_department_name
+        return normalize_department_name(getattr(obj, "department_name", None))
 
     def get_timeline_step(self, obj):
         from app.models import AcademicBatch

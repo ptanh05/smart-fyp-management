@@ -260,9 +260,13 @@ class OutlineReviewSerializer(serializers.ModelSerializer):
         return f"{prefix}{name}".strip()
 
     def get_outline_file_url(self, obj):
-        if obj.outline_file:
-            return obj.outline_file.url
-        return ""
+        if not obj.outline_file:
+            return ""
+        url = obj.outline_file.url
+        request = self.context.get("request")
+        if request and not (url.startswith("http://") or url.startswith("https://")):
+            return request.build_absolute_uri(url)
+        return url
 
 
 class WeeklyProgressReportSerializer(serializers.ModelSerializer):
