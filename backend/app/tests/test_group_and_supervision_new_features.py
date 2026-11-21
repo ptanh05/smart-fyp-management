@@ -166,6 +166,8 @@ class GroupAndSupervisionNewFeaturesTests(TestCase):
         Giảng viên tạo lịch gặp trực tuyến (Google Meet) và ghi chú nhật ký hướng dẫn kèm giao việc tuần tới.
         Sinh viên xem được link cuộc họp và nhiệm vụ.
         """
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
+        self.batch.save()
         self.client.force_authenticate(user=self.user_sup)
         res = self.client.post(
             "/app/supervisor/supervision-logs/",

@@ -332,6 +332,9 @@ class SupervisionTaskSerializer(serializers.ModelSerializer):
         read_only_fields = ["assigned_by", "completed_at", "reviewed_at", "is_late", "submitted_at", "created_at", "updated_at"]
 
     def get_submission_history(self, obj):
+        # Danh sách tổng hợp (dashboard GV) không cần lịch sử nộp → tránh N+1 truy vấn AuditLog
+        if self.context.get("include_task_history") is False:
+            return []
         history = []
         logs = AuditLog.objects.filter(
             field_name=f"task:{obj.id}",
@@ -484,6 +487,7 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
     outline_review = OutlineReviewSerializer(read_only=True)
     weekly_reports = WeeklyProgressReportSerializer(many=True, read_only=True)
     final_grade = FinalGradeSummarySerializer(source="final_grade_summary", read_only=True)
+    signed_outline_file = serializers.SerializerMethodField()
     signed_outline_file_url = serializers.SerializerMethodField()
     supervisor_score_is_draft = serializers.SerializerMethodField()
 
@@ -546,10 +550,22 @@ class GraduationProjectDetailSerializer(serializers.ModelSerializer):
             "updated_at"
         ]
 
+    def get_signed_outline_file(self, obj):
+        # `signed_outline_file` trên model là property trả về object stub, không serialize JSON được
+        # (gây lỗi 500 với mọi đồ án đã nộp đề cương ký). Trả về URL dạng chuỗi như frontend đang dùng.
+        return self.get_signed_outline_file_url(obj) or None
+
     def get_signed_outline_file_url(self, obj):
-        if obj.signed_outline_file:
-            return getattr(obj.signed_outline_file, "url", f"/media/outlines/{obj.id}_signed.pdf")
-        return ""
+        path = str(obj.outline_pdf_path or "").strip()
+        if not path:
+            return ""
+        if path.startswith(("http://", "https://", "/")):
+            return path
+        try:
+            from django.core.files.storage import default_storage
+            return default_storage.url(path)
+        except Exception:
+            return f"/media/{path}"
 
     def get_supervisor_score_is_draft(self, obj):
         if obj.supervisor_score is None:

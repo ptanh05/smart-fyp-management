@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import datetime
+import sys
 from typing import List, Optional
 import environ
 import os
@@ -40,6 +41,16 @@ SECRET_KEY = env("SECRET_KEY", default="django-insecure-%96y_=59*y7d#^5sn7)p6^@x
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
+
+# F14: Fail closed in production — never start with an insecure default key.
+# Test runs bypass this guard (sys.argv contains 'test', or DEBUG=True).
+_is_testing = "test" in sys.argv or "pytest" in sys.modules
+if not DEBUG and not _is_testing and SECRET_KEY.startswith("django-insecure-"):
+    from django.core.exceptions import ImproperlyConfigured  # noqa: E402
+    raise ImproperlyConfigured(
+        "SECRET_KEY is set to an insecure development default. "
+        "Set a strong random value in your .env file before running in production."
+    )
 
 raw_allowed_hosts = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "0.0.0.0"]) or []
 ALLOWED_HOSTS: List[str] = [h.replace("https://", "").replace("http://", "").rstrip("/") for h in raw_allowed_hosts if h]
@@ -106,7 +117,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/hour",      # Anonymous users: 100 requests per hour
         "user": "1000/hour",     # Authenticated users: 1000 requests per hour
-        "login": "120/minute" if DEBUG else "10/minute",    # Login attempts: relaxed in dev
+        "login": "10/minute",    # Login attempts: always enforce brute-force limit (F18)
         "password_reset": "5/hour",  # Password reset requests: 5 per hour
     },
 }
@@ -184,8 +195,8 @@ CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
-# Optimize password hashing speed for development
-if DEBUG:
+# MD5 chỉ dùng để tăng tốc khi chạy test; không bao giờ dùng cho tài khoản thật (kể cả DEBUG)
+if 'test' in sys.argv or 'pytest' in sys.argv[0]:
     PASSWORD_HASHERS = [
         "django.contrib.auth.hashers.MD5PasswordHasher",
         "django.contrib.auth.hashers.PBKDF2PasswordHasher",
@@ -413,6 +424,22 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+
+# Chạy bằng `celery -A backend beat`; nếu không có beat, dùng cron gọi
+# `python manage.py send_deadline_reminders` mỗi sáng.
+from celery.schedules import crontab  # noqa: E402
+CELERY_BEAT_SCHEDULE = {
+    "deadline-reminders-daily": {
+        "task": "app.tasks.send_deadline_reminders_task",
+        "schedule": crontab(hour=7, minute=0),
+    },
+}
+
+# Tính năng mở rộng
+PLAGIARISM_WARNING_THRESHOLD = env.float("PLAGIARISM_WARNING_THRESHOLD", default=30.0)  # % trùng lặp
+SCORE_DISCREPANCY_THRESHOLD = env.float("SCORE_DISCREPANCY_THRESHOLD", default=2.0)  # điểm, thang 10
+DATA_RETENTION_YEARS = env.int("DATA_RETENTION_YEARS", default=5)
+ARCHIVE_MAX_EMBARGO_YEARS = env.int("ARCHIVE_MAX_EMBARGO_YEARS", default=3)
 
 # =====================================================================
 # UTC Email Single Sign-On (Google OAuth2) Configuration

@@ -154,6 +154,10 @@ class AuditSecurityAndStateTransitionsTests(APITestCase):
         # 1. ALLOCATED
         self.assertEqual(self.proj_a.status, "ALLOCATED")
 
+        # Advance batch to stage 3 so outline/review endpoints open
+        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.save()
+
         # 2. Outline submitted -> OUTLINE_PENDING
         self.client.force_authenticate(user=self.st_a_user)
         res_out = self.client.post("/app/student/outline/submit/", {
@@ -173,6 +177,10 @@ class AuditSecurityAndStateTransitionsTests(APITestCase):
         self.assertEqual(res_app.status_code, status.HTTP_200_OK)
         self.proj_a.refresh_from_db()
         self.assertEqual(self.proj_a.status, "OUTLINE_PENDING")
+
+        # Advance batch to stage 6 so defense evaluation endpoint opens
+        self.batch.current_stage = "PHASE_6_DEFENSE"
+        self.batch.save()
 
         # 4. Supervisor evaluates and marks defense ready -> DEFENSE_READY
         res_eval = self.client.post("/app/supervisor/defense-evaluation/", {

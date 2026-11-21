@@ -1292,3 +1292,6 @@ try:
     from .legacy_models import *  # noqa: F401, F403
 except ImportError:
     pass
+
+# Tính năng mở rộng: phiên bản bài nộp, rubric, lịch, lưu trữ đồ án
+from .feature_models import *  # noqa: F401, F403, E402

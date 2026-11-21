@@ -356,8 +356,9 @@ def validate_uploaded_file(file_obj, allowed_extensions=None, max_size_bytes=524
         )
 
     # 3. Path traversal / Double extension check
-    base_name = os.path.basename(file_obj.name)
-    if ".." in base_name or "/" in base_name or "\\" in base_name:
+    raw_name = file_obj.name or ""
+    base_name = os.path.basename(raw_name)
+    if ".." in raw_name or "/" in raw_name or "\\" in raw_name or "\x00" in raw_name:
         raise serializers.ValidationError("Tên tệp không hợp lệ.")
 
     # 4. Read header bytes for Magic Byte Inspection

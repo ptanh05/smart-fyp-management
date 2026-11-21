@@ -173,6 +173,8 @@ class TC029toTC038GraduationSystemTests(APITestCase):
     # --------------------------------------------------------------------------
     def test_tc030_topic_resubmit_updates_status_to_pending_review(self):
         """TC-030: Chỉnh sửa và nộp lại đề tài sau khi bị từ chối/yêu cầu sửa -> PENDING_REVIEW"""
+        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.save()
         self.project.status = "TOPIC_REVISION"
         self.project.save(update_fields=["status"])
 
@@ -193,6 +195,8 @@ class TC029toTC038GraduationSystemTests(APITestCase):
     # --------------------------------------------------------------------------
     def test_tc031_late_task_submission_sets_is_late_flag(self):
         """TC-031: SV submit task quá deadline -> Ghi nhận is_late = True, Late Submit"""
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
+        self.batch.save()
         past_date = (timezone.now() - timedelta(days=5)).date()
         task = SupervisionTask.objects.create(
             project=self.project,
@@ -235,6 +239,7 @@ class TC029toTC038GraduationSystemTests(APITestCase):
             f"/app/student/tasks/{task_strict.id}/submit-deliverable/",
             {
                 "deliverable_file": dummy_file2,
+                "student_notes": "Nộp muộn thử nghiệm strict mode",
                 "strict": "true"
             },
             format="multipart"
@@ -643,6 +648,8 @@ class TC029toTC038GraduationSystemTests(APITestCase):
     # --------------------------------------------------------------------------
     def test_flow23_task_deliverable_blocks_disguised_exe_file(self):
         """FLOW_23: SV upload file kết quả giả mạo .exe thay vì .zip/.pdf -> Chặn bằng Magic Bytes"""
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
+        self.batch.save()
         task = SupervisionTask.objects.create(
             project=self.project,
             assigned_by=self.sup1,
@@ -661,7 +668,7 @@ class TC029toTC038GraduationSystemTests(APITestCase):
         )
         res_disguised = self.client.post(
             f"/app/student/tasks/{task.id}/submit-deliverable/",
-            {"deliverable_file": disguised_exe_in_pdf},
+            {"deliverable_file": disguised_exe_in_pdf, "student_notes": "test disguised exe"},
             format="multipart"
         )
         self.assertEqual(res_disguised.status_code, status.HTTP_400_BAD_REQUEST)
@@ -675,7 +682,7 @@ class TC029toTC038GraduationSystemTests(APITestCase):
         )
         res_disguised_zip = self.client.post(
             f"/app/student/tasks/{task.id}/submit-deliverable/",
-            {"deliverable_file": disguised_exe_in_zip},
+            {"deliverable_file": disguised_exe_in_zip, "student_notes": "test disguised zip"},
             format="multipart"
         )
         self.assertEqual(res_disguised_zip.status_code, status.HTTP_400_BAD_REQUEST)
@@ -689,7 +696,7 @@ class TC029toTC038GraduationSystemTests(APITestCase):
         )
         res_direct_exe = self.client.post(
             f"/app/student/tasks/{task.id}/submit-deliverable/",
-            {"deliverable_file": direct_exe},
+            {"deliverable_file": direct_exe, "student_notes": "test direct exe"},
             format="multipart"
         )
         self.assertEqual(res_direct_exe.status_code, status.HTTP_400_BAD_REQUEST)
@@ -703,7 +710,7 @@ class TC029toTC038GraduationSystemTests(APITestCase):
         )
         res_valid = self.client.post(
             f"/app/student/tasks/{task.id}/submit-deliverable/",
-            {"deliverable_file": valid_pdf},
+            {"deliverable_file": valid_pdf, "student_notes": "Báo cáo hoàn chỉnh"},
             format="multipart"
         )
         self.assertEqual(res_valid.status_code, status.HTTP_200_OK)

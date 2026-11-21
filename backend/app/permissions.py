@@ -30,7 +30,7 @@ class IsSupervisor(BasePermission):
 class IsCommitteeMember(BasePermission):
     """
     Cho phép thành viên Hội đồng đánh giá (CouncilMember), 
-    người dùng có user_type == 'committee_member', giảng viên (supervisor) và admin.
+    người dùng có user_type == 'committee_member' và admin. Giảng viên chỉ được vào khi là thành viên hội đồng.
     """
     message = "You must be a committee member to access this resource."
 
@@ -38,7 +38,7 @@ class IsCommitteeMember(BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         user_type = getattr(request.user, 'user_type', None)
-        if user_type in ['committee_member', 'supervisor', 'admin', 'external_examiner']:
+        if user_type in ['committee_member', 'admin'] or request.user.is_staff or request.user.is_superuser:
             return True
         from app.models import CouncilMember
         return CouncilMember.objects.filter(user=request.user).exists()
@@ -205,6 +205,9 @@ class CanManageExternalGroups(BasePermission):
     """
     Quản lý nhóm External: CHỈ Ủy viên Hội đồng và Admin được tạo / xoá.
     External Examiner chỉ được XEM danh sách nhóm được gán cho mình.
+
+    F16 fix: SAFE_METHODS previously returned True for ALL authenticated users.
+    Now restricted to admin, committee_member and external_examiner only.
     """
     message = "Chỉ Ủy viên Hội đồng hoặc Admin được quản lý nhóm External."
 
@@ -212,10 +215,11 @@ class CanManageExternalGroups(BasePermission):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        if getattr(user, 'user_type', None) in ['admin', 'committee_member']:
+        user_type = getattr(user, 'user_type', None)
+        if user_type in ['admin', 'committee_member'] or user.is_staff or user.is_superuser:
             return True
         if request.method in SAFE_METHODS:
-            # Đọc: External Examiner được xem nhóm của mình.
-            return True
+            # Đọc: chỉ External Examiner được xem nhóm được gán cho mình.
+            return user_type == 'external_examiner'
         # Ghi (POST/PUT/PATCH/DELETE): không cho External Examiner.
         return False

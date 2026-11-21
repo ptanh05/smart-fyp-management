@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .permissions import IsSupervisorOrCommitteeMember
+from .permissions import IsSupervisorOrCommitteeMember, IsAdminUserRole
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from .models import (
@@ -194,6 +194,11 @@ def get_project_workflow_stage(project):
 # MODULE 1: BATCH INITIALIZATION & STUDENT IMPORT APIS (TC_031, TC_032, TC_033)
 # ==============================================================================
 
+def _is_faculty_admin(request):
+    """Khoa / Giáo vụ / Admin (is_staff, superuser, user_type admin|academic_staff|giao_vu)."""
+    return IsAdminUserRole().has_permission(request, None)
+
+
 class BatchCreateAPIView(APIView):
     """
     Khoa khởi tạo đợt đồ án mới, thiết lập thời gian bắt đầu và kết thúc (TC_031).
@@ -207,6 +212,11 @@ class BatchCreateAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
+        if not _is_faculty_admin(request):
+            return Response(
+                {"detail": "Chỉ Khoa/Giáo vụ mới được khởi tạo đợt đồ án."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         user = request.user
         data = request.data
         batch_code = str(data.get("batch_code", "")).strip()
@@ -1441,7 +1451,9 @@ class SupervisorGraduationProjectsAPIView(APIView):
             Prefetch("meeting_logs", queryset=meeting_logs_qs),
         ).order_by("student__user__last_name")
 
-        data = list(GraduationProjectDetailSerializer(projects, many=True).data)
+        data = list(GraduationProjectDetailSerializer(
+            projects, many=True, context={"include_task_history": False}
+        ).data)
 
         # Stage 2 students: students who submitted survey preferences choosing this supervisor,
         # but do not have an active GraduationProject assigned yet
@@ -2302,7 +2314,7 @@ class CouncilSubmitScoreAPIView(APIView):
             (council_member.supervisor and project.supervisor == council_member.supervisor)
             or (project.supervisor and project.supervisor.user == user)
             or (hasattr(user, "supervisor_profile") and project.supervisor == user.supervisor_profile)
-            or (council_member.user == project.supervisor.user)
+            or (project.supervisor is not None and council_member.user == project.supervisor.user)
         )
         if is_gvhd:
             return Response(
@@ -2787,7 +2799,7 @@ class CouncilAssignProjectAPIView(APIView):
     """
     API phân công đề tài vào hội đồng bảo vệ có kiểm tra cảnh báo xung đột lợi ích.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSupervisorOrCommitteeMember | IsAdminUserRole]
 
     def post(self, request):
         project_id = request.data.get("project_id")
@@ -2883,7 +2895,7 @@ class CouncilAssignMemberAPIView(APIView):
     và tối ưu hóa phân bổ hướng nghiên cứu (TC_039: Cân bằng Hội đồng: Ưu tiên gán phản biện có cùng lĩnh vực với Đề tài).
     Quy chế: GV hướng dẫn KHÔNG nằm trong hội đồng/phản biện của chính sinh viên đó.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSupervisorOrCommitteeMember | IsAdminUserRole]
 
     def get(self, request):
         """Gợi ý danh sách giảng viên phản biện / ủy viên được tối ưu theo hướng nghiên cứu của các đề tài trong hội đồng"""
@@ -3093,6 +3105,7 @@ class GlobalSearchAPIView(APIView):
             }, status=status.HTTP_200_OK)
 
         results = []
+        is_student_user = getattr(request.user, "user_type", "") == "student"
 
         # 1. Projects (GraduationProject & Project)
         if search_type in ["all", "projects"]:
@@ -3105,7 +3118,10 @@ class GlobalSearchAPIView(APIView):
                 Q(student__user__last_name__icontains=q) |
                 Q(supervisor__user__first_name__icontains=q) |
                 Q(supervisor__user__last_name__icontains=q)
-            ).select_related("student__user", "supervisor__user", "council")[:8]
+            ).select_related("student__user", "supervisor__user", "council")
+            if is_student_user:
+                grad_projects = grad_projects.filter(student__user=request.user)
+            grad_projects = grad_projects[:8]
 
             for p in grad_projects:
                 s_name = p.student.user.get_full_name() or p.student.user.username
@@ -3178,7 +3194,11 @@ class GlobalSearchAPIView(APIView):
                 Q(user__email__icontains=q) |
                 Q(registration_no__icontains=q) |
                 Q(department__icontains=q)
-            ).select_related("user")[:6]
+            ).select_related("user")
+            if is_student_user:
+                # Không để SV tra cứu email/MSSV của sinh viên khác.
+                students = students.filter(user=request.user)
+            students = students[:6]
 
             for st in students:
                 name = st.user.get_full_name() or st.user.username
@@ -3342,7 +3362,7 @@ class BatchProgressAPIView(APIView):
 
 class RunAllocationAlgorithmAPIView(APIView):
     """Khoa / Admin chạy thuật toán tối ưu phân công nguyện vọng đồ án"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
 
     def post(self, request):
         batch_id = request.data.get("batch_id")
@@ -3353,7 +3373,8 @@ class RunAllocationAlgorithmAPIView(APIView):
             if not batch:
                 return Response({"detail": "Không có đợt đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
-        stats = ThesisAllocationService.run_allocation(batch)
+        algorithm = str(request.data.get("algorithm") or "stable").lower()
+        stats = ThesisAllocationService.run_allocation(batch, algorithm=algorithm)
         try:
             allocations = ProposedAllocation.objects.filter(batch=batch).select_related(
                 "student__user", "supervisor__user"
@@ -3427,7 +3448,7 @@ class ProposedAllocationListAPIView(APIView):
 
 class OverrideAllocationAPIView(APIView):
     """Khoa review / override: Điều chỉnh phân công thủ công"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
 
     def post(self, request):
         allocation_id = request.data.get("allocation_id") or request.data.get("project_id")
@@ -3537,7 +3558,7 @@ class OverrideAllocationAPIView(APIView):
 
 class FinalizeAllocationAPIView(APIView):
     """Khoa chốt phân công: Chuyển toàn bộ đề xuất thành GraduationProject và kích hoạt email"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
 
     def post(self, request):
         batch_id = request.data.get("batch_id")
@@ -3581,8 +3602,13 @@ class TopicDraftAPIView(APIView):
         elif user.user_type == "supervisor":
             supervisor = getattr(user, "supervisor_profile", None)
             project = get_object_or_404(GraduationProject, id=project_id, supervisor=supervisor)
-        else:
+        elif _is_faculty_admin(request):
             project = get_object_or_404(GraduationProject, id=project_id)
+        else:
+            return Response(
+                {"detail": "Bạn không có quyền chỉnh sửa đề tài của đồ án này."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         stage_error = require_exact_batch_stage(project, 3)
         if stage_error:
@@ -3605,10 +3631,21 @@ class TopicDraftAPIView(APIView):
 
         project.save(update_fields=["topic_title_vi", "topic_title_en", "status", "topic_review_status", "topic_revision_notes"])
 
+        # Cảnh báo (không chặn) khi tên đề tài gần trùng với đề tài đã có ở các đợt.
+        try:
+            from .feature_services import find_similar_topics
+            similar = [
+                {k: m[k] for k in ("topic_title_vi", "batch_code", "similarity", "level")}
+                for m in find_similar_topics(project.topic_title_vi, exclude_project_id=project.id, limit=5)
+            ]
+        except Exception:
+            similar = []
+
         return Response({
             "message": msg,
             "status": project.status,
-            "project": GraduationProjectDetailSerializer(project).data
+            "project": GraduationProjectDetailSerializer(project).data,
+            "similar_topics": similar,
         }, status=status.HTTP_200_OK)
 
 
@@ -4050,13 +4087,20 @@ class UploadSignedOutlineAPIView(APIView):
             err_msg = getattr(e, "detail", str(e))
             return Response({"signed_outline_file": [str(err_msg)]}, status=status.HTTP_400_BAD_REQUEST)
 
-        project.signed_outline_file = signed_file
-        project.outline_pdf_path = signed_file.name if hasattr(signed_file, "name") else str(signed_file)
+        # Trước đây chỉ lưu tên file vào outline_pdf_path, nội dung file không được ghi xuống storage.
+        from django.core.files.storage import default_storage
+        signed_file.seek(0)
+        saved_name = default_storage.save(f"outlines/{project.id}_signed.pdf", signed_file)
+        project.outline_pdf_path = saved_name
         project.save(update_fields=["outline_pdf_path"])
+        try:
+            from .feature_services import create_submission_version
+            signed_file.seek(0)
+            create_submission_version(project, signed_file, "OUTLINE", user, note="Đề cương có chữ ký")
+        except Exception as exc:  # lịch sử phiên bản không được làm hỏng việc nộp chính
+            logger.warning("Không lưu được phiên bản đề cương cho đồ án %s: %s", project.id, exc)
 
-        file_url = getattr(project.signed_outline_file, "url", None)
-        if not file_url and project.signed_outline_file:
-            file_url = f"/media/outlines/{project.id}_signed.pdf"
+        file_url = default_storage.url(saved_name)
         return Response({
             "message": "Nộp bản đề cương có chữ ký thành công! Hồ sơ đã được lưu trữ.",
             "signed_outline_file_url": file_url,
@@ -4101,7 +4145,7 @@ class CheckThesisEligibilityAPIView(APIView):
 
 class ForceApproveThesisAPIView(APIView):
     """Giai đoạn 4: Nút quyết định Force Approve của Khoa (vẫn cho làm ĐA dù chưa đủ tiêu chí)"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
 
     def post(self, request, pk):
         project = get_object_or_404(GraduationProject, id=pk)
@@ -4759,6 +4803,9 @@ class AdminDeferralRequestListAPIView(APIView):
         requests_qs = ThesisDeferralRequest.objects.select_related(
             "student__user", "project__supervisor__user", "project__batch"
         ).order_by("-submitted_at")
+        if not _is_faculty_admin(request):
+            # GVHD chỉ thấy đơn của sinh viên mình hướng dẫn.
+            requests_qs = requests_qs.filter(project__supervisor__user=user)
         if status_filter:
             requests_qs = requests_qs.filter(status=status_filter.upper())
         return Response(ThesisDeferralRequestSerializer(requests_qs, many=True).data, status=status.HTTP_200_OK)
@@ -4777,6 +4824,13 @@ class AdminReviewDeferralRequestAPIView(APIView):
             )
 
         deferral = get_object_or_404(ThesisDeferralRequest, id=pk)
+        if not _is_faculty_admin(request):
+            owner = getattr(deferral.project, "supervisor", None)
+            if owner is None or owner.user_id != user.id:
+                return Response(
+                    {"detail": "Bạn chỉ được xét đơn bảo lưu của sinh viên do mình hướng dẫn."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
         raw_decision = request.data.get("decision") or request.data.get("status") or request.data.get("action") or "APPROVED"
         raw_decision_str = str(raw_decision).upper().strip()
@@ -4827,7 +4881,7 @@ class AdminReviewDeferralRequestAPIView(APIView):
 
 class CloseBatchAPIView(APIView):
     """Khoa kết thúc đợt đồ án"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
 
     def post(self, request, pk):
         batch = get_object_or_404(AcademicBatch, pk=pk)
@@ -4853,7 +4907,7 @@ class CloseBatchAPIView(APIView):
 
 class ReopenBatchAPIView(APIView):
     """Khoa mở lại đợt đồ án đã kết thúc từ kho lưu trữ"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
 
     def post(self, request, pk):
         batch = get_object_or_404(AcademicBatch, pk=pk)

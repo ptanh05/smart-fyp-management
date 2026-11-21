@@ -30,3 +30,5 @@ reportlab>=4.0.0
 # Google SSO Authentication
 google-auth>=2.20.0
 
+# Trích xuất văn bản PDF cho kiểm tra tương đồng
+pypdf>=4.0.0

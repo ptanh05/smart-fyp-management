@@ -1313,9 +1313,88 @@ class ThesisAllocationService:
         mult = cls.get_capacity_multiplier(supervisor)
         return int(round(float(base_capacity) * mult))
 
+    PREFERENCE_MATCH_SCORES = {1: 100.0, 2: 70.0, 3: 40.0}
+
     @classmethod
-    def run_allocation(cls, batch):
-        """Chạy thuật toán đề xuất phân công cho một đợt đồ án"""
+    def _stable_preference_matching(cls, surveys, quotas, get_student_preferences):
+        """Deferred Acceptance (student-proposing) cho bài toán phân công SV–GV có quota.
+
+        Cập nhật quotas[...]["assigned"] và trả về danh sách kết quả giống thuật toán greedy.
+        """
+        from collections import deque
+
+        order_index = {s.student.id: i for i, s in enumerate(surveys)}
+
+        def supervisor_rank_key(student):
+            try:
+                cpa = float(getattr(student, "cpa", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                cpa = 0.0
+            return (-cpa, order_index.get(student.id, 0))
+
+        def eligible(student, supervisor):
+            if not supervisor or supervisor.id not in quotas or quotas[supervisor.id]["max"] <= 0:
+                return False
+            if student.degree_program == "ENGINEER":
+                return DegreeEligibilityService.is_doctoral_degree(supervisor.academic_title or "")
+            return True
+
+        pref_lists = {}
+        for s in surveys:
+            seen, plist = set(), []
+            for sup in get_student_preferences(s):
+                if sup and sup.id not in seen:
+                    seen.add(sup.id)
+                    plist.append(sup)
+            pref_lists[s.student.id] = plist
+
+        next_choice = {s.student.id: 0 for s in surveys}
+        held = {}  # supervisor_id -> list of (student, matched_preference)
+        free = deque(s.student for s in surveys)
+        while free:
+            student = free.popleft()
+            plist = pref_lists.get(student.id, [])
+            while next_choice[student.id] < len(plist):
+                rank = next_choice[student.id] + 1
+                sup = plist[next_choice[student.id]]
+                next_choice[student.id] += 1
+                if not eligible(student, sup):
+                    continue
+                bucket = held.setdefault(sup.id, [])
+                bucket.append((student, rank))
+                bucket.sort(key=lambda item: supervisor_rank_key(item[0]))
+                if len(bucket) <= quotas[sup.id]["max"]:
+                    break
+                rejected, _ = bucket.pop()
+                if rejected.id == student.id:
+                    continue  # bị từ chối ngay, thử nguyện vọng tiếp theo
+                free.append(rejected)
+                break
+
+        results = []
+        for sup_id, bucket in held.items():
+            quotas[sup_id]["assigned"] += len(bucket)
+            for student, rank in bucket:
+                results.append({
+                    "student": student,
+                    "supervisor": quotas[sup_id]["supervisor"],
+                    "matched_preference": rank,
+                    "match_score": cls.PREFERENCE_MATCH_SCORES.get(rank, 40.0),
+                })
+        results.sort(key=lambda r: order_index.get(r["student"].id, 0))
+        return results
+
+    @classmethod
+    def run_allocation(cls, batch, algorithm="stable"):
+        """Chạy thuật toán đề xuất phân công cho một đợt đồ án.
+
+        algorithm:
+          - "stable" (mặc định): Deferred Acceptance do sinh viên đề xuất, mô hình SPA-S
+            (Abraham, Irving & Manlove 2007). Kết quả ổn định: không tồn tại cặp SV–GV
+            cùng muốn đổi sang nhau, và tối ưu cho phía sinh viên. GV xếp hạng SV theo CPA,
+            hòa thì ưu tiên ai nộp nguyện vọng trước.
+          - "greedy": thuật toán cũ, xét lần lượt NV1 → NV2 → NV3 theo thứ tự nộp.
+        """
         from django.db import transaction
 
         # 1. Lấy danh sách khảo sát/nguyện vọng của SV trong batch
@@ -1336,7 +1415,7 @@ class ThesisAllocationService:
         }
 
         # Fallback: Nếu GV chưa có SupervisorQuota bản ghi riêng, tính quota theo công thức Capacity
-        for s in Supervisor.objects.all():
+        for s in Supervisor.objects.filter(is_active=True):  # Bug fix: skip inactive supervisors
             if s.id not in quotas:
                 calculated_max = cls.calculate_capacity(s, base_capacity=6)
                 quotas[s.id] = {
@@ -1368,53 +1447,59 @@ class ThesisAllocationService:
                     return False
             return True
 
-        # Vòng 1: Xét Nguyện vọng 1 (NV1)
-        for s in surveys:
-            student = s.student
-            if student.id in assigned_students:
-                continue
-            sup1, _, _ = get_student_preferences(s)
-            if can_assign(student, sup1):
-                quotas[sup1.id]["assigned"] += 1
-                assigned_students.add(student.id)
-                results.append({
-                    "student": student,
-                    "supervisor": sup1,
-                    "matched_preference": 1,
-                    "match_score": 100.0,
-                })
+        algorithm = "greedy" if str(algorithm).lower() == "greedy" else "stable"
+        if algorithm == "greedy":
+            # Vòng 1: Xét Nguyện vọng 1 (NV1)
+            for s in surveys:
+                student = s.student
+                if student.id in assigned_students:
+                    continue
+                sup1, _, _ = get_student_preferences(s)
+                if can_assign(student, sup1):
+                    quotas[sup1.id]["assigned"] += 1
+                    assigned_students.add(student.id)
+                    results.append({
+                        "student": student,
+                        "supervisor": sup1,
+                        "matched_preference": 1,
+                        "match_score": 100.0,
+                    })
 
-        # Vòng 2: Xét Nguyện vọng 2 (NV2)
-        for s in surveys:
-            student = s.student
-            if student.id in assigned_students:
-                continue
-            _, sup2, _ = get_student_preferences(s)
-            if can_assign(student, sup2):
-                quotas[sup2.id]["assigned"] += 1
-                assigned_students.add(student.id)
-                results.append({
-                    "student": student,
-                    "supervisor": sup2,
-                    "matched_preference": 2,
-                    "match_score": 70.0,
-                })
+            # Vòng 2: Xét Nguyện vọng 2 (NV2)
+            for s in surveys:
+                student = s.student
+                if student.id in assigned_students:
+                    continue
+                _, sup2, _ = get_student_preferences(s)
+                if can_assign(student, sup2):
+                    quotas[sup2.id]["assigned"] += 1
+                    assigned_students.add(student.id)
+                    results.append({
+                        "student": student,
+                        "supervisor": sup2,
+                        "matched_preference": 2,
+                        "match_score": 70.0,
+                    })
 
-        # Vòng 3: Xét Nguyện vọng 3 (NV3)
-        for s in surveys:
-            student = s.student
-            if student.id in assigned_students:
-                continue
-            _, _, sup3 = get_student_preferences(s)
-            if can_assign(student, sup3):
-                quotas[sup3.id]["assigned"] += 1
-                assigned_students.add(student.id)
-                results.append({
-                    "student": student,
-                    "supervisor": sup3,
-                    "matched_preference": 3,
-                    "match_score": 40.0,
-                })
+            # Vòng 3: Xét Nguyện vọng 3 (NV3)
+            for s in surveys:
+                student = s.student
+                if student.id in assigned_students:
+                    continue
+                _, _, sup3 = get_student_preferences(s)
+                if can_assign(student, sup3):
+                    quotas[sup3.id]["assigned"] += 1
+                    assigned_students.add(student.id)
+                    results.append({
+                        "student": student,
+                        "supervisor": sup3,
+                        "matched_preference": 3,
+                        "match_score": 40.0,
+                    })
+
+        else:
+            results.extend(cls._stable_preference_matching(surveys, quotas, get_student_preferences))
+            assigned_students.update(r["student"].id for r in results)
 
         # Vòng 4: Gán bổ sung theo hướng nghiên cứu cho SV chưa trúng NV nào
         unassigned_surveys = [s for s in surveys if s.student.id not in assigned_students]
@@ -1490,6 +1575,7 @@ class ThesisAllocationService:
             "system_assigned": auto_count,
             "success_rate": round(len(results) / total * 100, 1) if total > 0 else 0,
             "allocations_count": len(created_allocations),
+            "algorithm": algorithm,
         }
 
     @classmethod

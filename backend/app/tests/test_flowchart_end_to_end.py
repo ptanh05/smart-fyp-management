@@ -160,6 +160,8 @@ class FlowchartEndToEndTests(APITestCase):
     def test_step_03_sinh_vien_chon_huong_va_nguyen_vong(self):
         """Bước 3: SV đăng nhập, điền khảo sát thực tập và đăng ký nguyện vọng NV1-NV3"""
         batch = AcademicBatch.objects.create(batch_code="2026_B3", batch_name="Đợt B3", is_active=True)
+        batch.current_stage = "PHASE_2_ALLOCATING"
+        batch.save()
         topic_sw = ProjectTopicArea.objects.create(name="Phần mềm", code="SOFTWARE_DEV")
 
         u_sv = CustomUser.objects.create_user(username="201202001", email="sv2001@utc.edu.vn", password="pwd", user_type="student")
@@ -295,6 +297,8 @@ class FlowchartEndToEndTests(APITestCase):
     def test_step_07_xac_dinh_de_tai_va_khoa_duyet_co_ly_do(self):
         """Bước 7: GV xác nhận đề tài; Khoa yêu cầu sửa (bắt buộc nêu lý do) -> Sửa xong Khoa duyệt Approved"""
         batch = AcademicBatch.objects.create(batch_code="2026_B7", batch_name="Đợt B7", is_active=True)
+        batch.current_stage = "PHASE_3_TOPIC"
+        batch.save()
         u_gv = CustomUser.objects.create_user(username="gv7", email="gv7@utc.edu.vn", password="pwd", user_type="supervisor")
         gv = Supervisor.objects.create(user=u_gv, supervisor_id="GV07", academic_title="TS")
         u_sv = CustomUser.objects.create_user(username="sv7", email="sv7@utc.edu.vn", password="pwd", user_type="student")
@@ -350,6 +354,8 @@ class FlowchartEndToEndTests(APITestCase):
     def test_step_08_sinh_de_cuong_pdf_va_sv_ky_nop(self):
         """Bước 8: Tự động sinh PDF đề cương và kiểm tra SV ký nộp file hợp lệ"""
         batch = AcademicBatch.objects.create(batch_code="2026_B8", batch_name="Đợt B8", is_active=True)
+        batch.current_stage = "PHASE_3_TOPIC"
+        batch.save()
         u_gv = CustomUser.objects.create_user(username="gv8", email="gv8@utc.edu.vn", password="pwd", user_type="supervisor")
         gv = Supervisor.objects.create(user=u_gv, supervisor_id="GV08", academic_title="TS")
         u_sv = CustomUser.objects.create_user(username="sv8", email="sv8@utc.edu.vn", password="pwd", user_type="student")
@@ -427,6 +433,8 @@ class FlowchartEndToEndTests(APITestCase):
     def test_step_10_quan_ly_task_deadline_va_review(self):
         """Bước 10: Giao task, SV nộp bài (kiểm tra nộp muộn is_late), GV đánh giá Không đạt -> Đạt"""
         batch = AcademicBatch.objects.create(batch_code="2026_B10", batch_name="Đợt B10", is_active=True)
+        batch.current_stage = "PHASE_5_IN_PROGRESS"
+        batch.save()
         u_gv = CustomUser.objects.create_user(username="gv10", email="gv10@utc.edu.vn", password="pwd", user_type="supervisor")
         gv = Supervisor.objects.create(user=u_gv, supervisor_id="GV10", academic_title="TS")
         u_sv = CustomUser.objects.create_user(username="sv10", email="sv10@utc.edu.vn", password="pwd", user_type="student")
@@ -448,7 +456,7 @@ class FlowchartEndToEndTests(APITestCase):
         self.client.force_authenticate(user=u_sv)
         res_sub = self.client.post(f"/app/student/tasks/{task_id}/submit-deliverable/", {
             "student_notes": "Nộp bổ sung file ERD sau khi thảo luận",
-            "file": SimpleUploadedFile("erd.pdf", b"%PDF-dummy", content_type="application/pdf")
+            "deliverable_file": SimpleUploadedFile("erd.pdf", b"%PDF-dummy", content_type="application/pdf")
         }, format="multipart")
         self.assertEqual(res_sub.status_code, status.HTTP_200_OK)
         task = SupervisionTask.objects.get(id=task_id)

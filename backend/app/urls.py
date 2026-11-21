@@ -1,3 +1,4 @@
+from . import views_features as vf
 from django.urls import path
 from .views_group_management import (
     RecruitingGroupsAPIView,
@@ -690,4 +691,25 @@ urlpatterns = [
     path("faculty/deferral-request/<int:pk>/review/", AdminReviewDeferralRequestAPIView.as_view(), name="utc-faculty-deferral-request-review"),
 
     path("global-search/", GlobalSearchAPIView.as_view(), name="global-search"),
+
+    # Tính năng mở rộng (views_features.py)
+    path("graduation-project/<int:pk>/submissions/", vf.ProjectSubmissionVersionsAPIView.as_view(), name="project-submission-versions"),
+    path("submissions/<int:pk>/similarity-check/", vf.SubmissionSimilarityRecheckAPIView.as_view(), name="submission-similarity-recheck"),
+    path("topics/similarity-check/", vf.TopicSimilarityCheckAPIView.as_view(), name="topic-similarity-check"),
+    path("rubrics/", vf.RubricListCreateAPIView.as_view(), name="rubric-list-create"),
+    path("graduation-project/<int:pk>/rubric-scores/", vf.ProjectRubricScoreAPIView.as_view(), name="project-rubric-scores"),
+    path("rubric-scores/<int:pk>/unlock/", vf.RubricScoreUnlockAPIView.as_view(), name="rubric-score-unlock"),
+    path("graduation-project/<int:pk>/score-discrepancy/", vf.ProjectScoreDiscrepancyAPIView.as_view(), name="project-score-discrepancy"),
+    path("analytics/score-discrepancies/", vf.BatchScoreDiscrepancyAPIView.as_view(), name="batch-score-discrepancies"),
+    path("analytics/faculty/", vf.FacultyAnalyticsAPIView.as_view(), name="faculty-analytics"),
+    path("lecturer/workload/", vf.LecturerWorkloadAPIView.as_view(), name="lecturer-workload"),
+    path("calendar/my.ics", vf.MyCalendarICSAPIView.as_view(), name="calendar-my-ics"),
+    path("calendar/feed-token/", vf.CalendarFeedTokenAPIView.as_view(), name="calendar-feed-token"),
+    path("calendar/feed/<str:token>.ics", vf.CalendarFeedAPIView.as_view(), name="calendar-feed"),
+    path("archive/", vf.ThesisArchiveListAPIView.as_view(), name="thesis-archive-list"),
+    path("admin/archive/", vf.AdminArchiveListAPIView.as_view(), name="admin-archive-list"),
+    path("admin/archive/<int:pk>/", vf.AdminArchiveUpdateAPIView.as_view(), name="admin-archive-update"),
+    path("graduation-project/<int:pk>/archive/", vf.ArchiveProjectAPIView.as_view(), name="thesis-archive-project"),
+    path("admin/data-retention/preview/", vf.DataRetentionPreviewAPIView.as_view(), name="data-retention-preview"),
+    path("admin/data-retention/apply/", vf.AdminDataRetentionApplyAPIView.as_view(), name="data-retention-apply"),
 ]

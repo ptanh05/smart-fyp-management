@@ -106,3 +106,12 @@ def dispatch_async_notification(recipient_user_ids, title, message, notification
     thread = threading.Thread(target=_fallback_runner, daemon=True)
     thread.start()
     return True
+
+
+@shared_task(ignore_result=True)
+def send_deadline_reminders_task():
+    """Nhắc SV các task sắp tới hạn (D-3, D-1) hoặc quá hạn. Chạy hằng ngày qua Celery beat."""
+    from .feature_services import send_deadline_reminders
+    sent = send_deadline_reminders()
+    logger.info("[DEADLINE_REMINDER] sent=%s", sent)
+    return sent

@@ -166,6 +166,8 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_student_survey_api(self):
         """Test Student survey and internship preference registration"""
+        self.batch.current_stage = "PHASE_2_ALLOCATING"
+        self.batch.save()
         self.client.force_authenticate(user=self.student_user)
 
         # GET survey
@@ -194,6 +196,8 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_outline_submission_and_supervisor_review(self):
         """Test outline submission and approval lifecycle"""
+        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.save()
         # Create Project
         proj = GraduationProject.objects.create(
             student=self.student,
@@ -237,6 +241,8 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_weekly_progress_reports_and_supervisor_feedback(self):
         """Test Weekly progress report submission (Week 1 to 15) and rating"""
+        self.batch.current_stage = "PHASE_4_ELIGIBILITY"
+        self.batch.save()
         proj = GraduationProject.objects.create(
             student=self.student,
             supervisor=self.sup1,
@@ -342,6 +348,8 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_supervision_meeting_log_and_tasks(self):
         """Test module Supervision Meeting Log và Task Board tương tác"""
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
+        self.batch.save()
         proj = GraduationProject.objects.create(
             student=self.student,
             supervisor=self.sup1,
@@ -400,6 +408,11 @@ class UTCGraduationSystemTests(APITestCase):
         self.assertEqual(res_sv_tasks.data["stats"]["completion_rate"], 0.0)
 
         # 5. Sinh viên đánh dấu hoàn thành nhiệm vụ 1 (Mark Task as Completed)
+        # Pre-populate deliverable data so the mark-complete endpoint can proceed
+        from app.models import SupervisionTask as _ST
+        _t1 = _ST.objects.get(id=task1_id)
+        _t1.deliverable_url = "https://github.com/utc/smart-fyp/commit/council-db"
+        _t1.save(update_fields=["deliverable_url"])
         res_complete = self.client.patch(f"/app/student/tasks/{task1_id}/complete/", {
             "is_completed": True,
             "student_notes": "Đã tạo migration và push lên nhánh feature/council-db"
@@ -571,6 +584,8 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_phase2_engineer_supervisor_degree_requirement(self):
         """Test quy tắc phân công CT Kỹ sư: Chỉ giảng viên học vị TS/PGS/GS mới được hướng dẫn"""
+        self.batch.current_stage = "PHASE_2_ALLOCATING"
+        self.batch.save()
         sup_ths_user = CustomUser.objects.create_user(
             username="gv_ths_test",
             email="ths_test@utc.edu.vn",
@@ -621,8 +636,18 @@ class UTCGraduationSystemTests(APITestCase):
         self.assertEqual(res_bachelor_ths.status_code, status.HTTP_200_OK)
 
         # 3. SV Kỹ sư chọn GV TS (self.sup1) -> Hợp lệ HTTP 200
-        self.student.degree_program = 'ENGINEER'
-        self.student.save()
+        # Each student may submit preferences only once, and self.student already
+        # submitted in step 2, so step 3 uses a separate engineer student.
+        eng_user = CustomUser.objects.create_user(
+            username="201200102", email="201200102@lms.utc.edu.vn",
+            password="password123", user_type="student",
+        )
+        Student.objects.create(
+            user=eng_user, registration_no="201200102", department="CNTT K62",
+            academic_batch=self.batch, course_class=self.course_class,
+            degree_program='ENGINEER',
+        )
+        self.client.force_authenticate(user=eng_user)
 
         res_engineer_ts = self.client.post("/app/student/survey/", {
             "is_interning": False,
@@ -682,6 +707,8 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_phase3_topic_drafting_and_confirmation(self):
         """Test quy trình bản thảo đề tài (Draft), GV xác nhận, sinh đề cương PDF và nộp bản ký"""
+        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.save()
         proj = GraduationProject.objects.create(
             student=self.student,
             supervisor=self.sup1,
@@ -778,6 +805,8 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_phase5_task_deliverable_and_review(self):
         """Test sinh viên nộp sản phẩm nhiệm vụ và GV review: Đạt hoặc Yêu cầu sửa lại"""
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
+        self.batch.save()
         proj = GraduationProject.objects.create(
             student=self.student,
             supervisor=self.sup1,
@@ -805,7 +834,7 @@ class UTCGraduationSystemTests(APITestCase):
         self.assertEqual(res_submit.status_code, status.HTTP_200_OK)
         task.refresh_from_db()
         self.assertEqual(task.review_verdict, 'PENDING')
-        self.assertEqual(task.status, 'IN_PROGRESS')
+        self.assertEqual(task.status, 'COMPLETED')
         self.assertEqual(task.deliverable_url, "https://github.com/utc/jwt-auth/pull/1")
 
         # 2. GV đánh giá: Yêu cầu sửa lại (REVISION_REQUIRED)
@@ -969,6 +998,8 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_bug_fix_module3_export_outline_pdf_template(self):
         """Module 3: Xuất đề cương PDF đạt chuẩn UTC, trả về HTTP 200 và nội dung PDF không rỗng"""
+        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.save()
         proj = GraduationProject.objects.create(
             student=self.student,
             supervisor=self.sup1,
@@ -994,13 +1025,15 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_bug_fix_module3_upload_signed_outline_validations(self):
         """Module 3: Upload đề cương đã ký chặn file .exe, file giả mạo MIME type và file > 5MB"""
+        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.save()
         proj = GraduationProject.objects.create(
             student=self.student,
             supervisor=self.sup1,
             batch=self.batch,
             topic_category=self.topic_software,
             topic_title_vi="Đề cương kiểm tra upload",
-            status="OUTLINE_APPROVED"
+            status="TOPIC_CONFIRMED"
         )
         self.client.force_authenticate(user=self.student_user)
 

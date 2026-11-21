@@ -106,6 +106,48 @@ def is_safe_relative_path(rel_path):
     return True
 
 
+def _check_project_file_access(user, safe_rel_path):
+    """
+    Tệp gắn với một đồ án cụ thể (bài nộp theo phiên bản, đề cương có chữ ký):
+    chỉ SV chủ đồ án, GVHD, GV phản biện, thành viên hội đồng, quản trị viên được tải.
+    Ngoại lệ: phiên bản đã lưu trữ công khai/nội bộ và không bị embargo.
+    Trả về None nếu đường dẫn không thuộc loại này (để các quy tắc khác xử lý).
+    """
+    norm = os.path.normpath(safe_rel_path).replace("\\", "/").lstrip("/")
+    parts = norm.split("/")
+    project_id = None
+    if len(parts) >= 2 and parts[0] == "submissions":
+        project_id = parts[1]
+    elif len(parts) == 2 and parts[0] == "outlines" and parts[1].endswith("_signed.pdf"):
+        project_id = parts[1].split("_", 1)[0]
+    if project_id is None:
+        return None
+    if not project_id.isdigit():
+        return False
+
+    from .models import GraduationProject, ThesisArchiveRecord
+    from .views_features import project_role
+
+    project = GraduationProject.objects.filter(id=int(project_id)).select_related(
+        "student", "supervisor", "reviewer"
+    ).first()
+    if not project:
+        return False
+    if project_role(user, project):
+        return True
+    if parts[0] == "submissions":
+        record = ThesisArchiveRecord.objects.filter(project=project).select_related("final_version").first()
+        if (
+            record
+            and not record.is_embargoed
+            and record.visibility in ("PUBLIC", "INTERNAL")
+            and record.final_version
+            and record.final_version.file.name.replace("\\", "/") == norm
+        ):
+            return True
+    return False
+
+
 def check_attachment_access(user, safe_rel_path):
     """
     Check if the authenticated user is authorized to access a chat attachment.
@@ -122,6 +164,10 @@ def check_attachment_access(user, safe_rel_path):
     user_type = getattr(user, "user_type", "")
     if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or user_type in ["admin", "committee"]:
         return True
+
+    project_access = _check_project_file_access(user, safe_rel_path)
+    if project_access is not None:
+        return project_access
 
     base_name = os.path.basename(safe_rel_path)
 
