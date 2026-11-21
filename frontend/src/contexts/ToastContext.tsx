@@ -42,6 +42,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [removeToast]
   );
 
+  // Thông báo khi bị đăng xuất do hết phiên (cờ đặt bởi axios interceptor trước khi chuyển trang)
+  useEffect(() => {
+    if (sessionStorage.getItem('session_expired')) {
+      sessionStorage.removeItem('session_expired');
+      showToast('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.', 'warning', 6000);
+    }
+  }, [showToast]);
+
   // Network Offline & Online event listeners
   useEffect(() => {
     const handleOffline = () => {

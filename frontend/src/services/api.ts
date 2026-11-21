@@ -159,6 +159,7 @@ class ApiService {
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('user_type');
             if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+              sessionStorage.setItem('session_expired', '1');
               window.location.href = '/login';
             }
             return Promise.reject(refreshError);
