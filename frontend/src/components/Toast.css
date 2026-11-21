@@ -47,8 +47,12 @@
 
 .toast-message {
   flex: 1;
+  min-width: 0;
   font-weight: 500;
   word-break: break-word;
+  overflow-wrap: anywhere;
+  /* Giữ ký tự xuống dòng (\n) trong thông báo nhiều dòng */
+  white-space: pre-line;
 }
 
 .toast-close-btn {

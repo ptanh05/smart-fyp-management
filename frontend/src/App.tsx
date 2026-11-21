@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import ToastContainer from './components/ToastContainer';
+import DialogHost from './components/DialogHost';
 import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
@@ -110,6 +111,7 @@ const App: React.FC = () => {
       <ThemeProvider>
         <ToastProvider>
           <ToastContainer />
+          <DialogHost />
           <Router>
             <AuthProvider>
               <AppRoutes />

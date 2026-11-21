@@ -1,0 +1,73 @@
+.app-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--modal-overlay, rgba(0, 0, 0, 0.5));
+  animation: app-dialog-fade 0.15s ease-out;
+}
+.app-dialog {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  padding: 20px 22px 18px;
+  animation: app-dialog-pop 0.15s ease-out;
+}
+/* Hộp thoại nhận focus (tabIndex=-1) khi click vào phần chữ, không cần viền focus */
+.app-dialog:focus { outline: none; }
+.app-dialog-title { margin: 0 0 10px; font-size: 1.08rem; font-weight: 700; }
+.app-dialog-message {
+  margin: 0 0 16px;
+  white-space: pre-line;
+  line-height: 1.5;
+  color: var(--text-secondary, #555);
+  font-size: 0.95rem;
+}
+.app-dialog-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #ccc);
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary, #333);
+  font: inherit;
+  resize: vertical;
+}
+.app-dialog-input:focus { outline: 2px solid var(--primary-color, #007bff); outline-offset: 1px; }
+.app-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.app-dialog-btn {
+  min-width: 90px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+.app-dialog-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.app-dialog-btn:focus-visible { outline: 2px solid var(--primary-color, #007bff); outline-offset: 2px; }
+.app-dialog-btn-cancel {
+  background: transparent;
+  color: var(--text-primary, #333);
+  border-color: var(--border-color, #ccc);
+}
+.app-dialog-btn-cancel:hover { background: var(--bg-hover, #f0f0f0); }
+.app-dialog-btn-primary { background: var(--primary-color, #007bff); color: #fff; }
+.app-dialog-btn-primary:hover:not(:disabled) { background: var(--primary-hover, #0056b3); }
+.app-dialog-btn-danger { background: var(--danger-color, #dc3545); color: #fff; }
+.app-dialog-btn-danger:hover:not(:disabled) { background: var(--danger-hover, #c82333); }
+@keyframes app-dialog-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes app-dialog-pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@media (max-width: 480px) {
+  .app-dialog-actions { flex-direction: column-reverse; }
+  .app-dialog-btn { width: 100%; }
+}
