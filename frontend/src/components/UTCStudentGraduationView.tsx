@@ -1,8 +1,8 @@
 import { notify, notifyError } from '../utils/notify';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import axios from 'axios';
-import { apiService } from '../services/api';
+import { apiService, apiClient } from '../services/api';
+import { safeExternalUrl } from '../utils/safeUrl';
 import type { ThesisDeferralRequest } from '../types';
 import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
@@ -10,6 +10,7 @@ import { formatFullName } from '../utils/nameHelper';
 import './UTCStudentGraduationView.css';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
+import { CalendarSyncButtons, SubmissionVersionsPanel, TopicSimilarityHint } from './FeatureExtensions';
 
 
 export interface UTCStudentGraduationViewProps {
@@ -207,11 +208,11 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     try {
       setLoading(true);
       const [surveyRes, projRes, weeklyRes, logsRes, tasksRes, deferralRes] = await Promise.all([
-        axios.get(`${API_BASE}/student/survey/`, { headers: getHeaders() }).catch(() => null),
-        axios.get(`${API_BASE}/student/graduation-project/`, { headers: getHeaders() }).catch(() => null),
-        axios.get(`${API_BASE}/student/weekly-reports/`, { headers: getHeaders() }).catch(() => null),
-        axios.get(`${API_BASE}/student/supervision-logs/`, { headers: getHeaders() }).catch(() => null),
-        axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/student/survey/`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/student/graduation-project/`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/student/weekly-reports/`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/student/supervision-logs/`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null),
         apiService.getStudentDeferralRequests().catch(() => []),
       ]);
 
@@ -305,17 +306,17 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         });
       }
 
-      await axios.patch(
+      await apiClient.patch(
         `${API_BASE}/student/tasks/${task.id}/complete/`,
         { is_completed: nextCompleted },
         { headers: getHeaders() }
       );
-      const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
+      const refreshTasks = await apiClient.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
       return true;
     } catch (err: any) {
       notifyError('Lỗi cập nhật nhiệm vụ', err);
-      const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
+      const refreshTasks = await apiClient.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
       return false;
     }
@@ -331,14 +332,14 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     if (!selectedTaskForNotes) return;
     try {
       setSavingTaskNote(true);
-      await axios.patch(
+      await apiClient.patch(
         `${API_BASE}/student/tasks/${selectedTaskForNotes.id}/complete/`,
         { student_notes: studentNotesInput },
         { headers: getHeaders() }
       );
       notify.success('Đã lưu ghi chú tiến độ nhiệm vụ thành công!');
       setSelectedTaskForNotes(null);
-      const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
+      const refreshTasks = await apiClient.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
     } catch (err: any) {
       notifyError('Lỗi lưu ghi chú', err);
@@ -351,7 +352,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     e.preventDefault();
     try {
       setSurveySaving(true);
-      const res = await axios.post(
+      const res = await apiClient.post(
         `${API_BASE}/student/survey/`,
         {
           is_interning: isInterning,
@@ -474,7 +475,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       setDeliverableFile(null);
       setDeliverableUrl('');
       setDeliverableNotes('');
-      const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
+      const refreshTasks = await apiClient.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
     } catch (err: any) {
       notifyError('Lỗi nộp sản phẩm', err);
@@ -526,7 +527,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         fd.append('outline_file', outlineFile);
       }
 
-      await axios.post(`${API_BASE}/student/outline/submit/`, fd, {
+      await apiClient.post(`${API_BASE}/student/outline/submit/`, fd, {
         headers: { ...getHeaders(), 'Content-Type': 'multipart/form-data' },
       });
       notify.success('Nộp đề cương thành công! Đề cương đã được gửi đến Giảng viên hướng dẫn xem xét & duyệt.');
@@ -556,7 +557,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         fd.append('attached_file', weekFile);
       }
 
-      await axios.post(`${API_BASE}/student/weekly-reports/`, fd, {
+      await apiClient.post(`${API_BASE}/student/weekly-reports/`, fd, {
         headers: { ...getHeaders(), 'Content-Type': 'multipart/form-data' },
       });
       notify.success(`Đã nộp báo cáo tiến độ Tuần ${selectedWeek} thành công!`);
@@ -1316,6 +1317,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                     placeholder="VD: Nghiên cứu xây dựng ứng dụng hỗ trợ phân luồng giao thông thông minh..."
                     className="utc-form-input disabled:opacity-60 text-xs"
                   />
+                  {projectData?.topic_review_status !== 'APPROVED' && projectData?.status !== 'TOPIC_APPROVED' && (
+                    <TopicSimilarityHint title={draftTopicVi} projectId={projectData?.id} />
+                  )}
                 </div>
 
                 <div>
@@ -1789,7 +1793,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                     {r.git_commit_link && (
                       <p className="text-slate-400">
                         <b>Git:</b>{' '}
-                        <a href={r.git_commit_link} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
+                        <a href={safeExternalUrl(r.git_commit_link)} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
                           {r.git_commit_link}
                         </a>
                       </p>
@@ -1811,6 +1815,12 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       {/* Tab 5: Supervision Meeting Logs & Interactive Task Board */}
       {activeTab === 'supervision' && (
         <div className="space-y-6">
+          {projectData?.id && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <SubmissionVersionsPanel projectId={projectData.id} canUpload />
+              <CalendarSyncButtons />
+            </div>
+          )}
           {/* Header */}
           <div className="utc-graduation-card space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1998,7 +2008,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                                   </a>
                                 )}
                                 {task.deliverable_url && (
-                                  <a href={task.deliverable_url} target="_blank" rel="noreferrer" className="utc-task-deliverable-link">
+                                  <a href={safeExternalUrl(task.deliverable_url)} target="_blank" rel="noreferrer" className="utc-task-deliverable-link">
                                     Link sản phẩm (Git/Drive/Demo) ↗
                                   </a>
                                 )}
@@ -2114,8 +2124,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           {entry.notes && <p className="utc-task-history-notes">“{entry.notes}”</p>}
                           {(entry.file_url || entry.deliverable_url) && (
                             <div className="utc-task-history-links">
-                              {entry.file_url && <a href={entry.file_url} target="_blank" rel="noreferrer">📎 Xem file đã nộp</a>}
-                              {entry.deliverable_url && <a href={entry.deliverable_url} target="_blank" rel="noreferrer">🔗 Mở link sản phẩm</a>}
+                              {entry.file_url && <a href={safeExternalUrl(entry.file_url)} target="_blank" rel="noreferrer">📎 Xem file đã nộp</a>}
+                              {entry.deliverable_url && <a href={safeExternalUrl(entry.deliverable_url)} target="_blank" rel="noreferrer">🔗 Mở link sản phẩm</a>}
                             </div>
                           )}
                         </div>
@@ -2186,7 +2196,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                         </span>
                         {log.location_or_link && (log.meeting_type === 'ONLINE' || log.location_or_link.startsWith('http')) ? (
                           <a
-                            href={log.location_or_link}
+                            href={safeExternalUrl(log.location_or_link)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-white font-semibold text-xs transition shadow-sm"
@@ -2641,7 +2651,18 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 <label className="block text-slate-300 font-medium mb-1">File minh chứng đính kèm (Giấy tờ y tế / xác nhận, PDF/Ảnh):</label>
                 <input
                   type="file"
-                  onChange={(e) => setDeferralEvidenceFile(e.target.files?.[0] || null)}
+                  accept=".pdf,.zip,.docx,.png,.jpg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    // Khớp giới hạn của backend (validate_uploaded_file: tối đa 25MB) để báo lỗi ngay thay vì chờ upload.
+                    if (file && file.size > 25 * 1024 * 1024) {
+                      notify.warning('File minh chứng không được vượt quá 25MB.');
+                      e.target.value = '';
+                      setDeferralEvidenceFile(null);
+                      return;
+                    }
+                    setDeferralEvidenceFile(file);
+                  }}
                   className="w-full text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-[11px] file:bg-slate-800 file:text-slate-200"
                 />
               </div>

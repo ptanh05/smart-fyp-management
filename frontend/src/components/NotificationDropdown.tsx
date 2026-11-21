@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
+import { isSafeInternalPath } from '../utils/safeUrl';
 import { useAuth } from '../contexts/AuthContext';
 import type { Notification, NotificationType } from '../types';
 import { getRelativeTime } from '../utils/dateUtils';
@@ -147,7 +148,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
 
     // Determine target actionable URL based on notification content
     const determineTargetUrl = (notif: Notification, currentRole: string | null): string => {
-      if (notif.action_url && notif.action_url !== '/student/dashboard' && notif.action_url !== '/supervisor/dashboard') {
+      if (isSafeInternalPath(notif.action_url) && notif.action_url !== '/student/dashboard' && notif.action_url !== '/supervisor/dashboard') {
         return notif.action_url;
       }
 

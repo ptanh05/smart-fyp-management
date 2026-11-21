@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isSafeInternalPath } from '../utils/safeUrl';
 import { apiService } from '../services/api';
 import './GlobalSearchBar.css';
 
@@ -117,7 +118,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
     setIsOpen(false);
     if (onSelectResult) {
       onSelectResult(item);
-    } else if (item.action_url) {
+    } else if (isSafeInternalPath(item.action_url)) {
       navigate(item.action_url);
     }
   };

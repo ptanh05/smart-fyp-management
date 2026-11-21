@@ -165,5 +165,8 @@
     "showDetails": "Xem chi tiết",
     "hideDetails": "Ẩn chi tiết",
     "accept": "Đồng ý"
+  },
+  "errors": {
+    "networkOffline": "Mất kết nối Internet, vui lòng kiểm tra đường truyền"
   }
 }

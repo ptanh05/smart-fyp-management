@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
+import { safeExternalUrl } from '../utils/safeUrl';
 import type { Student } from '../types';
 import Navbar from '../components/Navbar';
 import UTCAppLayout from '../components/UTCAppLayout';
@@ -546,7 +547,7 @@ const StudentDashboard: React.FC = () => {
                           {isOnline && meeting.location_or_link && (
                             <div>
                               <a
-                                href={meeting.location_or_link}
+                                href={safeExternalUrl(meeting.location_or_link)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn btn-primary"

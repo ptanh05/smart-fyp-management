@@ -31,6 +31,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_type');
+    // Dữ liệu theo phiên của người dùng trước, không để lọt sang tài khoản khác trên máy dùng chung.
+    localStorage.removeItem('supervisor_selected_batch_id');
     setUser(null);
     setUserType(null);
     apiService.logout();

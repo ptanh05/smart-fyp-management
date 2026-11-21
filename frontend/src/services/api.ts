@@ -39,6 +39,7 @@ import type {
   ThesisDeferralRequest,
 } from '../types';
 
+import i18next from 'i18next';
 import { triggerGlobalToast } from '../contexts/ToastContext';
 
 const resolveApiBaseUrl = (): string => {
@@ -63,6 +64,14 @@ class ApiService {
     resolve: (token: string) => void;
     reject: (error: any) => void;
   }> = [];
+
+  /**
+   * Axios instance đã gắn token và tự refresh khi gặp 401.
+   * Component cần gọi endpoint chưa có wrapper thì dùng `apiClient`, không import `axios` trực tiếp.
+   */
+  get client(): AxiosInstance {
+    return this.api;
+  }
 
   private processQueue(error: any, token: string | null = null) {
     this.failedQueue.forEach((prom) => {
@@ -115,7 +124,12 @@ class ApiService {
       async (error) => {
         // Check for network connectivity failure
         if (!navigator.onLine || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
-          triggerGlobalToast('Mất kết nối Internet, vui lòng kiểm tra đường truyền', 'warning', 6000);
+          const fallback = 'Mất kết nối Internet, vui lòng kiểm tra đường truyền';
+          triggerGlobalToast(
+            i18next.isInitialized ? i18next.t('errors.networkOffline', fallback) : fallback,
+            'warning',
+            6000
+          );
         }
 
         const originalRequest = error.config;
@@ -1443,6 +1457,81 @@ class ApiService {
     return response.data;
   }
 
+  // ===== Tính năng mở rộng: phiên bản bài nộp, trùng đề tài, rubric, lịch, lưu trữ =====
+  async getSubmissionVersions(projectId: number): Promise<SubmissionVersion[]> {
+    const response = await this.api.get<SubmissionVersion[]>(`/graduation-project/${projectId}/submissions/`);
+    return response.data;
+  }
+
+  async uploadSubmissionVersion(projectId: number, file: File, kind: SubmissionKind, note = ''): Promise<SubmissionVersion> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('kind', kind);
+    if (note) formData.append('note', note);
+    const response = await this.api.post<SubmissionVersion>(`/graduation-project/${projectId}/submissions/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async checkTopicSimilarity(title: string, projectId?: number): Promise<TopicSimilarityResult> {
+    const params: Record<string, string | number> = { title };
+    if (projectId) params.project_id = projectId;
+    const response = await this.api.get<TopicSimilarityResult>('/topics/similarity-check/', { params });
+    return response.data;
+  }
+
+  async getRubrics(params?: { evaluator_role?: string; batch_id?: number }): Promise<any[]> {
+    const response = await this.api.get('/rubrics/', { params });
+    return response.data;
+  }
+
+  async getProjectRubricScores(projectId: number): Promise<any> {
+    const response = await this.api.get(`/graduation-project/${projectId}/rubric-scores/`);
+    return response.data;
+  }
+
+  async submitRubricScore(projectId: number, data: { rubric_id: number; criterion_scores: Record<string, number>; comment?: string; criterion_comments?: Record<string, string>; is_draft?: boolean }): Promise<any> {
+    const response = await this.api.post(`/graduation-project/${projectId}/rubric-scores/`, data);
+    return response.data;
+  }
+
+  async downloadMyCalendar(): Promise<Blob> {
+    const response = await this.api.get('/calendar/my.ics', { responseType: 'blob' });
+    return response.data;
+  }
+
+  async getCalendarFeedUrl(rotate = false): Promise<{ feed_url: string }> {
+    const response = rotate
+      ? await this.api.post<{ feed_url: string }>('/calendar/feed-token/')
+      : await this.api.get<{ feed_url: string }>('/calendar/feed-token/');
+    return response.data;
+  }
+
+  async getThesisArchive(q?: string): Promise<any[]> {
+    const response = await this.api.get('/archive/', { params: q ? { q } : {} });
+    return response.data;
+  }
+
+  /**
+   * Danh sách khối lượng công việc của giảng viên: đồ án được phân công theo vai trò.
+   * Endpoint: GET /lecturer/workload/
+   * Fallback: trả về [] nếu 404 (backend chưa triển khai).
+   */
+  async getLecturerWorkload(): Promise<LecturerWorkloadItem[]> {
+    const response = await this.api.get<LecturerWorkloadItem[]>('/lecturer/workload/');
+    return response.data;
+  }
+
+  /**
+   * Yêu cầu kiểm tra lại tương đồng cho một phiên bản bài nộp.
+   * Endpoint: POST /submissions/{id}/similarity-check/
+   */
+  async recheckSubmissionSimilarity(versionId: number): Promise<SubmissionVersion> {
+    const response = await this.api.post<SubmissionVersion>(`/submissions/${versionId}/similarity-check/`);
+    return response.data;
+  }
+
   // Utility
   async logout(): Promise<void> {
     try {
@@ -1457,4 +1546,48 @@ class ApiService {
   }
 }
 
+export type SubmissionKind = 'OUTLINE' | 'REPORT' | 'SLIDES' | 'SOURCE' | 'OTHER';
+
+export interface SubmissionVersion {
+  id: number;
+  kind: SubmissionKind;
+  version_no: number;
+  file_url: string | null;
+  original_name: string;
+  file_size: number;
+  sha256: string;
+  note: string;
+  created_at: string;
+  similarity_status: 'NOT_CHECKED' | 'CHECKED' | 'UNSUPPORTED';
+  similarity_score: number | null;
+  similarity_level?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+}
+
+export interface TopicSimilarityResult {
+  has_duplicate_risk: boolean;
+  matches: Array<{ topic_title_vi: string; similarity: number; level: 'MEDIUM' | 'HIGH'; batch_code?: string; project_id?: number }>;
+}
+
+/** Một dòng trong bảng khối lượng công việc của giảng viên (GET /lecturer/workload/). */
+export interface LecturerWorkloadItem {
+  project_id: number;
+  student_name: string;
+  student_reg_no: string;
+  topic_title_vi: string;
+  status: string;
+  batch_code: string;
+  roles: Array<'SUPERVISOR' | 'REVIEWER' | 'COUNCIL'>;
+  latest_submission: {
+    id: number;
+    kind: SubmissionKind;
+    version_no: number;
+    created_at: string;
+    similarity_score: number | null;
+    similarity_level: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+  } | null;
+  my_rubric_status: 'MISSING' | 'DRAFT' | 'SUBMITTED';
+  needs_reconciliation: boolean | null;
+}
+
 export const apiService = new ApiService();
+export const apiClient = apiService.client;

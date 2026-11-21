@@ -1,10 +1,10 @@
 import { notify, notifyError, confirmDialog, promptDialog } from '../utils/notify';
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
 import { TablePagination } from './TablePagination';
 import { getRelativeTime } from '../utils/dateUtils';
 import { useModalGuard } from '../utils/modalHooks';
-import { apiService } from '../services/api';
+import { apiService, apiClient } from '../services/api';
+import { safeExternalUrl } from '../utils/safeUrl';
 import { calculateStageCounts, getProjectStageNumber } from '../utils/graduationStages';
 import { SupervisorOfferedTopics } from './SupervisorOfferedTopics';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
@@ -309,7 +309,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const fetchBatches = async () => {
     try {
       setLoadingBatches(true);
-      const res = await axios.get(`${API_BASE}/supervisor/my-batches/`, { headers: getHeaders() }).catch(() => null);
+      const res = await apiClient.get(`${API_BASE}/supervisor/my-batches/`, { headers: getHeaders() }).catch(() => null);
       if (res?.data) {
         setBatches(res.data);
         // Auto-select batch đang mở gần nhất (nếu có)
@@ -338,9 +338,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       }
       const batchParam = `?batch_id=${effectiveBatchId}`;
       const [projRes, revRes, outRes, defRes] = await Promise.all([
-        axios.get(`${API_BASE}/supervisor/graduation-projects/${batchParam}`, { headers: getHeaders() }).catch(() => null),
-        axios.get(`${API_BASE}/reviewer/assigned-projects/${batchParam}`, { headers: getHeaders() }).catch(() => null),
-        axios.get(`${API_BASE}/supervisor/outline-group-reviews/${batchParam}`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/supervisor/graduation-projects/${batchParam}`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/reviewer/assigned-projects/${batchParam}`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/supervisor/outline-group-reviews/${batchParam}`, { headers: getHeaders() }).catch(() => null),
         apiService.getAdminDeferralRequests().catch(() => []),
       ]);
       if (projRes?.data) {
@@ -376,8 +376,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     setShowAddTaskForm(false);
     try {
       const [logsRes, tasksRes] = await Promise.all([
-        axios.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${project.id}`, { headers: getHeaders() }).catch(() => null),
-        axios.get(`${API_BASE}/supervisor/tasks/?project_id=${project.id}`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${project.id}`, { headers: getHeaders() }).catch(() => null),
+        apiClient.get(`${API_BASE}/supervisor/tasks/?project_id=${project.id}`, { headers: getHeaders() }).catch(() => null),
       ]);
       if (logsRes?.data) setSupervisionLogs(logsRes.data);
       if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
@@ -422,7 +422,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         payload.task_priority = logTaskPriority;
       }
 
-      const res = await axios.post(
+      const res = await apiClient.post(
         `${API_BASE}/supervisor/supervision-logs/`,
         payload,
         { headers: getHeaders() }
@@ -439,8 +439,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       setShowAddLogForm(false);
 
       const [logsRes, tasksRes] = await Promise.all([
-        axios.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${supervisionProject.id}`, { headers: getHeaders() }),
-        axios.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() }),
+        apiClient.get(`${API_BASE}/supervisor/supervision-logs/?project_id=${supervisionProject.id}`, { headers: getHeaders() }),
+        apiClient.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() }),
       ]);
       if (logsRes?.data) setSupervisionLogs(logsRes.data);
       if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
@@ -457,7 +457,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     if (!supervisionProject || !taskTitle) return;
     try {
       setSavingTask(true);
-      const res = await axios.post(
+      const res = await apiClient.post(
         `${API_BASE}/supervisor/tasks/`,
         {
           project_id: supervisionProject.id,
@@ -473,7 +473,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       setTaskDesc('');
       setTaskDueDate('');
       setShowAddTaskForm(false);
-      const tasksRes = await axios.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
+      const tasksRes = await apiClient.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
       if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
     } catch (err: any) {
       notifyError('Lỗi giao việc', err);
@@ -485,7 +485,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const handleDeleteTask = async (taskId: number) => {
     if (!(await confirmDialog('Bạn có chắc chắn muốn xóa nhiệm vụ này?', { danger: true, confirmText: 'Xóa' }))) return;
     try {
-      await axios.delete(`${API_BASE}/supervisor/tasks/${taskId}/`, { headers: getHeaders() });
+      await apiClient.delete(`${API_BASE}/supervisor/tasks/${taskId}/`, { headers: getHeaders() });
       setSupervisionTasks(supervisionTasks.filter((t) => t.id !== taskId));
     } catch (err: any) {
       notifyError('Lỗi xóa nhiệm vụ', err);
@@ -610,7 +610,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       notify.success('Đã lưu kết quả đánh giá nhiệm vụ thành công!');
       setShowTaskReviewModal(false);
       if (supervisionProject) {
-        const tasksRes = await axios.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
+        const tasksRes = await apiClient.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
         if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
       }
     } catch (err: any) {
@@ -644,7 +644,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     e.preventDefault();
     if (!selectedProject) return;
     try {
-      await axios.post(
+      await apiClient.post(
         `${API_BASE}/supervisor/outline/review/`,
         {
           project_id: selectedProject.id,
@@ -669,7 +669,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     e.preventDefault();
     if (!selectedReport) return;
     try {
-      await axios.post(
+      await apiClient.post(
         `${API_BASE}/supervisor/weekly-feedback/`,
         {
           report_id: selectedReport.id,
@@ -693,7 +693,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       return;
     }
     try {
-      await axios.post(
+      await apiClient.post(
         `${API_BASE}/supervisor/defense-evaluation/`,
         {
           project_id: selectedProject.id,
@@ -720,7 +720,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     e.preventDefault();
     if (!selectedProject) return;
     try {
-      await axios.post(
+      await apiClient.post(
         `${API_BASE}/reviewer/submit-evaluation/`,
         {
           project_id: selectedProject.id,
@@ -2015,7 +2015,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                                   </a>
                                 )}
                                 {t.deliverable_url && (
-                                  <a href={t.deliverable_url} target="_blank" rel="noreferrer" className="text-[#2D469E] underline font-bold hover:text-blue-700">
+                                  <a href={safeExternalUrl(t.deliverable_url)} target="_blank" rel="noreferrer" className="text-[#2D469E] underline font-bold hover:text-blue-700">
                                     Link sản phẩm (Git/Drive) ↗
                                   </a>
                                 )}
@@ -2303,7 +2303,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                             </span>
                             {log.location_or_link && (log.meeting_type === 'ONLINE' || log.location_or_link.startsWith('http')) && (
                               <a
-                                href={log.location_or_link}
+                                href={safeExternalUrl(log.location_or_link)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-[#EEF3FB] hover:bg-blue-100 text-[#2D469E] border border-[#B9D1F8] text-[10px] font-bold transition"
@@ -2457,7 +2457,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   )}
                   {selectedTaskForReview.deliverable_url && (
                     <a
-                      href={selectedTaskForReview.deliverable_url}
+                      href={safeExternalUrl(selectedTaskForReview.deliverable_url)}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 font-bold hover:bg-purple-100"

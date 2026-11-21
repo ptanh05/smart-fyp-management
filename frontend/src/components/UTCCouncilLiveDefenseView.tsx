@@ -1,8 +1,7 @@
 import { notify, notifyError, confirmDialog } from '../utils/notify';
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { useModalGuard } from '../utils/modalHooks';
-import { apiService } from '../services/api';
+import { apiService, apiClient } from '../services/api';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
 
@@ -65,7 +64,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
   const fetchData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const res = await axios.get(`${API_BASE}/council/live-session/`, { headers: getHeaders() });
+      const res = await apiClient.get(`${API_BASE}/council/live-session/`, { headers: getHeaders() });
       setCouncilData(res.data.council);
       setProjects(res.data.projects || []);
     } catch (err) {
@@ -120,7 +119,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
   const handleSetDefenseStatus = async (projectId: number, defenseStatus: string) => {
     try {
       setOperatingProjectId(projectId);
-      const res = await axios.post(
+      const res = await apiClient.post(
         `${API_BASE}/council/set-defense-status/`,
         { project_id: projectId, defense_status: defenseStatus },
         { headers: getHeaders() }
@@ -144,7 +143,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
   const handleRemindScoring = async (projectId: number) => {
     try {
       setRemindingProjectId(projectId);
-      const res = await axios.post(
+      const res = await apiClient.post(
         `${API_BASE}/council/remind-scoring/`,
         { project_id: projectId },
         { headers: getHeaders() }
@@ -194,7 +193,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
     try {
       setSubmitting(true);
-      const res = await axios.post(
+      const res = await apiClient.post(
         `${API_BASE}/council/submit-score/`,
         {
           project_id: selectedProject.id,
@@ -229,7 +228,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
     try {
       setLocking(true);
-      const res = await axios.post(
+      const res = await apiClient.post(
         `${API_BASE}/council/toggle-lock/`,
         {
           council_id: councilData.id,

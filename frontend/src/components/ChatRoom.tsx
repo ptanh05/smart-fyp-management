@@ -42,6 +42,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const maxReconnectAttempts = 3;
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -156,7 +157,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
         } else if (reconnectAttempts.current < maxReconnectAttempts) {
           reconnectAttempts.current++;
           setConnectionStatus('connecting');
-          setTimeout(connectWebSocket, 2000 * reconnectAttempts.current);
+          reconnectTimerRef.current = setTimeout(connectWebSocket, 2000 * reconnectAttempts.current);
         } else {
           console.warn('Max WebSocket reconnect attempts reached, falling back to polling');
           startPolling();
@@ -272,7 +273,13 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
 
   // Disconnect WebSocket
   const disconnectWebSocket = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     if (wsRef.current) {
+      // Gỡ onclose trước khi đóng chủ động, nếu không handler sẽ lên lịch reconnect sau khi unmount.
+      wsRef.current.onclose = null;
       wsRef.current.close();
       wsRef.current = null;
     }

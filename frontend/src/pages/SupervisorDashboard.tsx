@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { apiService, API_BASE_URL } from '../services/api';
+import { apiService, apiClient, API_BASE_URL } from '../services/api';
 import type { Supervisor, SupervisorOfStudentGroup } from '../types';
 import Navbar from '../components/Navbar';
 import UTCAppLayout from '../components/UTCAppLayout';
@@ -24,10 +24,10 @@ import { SkeletonProfile, SkeletonEvaluationGrid } from '../components/SkeletonL
 import { TablePagination } from '../components/TablePagination';
 import { getRelativeTime } from '../utils/dateUtils';
 import { useModalGuard } from '../utils/modalHooks';
-import axios from 'axios';
 import { calculateStageCounts } from '../utils/graduationStages';
 import type { SupervisorGradTab } from '../components/UTCSupervisorGraduationView';
 import StudentTemplatesView from '../components/StudentTemplatesView';
+import { LecturerWorkspaceTab } from '../components/lecturer/LecturerWorkspaceTab';
 import './Dashboard.css';
 import '../components/EvaluationForm.css';
 import '../components/DocumentReview.css';
@@ -167,7 +167,7 @@ const SupervisorDashboard: React.FC = () => {
       try {
         setBatchesLoading(true);
         const token = localStorage.getItem('access_token');
-        const res = await axios.get(`${API_BASE_URL}/supervisor/my-batches/`, {
+        const res = await apiClient.get(`${API_BASE_URL}/supervisor/my-batches/`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         const list = Array.isArray(res.data) ? res.data : [];
@@ -223,7 +223,7 @@ const SupervisorDashboard: React.FC = () => {
       const token = localStorage.getItem('access_token');
       const [profileData, projRes] = await Promise.all([
         apiService.getSupervisorProfile(),
-        axios.get(`${API_BASE_URL}/supervisor/graduation-projects/?batch_id=${batchId}`, {
+        apiClient.get(`${API_BASE_URL}/supervisor/graduation-projects/?batch_id=${batchId}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         }).catch(() => null),
       ]);
@@ -440,6 +440,12 @@ const SupervisorDashboard: React.FC = () => {
             onClick={() => setActiveTab('audit')}
           >
             {t('nav.auditLogs', 'Nhật Ký Hệ Thống')}
+          </button>
+          <button
+            className={`tab ${activeTab === 'workload' ? 'active' : ''}`}
+            onClick={() => setActiveTab('workload')}
+          >
+            Khối Lượng & Chấm Điểm
           </button>
         </div>
 
@@ -736,6 +742,10 @@ const SupervisorDashboard: React.FC = () => {
 
           {activeTab === 'audit' && (
             <AuditLogViewer />
+          )}
+
+          {activeTab === 'workload' && (
+            <LecturerWorkspaceTab />
           )}
         </div>
       </div>
