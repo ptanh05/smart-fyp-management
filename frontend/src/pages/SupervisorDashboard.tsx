@@ -1,3 +1,4 @@
+import { notify, notifyError } from '../utils/notify';
 import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -147,7 +148,7 @@ const SupervisorDashboard: React.FC = () => {
         title: broadcastForm.title.trim(),
         message: broadcastForm.message.trim(),
       });
-      alert(res.message || 'Đã gửi thông báo chung tới tất cả sinh viên thành công!');
+      notify.success(res.message || 'Đã gửi thông báo chung tới tất cả sinh viên thành công!');
       setIsBroadcastModalOpen(false);
       setBroadcastForm({ title: '', message: '' });
     } catch (err: any) {
@@ -252,10 +253,10 @@ const SupervisorDashboard: React.FC = () => {
     try {
       await apiService.respondToSupervisorRequest(id, 'accepted');
       await loadSupervisorRequests(); // Reload requests
-      alert('Request accepted successfully!');
+      notify.success('Đã chấp nhận yêu cầu.');
     } catch (error: any) {
       console.error('Failed to accept request:', error);
-      alert(error.response?.data?.message || 'Failed to accept request');
+      notifyError('Chấp nhận yêu cầu thất bại', error);
     }
   };
 
@@ -263,10 +264,10 @@ const SupervisorDashboard: React.FC = () => {
     try {
       await apiService.respondToSupervisorRequest(id, 'rejected');
       await loadSupervisorRequests(); // Reload requests
-      alert('Request rejected');
+      notify.info('Đã từ chối yêu cầu.');
     } catch (error: any) {
       console.error('Failed to reject request:', error);
-      alert(error.response?.data?.message || 'Failed to reject request');
+      notifyError('Từ chối yêu cầu thất bại', error);
     }
   };
 
@@ -292,10 +293,10 @@ const SupervisorDashboard: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      alert('Report exported successfully!');
+      notify.success('Xuất báo cáo thành công!');
     } catch (error: any) {
       console.error('Failed to export report:', error);
-      alert(error.response?.data?.message || 'Failed to export report. Please try again.');
+      notifyError('Xuất báo cáo thất bại', error);
     } finally {
       setExporting(false);
     }

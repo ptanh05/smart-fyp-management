@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -633,10 +634,10 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="utc-form-options">
-              <a href="#forgot" onClick={(e) => { e.preventDefault(); alert('Vui lòng liên hệ Giáo vụ Khoa UTC để lấy lại mật khẩu.'); }}>
+              <a href="#forgot" onClick={(e) => { e.preventDefault(); notify.info('Vui lòng liên hệ Giáo vụ Khoa UTC để lấy lại mật khẩu.'); }}>
                 {t('portal.forgotPassword', 'Quên mật khẩu?')}
               </a>
-              <a href="#help" onClick={(e) => { e.preventDefault(); alert('Hỗ trợ kỹ thuật UTC: 024 3766 4078 | Email: dev@utc.edu.vn'); }}>
+              <a href="#help" onClick={(e) => { e.preventDefault(); notify.info('Hỗ trợ kỹ thuật UTC: 024 3766 4078 | Email: dev@utc.edu.vn'); }}>
                 ❓ {t('portal.help', 'Trợ giúp!')}
               </a>
             </div>

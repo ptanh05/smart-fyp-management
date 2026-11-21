@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -449,7 +450,7 @@ const StudentDashboard: React.FC = () => {
                     <button
                       className="btn utc-btn-view-sheet-locked"
                       onClick={() => {
-                        alert(
+                        notify.warning(
                           `🔒 Phiếu Đánh Giá ĐATN Chuẩn UTC hiện đang khóa.\n\nBiểu mẫu đánh giá và bảng điểm chính thức chỉ được mở sau khi bạn hoàn thành Giai đoạn 6 (Hội đồng bảo vệ hoàn tất chấm điểm & công bố kết quả đồ án).\n\nHiện tại bạn đang ở GĐ ${currentStageInfo.number}: ${currentStageInfo.label}.`
                         );
                       }}

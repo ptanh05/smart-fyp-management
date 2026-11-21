@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -91,7 +92,7 @@ const CommitteeMemberDashboard: React.FC = () => {
       await apiService.downloadConsolidatedReport();
     } catch (err) {
       console.error('Failed to download report:', err);
-      alert('Failed to download report. Please try again.');
+      notify.error('Tải báo cáo thất bại, vui lòng thử lại.');
     }
   };
 
@@ -681,7 +682,7 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
       await apiService.downloadDocument(fileUrl, fileName);
     } catch (err) {
       console.error('Failed to download document:', err);
-      alert('Failed to download document');
+      notify.error('Tải tài liệu thất bại.');
     }
   };
 

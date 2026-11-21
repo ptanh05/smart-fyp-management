@@ -1,3 +1,4 @@
+import { notify, notifyError } from '../utils/notify';
 import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -579,11 +580,11 @@ const ExternalEvaluationFormInline: React.FC<EvaluationFormProps> = ({
         assignment: assignment.id,
         ...formData
       });
-      alert('Evaluation submitted successfully!');
+      notify.success('Đã nộp phiếu đánh giá thành công!');
       onComplete();
     } catch (error: any) {
       console.error('Failed to submit evaluation:', error);
-      alert(error.response?.data?.detail || 'Failed to submit evaluation');
+      notifyError('Nộp phiếu đánh giá thất bại', error);
     } finally {
       setSubmitting(false);
     }
