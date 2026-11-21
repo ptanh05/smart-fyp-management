@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -46,14 +47,14 @@ const DocumentRow: React.FC<DocumentRowProps> = ({
       onSubmittedToCommittee(null);
     } catch (error: any) {
       onSubmittedToCommittee(null);
-      const msg = error.response?.data?.message || 'Failed to submit to committee.';
-      alert(msg);
+      const msg = error.response?.data?.message || 'Gửi tài liệu lên Hội đồng thất bại.';
+      notify.error(msg);
     }
   };
 
   const handleDownload = async () => {
     if (!document.uploaded_file) {
-      alert('No file available for download');
+      notify.warning('Tài liệu này chưa có file để tải.');
       return;
     }
 
@@ -66,7 +67,7 @@ const DocumentRow: React.FC<DocumentRowProps> = ({
       await apiService.downloadDocument(document.uploaded_file, fileName);
     } catch (error: any) {
       console.error('Download failed:', error);
-      alert('Failed to download document. Please try again.');
+      notify.error('Tải tài liệu thất bại, vui lòng thử lại.');
     } finally {
       setDownloading(false);
     }

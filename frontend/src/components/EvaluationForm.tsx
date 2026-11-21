@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import './EvaluationForm.css';
@@ -309,9 +310,9 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
       
       await evaluationType.updateEvaluation(groupId, dataToSave);
       if (draftMode) {
-        alert('Đã lưu nháp phiếu chấm điểm thành công! Sinh viên chưa thể xem điểm này cho đến khi bạn hoàn thành & lưu.');
+        notify.success('Đã lưu nháp phiếu chấm điểm thành công! Sinh viên chưa thể xem điểm này cho đến khi bạn hoàn thành & lưu.');
       } else {
-        alert('Đã hoàn thành và lưu phiếu chấm điểm chính thức thành công!');
+        notify.success('Đã hoàn thành và lưu phiếu chấm điểm chính thức thành công!');
       }
       onSaved?.();
       onClose();

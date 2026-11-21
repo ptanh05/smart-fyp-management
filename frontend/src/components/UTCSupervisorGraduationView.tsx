@@ -1,3 +1,4 @@
+import { notify, notifyError, confirmDialog, promptDialog } from '../utils/notify';
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { TablePagination } from './TablePagination';
@@ -392,12 +393,12 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     if (!supervisionProject || !contentDiscussed) return;
 
     if (meetingType === 'ONLINE' && !locationOrLink.trim()) {
-      alert('Vui lòng nhập link cuộc họp trực tuyến Google Meet hoặc Zoom.');
+      notify.warning('Vui lòng nhập link cuộc họp trực tuyến Google Meet hoặc Zoom.');
       return;
     }
 
     if (logAssignTask && !logTaskTitle.trim()) {
-      alert('Vui lòng nhập tên công việc tuần tới nếu đã chọn giao việc.');
+      notify.warning('Vui lòng nhập tên công việc tuần tới nếu đã chọn giao việc.');
       return;
     }
 
@@ -426,7 +427,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         payload,
         { headers: getHeaders() }
       );
-      alert(res.data?.message || 'Đã lưu nhật ký hướng dẫn và căn cứ đánh giá điểm quá trình thành công!');
+      notify.success(res.data?.message || 'Đã lưu nhật ký hướng dẫn và căn cứ đánh giá điểm quá trình thành công!');
       setContentDiscussed('');
       setSupervisorNotes('');
       setNextMeetingPlan('');
@@ -444,7 +445,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       if (logsRes?.data) setSupervisionLogs(logsRes.data);
       if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
     } catch (err: any) {
-      alert('Lỗi lưu nhật ký: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi lưu nhật ký', err);
     } finally {
       setSavingLog(false);
     }
@@ -467,7 +468,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         },
         { headers: getHeaders() }
       );
-      alert(res.data?.message || 'Đã giao nhiệm vụ cho sinh viên!');
+      notify.success(res.data?.message || 'Đã giao nhiệm vụ cho sinh viên!');
       setTaskTitle('');
       setTaskDesc('');
       setTaskDueDate('');
@@ -475,19 +476,19 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       const tasksRes = await axios.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
       if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
     } catch (err: any) {
-      alert('Lỗi giao việc: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi giao việc', err);
     } finally {
       setSavingTask(false);
     }
   };
 
   const handleDeleteTask = async (taskId: number) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) return;
+    if (!(await confirmDialog('Bạn có chắc chắn muốn xóa nhiệm vụ này?', { danger: true, confirmText: 'Xóa' }))) return;
     try {
       await axios.delete(`${API_BASE}/supervisor/tasks/${taskId}/`, { headers: getHeaders() });
       setSupervisionTasks(supervisionTasks.filter((t) => t.id !== taskId));
     } catch (err: any) {
-      alert('Lỗi xóa nhiệm vụ: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi xóa nhiệm vụ', err);
     }
   };
 
@@ -508,11 +509,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         topic_title_vi: topicConfirmVi.trim(),
         topic_title_en: topicConfirmEn.trim(),
       });
-      alert('Đã xác nhận đề tài thành công! Chuyển trạng thái sang TOPIC_CONFIRMED.');
+      notify.success('Đã xác nhận đề tài thành công! Chuyển trạng thái sang TOPIC_CONFIRMED.');
       setShowTopicConfirmModal(false);
       fetchData();
     } catch (err: any) {
-      alert('Lỗi xác nhận đề tài: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi xác nhận đề tài', err);
     } finally {
       setConfirmingTopic(false);
     }
@@ -522,7 +523,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const handleReviewDeferral = async (reqId: number, decision: 'APPROVED' | 'REJECTED') => {
     let notes = '';
     if (decision === 'REJECTED') {
-      const promptNotes = window.prompt('Vui lòng nhập lý do từ chối bảo lưu:');
+      const promptNotes = await promptDialog('Vui lòng nhập lý do từ chối bảo lưu:', { title: 'Từ chối bảo lưu', placeholder: 'Lý do từ chối...', required: true, danger: true, confirmText: 'Từ chối' });
       if (promptNotes === null) return;
       notes = promptNotes.trim();
     }
@@ -532,10 +533,10 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         decision,
         admin_notes: notes || (decision === 'APPROVED' ? 'Khoa chấp thuận bảo lưu đồ án tốt nghiệp' : 'Không chấp thuận bảo lưu')
       });
-      alert(res.message || 'Cập nhật trạng thái bảo lưu thành công! (Trạng thái đồ án: ' + (res.project?.status || 'DEFERRED') + ')');
+      notify.success(res.message || 'Cập nhật trạng thái bảo lưu thành công! (Trạng thái đồ án: ' + (res.project?.status || 'DEFERRED') + ')');
       fetchData();
     } catch (err: any) {
-      alert('Lỗi duyệt bảo lưu: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi duyệt bảo lưu', err);
     } finally {
       setReviewingDeferral(false);
     }
@@ -548,17 +549,17 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       setAdminTopicNotes('');
       return;
     }
-    if (!window.confirm(`Xác nhận Khoa phê duyệt chính thức đề tài cho sinh viên ${project.student_name}?`)) return;
+    if (!(await confirmDialog(`Xác nhận Khoa phê duyệt chính thức đề tài cho sinh viên ${project.student_name}?`, { confirmText: 'Phê duyệt' }))) return;
     try {
       setAdminTopicSubmitting(true);
       const res = await apiService.adminApproveTopic({
         project_id: project.id,
         decision: 'APPROVED'
       });
-      alert(res.message || 'Khoa đã phê duyệt đề tài chính thức thành công!');
+      notify.success(res.message || 'Khoa đã phê duyệt đề tài chính thức thành công!');
       fetchData();
     } catch (err: any) {
-      alert('Lỗi phê duyệt đề tài: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi phê duyệt đề tài', err);
     } finally {
       setAdminTopicSubmitting(false);
     }
@@ -569,7 +570,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     if (!adminTopicModal) return;
     // FLOW_14: Frontend validation - bắt buộc có lý do từ chối
     if (!adminTopicNotes.trim()) {
-      alert('Vui lòng nhập lý do từ chối hoặc yêu cầu chỉnh sửa đề tài! Không được để trống lý do.');
+      notify.warning('Vui lòng nhập lý do từ chối hoặc yêu cầu chỉnh sửa đề tài! Không được để trống lý do.');
       return;
     }
     try {
@@ -579,12 +580,12 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         decision: 'REJECTED',
         notes: adminTopicNotes.trim()
       });
-      alert(res.message || 'Khoa đã gửi yêu cầu chỉnh sửa đề tài thành công!');
+      notify.success(res.message || 'Khoa đã gửi yêu cầu chỉnh sửa đề tài thành công!');
       setAdminTopicModal(null);
       setAdminTopicNotes('');
       fetchData();
     } catch (err: any) {
-      alert('Lỗi từ chối đề tài: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi từ chối đề tài', err);
     } finally {
       setAdminTopicSubmitting(false);
     }
@@ -606,33 +607,34 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         verdict: taskReviewVerdict,
         supervisor_notes: taskReviewNotes.trim(),
       });
-      alert('Đã lưu kết quả đánh giá nhiệm vụ thành công!');
+      notify.success('Đã lưu kết quả đánh giá nhiệm vụ thành công!');
       setShowTaskReviewModal(false);
       if (supervisionProject) {
         const tasksRes = await axios.get(`${API_BASE}/supervisor/tasks/?project_id=${supervisionProject.id}`, { headers: getHeaders() });
         if (tasksRes?.data) setSupervisionTasks(tasksRes.data);
       }
     } catch (err: any) {
-      alert('Lỗi đánh giá nhiệm vụ: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi đánh giá nhiệm vụ', err);
     } finally {
       setReviewingTask(false);
     }
   };
 
   const handleConfirmStage5Completion = async (project: any) => {
-    const confirmed = window.confirm(
-      `Xác nhận sinh viên ${project.student_name} đã hoàn thành toàn bộ nhiệm vụ GĐ5 và chuyển sang GĐ6: Đánh giá & Bảo vệ?`
+    const confirmed = await confirmDialog(
+      `Xác nhận sinh viên ${project.student_name} đã hoàn thành toàn bộ nhiệm vụ GĐ5 và chuyển sang GĐ6: Đánh giá & Bảo vệ?`,
+      { confirmText: 'Xác nhận chuyển GĐ6' }
     );
     if (!confirmed) return;
 
     try {
       setConfirmingStage5ProjectId(project.id);
       const result = await apiService.confirmStage5Completion(project.id);
-      alert(result.message || 'Đã xác nhận hoàn thành Giai đoạn 5 và mở Giai đoạn 6.');
+      notify.success(result.message || 'Đã xác nhận hoàn thành Giai đoạn 5 và mở Giai đoạn 6.');
       setShowSupervisionModal(false);
       await fetchData();
     } catch (err: any) {
-      alert('Không thể hoàn tất Giai đoạn 5: ' + (err.response?.data?.detail || err.message));
+      notifyError('Không thể hoàn tất Giai đoạn 5', err);
     } finally {
       setConfirmingStage5ProjectId(null);
     }
@@ -651,7 +653,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         },
         { headers: getHeaders()}
       );
-      alert(
+      notify.success(
         verdict === 'APPROVED'
           ? 'GVHD đã chấp nhận đề cương. Hồ sơ đang chờ Khoa/Admin duyệt cuối.'
           : 'Đã cập nhật kết quả duyệt đề cương!'
@@ -659,7 +661,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       setShowOutlineModal(false);
       fetchData();
     } catch (err: any) {
-      alert('Lỗi: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi', err);
     }
   };
 
@@ -676,18 +678,18 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         },
         { headers: getHeaders()}
       );
-      alert('Đã lưu nhận xét và đánh giá tiến độ tuần!');
+      notify.success('Đã lưu nhận xét và đánh giá tiến độ tuần!');
       setShowWeeklyModal(false);
       fetchData();
     } catch (err: any) {
-      alert('Lỗi: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi', err);
     }
   };
 
   const handleSupervisorEvaluation = async (isDraft: boolean = false) => {
     if (!selectedProject) return;
     if (evalScore === '' || isNaN(Number(evalScore))) {
-      alert('Vui lòng nhập điểm hướng dẫn hợp lệ (0 - 10).');
+      notify.warning('Vui lòng nhập điểm hướng dẫn hợp lệ (0 - 10).');
       return;
     }
     try {
@@ -703,14 +705,14 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         { headers: getHeaders()}
       );
       if (isDraft) {
-        alert('Đã lưu nháp phiếu đánh giá GVHD thành công! Điểm chưa được công bố cho sinh viên.');
+        notify.success('Đã lưu nháp phiếu đánh giá GVHD thành công! Điểm chưa được công bố cho sinh viên.');
       } else {
-        alert('Đã lưu phiếu đánh giá GVHD chính thức thành công!');
+        notify.success('Đã lưu phiếu đánh giá GVHD chính thức thành công!');
       }
       setShowEvalModal(false);
       fetchData();
     } catch (err: any) {
-      alert('Lỗi: ' + (err.response?.data?.supervisor_score?.[0] || err.message));
+      notifyError('Lỗi', err);
     }
   };
 
@@ -728,11 +730,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         },
         { headers: getHeaders()}
       );
-      alert('Đã lưu phiếu phản biện và kết luận thành công!');
+      notify.success('Đã lưu phiếu phản biện và kết luận thành công!');
       setShowReviewerModal(false);
       fetchData();
     } catch (err: any) {
-      alert('Lỗi: ' + (err.response?.data?.reviewer_score?.[0] || err.message));
+      notifyError('Lỗi', err);
     }
   };
 
@@ -828,7 +830,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   type="button"
                   onClick={() => {
                     if (isLocked) {
-                      alert(`⚠️ Đợt hiện đang ở GĐ ${currentBatchStage}. Giai đoạn ${tab.number} chưa mở.`);
+                      notify.warning(`⚠️ Đợt hiện đang ở GĐ ${currentBatchStage}. Giai đoạn ${tab.number} chưa mở.`);
                       return;
                     }
                     handleSelectTab(tab.key);

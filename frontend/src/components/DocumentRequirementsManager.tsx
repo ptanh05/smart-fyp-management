@@ -1,3 +1,4 @@
+import { confirmDialog } from '../utils/notify';
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import type { DocumentRequirement, DocumentTypeValue } from '../types';
@@ -114,7 +115,7 @@ const DocumentRequirementsManager: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Delete this document requirement?')) return;
+    if (!(await confirmDialog('Bạn có chắc chắn muốn xóa yêu cầu tài liệu này?', { danger: true, confirmText: 'Xóa' }))) return;
     try {
       setSubmitting(true);
       setError(null);

@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 
@@ -64,14 +65,14 @@ const TemplatesList: React.FC<TemplatesListProps> = ({ templateType }) => {
     if (!file) return;
 
     if (!semester) {
-      alert('Please select a semester first');
+      notify.warning('Vui lòng chọn học kỳ trước.');
       return;
     }
 
     // Client-side validation
     const validationError = validateFile(file);
     if (validationError) {
-      alert(validationError);
+      notify.warning(validationError);
       e.target.value = '';
       return;
     }
@@ -84,7 +85,7 @@ const TemplatesList: React.FC<TemplatesListProps> = ({ templateType }) => {
     try {
       setUploading(true);
       await apiService.uploadTemplate(templateType, formData);
-      alert('Template uploaded successfully!');
+      notify.success('Tải lên biểu mẫu thành công!');
       await loadTemplates();
       e.target.value = '';
     } catch (error: any) {
@@ -105,7 +106,7 @@ const TemplatesList: React.FC<TemplatesListProps> = ({ templateType }) => {
         }
       }
       
-      alert(errorMessage);
+      notify.error(errorMessage);
       e.target.value = '';
     } finally {
       setUploading(false);

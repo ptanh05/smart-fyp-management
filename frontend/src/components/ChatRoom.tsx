@@ -1,3 +1,4 @@
+import { notify, notifyError } from '../utils/notify';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -285,7 +286,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
     // Check size limit: 25MB
     const MAX_SIZE = 25 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
-      alert(`Dung lượng file (${(file.size / (1024 * 1024)).toFixed(1)}MB) vượt quá giới hạn cho phép (25MB).`);
+      notify.warning(`Dung lượng file (${(file.size / (1024 * 1024)).toFixed(1)}MB) vượt quá giới hạn cho phép (25MB).`);
       e.target.value = '';
       return;
     }
@@ -304,7 +305,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
       await apiService.downloadDocument(fileUrl, fileName);
     } catch (err) {
       console.error('Download attachment failed:', err);
-      alert('Không thể tải file đính kèm.');
+      notify.error('Không thể tải file đính kèm.');
     }
   };
 
@@ -386,7 +387,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
       }
     } catch (error: any) {
       console.error('Failed to send message:', error);
-      alert(error.response?.data?.message || 'Failed to send message. Please try again.');
+      notifyError('Không gửi được tin nhắn', error);
     } finally {
       setLoading(false);
       // Re-focus textarea

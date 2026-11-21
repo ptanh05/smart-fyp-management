@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import utcLogo from '../asset/images/utc_logo.webp';
@@ -357,7 +358,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                     className={`utc-nav-item ${isActive ? 'active' : ''} ${!isAccessible ? 'locked' : ''}`}
                     onClick={() => {
                       if (!isAccessible) {
-                        alert(`⚠️ Bạn cần hoàn thành và được Khoa/GVHD duyệt các bước trước để mở ${st.label}!`);
+                        notify.warning(`⚠️ Bạn cần hoàn thành và được Khoa/GVHD duyệt các bước trước để mở ${st.label}!`);
                         return;
                       }
                       handleNavClick(st.key);
@@ -477,7 +478,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                     className={`utc-nav-item ${isTabActive ? 'active' : ''} ${!isAccessible ? 'locked' : ''}`}
                     onClick={() => {
                       if (!isAccessible) {
-                        alert(`⚠️ Đợt đang ở GĐ ${currentBatchStage}. Hãy hoàn thành giai đoạn trước để mở ${st.sidebarLabel}.`);
+                        notify.warning(`⚠️ Đợt đang ở GĐ ${currentBatchStage}. Hãy hoàn thành giai đoạn trước để mở ${st.sidebarLabel}.`);
                         return;
                       }
                       handleNavClick(`stage_${st.number}`);

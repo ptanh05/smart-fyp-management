@@ -1,3 +1,4 @@
+import { notify, notifyError } from '../utils/notify';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
@@ -66,7 +67,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
     if (targetStage && targetStage.number > currentStageNum) {
-      alert(`⚠️ Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
+      notify.warning(`⚠️ Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
       return;
     }
     setActiveTab(tabKey);
@@ -269,7 +270,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     const hasDeliverable = Boolean(task.deliverable_file || task.deliverable_url);
     const hasNotes = Boolean(task.student_notes?.trim?.());
     if (!hasDeliverable || !hasNotes) {
-      alert(
+      notify.warning(
         !hasDeliverable && !hasNotes
           ? 'Bạn phải nộp sản phẩm và nhập ghi chú kết quả trước khi xác nhận hoàn thành nhiệm vụ.'
           : !hasDeliverable
@@ -313,7 +314,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
       return true;
     } catch (err: any) {
-      alert('Lỗi cập nhật nhiệm vụ: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi cập nhật nhiệm vụ', err);
       const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
       return false;
@@ -335,12 +336,12 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         { student_notes: studentNotesInput },
         { headers: getHeaders() }
       );
-      alert('Đã lưu ghi chú tiến độ nhiệm vụ thành công!');
+      notify.success('Đã lưu ghi chú tiến độ nhiệm vụ thành công!');
       setSelectedTaskForNotes(null);
       const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
     } catch (err: any) {
-      alert('Lỗi lưu ghi chú: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi lưu ghi chú', err);
     } finally {
       setSavingTaskNote(false);
     }
@@ -369,9 +370,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       );
       const warnings: string[] = res.data?.warnings || [];
       if (warnings.length > 0) {
-        alert('Đã lưu thông tin khảo sát và nguyện vọng thành công!\n\n⚠️ Lưu ý:\n- ' + warnings.join('\n- '));
+        notify.warning('Đã lưu thông tin khảo sát và nguyện vọng thành công!\n\n⚠️ Lưu ý:\n- ' + warnings.join('\n- '));
       } else {
-        alert('Đã lưu thông tin khảo sát và nguyện vọng thành công!');
+        notify.success('Đã lưu thông tin khảo sát và nguyện vọng thành công!');
       }
       fetchData();
     } catch (err: any) {
@@ -382,7 +383,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         err.response?.data?.company_name?.[0] ||
         JSON.stringify(err.response?.data) ||
         err.message;
-      alert('Lỗi: ' + msg);
+      notify.error('Lỗi: ' + msg);
     } finally {
       setSurveySaving(false);
     }
@@ -391,7 +392,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const handleSaveDraftTopic = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectData?.id || !draftTopicVi.trim()) {
-      alert('Vui lòng nhập tên đề tài tiếng Việt.');
+      notify.warning('Vui lòng nhập tên đề tài tiếng Việt.');
       return;
     }
     try {
@@ -401,10 +402,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         topic_title_vi: draftTopicVi.trim(),
         topic_title_en: draftTopicEn.trim(),
       });
-      alert('Đã cập nhật bản thảo đề tài (Draft)! Đang chờ GVHD xác nhận.');
+      notify.success('Đã cập nhật bản thảo đề tài (Draft)! Đang chờ GVHD xác nhận.');
       fetchData();
     } catch (err: any) {
-      alert('Lỗi lưu đề tài: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi lưu đề tài', err);
     } finally {
       setSavingDraftTopic(false);
     }
@@ -424,7 +425,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert('Lỗi xuất PDF đề cương: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi xuất PDF đề cương', err);
     } finally {
       setGeneratingOutlinePdf(false);
     }
@@ -433,17 +434,17 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const handleUploadSignedOutline = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectData?.id || !signedOutlineFile) {
-      alert('Vui lòng chọn file đề cương PDF đã có chữ ký.');
+      notify.warning('Vui lòng chọn file đề cương PDF đã có chữ ký.');
       return;
     }
     try {
       setUploadingSignedOutline(true);
       await apiService.uploadSignedOutline(projectData.id, signedOutlineFile);
-      alert('Đã nộp đề cương có chữ ký thành công! Khoa đã lưu hồ sơ.');
+      notify.success('Đã nộp đề cương có chữ ký thành công! Khoa đã lưu hồ sơ.');
       setSignedOutlineFile(null);
       fetchData();
     } catch (err: any) {
-      alert('Lỗi nộp hồ sơ đề cương: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi nộp hồ sơ đề cương', err);
     } finally {
       setUploadingSignedOutline(false);
     }
@@ -453,11 +454,11 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     e.preventDefault();
     if (!selectedTaskForDeliverable) return;
     if (!deliverableFile && !deliverableUrl.trim()) {
-      alert('Vui lòng đính kèm file kết quả hoặc nhập link URL sản phẩm (GitHub/Drive/Demo).');
+      notify.warning('Vui lòng đính kèm file kết quả hoặc nhập link URL sản phẩm (GitHub/Drive/Demo).');
       return;
     }
     if (!deliverableNotes.trim()) {
-      alert('Vui lòng nhập ghi chú tóm tắt kết quả đã thực hiện.');
+      notify.warning('Vui lòng nhập ghi chú tóm tắt kết quả đã thực hiện.');
       return;
     }
     try {
@@ -468,7 +469,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       if (deliverableNotes.trim()) fd.append('student_notes', deliverableNotes.trim());
 
       await apiService.submitTaskDeliverable(selectedTaskForDeliverable.id, fd);
-      alert('Đã nộp kết quả thực hiện nhiệm vụ thành công! Đang chờ GVHD đánh giá.');
+      notify.success('Đã nộp kết quả thực hiện nhiệm vụ thành công! Đang chờ GVHD đánh giá.');
       setSelectedTaskForDeliverable(null);
       setDeliverableFile(null);
       setDeliverableUrl('');
@@ -476,7 +477,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       const refreshTasks = await axios.get(`${API_BASE}/student/tasks/`, { headers: getHeaders() }).catch(() => null);
       if (refreshTasks?.data) setTasksData(refreshTasks.data);
     } catch (err: any) {
-      alert('Lỗi nộp sản phẩm: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi nộp sản phẩm', err);
     } finally {
       setSubmittingDeliverable(false);
     }
@@ -485,7 +486,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const handleSubmitDeferral = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!deferralReasonDetails.trim()) {
-      alert('Vui lòng nhập lý do chi tiết xin bảo lưu đồ án.');
+      notify.warning('Vui lòng nhập lý do chi tiết xin bảo lưu đồ án.');
       return;
     }
     try {
@@ -496,14 +497,14 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       if (deferralEvidenceFile) fd.append('evidence_file', deferralEvidenceFile);
 
       await apiService.submitStudentDeferralRequest(fd);
-      alert('Đã gửi đơn xin bảo lưu đồ án thành công! Đang chờ Ban Chủ nhiệm Khoa xem xét.');
+      notify.success('Đã gửi đơn xin bảo lưu đồ án thành công! Đang chờ Ban Chủ nhiệm Khoa xem xét.');
       setDeferralReasonDetails('');
       setDeferralEvidenceFile(null);
       setShowDeferralModal(false);
       const deferrals = await apiService.getStudentDeferralRequests().catch(() => []);
       setDeferralRequests(Array.isArray(deferrals) ? deferrals : []);
     } catch (err: any) {
-      alert('Lỗi nộp đơn bảo lưu: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi nộp đơn bảo lưu', err);
     } finally {
       setSubmittingDeferral(false);
     }
@@ -512,7 +513,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const handleSubmitOutline = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!outlineTitleVi) {
-      alert('Vui lòng nhập tên đề tài tiếng Việt.');
+      notify.warning('Vui lòng nhập tên đề tài tiếng Việt.');
       return;
     }
 
@@ -528,10 +529,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       await axios.post(`${API_BASE}/student/outline/submit/`, fd, {
         headers: { ...getHeaders(), 'Content-Type': 'multipart/form-data' },
       });
-      alert('Nộp đề cương thành công! Đề cương đã được gửi đến Giảng viên hướng dẫn xem xét & duyệt.');
+      notify.success('Nộp đề cương thành công! Đề cương đã được gửi đến Giảng viên hướng dẫn xem xét & duyệt.');
       fetchData();
     } catch (err: any) {
-      alert('Lỗi nộp đề cương: ' + (err.response?.data?.outline_file?.[0] || err.message));
+      notifyError('Lỗi nộp đề cương', err);
     } finally {
       setOutlineSubmitting(false);
     }
@@ -540,7 +541,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const handleSubmitWeeklyReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!weekSummary) {
-      alert('Vui lòng nhập nội dung tóm tắt công việc đã làm trong tuần.');
+      notify.warning('Vui lòng nhập nội dung tóm tắt công việc đã làm trong tuần.');
       return;
     }
 
@@ -558,7 +559,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       await axios.post(`${API_BASE}/student/weekly-reports/`, fd, {
         headers: { ...getHeaders(), 'Content-Type': 'multipart/form-data' },
       });
-      alert(`Đã nộp báo cáo tiến độ Tuần ${selectedWeek} thành công!`);
+      notify.success(`Đã nộp báo cáo tiến độ Tuần ${selectedWeek} thành công!`);
       setWeekSummary('');
       setWeekTasks('');
       setWeekGit('');
@@ -573,7 +574,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         errorData?.week_number?.[0] ||
         err.message ||
         'Không thể nộp báo cáo tuần.';
-      alert('Lỗi nộp báo cáo: ' + errorMessage);
+      notify.error('Lỗi nộp báo cáo: ' + errorMessage);
     } finally {
       setReportSubmitting(false);
     }

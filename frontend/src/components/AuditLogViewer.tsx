@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/api';
 import type { AuditLog, AuditLogStats } from '../types';
@@ -122,7 +123,7 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ groupId, showStats = tr
     } catch (err: unknown) {
       console.error('Export audit logs failed:', err);
       const errorMessage = err instanceof Error ? err.message : 'Xuất dữ liệu thất bại';
-      alert('Không thể xuất file audit log: ' + errorMessage);
+      notify.error('Không thể xuất file audit log: ' + errorMessage);
     } finally {
       setExporting(false);
     }

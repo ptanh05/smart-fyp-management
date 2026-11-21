@@ -1,3 +1,4 @@
+import { notify, notifyError, confirmDialog } from '../utils/notify';
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import type { 
@@ -73,7 +74,7 @@ const ExternalManagement: React.FC = () => {
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExaminer) {
-      alert('Please select an external examiner');
+      notify.warning('Vui lòng chọn giảng viên phản biện ngoài.');
       return;
     }
     
@@ -82,7 +83,7 @@ const ExternalManagement: React.FC = () => {
         ...groupForm,
         external_examiner: selectedExaminer
       } as any);
-      alert('External group created successfully!');
+      notify.success('Đã tạo nhóm phản biện ngoài.');
       setShowCreateGroup(false);
       setGroupForm({
         name: '',
@@ -95,7 +96,7 @@ const ExternalManagement: React.FC = () => {
       setSelectedExaminer(null);
       loadData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to create group');
+      notifyError('Tạo nhóm thất bại', error);
     }
   };
 
@@ -105,22 +106,22 @@ const ExternalManagement: React.FC = () => {
         external_group: externalGroupId,
         supervisor_group: supervisorGroupId
       });
-      alert('Student group assigned successfully!');
+      notify.success('Đã phân công nhóm sinh viên.');
       loadData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to assign group');
+      notifyError('Phân công nhóm thất bại', error);
     }
   };
 
   const handleDeleteGroup = async (groupId: number) => {
-    if (!window.confirm('Are you sure you want to delete this external group?')) return;
+    if (!(await confirmDialog('Bạn có chắc chắn muốn xóa nhóm phản biện ngoài này?', { danger: true, confirmText: 'Xóa' }))) return;
     
     try {
       await apiService.deleteExternalGroup(groupId);
-      alert('Group deleted successfully!');
+      notify.success('Đã xóa nhóm.');
       loadData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to delete group');
+      notifyError('Xóa nhóm thất bại', error);
     }
   };
 

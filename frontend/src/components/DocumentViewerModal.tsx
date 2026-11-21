@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { useModalGuard } from '../utils/modalHooks';
@@ -113,7 +114,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       await apiService.downloadDocument(documentUrl, fileName);
     } catch (err) {
       console.error('Download error:', err);
-      alert('Tải tài liệu thất bại.');
+      notify.error('Tải tài liệu thất bại.');
     } finally {
       setDownloading(false);
     }

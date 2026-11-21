@@ -1,3 +1,4 @@
+import { notify, notifyError, confirmDialog } from '../utils/notify';
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
 import type { Project, ProjectCategory } from '../types';
@@ -102,7 +103,7 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
 
   const handleOpenEditModal = (topic: Project) => {
     if (topic.has_registered_groups) {
-      alert('Đề tài này đã có nhóm sinh viên đăng ký hoặc nhận, không thể chỉnh sửa thông tin.');
+      notify.warning('Đề tài này đã có nhóm sinh viên đăng ký hoặc nhận, không thể chỉnh sửa thông tin.');
       return;
     }
     setIsEditing(true);
@@ -122,23 +123,24 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
 
   const handleDeleteTopic = async (topic: Project) => {
     if (topic.has_registered_groups) {
-      alert('Đề tài này đã có sinh viên đăng ký hoặc nhận, không thể xóa.');
+      notify.warning('Đề tài này đã có sinh viên đăng ký hoặc nhận, không thể xóa.');
       return;
     }
 
-    const confirmDelete = window.confirm(
-      `Bạn có chắc chắn muốn xóa đề tài gợi ý: "${topic.project_name}"?\n\nThao tác này không thể hoàn tác.`
+    const confirmDelete = await confirmDialog(
+      `Bạn có chắc chắn muốn xóa đề tài gợi ý: "${topic.project_name}"?\n\nThao tác này không thể hoàn tác.`,
+      { danger: true, confirmText: 'Xóa đề tài' }
     );
     if (!confirmDelete) return;
 
     try {
       await apiService.deleteProject(topic.id);
-      alert('Đề tài đã bị gỡ khỏi danh sách đề tài gợi ý thành công!');
+      notify.success('Đề tài đã bị gỡ khỏi danh sách đề tài gợi ý thành công!');
       loadTopics();
       onTopicChanged?.();
     } catch (err: any) {
       console.error('Delete project failed:', err);
-      alert('Lỗi xóa đề tài: ' + (err.response?.data?.message || err.message));
+      notifyError('Lỗi xóa đề tài', err);
     }
   };
 
@@ -148,11 +150,11 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
       await apiService.updateProject(topic.id, {
         topic_review_status: 'GV_CONFIRMED',
       } as any);
-      alert('Đã gửi đề tài lên Hội đồng Khoa xét duyệt thành công!');
+      notify.success('Đã gửi đề tài lên Hội đồng Khoa xét duyệt thành công!');
       loadTopics();
       onTopicChanged?.();
     } catch (err: any) {
-      alert('Lỗi gửi đề tài: ' + (err.response?.data?.message || err.message));
+      notifyError('Lỗi gửi đề tài', err);
     } finally {
       setLoading(false);
     }
@@ -175,10 +177,10 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
       setSaving(true);
       if (isEditing && selectedTopicId) {
         await apiService.updateProject(selectedTopicId, formData);
-        alert('Lưu thay đổi thông tin đề tài gợi ý thành công!');
+        notify.success('Lưu thay đổi thông tin đề tài gợi ý thành công!');
       } else {
         await apiService.createProject(formData);
-        alert('Tạo đề tài gợi ý mới thành công!');
+        notify.success('Tạo đề tài gợi ý mới thành công!');
       }
       setShowModal(false);
       loadTopics();

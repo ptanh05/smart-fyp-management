@@ -1,3 +1,4 @@
+import { notify } from '../utils/notify';
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/api';
 import type { Student, ProjectGroup, GroupJoinRequestInfo, TopicStatus } from '../types';
@@ -287,7 +288,7 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
 
     // Feature 12: Chặn rời nhóm khi đề tài đã được phê duyệt chính thức
     if (myGroup.topic_status === 'APPROVED') {
-      alert('Đề tài đã được phê duyệt chính thức, không thể tự ý rời nhóm. Vui lòng liên hệ giảng viên/quản trị viên để giải quyết.');
+      notify.warning('Đề tài đã được phê duyệt chính thức, không thể tự ý rời nhóm. Vui lòng liên hệ giảng viên/quản trị viên để giải quyết.');
       showAlert('error', 'Đề tài đã được phê duyệt chính thức, không thể tự ý rời nhóm. Vui lòng liên hệ giảng viên/quản trị viên để giải quyết.');
       return;
     }

@@ -1,3 +1,4 @@
+import { notify, notifyError, confirmDialog } from '../utils/notify';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useModalGuard } from '../utils/modalHooks';
@@ -96,7 +97,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       }, 1000);
     } else if (timerSeconds === 0 && isTimerRunning) {
       setIsTimerRunning(false);
-      alert('⏰ Hết giờ trình bày bảo vệ của sinh viên!');
+      notify.warning('⏰ Hết giờ trình bày bảo vệ của sinh viên!');
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, timerSeconds]);
@@ -124,7 +125,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
         { project_id: projectId, defense_status: defenseStatus },
         { headers: getHeaders() }
       );
-      alert(res.data.message || 'Đã cập nhật trạng thái bảo vệ!');
+      notify.success(res.data.message || 'Đã cập nhật trạng thái bảo vệ!');
       if (defenseStatus === 'DEFENDING') {
         setTimerSeconds(15 * 60);
         setIsTimerRunning(true);
@@ -133,7 +134,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       }
       await fetchData(true);
     } catch (err: any) {
-      alert('Lỗi điều hành bảo vệ: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi điều hành bảo vệ', err);
     } finally {
       setOperatingProjectId(null);
     }
@@ -149,13 +150,13 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
         { headers: getHeaders() }
       );
       const notifiedList = (res.data.notified_members || []).join(', ');
-      alert(
+      notify.success(
         (res.data.message || 'Đã gửi thông báo nhắc nhở nộp điểm!') +
           (notifiedList ? `\n\nĐã nhắc: ${notifiedList}` : '')
       );
       await fetchData(true);
     } catch (err: any) {
-      alert('Lỗi gửi nhắc nhở: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi gửi nhắc nhở', err);
     } finally {
       setRemindingProjectId(null);
     }
@@ -205,11 +206,11 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
         },
         { headers: getHeaders() }
       );
-      alert(res.data.message || 'Đã chấm điểm thành công!');
+      notify.success(res.data.message || 'Đã chấm điểm thành công!');
       setShowScoreModal(false);
       fetchData(true);
     } catch (err: any) {
-      alert('Lỗi chấm điểm: ' + (err.response?.data?.detail || JSON.stringify(err.response?.data) || err.message));
+      notifyError('Lỗi chấm điểm', err);
     } finally {
       setSubmitting(false);
     }
@@ -218,10 +219,11 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
   const handleToggleLock = async () => {
     if (!councilData) return;
     const willLock = !councilData.is_locked;
-    const confirmPrompt = window.confirm(
+    const confirmPrompt = await confirmDialog(
       willLock
         ? 'Bạn có chắc chắn muốn KHÓA ĐIỂM Hội đồng? Tất cả điểm số sẽ chuyển sang trạng thái Chỉ đọc (Read-only) và không thể chỉnh sửa thêm.'
-        : 'Bạn có chắc chắn muốn MỞ KHÓA điểm Hội đồng? Thành viên sẽ có thể tiếp tục chấm/sửa điểm.'
+        : 'Bạn có chắc chắn muốn MỞ KHÓA điểm Hội đồng? Thành viên sẽ có thể tiếp tục chấm/sửa điểm.',
+      { danger: willLock, confirmText: willLock ? 'Khóa điểm' : 'Mở khóa' }
     );
     if (!confirmPrompt) return;
 
@@ -235,11 +237,11 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
         },
         { headers: getHeaders() }
       );
-      alert(res.data.message || (willLock ? 'Đã khóa điểm hội đồng thành công!' : 'Đã mở khóa điểm thành công!'));
+      notify.success(res.data.message || (willLock ? 'Đã khóa điểm hội đồng thành công!' : 'Đã mở khóa điểm thành công!'));
       fetchData();
     } catch (err: any) {
       console.error('Toggle lock error:', err);
-      alert('Lỗi: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi', err);
     } finally {
       setLocking(false);
     }
@@ -259,7 +261,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert('Lỗi xuất biên bản hội đồng: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi xuất biên bản hội đồng', err);
     } finally {
       setExportingMinutes(false);
     }

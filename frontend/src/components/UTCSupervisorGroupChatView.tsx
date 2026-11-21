@@ -1,3 +1,4 @@
+import { notifyError, confirmDialog } from '../utils/notify';
 import { formatFullName } from '../utils/nameHelper';
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../services/api';
@@ -140,20 +141,20 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
       await loadMessages();
       setTimeout(() => scrollToBottom(true), 50);
     } catch (err: any) {
-      alert('Lỗi gửi tin nhắn: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi gửi tin nhắn', err);
     } finally {
       setSending(false);
     }
   };
 
   const handleDeleteMessage = async (msgId: number) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa tin nhắn này?')) return;
+    if (!(await confirmDialog('Bạn có chắc chắn muốn xóa tin nhắn này?', { danger: true, confirmText: 'Xóa' }))) return;
     try {
       await apiService.deleteSupervisorGroupMessage(msgId);
       setMessages((prev) => prev.filter((m) => m.id !== msgId));
       showToast('Đã xóa tin nhắn.');
     } catch (err: any) {
-      alert('Lỗi xóa tin nhắn: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi xóa tin nhắn', err);
     }
   };
 
@@ -211,7 +212,7 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
       );
       showToast(res.is_pinned ? '📌 Đã ghim tin nhắn lên đầu nhóm!' : 'Đã bỏ ghim tin nhắn.');
     } catch (err: any) {
-      alert('Lỗi ghim tin nhắn: ' + (err.response?.data?.detail || err.message));
+      notifyError('Lỗi ghim tin nhắn', err);
     }
   };
 

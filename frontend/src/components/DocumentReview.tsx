@@ -1,3 +1,4 @@
+import { notify, notifyError } from '../utils/notify';
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import type { Document, DocumentComment, SupervisorOfStudentGroup } from '../types';
@@ -63,7 +64,7 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
 
   const handleBulkDownload = async () => {
     if (selectedGroupIds.length === 0) {
-      alert('Vui lòng chọn ít nhất một nhóm để tải tài liệu.');
+      notify.warning('Vui lòng chọn ít nhất một nhóm để tải tài liệu.');
       return;
     }
     try {
@@ -79,7 +80,7 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error('Bulk download error:', err);
-      alert('Lỗi tải hàng loạt tài liệu: ' + (err.response?.data?.message || err.message));
+      notifyError('Lỗi tải hàng loạt tài liệu', err);
     } finally {
       setBulkDownloading(false);
     }
@@ -114,10 +115,10 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
       });
       setComments(prev => [newComment, ...prev]);
       setCommentText('');
-      alert('Bình luận đã được lưu và gửi thông báo cho sinh viên!');
+      notify.success('Bình luận đã được lưu và gửi thông báo cho sinh viên!');
     } catch (err: any) {
       console.error('Save comment error:', err);
-      alert('Lỗi lưu nhận xét: ' + (err.response?.data?.message || err.message));
+      notifyError('Lỗi lưu nhận xét', err);
     } finally {
       setSavingComment(false);
     }
@@ -162,11 +163,11 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
         setSelectedDocument({ ...selectedDocument, status: newStatus });
       }
       
-      alert(`Document ${newStatus === 'accepted' ? 'approved' : 'rejected'} successfully!`);
+      notify.success(newStatus === 'accepted' ? 'Đã duyệt tài liệu.' : 'Đã từ chối tài liệu.');
     } catch (error: any) {
       console.error('Failed to update document status:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to update document status';
-      alert(errorMessage);
+      const errorMessage = error.response?.data?.message || 'Cập nhật trạng thái tài liệu thất bại.';
+      notify.error(errorMessage);
     } finally {
       setActionLoading(null);
     }
@@ -174,7 +175,7 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
 
   const handleDownload = async (document: Document) => {
     if (!document.uploaded_file) {
-      alert('No file available for download');
+      notify.warning('Tài liệu này chưa có file để tải.');
       return;
     }
 
@@ -184,7 +185,7 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
       await apiService.downloadDocument(document.uploaded_file, fileName);
     } catch (error) {
       console.error('Download failed:', error);
-      alert('Failed to download document. Please try again.');
+      notify.error('Tải tài liệu thất bại, vui lòng thử lại.');
     } finally {
       setDownloading(null);
     }
