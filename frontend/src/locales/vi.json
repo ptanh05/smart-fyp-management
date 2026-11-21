@@ -153,5 +153,17 @@
     "downloadDoc": "Tải Tài Liệu Về",
     "approveDoc": "Phê Duyệt Tài Liệu",
     "rejectDoc": "Từ Chối Tài Liệu"
+  },
+  "cookie": {
+    "ariaLabel": "Thông báo sử dụng cookie",
+    "title": "Website sử dụng cookie",
+    "message": "Hệ thống chỉ sử dụng cookie và bộ nhớ trình duyệt cần thiết để duy trì đăng nhập an toàn và ghi nhớ tùy chọn giao diện, ngôn ngữ của bạn. Chúng tôi không dùng cookie quảng cáo hay theo dõi.",
+    "sessionName": "Cookie đăng nhập (HttpOnly)",
+    "sessionDesc": "giữ phiên làm việc an toàn, không thể đọc được từ JavaScript.",
+    "storageName": "Bộ nhớ trình duyệt (localStorage)",
+    "storageDesc": "lưu thông tin phiên, chế độ sáng/tối và ngôn ngữ hiển thị.",
+    "showDetails": "Xem chi tiết",
+    "hideDetails": "Ẩn chi tiết",
+    "accept": "Đồng ý"
   }
 }

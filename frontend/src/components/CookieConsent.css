@@ -1,0 +1,123 @@
+/* Banner thông báo cookie — góc dưới bên trái (tránh nút FAB bên phải), dưới modal/dialog */
+.cookie-consent {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 9990;
+  width: min(440px, calc(100% - 48px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  border: 1px solid var(--border-color, #e0e0e0);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.25);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  animation: cookieConsentIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cookieConsentIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cookie-consent-title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #333);
+}
+
+.cookie-consent-text {
+  margin: 0;
+  color: var(--text-secondary, #555);
+}
+
+.cookie-consent-details {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary, #555);
+}
+
+.cookie-consent-details li + li {
+  margin-top: 4px;
+}
+
+.cookie-consent-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.cookie-consent-btn {
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cookie-consent-btn:focus-visible {
+  outline: 2px solid var(--primary-color, #007bff);
+  outline-offset: 2px;
+}
+
+.cookie-consent-btn-link {
+  background: transparent;
+  color: var(--text-secondary, #555);
+  border-color: var(--border-color, #ccc);
+}
+
+.cookie-consent-btn-link:hover {
+  background: var(--bg-hover, #f0f0f0);
+}
+
+.cookie-consent-btn-primary {
+  background: var(--primary-color, #007bff);
+  color: #fff;
+}
+
+.cookie-consent-btn-primary:hover {
+  background: var(--primary-hover, #0056b3);
+}
+
+/* Mobile: trải toàn chiều ngang ở đáy màn hình, nút xếp dọc full-width */
+@media (max-width: 480px) {
+  .cookie-consent {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    border-radius: 12px 12px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 16px;
+  }
+
+  .cookie-consent-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cookie-consent {
+    animation: none;
+  }
+}

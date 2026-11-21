@@ -5,6 +5,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import DialogHost from './components/DialogHost';
+import CookieConsent from './components/CookieConsent';
 import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
@@ -112,6 +113,7 @@ const App: React.FC = () => {
         <ToastProvider>
           <ToastContainer />
           <DialogHost />
+          <CookieConsent />
           <Router>
             <AuthProvider>
               <AppRoutes />

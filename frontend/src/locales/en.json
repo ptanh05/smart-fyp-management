@@ -153,5 +153,17 @@
     "downloadDoc": "Download Document",
     "approveDoc": "Approve Document",
     "rejectDoc": "Reject Document"
+  },
+  "cookie": {
+    "ariaLabel": "Cookie notice",
+    "title": "This website uses cookies",
+    "message": "We only use cookies and browser storage that are necessary to keep you securely signed in and to remember your theme and language preferences. We do not use advertising or tracking cookies.",
+    "sessionName": "Sign-in cookie (HttpOnly)",
+    "sessionDesc": "keeps your session secure and cannot be read by JavaScript.",
+    "storageName": "Browser storage (localStorage)",
+    "storageDesc": "stores session info, light/dark mode and display language.",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "accept": "Accept"
   }
 }
