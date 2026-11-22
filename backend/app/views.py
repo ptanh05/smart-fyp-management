@@ -1755,11 +1755,36 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
                 )
 
 
+def _is_authorized_committee_member(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "user_type", None) in ("committee_member", "admin") or getattr(user, "is_staff", False):
+        return True
+    from app.models import CouncilMember
+    return CouncilMember.objects.filter(user=user).exists()
+
+
+def _resolve_committee_eval_object(view, model_cls):
+    from django.http import Http404
+    pk = view.kwargs.get(view.lookup_field or "pk")
+    try:
+        return model_cls.objects.get(pk=pk)
+    except model_cls.DoesNotExist:
+        from app.models import GraduationProject
+        if pk is not None and GraduationProject.objects.filter(pk=pk).exists():
+            obj, _ = model_cls.objects.get_or_create(pk=pk)
+            return obj
+        raise Http404
+
+
 class ScopeDocumentEvaluationCriteriaView(RetrieveAPIView, UpdateAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, IsStudentOrSupervisorOrCommitteeMember]
     serializer_class = ScopeDocumentEvaluationCriteriaSerializer
     queryset = ScopeDocumentEvaluationCriteria.objects.all()
+
+    def get_object(self):
+        return _resolve_committee_eval_object(self, ScopeDocumentEvaluationCriteria)
 
     def retrieve(self, request, *args, **kwargs):
         try:
@@ -1772,10 +1797,10 @@ class ScopeDocumentEvaluationCriteriaView(RetrieveAPIView, UpdateAPIView):
             })
 
     def update(self, request, *args, **kwargs):
-        # Only committee members can update evaluations
-        if request.user.user_type != 'committee_member':
+        # Only committee members / council members / admins can update evaluations
+        if not _is_authorized_committee_member(request.user):
             return Response(
-                {"message": "You are not authorized to update this document"},
+                {"message": "Bạn không có quyền cập nhật phiếu đánh giá này."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         
@@ -1840,11 +1865,14 @@ class SRSEvaluationCommitteeMemberView(RetrieveAPIView, UpdateAPIView):
     serializer_class = SRSEvaluationCommitteeMemberSerializer
     queryset = SRSEvaluationCommitteeMember.objects.all()
 
+    def get_object(self):
+        return _resolve_committee_eval_object(self, SRSEvaluationCommitteeMember)
+
     def update(self, request, *args, **kwargs):
-        # Only committee members can update
-        if request.user.user_type != 'committee_member':
+        # Only committee members / council members / admins can update
+        if not _is_authorized_committee_member(request.user):
             return Response(
-                {"message": "You are not authorized to update this document"},
+                {"message": "Bạn không có quyền cập nhật phiếu đánh giá này."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         
@@ -1908,11 +1936,14 @@ class SDDEvaluationCommitteeMemberView(RetrieveAPIView, UpdateAPIView):
     serializer_class = SDDEvaluationCommitteeMemberSerializer
     queryset = SDDEvaluationCommitteeMember.objects.all()
 
+    def get_object(self):
+        return _resolve_committee_eval_object(self, SDDEvaluationCommitteeMember)
+
     def update(self, request, *args, **kwargs):
-        # Only committee members can update
-        if request.user.user_type != 'committee_member':
+        # Only committee members / council members / admins can update
+        if not _is_authorized_committee_member(request.user):
             return Response(
-                {"message": "You are not authorized to update this document"},
+                {"message": "Bạn không có quyền cập nhật phiếu đánh giá này."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         
@@ -1976,11 +2007,14 @@ class Evaluation3CommitteeMemberView(RetrieveAPIView, UpdateAPIView):
     serializer_class = Evaluation3CommitteeMemberSerializer
     queryset = Evaluation3CommitteeMember.objects.all()
 
+    def get_object(self):
+        return _resolve_committee_eval_object(self, Evaluation3CommitteeMember)
+
     def update(self, request, *args, **kwargs):
-        # Only committee members can update
-        if request.user.user_type != 'committee_member':
+        # Only committee members / council members / admins can update
+        if not _is_authorized_committee_member(request.user):
             return Response(
-                {"message": "You are not authorized to update this document"},
+                {"message": "Bạn không có quyền cập nhật phiếu đánh giá này."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         
@@ -2044,11 +2078,14 @@ class Evaluation4CommitteeMemberView(RetrieveAPIView, UpdateAPIView):
     serializer_class = Evaluation4CommitteeMemberSerializer
     queryset = Evaluation4CommitteeMember.objects.all()
 
+    def get_object(self):
+        return _resolve_committee_eval_object(self, Evaluation4CommitteeMember)
+
     def update(self, request, *args, **kwargs):
-        # Only committee members can update
-        if request.user.user_type != 'committee_member':
+        # Only committee members / council members / admins can update
+        if not _is_authorized_committee_member(request.user):
             return Response(
-                {"message": "You are not authorized to update this document"},
+                {"message": "Bạn không có quyền cập nhật phiếu đánh giá này."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         
@@ -2097,14 +2134,23 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
 
     def list(self, request, *args, **kwargs):
         from app.models import CouncilMember, GraduationProject
-        c_members = CouncilMember.objects.filter(user=request.user)
+        c_members = CouncilMember.objects.filter(user=request.user).select_related("council__batch")
+        council_id = request.query_params.get("council_id")
+        batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
+        if council_id:
+            c_members = c_members.filter(council_id=council_id)
+        elif batch_id:
+            c_members = c_members.filter(council__batch_id=batch_id)
         council_ids = [cm.council_id for cm in c_members if cm.council_id]
         if council_ids:
-            projects = GraduationProject.objects.filter(council_id__in=council_ids).select_related('student', 'student__user', 'supervisor', 'supervisor__user')
+            projects = GraduationProject.objects.filter(council_id__in=council_ids).select_related('student', 'student__user', 'supervisor', 'supervisor__user', 'council', 'batch')
             results = []
             for gp in projects:
                 results.append({
                     "id": gp.id,
+                    "council_id": gp.council_id,
+                    "council_name": gp.council.council_name if gp.council else None,
+                    "batch_id": gp.batch_id,
                     "group": {
                         "id": gp.student.id if gp.student else gp.id,
                         "group_name": f"Đồ án tốt nghiệp - {gp.student.user.get_full_name() if gp.student and gp.student.user else 'SV'}",

@@ -498,3 +498,41 @@
 [data-theme="dark"] .criterion-description {
   color: var(--text-soft, #94a3b8) !important;
 }
+
+/* Theme-aware draft badge and draft save button */
+.evaluation-draft-badge {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+[data-theme="dark"] .evaluation-draft-badge {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.evaluation-form-footer .btn-draft-save {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  font-weight: 600;
+}
+
+.evaluation-form-footer .btn-draft-save:hover:not(:disabled) {
+  background-color: #fde68a;
+}
+
+[data-theme="dark"] .evaluation-form-footer .btn-draft-save {
+  background-color: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+[data-theme="dark"] .evaluation-form-footer .btn-draft-save:hover:not(:disabled) {
+  background-color: rgba(245, 158, 11, 0.3);
+}

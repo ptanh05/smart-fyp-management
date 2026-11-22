@@ -1556,16 +1556,26 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             </div>
           ) : (
             <div className="space-y-3">
-              {reviewerProjects.map((p) => (
-                <div key={p.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-[#2D469E] hover:shadow-md transition flex items-center justify-between gap-4">
+              {reviewerProjects.some((p) => p.batch_stage_number && p.batch_stage_number !== 6) && (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center gap-2">
+                  <span>⏳</span>
+                  <span>
+                    Đợt đồ án hiện chưa ở <b>Giai đoạn 6 (Bảo vệ & Chấm phản biện)</b>. Thầy/Cô có thể xem trước đề tài và tài liệu của sinh viên; chức năng chấm điểm phản biện sẽ tự động mở khi Khoa chuyển sang Giai đoạn 6.
+                  </span>
+                </div>
+              )}
+              {reviewerProjects.map((p) => {
+                const isStage6 = !p.batch_stage_number || p.batch_stage_number === 6;
+                return (
+                <div key={p.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-[#2D469E] hover:shadow-md transition flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-xs font-bold text-[#2D469E]">({p.student_reg_no})</span>
                       <span className="font-bold text-sm text-slate-900">{p.student_name}</span>
                       <span className="text-xs text-slate-500">GVHD: {p.supervisor?.full_name}</span>
                     </div>
                     <p className="text-xs text-slate-700"><b>Đề tài:</b> {p.topic_title_vi}</p>
-                    <div className="flex items-center gap-3 pt-0.5">
+                    <div className="flex items-center gap-3 pt-0.5 flex-wrap">
                       <span className="text-xs text-[#2D469E] font-bold">
                         Điểm GVPB: {p.reviewer_score !== null ? `${p.reviewer_score} / 10đ` : 'Chưa chấm phản biện'}
                       </span>
@@ -1587,10 +1597,32 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                               : 'Không cho phép bảo vệ')}
                         </span>
                       )}
+                      {p.thesis_file_url && (
+                        <a
+                          href={p.thesis_file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-semibold text-indigo-700 hover:underline flex items-center gap-1"
+                        >
+                          📄 Xem quyển đồ án
+                        </a>
+                      )}
+                      {p.outline_file_url && (
+                        <a
+                          href={p.outline_file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-semibold text-sky-700 hover:underline flex items-center gap-1"
+                        >
+                          📑 Xem đề cương
+                        </a>
+                      )}
                     </div>
                   </div>
 
                   <button
+                    disabled={!isStage6}
+                    title={!isStage6 ? `Đợt đang ở giai đoạn ${p.batch_stage_number}, chỉ được chấm phản biện ở Giai đoạn 6` : undefined}
                     onClick={() => {
                       setSelectedProject(p);
                       setRevScore(p.reviewer_score !== null ? p.reviewer_score.toString() : '');
@@ -1598,12 +1630,21 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                       setRevVerdict(p.reviewer_verdict || 'APPROVED');
                       setShowReviewerModal(true);
                     }}
-                    className="px-4 py-2 bg-[#2D469E] hover:bg-[#1D327B] text-white rounded-lg text-xs font-bold transition shadow-sm"
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm ${
+                      isStage6
+                        ? 'bg-[#2D469E] hover:bg-[#1D327B] text-white'
+                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                    }`}
                   >
-                    {p.reviewer_score !== null ? 'Sửa điểm Phản biện' : 'Chấm Phản biện'}
+                    {!isStage6
+                      ? `Chờ Giai đoạn 6 (hiện GĐ ${p.batch_stage_number})`
+                      : p.reviewer_score !== null
+                      ? 'Sửa điểm Phản biện'
+                      : 'Chấm Phản biện'}
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

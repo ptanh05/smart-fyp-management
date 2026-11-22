@@ -5,7 +5,15 @@ import { apiService, apiClient } from '../services/api';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
 
-export const UTCCouncilLiveDefenseView: React.FC = () => {
+interface UTCCouncilLiveDefenseViewProps {
+  councilId?: number | null;
+  batchId?: number | null;
+}
+
+export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps> = ({
+  councilId,
+  batchId,
+}) => {
   const [councilData, setCouncilData] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,11 +72,21 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
   const fetchData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const res = await apiClient.get(`${API_BASE}/council/live-session/`, { headers: getHeaders() });
+      const params: Record<string, any> = {};
+      if (councilId) params.council_id = councilId;
+      if (batchId) params.batch_id = batchId;
+      const res = await apiClient.get(`${API_BASE}/council/live-session/`, {
+        headers: getHeaders(),
+        params,
+      });
       setCouncilData(res.data.council);
       setProjects(res.data.projects || []);
     } catch (err) {
       console.error(err);
+      if (!silent) {
+        setCouncilData(null);
+        setProjects([]);
+      }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -76,7 +94,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [councilId, batchId]);
 
   // Real-time auto sync every 5 seconds
   useEffect(() => {
@@ -85,7 +103,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       fetchData(true);
     }, 5000);
     return () => clearInterval(interval);
-  }, [autoSync]);
+  }, [autoSync, councilId, batchId]);
 
   // Live session timer countdown
   useEffect(() => {
@@ -120,8 +138,12 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
     try {
       setOperatingProjectId(projectId);
       const res = await apiClient.post(
-        `${API_BASE}/council/set-defense-status/`,
-        { project_id: projectId, defense_status: defenseStatus },
+        `${API_BASE}/council/chair/set-defense-status/`,
+        {
+          council_id: councilData?.id,
+          project_id: projectId,
+          defense_status: defenseStatus,
+        },
         { headers: getHeaders() }
       );
       notify.success(res.data.message || 'Đã cập nhật trạng thái bảo vệ!');
@@ -145,7 +167,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       setRemindingProjectId(projectId);
       const res = await apiClient.post(
         `${API_BASE}/council/remind-scoring/`,
-        { project_id: projectId },
+        { council_id: councilData?.id, project_id: projectId },
         { headers: getHeaders() }
       );
       const notifiedList = (res.data.notified_members || []).join(', ');
@@ -196,6 +218,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       const res = await apiClient.post(
         `${API_BASE}/council/submit-score/`,
         {
+          council_id: councilData?.id,
           project_id: selectedProject.id,
           score_presentation: Number(scorePres),
           score_content: Number(scoreContent),
@@ -220,7 +243,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
     const willLock = !councilData.is_locked;
     const confirmPrompt = await confirmDialog(
       willLock
-        ? 'Bạn có chắc chắn muốn KHÓA ĐIỂM Hội đồng? Tất cả điểm số sẽ chuyển sang trạng thái Chỉ đọc (Read-only) và không thể chỉnh sửa thêm.'
+        ? 'Bạn có chắc chắn muốn KHÓA ĐIỂM Hội đồng? Tất cả điểm số sẽ chuyển sang trạng thái Chỉ xem và không thể chỉnh sửa thêm.'
         : 'Bạn có chắc chắn muốn MỞ KHÓA điểm Hội đồng? Thành viên sẽ có thể tiếp tục chấm/sửa điểm.',
       { danger: willLock, confirmText: willLock ? 'Khóa điểm' : 'Mở khóa' }
     );
@@ -232,7 +255,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
         `${API_BASE}/council/toggle-lock/`,
         {
           council_id: councilData.id,
-          is_locked: willLock,
+          lock: willLock,
         },
         { headers: getHeaders() }
       );
@@ -272,59 +295,79 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
     (Number(scoreQa) || 0) +
     (Number(scoreDemo) || 0);
 
+  const formatConflictType = (conflictType?: string) => {
+    const code = (conflictType || '').toUpperCase();
+    if (code === 'SUPERVISOR' || code.includes('SUPERVISOR')) return 'GVHD';
+    if (code === 'REVIEWER' || code.includes('REVIEWER')) return 'GVPB';
+    return conflictType || 'Xung đột';
+  };
+
+  const getMyProjectConflict = (project: any) => {
+    if (!project || !councilData?.my_user_id) return null;
+    const me = project.scoring_summary?.members_breakdown?.find(
+      (m: any) => m.user_id === councilData.my_user_id
+    );
+    if (!me) return null;
+    if (me.is_supervisor) return 'GVHD';
+    if (me.is_reviewer) return 'GVPB';
+    return null;
+  };
+
   if (loading) {
-    return <div className="p-8 text-center text-slate-400">Đang tải phiên bảo vệ trực tiếp của Hội đồng...</div>;
+    return <div className="p-8 text-center utc-live-muted">Đang tải phiên bảo vệ trực tiếp của Hội đồng...</div>;
   }
 
   if (!councilData) {
     return (
-      <div className="p-8 text-center bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-        <h4 className="text-base font-bold text-slate-200">Không tìm thấy phiên bảo vệ</h4>
-        <p className="text-xs text-slate-400">Bạn hiện không được phân công vào Hội đồng bảo vệ nào trong đợt này.</p>
+      <div className="p-8 text-center utc-live-surface rounded-xl space-y-2">
+        <h4 className="text-base font-bold utc-live-title">Không tìm thấy phiên bảo vệ</h4>
+        <p className="text-xs utc-live-muted">Bạn hiện không được phân công vào Hội đồng bảo vệ nào trong đợt này.</p>
       </div>
     );
   }
 
+  const currentDefendingConflict = getMyProjectConflict(currentDefendingProject);
+
   return (
     <div className="space-y-6">
       {/* Council Info Header */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="utc-live-surface rounded-xl p-5 shadow-md flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
               Hội đồng #{councilData.council_number}
             </span>
-            <span className="text-xs px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+            <span className="text-xs px-2.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 font-semibold">
               Vai trò của bạn: {councilData.my_role}
             </span>
             {councilData.is_locked && (
-              <span className="text-xs px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold flex items-center gap-1">
-                🔒 ĐÃ KHÓA ĐIỂM (CHỈ ĐỌC)
+              <span className="text-xs px-2.5 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/40 font-bold flex items-center gap-1">
+                🔒 ĐÃ KHÓA ĐIỂM (CHỈ XEM)
               </span>
             )}
             {isChair && (
-              <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
+              <span className="text-xs px-2 py-0.5 rounded bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30 font-bold">
                 👑 Quyền Điều hành
               </span>
             )}
             {isSecretary && (
-              <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold">
+              <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 font-bold">
                 📝 Quyền Thư ký
               </span>
             )}
           </div>
-          <h2 className="text-xl font-bold text-slate-100 mt-1">{councilData.council_name}</h2>
-          <div className="text-xs text-slate-400 mt-1 flex items-center gap-4">
-            <span>🏛️ Phòng: <b>{councilData.defense_room || 'TBA'}</b></span>
-            <span>📅 Ngày: <b>{councilData.session_date || 'TBA'}</b></span>
+          <h2 className="text-xl font-bold utc-live-title mt-1">{councilData.council_name}</h2>
+          <div className="text-xs utc-live-muted mt-1 flex items-center gap-4 flex-wrap">
+            <span>🏛️ Phòng: <b>{councilData.defense_room || 'Chưa có'}</b></span>
+            <span>📅 Ngày: <b>{councilData.session_date || 'Chưa có'}</b></span>
             <span>⏰ Ca: <b>{councilData.session_time}</b></span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="text-right">
-            <span className="text-xs text-slate-400">Tổng số đề tài bảo vệ</span>
-            <p className="text-2xl font-bold text-emerald-400">{projects.length} Sinh viên</p>
+            <span className="text-xs utc-live-muted">Tổng số đề tài bảo vệ</span>
+            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{projects.length} Sinh viên</p>
           </div>
           {councilData.can_lock && (
             <button
@@ -360,36 +403,36 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
             onClick={() => setAutoSync(!autoSync)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition ${
               autoSync
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-slate-800 text-slate-400 border-slate-700'
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                : 'utc-live-btn-neutral'
             }`}
           >
-            <span className={`w-2 h-2 rounded-full ${autoSync ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-            {autoSync ? 'Đang Live Sync (5s)' : 'Tạm dừng Sync'}
+            <span className={`w-2 h-2 rounded-full ${autoSync ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+            {autoSync ? 'Đồng bộ trực tiếp (5s)' : 'Tạm dừng đồng bộ'}
           </button>
         </div>
       </div>
 
       {/* COUNCIL CONFLICT OF INTEREST ALERT BANNER */}
       {councilData?.has_conflict && (
-        <div className="bg-red-950/30 border border-red-500/40 rounded-xl p-4 shadow-lg flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-red-400 font-bold text-sm">
+        <div className="utc-live-conflict-banner rounded-xl p-4 shadow-md flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold text-sm flex-wrap">
             <span className="text-base">⚠️</span>
-            <span>CẢNH BÁO XUNG ĐỘT LỢI ÍCH (Conflict of Interest)</span>
-            <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-xs px-2 py-0.5 rounded-full font-mono">
-              {councilData.total_conflicts} vi phạm
+            <span>CẢNH BÁO XUNG ĐỘT LỢI ÍCH</span>
+            <span className="bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30 text-xs px-2 py-0.5 rounded-full font-mono">
+              {councilData.total_conflicts} xung đột
             </span>
           </div>
-          <p className="text-xs text-slate-300 leading-relaxed">
+          <p className="text-xs leading-relaxed">
             Hội đồng này có thành viên đồng thời là Giảng viên hướng dẫn hoặc Phản biện của sinh viên trong hội đồng.
             Theo quy chế đào tạo UTC, thành viên có xung đột lợi ích <strong>không được phép chấm điểm Hội đồng</strong> cho đề tài đó.
           </p>
           <div className="mt-1 space-y-1.5">
             {councilData.conflicts?.map((c: any, i: number) => (
-              <div key={i} className="text-xs text-red-300 bg-red-900/20 border border-red-500/20 rounded px-3 py-1.5 flex items-center justify-between">
+              <div key={i} className="utc-live-conflict-item text-xs rounded px-3 py-1.5 flex items-center justify-between gap-2">
                 <span>• {c.message}</span>
-                <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 rounded bg-red-950 text-red-400 border border-red-800">
-                  {c.conflict_type}
+                <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 rounded bg-red-600/15 text-red-700 dark:text-red-300 border border-red-500/30 font-bold">
+                  {formatConflictType(c.conflict_type)}
                 </span>
               </div>
             ))}
@@ -399,41 +442,41 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
       {/* LIVE DEFENSE EXECUTIVE DASHBOARD BANNER */}
       {currentDefendingProject ? (
-        <div className="bg-gradient-to-r from-red-950/40 via-slate-900 to-slate-900 border-2 border-red-500/50 rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="utc-live-defending-banner rounded-2xl p-6 shadow-xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-red-500/20 pb-4">
             <div className="flex items-center gap-3">
               <span className="flex h-3 w-3 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
               </span>
-              <span className="text-xs font-extrabold tracking-wider uppercase text-red-400 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/30">
-                🔴 LIVE SESSION: Đang bảo vệ trực tiếp
+              <span className="text-xs font-extrabold tracking-wider uppercase text-red-600 dark:text-red-400 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/30">
+                🔴 TRỰC TIẾP: Đang bảo vệ
               </span>
             </div>
 
             {/* Live Presentation Timer */}
-            <div className="flex items-center gap-3 bg-slate-950 px-4 py-2 rounded-xl border border-slate-800">
-              <span className="text-xs text-slate-400">Thời gian trình bày:</span>
-              <span className={`font-mono text-xl font-black ${timerSeconds < 180 ? 'text-red-400 animate-pulse' : 'text-emerald-400'}`}>
+            <div className="flex items-center gap-3 utc-live-subsurface px-4 py-2 rounded-xl">
+              <span className="text-xs utc-live-muted">Thời gian trình bày:</span>
+              <span className={`font-mono text-xl font-black ${timerSeconds < 180 ? 'text-red-500 animate-pulse' : 'text-emerald-600 dark:text-emerald-400'}`}>
                 ⏱ {formatTimer(timerSeconds)}
               </span>
-              <div className="flex items-center gap-1.5 ml-2 border-l border-slate-800 pl-2">
+              <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-slate-300 dark:border-slate-700">
                 <button
                   onClick={() => setIsTimerRunning(!isTimerRunning)}
-                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-200"
+                  className="px-2 py-1 utc-live-btn-neutral text-xs rounded"
                 >
                   {isTimerRunning ? '⏸ Dừng' : '▶️ Chạy'}
                 </button>
                 <button
                   onClick={() => setTimerSeconds(15 * 60)}
-                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-300"
+                  className="px-2 py-1 utc-live-btn-neutral text-xs rounded"
                   title="Đặt lại 15 phút"
                 >
                   15p
                 </button>
                 <button
                   onClick={() => setTimerSeconds((prev) => prev + 5 * 60)}
-                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded text-slate-300"
+                  className="px-2 py-1 utc-live-btn-neutral text-xs rounded"
                   title="Cộng thêm 5 phút"
                 >
                   +5p
@@ -444,35 +487,35 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2 max-w-3xl">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded border border-blue-500/20">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-mono text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded border border-blue-500/20">
                   {currentDefendingProject.student_reg_no}
                 </span>
-                <h3 className="text-lg font-bold text-slate-100">{currentDefendingProject.student_name}</h3>
-                <span className="text-xs text-slate-400">Lớp: {currentDefendingProject.student_class}</span>
+                <h3 className="text-lg font-bold utc-live-title">{currentDefendingProject.student_name}</h3>
+                <span className="text-xs utc-live-muted">Lớp: {currentDefendingProject.student_class}</span>
               </div>
 
-              <h4 className="text-sm font-semibold text-slate-200">
+              <h4 className="text-sm font-semibold utc-live-body">
                 {currentDefendingProject.topic_title_vi}
               </h4>
 
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-1">
-                <span>GVHD: <b className="text-slate-300">{currentDefendingProject.supervisor?.full_name}</b> ({currentDefendingProject.supervisor_score !== null ? `${currentDefendingProject.supervisor_score}đ` : 'Chưa chấm'})</span>
-                <span>GVPB: <b className="text-slate-300">{currentDefendingProject.reviewer?.full_name}</b> ({currentDefendingProject.reviewer_score !== null ? `${currentDefendingProject.reviewer_score}đ` : 'Chưa chấm'})</span>
+              <div className="flex flex-wrap items-center gap-4 text-xs utc-live-muted pt-1">
+                <span>GVHD: <b className="utc-live-title">{currentDefendingProject.supervisor?.full_name}</b> ({currentDefendingProject.supervisor_score !== null ? `${currentDefendingProject.supervisor_score}đ` : 'Chưa chấm'})</span>
+                <span>GVPB: <b className="utc-live-title">{currentDefendingProject.reviewer?.full_name}</b> ({currentDefendingProject.reviewer_score !== null ? `${currentDefendingProject.reviewer_score}đ` : 'Chưa chấm'})</span>
               </div>
             </div>
 
             {/* Quick Actions for Current Defending Student */}
             <div className="space-y-3 min-w-[240px]">
               {/* Grading Progress */}
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5">
+              <div className="p-3 utc-live-subsurface rounded-xl space-y-1.5">
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Tiến độ chấm điểm HĐ:</span>
-                  <span className="font-bold text-emerald-400">
+                  <span className="utc-live-muted">Tiến độ chấm điểm HĐ:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
                     {currentDefendingProject.scoring_summary?.submitted_count || 0} / {currentDefendingProject.scoring_summary?.total_eligible_members || 0}
                   </span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-300"
                     style={{
@@ -489,18 +532,28 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => handleOpenScoreModal(currentDefendingProject)}
-                  className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/30 transition text-center"
-                >
-                  {currentDefendingProject.my_score ? 'Sửa điểm của bạn' : '✍️ Chấm điểm SV này'}
-                </button>
+                {currentDefendingConflict ? (
+                  <button
+                    disabled
+                    className="flex-1 px-4 py-2 bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 rounded-xl text-xs font-bold cursor-not-allowed text-center"
+                    title={`Bạn là ${currentDefendingConflict} của SV này nên không được chấm điểm Hội đồng theo quy chế.`}
+                  >
+                    🚫 {currentDefendingConflict} (Không chấm HĐ)
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenScoreModal(currentDefendingProject)}
+                    className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/30 transition text-center"
+                  >
+                    {currentDefendingProject.my_score ? 'Sửa điểm của bạn' : '✍️ Chấm điểm SV này'}
+                  </button>
+                )}
 
                 {canOperateSession && (
                   <button
                     disabled={operatingProjectId === currentDefendingProject.id}
                     onClick={() => handleSetDefenseStatus(currentDefendingProject.id, 'DEFENDED')}
-                    className="px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-xl text-xs font-bold shadow-lg transition"
+                    className="px-4 py-2 bg-red-600/90 hover:bg-red-600 text-white rounded-xl text-xs font-bold shadow-lg transition"
                   >
                     {operatingProjectId === currentDefendingProject.id ? 'Đang cập nhật...' : '⏹ Kết thúc lượt bảo vệ'}
                   </button>
@@ -510,7 +563,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                   <button
                     disabled={remindingProjectId === currentDefendingProject.id}
                     onClick={() => handleRemindScoring(currentDefendingProject.id)}
-                    className="w-full px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition"
+                    className="w-full px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition"
                   >
                     🔔 Nhắc nộp điểm ({currentDefendingProject.scoring_summary.pending_count} thành viên chưa nộp)
                   </button>
@@ -520,25 +573,25 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 text-center space-y-2">
-          <p className="text-sm font-semibold text-slate-300">
+        <div className="utc-live-surface rounded-xl p-5 text-center space-y-2">
+          <p className="text-sm font-semibold utc-live-body">
             Chưa có sinh viên nào đang trong lượt bảo vệ trực tiếp.
           </p>
           {canOperateSession ? (
-            <p className="text-xs text-blue-400">
+            <p className="text-xs text-blue-600 dark:text-blue-400">
               💡 Chủ tịch / Thư ký hội đồng: Hãy nhấn nút <b>"▶️ Bắt đầu bảo vệ"</b> ở danh sách bên dưới để bắt đầu lượt bảo vệ cho sinh viên.
             </p>
           ) : (
-            <p className="text-xs text-slate-500">Đang chờ Chủ tịch hội đồng bắt đầu lượt bảo vệ tiếp theo...</p>
+            <p className="text-xs utc-live-muted">Đang chờ Chủ tịch hội đồng bắt đầu lượt bảo vệ tiếp theo...</p>
           )}
         </div>
       )}
 
       {/* Projects Defense List */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+      <div className="utc-live-surface rounded-xl p-5 shadow-md space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-bold text-base text-slate-100">Danh sách Sinh viên bảo vệ trong Hội đồng</h3>
-          <span className="text-xs text-slate-400">Trọng số tính điểm: 30% GVHD + 20% GVPB + 50% Hội đồng</span>
+          <h3 className="font-bold text-base utc-live-title">Danh sách Sinh viên bảo vệ trong Hội đồng</h3>
+          <span className="text-xs utc-live-muted">Trọng số tính điểm: 30% GVHD + 20% GVPB + 50% Hội đồng</span>
         </div>
 
         <div className="space-y-3">
@@ -547,45 +600,46 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
             const isCurrentlyDefending = p.defense_status === 'DEFENDING';
             const isDefended = p.defense_status === 'DEFENDED';
             const isMatrixOpen = expandedMatrixId === p.id;
+            const myConflictRole = getMyProjectConflict(p);
 
             return (
               <div
                 key={p.id}
-                className={`rounded-xl border transition ${
+                className={`rounded-xl border transition utc-live-subsurface ${
                   isCurrentlyDefending
-                    ? 'bg-slate-950 border-red-500/50 shadow-lg shadow-red-500/5'
-                    : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                    ? 'border-red-500/60 shadow-lg shadow-red-500/10'
+                    : ''
                 }`}
               >
                 <div className="p-4 flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-1.5 max-w-2xl">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-slate-400">{idx + 1}.</span>
-                      <span className="font-mono text-xs font-bold text-blue-400">{p.student_reg_no}</span>
-                      <span className="font-bold text-sm text-slate-100">{p.student_name}</span>
-                      <span className="text-xs text-slate-400">({p.student_class})</span>
+                      <span className="text-xs font-bold utc-live-muted">{idx + 1}.</span>
+                      <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{p.student_reg_no}</span>
+                      <span className="font-bold text-sm utc-live-title">{p.student_name}</span>
+                      <span className="text-xs utc-live-muted">({p.student_class})</span>
 
                       {/* Defense Status Badge */}
                       {isCurrentlyDefending && (
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse flex items-center gap-1">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/40 animate-pulse flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                           Đang bảo vệ
                         </span>
                       )}
                       {isDefended && (
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                           🏁 Đã bảo vệ
                         </span>
                       )}
                       {!isCurrentlyDefending && !isDefended && (
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold utc-live-btn-neutral">
                           ⏳ Chờ bảo vệ
                         </span>
                       )}
 
                       {p.has_conflict && (
                         <span
-                          className="px-2 py-0.5 rounded text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/40 flex items-center gap-1"
+                          className="px-2 py-0.5 rounded text-xs font-bold bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/40 flex items-center gap-1"
                           title={p.conflicts?.map((c: any) => c.message).join('\n')}
                         >
                           ⚠️ Xung đột ({p.conflicts?.length})
@@ -593,13 +647,13 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-200 font-medium">{p.topic_title_vi}</p>
+                    <p className="text-xs utc-live-body font-medium">{p.topic_title_vi}</p>
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pt-1">
-                      <span>GVHD: <b className="text-slate-300">{p.supervisor?.full_name}</b> ({p.supervisor_score !== null ? `${p.supervisor_score}đ` : 'Chưa điểm'})</span>
-                      <span>GVPB: <b className="text-slate-300">{p.reviewer?.full_name}</b> ({p.reviewer_score !== null ? `${p.reviewer_score}đ` : 'Chưa điểm'})</span>
+                    <div className="flex flex-wrap items-center gap-3 text-xs utc-live-muted pt-1">
+                      <span>GVHD: <b className="utc-live-title">{p.supervisor?.full_name}</b> ({p.supervisor_score !== null ? `${p.supervisor_score}đ` : 'Chưa điểm'})</span>
+                      <span>GVPB: <b className="utc-live-title">{p.reviewer?.full_name}</b> ({p.reviewer_score !== null ? `${p.reviewer_score}đ` : 'Chưa điểm'})</span>
                       {p.final_grade?.final_score_10 != null && (
-                        <span className="text-amber-400 font-bold">
+                        <span className="text-amber-600 dark:text-amber-400 font-bold">
                           Điểm Tổng kết: {p.final_grade.final_score_10}đ ({p.final_grade.final_letter_grade})
                         </span>
                       )}
@@ -608,7 +662,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     {p.has_conflict && p.conflicts && p.conflicts.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {p.conflicts.map((c: any, ci: number) => (
-                          <span key={ci} className="text-[11px] bg-red-500/10 text-red-300 border border-red-500/20 rounded px-2 py-0.5">
+                          <span key={ci} className="text-[11px] bg-red-500/10 text-red-600 dark:text-red-300 border border-red-500/20 rounded px-2 py-0.5">
                             ⚠️ {c.message}
                           </span>
                         ))}
@@ -621,8 +675,8 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     {/* Scoring Progress Summary */}
                     {p.scoring_summary && (
                       <div className="text-right mr-1">
-                        <span className="text-xs text-slate-400">Tiến độ HĐ:</span>
-                        <p className={`text-xs font-bold ${p.scoring_summary.is_fully_graded ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        <span className="text-xs utc-live-muted">Tiến độ HĐ:</span>
+                        <p className={`text-xs font-bold ${p.scoring_summary.is_fully_graded ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                           {p.scoring_summary.submitted_count} / {p.scoring_summary.total_eligible_members} đã nộp
                         </p>
                       </div>
@@ -631,11 +685,11 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     {/* Member's own score */}
                     {hasMyScore ? (
                       <div className="text-right mr-1">
-                        <span className="text-xs text-slate-400">Điểm của Thầy/Cô:</span>
-                        <p className="text-base font-bold text-emerald-400">{p.my_score.total_score} / 10đ</p>
+                        <span className="text-xs utc-live-muted">Điểm của Thầy/Cô:</span>
+                        <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">{p.my_score.total_score} / 10đ</p>
                       </div>
                     ) : (
-                      <span className="text-xs text-amber-400 italic mr-1">Chưa chấm</span>
+                      <span className="text-xs text-amber-600 dark:text-amber-400 italic mr-1">Chưa chấm</span>
                     )}
 
                     {/* Score Matrix Toggle */}
@@ -643,8 +697,8 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                       onClick={() => setExpandedMatrixId(isMatrixOpen ? null : p.id)}
                       className={`px-3 py-2 rounded-lg text-xs font-medium border transition ${
                         isMatrixOpen
-                          ? 'bg-blue-600/20 text-blue-300 border-blue-500/40'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                          ? 'bg-blue-600/15 text-blue-700 dark:text-blue-300 border-blue-500/40'
+                          : 'utc-live-btn-neutral'
                       }`}
                       title="Xem chi tiết điểm của các thành viên trong Hội đồng"
                     >
@@ -656,7 +710,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                       <button
                         disabled={remindingProjectId === p.id}
                         onClick={() => handleRemindScoring(p.id)}
-                        className="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                        className="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
                         title="Gửi thông báo & email nhắc nhở thành viên chưa nộp điểm"
                       >
                         🔔 Nhắc nộp điểm ({p.scoring_summary.pending_count})
@@ -678,7 +732,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                           <button
                             disabled={operatingProjectId === p.id}
                             onClick={() => handleSetDefenseStatus(p.id, 'DEFENDING')}
-                            className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold transition"
+                            className="px-3.5 py-2 rounded-lg utc-live-btn-neutral text-xs font-semibold transition"
                           >
                             🔄 Mở lại BV
                           </button>
@@ -694,25 +748,23 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                       </>
                     )}
 
-                    {/* Grade Button */}
-                    {p.scoring_summary?.members_breakdown?.some(
-                      (m: any) => m.role_code === councilData.my_role_code && m.is_supervisor
-                    ) ? (
+                    {/* Grade Button - Accurate per-user conflict check (Item 32) */}
+                    {myConflictRole ? (
                       <button
                         disabled
-                        className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-red-950/40 text-red-400 border border-red-500/30 cursor-not-allowed opacity-80"
-                        title="Bạn là Giảng viên hướng dẫn của SV này nên không được chấm điểm Hội đồng theo quy chế."
+                        className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 cursor-not-allowed opacity-85"
+                        title={`Bạn là ${myConflictRole} của SV này nên không được chấm điểm Hội đồng theo quy chế.`}
                       >
-                        🚫 GVHD (Không chấm HĐ)
+                        🚫 {myConflictRole} (Không chấm HĐ)
                       </button>
                     ) : (
                       <button
                         onClick={() => handleOpenScoreModal(p)}
                         className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
                           councilData.is_locked
-                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                            ? 'utc-live-btn-neutral'
                             : hasMyScore
-                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                            ? 'utc-live-btn-neutral'
                             : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
                         }`}
                       >
@@ -724,49 +776,53 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
 
                 {/* Collapsible Council Scoring Matrix */}
                 {isMatrixOpen && (
-                  <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-3">
+                  <div className="p-4 utc-live-surface border-t space-y-3 rounded-b-xl">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      <h4 className="text-xs font-bold utc-live-body uppercase tracking-wider">
                         📊 Ma trận nộp điểm thành viên Hội đồng cho sinh viên này:
                       </h4>
-                      <span className="text-xs text-slate-400">
-                        Đã nộp: <b className="text-emerald-400">{p.scoring_summary?.submitted_count}</b> / {p.scoring_summary?.total_eligible_members}
+                      <span className="text-xs utc-live-muted">
+                        Đã nộp: <b className="text-emerald-600 dark:text-emerald-400">{p.scoring_summary?.submitted_count}</b> / {p.scoring_summary?.total_eligible_members}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                      {p.scoring_summary?.members_breakdown?.map((m: any) => (
-                        <div
-                          key={m.member_id}
-                          className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
-                            m.is_supervisor
-                              ? 'bg-slate-950/60 border-slate-800 text-slate-500'
-                              : m.has_submitted
-                              ? 'bg-emerald-500/5 border-emerald-500/20 text-slate-200'
-                              : 'bg-amber-500/5 border-amber-500/20 text-slate-300'
-                          }`}
-                        >
-                          <div>
-                            <p className="font-semibold text-slate-200">{m.name}</p>
-                            <p className="text-[11px] text-slate-400">
-                              {m.role} {m.is_supervisor && '• (GVHD - Không chấm)'}
-                            </p>
+                      {p.scoring_summary?.members_breakdown?.map((m: any) => {
+                        const isExempt = Boolean(m.is_supervisor || m.is_reviewer);
+                        const exemptLabel = m.is_supervisor ? 'GVHD - Không chấm' : 'GVPB - Không chấm';
+                        return (
+                          <div
+                            key={m.member_id}
+                            className={`p-3 rounded-lg border text-xs flex items-center justify-between ${
+                              isExempt
+                                ? 'utc-live-subsurface opacity-75'
+                                : m.has_submitted
+                                ? 'bg-emerald-500/10 border-emerald-500/25 utc-live-body'
+                                : 'bg-amber-500/10 border-amber-500/25 utc-live-body'
+                            }`}
+                          >
+                            <div>
+                              <p className="font-semibold utc-live-title">{m.name}</p>
+                              <p className="text-[11px] utc-live-muted">
+                                {m.role} {isExempt && `• (${exemptLabel})`}
+                              </p>
+                            </div>
+                            <div>
+                              {isExempt ? (
+                                <span className="text-[10px] utc-live-muted italic">Miễn chấm</span>
+                              ) : m.has_submitted ? (
+                                <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-xs border border-emerald-500/30">
+                                  {m.total_score}đ
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-semibold border border-amber-500/30">
+                                  Chưa nộp
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            {m.is_supervisor ? (
-                              <span className="text-[10px] text-slate-500 italic">Miễn chấm</span>
-                            ) : m.has_submitted ? (
-                              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-xs border border-emerald-500/30">
-                                {m.total_score}đ
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-semibold border border-amber-500/30">
-                                Chưa nộp
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {canOperateSession && (p.scoring_summary?.pending_count || 0) > 0 && (
@@ -774,7 +830,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                         <button
                           disabled={remindingProjectId === p.id}
                           onClick={() => handleRemindScoring(p.id)}
-                          className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                          className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/40 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
                         >
                           🔔 Gửi nhắc nhở ngay tới {p.scoring_summary.pending_count} thành viên chưa nộp điểm
                         </button>
@@ -791,29 +847,29 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
       {/* Modal Live Grading Form */}
       {showScoreModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={handleScoreOverlayClick}>
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl max-w-lg w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="utc-live-surface p-6 rounded-xl max-w-lg w-full shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
             <div>
-              <span className="text-xs font-mono text-blue-400">
+              <span className="text-xs font-mono text-blue-600 dark:text-blue-400">
                 {selectedProject?.student_reg_no} - {selectedProject?.student_name}
               </span>
-              <h3 className="text-base font-bold text-slate-100 mt-1">{selectedProject?.topic_title_vi}</h3>
+              <h3 className="text-base font-bold utc-live-title mt-1">{selectedProject?.topic_title_vi}</h3>
             </div>
 
             {councilData.is_locked && (
-              <div className="p-3 bg-rose-950/50 border border-rose-800/80 rounded-xl text-rose-300 text-xs flex items-center gap-2">
+              <div className="p-3 bg-rose-500/15 border border-rose-500/40 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
                 <span>🔒</span>
                 <span>
-                  Hội đồng đã khóa điểm sau buổi bảo vệ{councilData.locked_by ? ` (bởi ${councilData.locked_by})` : ''}. Tất cả điểm số chuyển sang chế độ Chỉ đọc (Read-only) và không thể chỉnh sửa.
+                  Hội đồng đã khóa điểm sau buổi bảo vệ{councilData.locked_by ? ` (bởi ${councilData.locked_by})` : ''}. Tất cả điểm số chuyển sang chế độ Chỉ xem và không thể chỉnh sửa.
                 </span>
               </div>
             )}
 
             <form onSubmit={handleScoreSubmit} className="space-y-4">
-              <div className="space-y-3 p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+              <div className="space-y-3 p-4 utc-live-subsurface rounded-xl text-xs">
                 <div>
-                  <div className="flex justify-between font-medium text-slate-300 mb-1">
+                  <div className="flex justify-between font-medium utc-live-body mb-1">
                     <span>1. Kỹ năng Thuyết trình & Báo cáo</span>
-                    <span className="font-bold text-blue-400">{scorePres} / 3.0đ</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{scorePres} / 3.0đ</span>
                   </div>
                   <input
                     type="range"
@@ -823,14 +879,14 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     value={scorePres}
                     disabled={councilData.is_locked}
                     onChange={(e) => setScorePres(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                    className="w-full h-1.5 bg-slate-300 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
                 <div>
-                  <div className="flex justify-between font-medium text-slate-300 mb-1">
+                  <div className="flex justify-between font-medium utc-live-body mb-1">
                     <span>2. Chất lượng nội dung chuyên môn đồ án</span>
-                    <span className="font-bold text-blue-400">{scoreContent} / 3.0đ</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{scoreContent} / 3.0đ</span>
                   </div>
                   <input
                     type="range"
@@ -840,14 +896,14 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     value={scoreContent}
                     disabled={councilData.is_locked}
                     onChange={(e) => setScoreContent(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                    className="w-full h-1.5 bg-slate-300 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
                 <div>
-                  <div className="flex justify-between font-medium text-slate-300 mb-1">
+                  <div className="flex justify-between font-medium utc-live-body mb-1">
                     <span>3. Trả lời câu hỏi phản biện</span>
-                    <span className="font-bold text-blue-400">{scoreQa} / 2.0đ</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{scoreQa} / 2.0đ</span>
                   </div>
                   <input
                     type="range"
@@ -857,14 +913,14 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     value={scoreQa}
                     disabled={councilData.is_locked}
                     onChange={(e) => setScoreQa(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                    className="w-full h-1.5 bg-slate-300 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
                 <div>
-                  <div className="flex justify-between font-medium text-slate-300 mb-1">
+                  <div className="flex justify-between font-medium utc-live-body mb-1">
                     <span>4. Sản phẩm Demo / Ứng dụng thực nghiệm</span>
-                    <span className="font-bold text-blue-400">{scoreDemo} / 2.0đ</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{scoreDemo} / 2.0đ</span>
                   </div>
                   <input
                     type="range"
@@ -874,18 +930,18 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                     value={scoreDemo}
                     disabled={councilData.is_locked}
                     onChange={(e) => setScoreDemo(e.target.value)}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                    className="w-full h-1.5 bg-slate-300 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
                   />
                 </div>
 
-                <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
-                  <span className="font-bold text-sm text-slate-100">Tổng điểm Hội đồng (Thang 10):</span>
-                  <span className="text-xl font-extrabold text-emerald-400">{totalPreview.toFixed(1)} / 10.0</span>
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                  <span className="font-bold text-sm utc-live-title">Tổng điểm Hội đồng (Thang 10):</span>
+                  <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{totalPreview.toFixed(1)} / 10.0</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">
+                <label className="block text-xs font-medium utc-live-muted mb-1">
                   Ý kiến nhận xét & Câu hỏi cho sinh viên
                 </label>
                 <textarea
@@ -894,7 +950,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                   disabled={councilData.is_locked}
                   onChange={(e) => setScoreComments(e.target.value)}
                   placeholder="Ghi nhận xét và câu hỏi của thành viên hội đồng..."
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2 utc-live-input rounded-lg text-xs focus:outline-none focus:border-blue-500 disabled:opacity-50"
                 />
               </div>
 
@@ -902,7 +958,7 @@ export const UTCCouncilLiveDefenseView: React.FC = () => {
                 <button
                   type="button"
                   onClick={requestCloseScoreModal}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700"
+                  className="px-4 py-2 rounded-lg utc-live-btn-neutral text-xs"
                 >
                   {councilData.is_locked ? 'Đóng' : 'Hủy'}
                 </button>

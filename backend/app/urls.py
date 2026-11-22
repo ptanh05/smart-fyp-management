@@ -35,6 +35,7 @@ from .views_utc import (
     SupervisorBroadcastAnnouncementAPIView,
     ReviewerAssignedProjectsAPIView,
     ReviewerSubmitEvaluationAPIView,
+    CouncilMyCouncilsAPIView,
     CouncilLiveDefenseSessionAPIView,
     CouncilSubmitScoreAPIView,
     CouncilToggleLockAPIView,
@@ -596,6 +597,7 @@ urlpatterns = [
     path("reviewer/assigned-projects/", ReviewerAssignedProjectsAPIView.as_view(), name="utc-reviewer-assigned-projects"),
     path("reviewer/submit-evaluation/", ReviewerSubmitEvaluationAPIView.as_view(), name="utc-reviewer-submit-evaluation"),
 
+    path("council/my-councils/", CouncilMyCouncilsAPIView.as_view(), name="utc-council-my-councils"),
     path("council/live-session/", CouncilLiveDefenseSessionAPIView.as_view(), name="utc-council-live-session"),
     path("council/submit-score/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-submit-score"),
     path("council/scores/submit/", CouncilSubmitScoreAPIView.as_view(), name="utc-council-scores-submit"),

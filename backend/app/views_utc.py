@@ -2144,13 +2144,48 @@ class ReviewerAssignedProjectsAPIView(APIView):
         projects_qs = GraduationProject.objects.filter(reviewer=supervisor)
         if batch_id:
             projects_qs = projects_qs.filter(batch_id=batch_id)
-        projects = projects_qs.select_related(
-            "student__user",
-            "supervisor__user",
-            "council",
-            "final_grade_summary"
+        projects = list(
+            projects_qs.select_related(
+                "student__user",
+                "supervisor__user",
+                "council",
+                "batch",
+                "outline_review",
+                "final_grade_summary",
+            ).prefetch_related("submission_versions")
         )
-        return Response(GraduationProjectDetailSerializer(projects, many=True).data, status=status.HTTP_200_OK)
+        serialized = GraduationProjectDetailSerializer(projects, many=True).data
+        for p, p_data in zip(projects, serialized):
+            thesis_file_url = None
+            outline_file_url = None
+
+            submissions = list(p.submission_versions.all()) if hasattr(p, "submission_versions") else []
+            report_subs = [s for s in submissions if s.kind == "REPORT" and s.file]
+            if report_subs:
+                latest_report = max(report_subs, key=lambda s: s.version_no)
+                thesis_file_url = request.build_absolute_uri(latest_report.file.url)
+
+            outline_review = getattr(p, "outline_review", None)
+            if outline_review and getattr(outline_review, "outline_file", None):
+                outline_file_url = request.build_absolute_uri(outline_review.outline_file.url)
+            else:
+                outline_subs = [s for s in submissions if s.kind == "OUTLINE" and s.file]
+                if outline_subs:
+                    latest_outline = max(outline_subs, key=lambda s: s.version_no)
+                    outline_file_url = request.build_absolute_uri(latest_outline.file.url)
+                elif p.outline_pdf_path:
+                    outline_file_url = p.outline_pdf_path
+
+            batch_stage = p.batch.current_stage if p.batch else None
+            batch_stage_num = BATCH_STAGE_NUMBERS.get(batch_stage or "", 1)
+            effective_stage = max(batch_stage_num, get_project_workflow_stage(p))
+
+            p_data["thesis_file_url"] = thesis_file_url
+            p_data["outline_file_url"] = outline_file_url
+            p_data["batch_stage"] = batch_stage
+            p_data["batch_stage_number"] = effective_stage
+
+        return Response(serialized, status=status.HTTP_200_OK)
 
 
 class ReviewerSubmitEvaluationAPIView(APIView):
@@ -2205,12 +2240,96 @@ class ReviewerSubmitEvaluationAPIView(APIView):
 # COUNCIL LIVE DEFENSE & LIVE GRADING
 # ==============================================================================
 
+def _is_member_project_supervisor(member, project):
+    if not project or not project.supervisor_id:
+        return False
+    if member.supervisor_id and member.supervisor_id == project.supervisor_id:
+        return True
+    if project.supervisor and project.supervisor.user_id and member.user_id == project.supervisor.user_id:
+        return True
+    return False
+
+
+def _is_member_project_reviewer(member, project):
+    if not project or not project.reviewer_id:
+        return False
+    if member.supervisor_id and member.supervisor_id == project.reviewer_id:
+        return True
+    if project.reviewer and project.reviewer.user_id and member.user_id == project.reviewer.user_id:
+        return True
+    return False
+
+
+def _resolve_council_member(user, council_id=None, batch_id=None, project_id=None):
+    qs = CouncilMember.objects.filter(user=user).select_related("council__batch")
+    if council_id:
+        return qs.filter(council_id=council_id).first()
+    if project_id:
+        proj_council_id = GraduationProject.objects.filter(id=project_id).values_list("council_id", flat=True).first()
+        if proj_council_id:
+            cm = qs.filter(council_id=proj_council_id).first()
+            if cm:
+                return cm
+    if batch_id:
+        return qs.filter(council__batch_id=batch_id).order_by("council__council_number").first()
+    return qs.order_by("-council__batch__is_active", "-council__batch__created_at", "council__council_number").first()
+
+
+class CouncilMyCouncilsAPIView(APIView):
+    """Trả về tất cả các hội đồng bảo vệ mà người dùng hiện tại tham gia (hỗ trợ nhiều đợt / nhiều hội đồng)"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        memberships = list(
+            CouncilMember.objects.filter(user=user)
+            .select_related("council__batch")
+            .order_by("-council__batch__is_active", "-council__batch__created_at", "council__council_number")
+        )
+        council_ids = [m.council_id for m in memberships if m.council_id]
+        student_counts = {}
+        if council_ids:
+            from django.db.models import Count
+            counts_qs = (
+                GraduationProject.objects.filter(council_id__in=council_ids)
+                .values("council_id")
+                .annotate(cnt=Count("id"))
+            )
+            student_counts = {row["council_id"]: row["cnt"] for row in counts_qs}
+
+        data = []
+        for m in memberships:
+            c = m.council
+            if not c:
+                continue
+            b = c.batch
+            data.append({
+                "council_id": c.id,
+                "council_number": c.council_number,
+                "council_name": c.council_name,
+                "batch_id": b.id if b else None,
+                "batch_code": b.batch_code if b else None,
+                "batch_name": b.batch_name if b else None,
+                "role": m.role,
+                "role_display": m.get_role_display(),
+                "session_date": c.session_date,
+                "session_time": c.get_session_time_display() if hasattr(c, "get_session_time_display") else c.session_time,
+                "defense_room": c.defense_room,
+                "is_finalized": bool(getattr(c, "is_finalized", False)),
+                "is_scores_locked": bool(getattr(c, "is_locked", False)),
+                "student_count": student_counts.get(c.id, 0),
+            })
+        return Response(data, status=status.HTTP_200_OK)
+
+
 class CouncilLiveDefenseSessionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        council_member = CouncilMember.objects.filter(user=user).select_related("council__batch").first()
+        council_id = request.query_params.get("council_id")
+        batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
+        council_member = _resolve_council_member(user, council_id=council_id, batch_id=batch_id)
 
         if not council_member:
             return Response({"detail": "Bạn không thuộc Hội đồng bảo vệ nào trong kỳ này."}, status=status.HTTP_404_NOT_FOUND)
@@ -2221,7 +2340,6 @@ class CouncilLiveDefenseSessionAPIView(APIView):
         projects = GraduationProject.objects.filter(council=council).select_related(
             "student__user",
             "supervisor__user",
-            "reviewer__user",
             "reviewer__user",
             "final_grade_summary"
         )
@@ -2258,20 +2376,23 @@ class CouncilLiveDefenseSessionAPIView(APIView):
             members_breakdown = []
 
             for m in all_members:
-                is_sup = bool(m.supervisor_id and m.supervisor_id == p.supervisor_id)
+                is_sup = _is_member_project_supervisor(m, p)
+                is_rev = _is_member_project_reviewer(m, p)
                 m_score = p_scores.get(m.id)
                 has_sub = m_score is not None
-                if not is_sup:
+                if not is_sup and not is_rev:
                     eligible_count += 1
                     if has_sub:
                         submitted_count += 1
 
                 members_breakdown.append({
                     "member_id": m.id,
+                    "user_id": m.user_id,
                     "name": m.user.get_full_name() or m.user.username,
                     "role": m.get_role_display(),
                     "role_code": m.role,
                     "is_supervisor": is_sup,
+                    "is_reviewer": is_rev,
                     "has_submitted": has_sub,
                     "total_score": m_score.total_score if m_score else None,
                 })
@@ -2299,10 +2420,15 @@ class CouncilLiveDefenseSessionAPIView(APIView):
                 "id": getattr(council, "id", None),
                 "council_number": council.council_number,
                 "council_name": council.council_name,
+                "batch_id": council.batch_id,
+                "batch_code": council.batch.batch_code if council.batch else None,
+                "batch_name": council.batch.batch_name if council.batch else None,
                 "session_date": council.session_date,
                 "session_time": session_time_display,
                 "defense_room": council.defense_room,
                 "my_role": role_display,
+                "my_user_id": user.id,
+                "is_finalized": getattr(council, "is_finalized", False),
                 "is_locked": getattr(council, "is_locked", False),
                 "locked_at": council.locked_at if getattr(council, "is_locked", False) else None,
                 "locked_by": council.locked_by.get_full_name() or council.locked_by.username if getattr(council, "is_locked", False) and council.locked_by else None,
@@ -2316,6 +2442,7 @@ class CouncilLiveDefenseSessionAPIView(APIView):
             "members": [
                 {
                     "id": m.id,
+                    "user_id": m.user_id,
                     "name": m.user.get_full_name() or m.user.username,
                     "role": m.get_role_display(),
                     "role_code": m.role,
@@ -2335,7 +2462,10 @@ class CouncilSubmitScoreAPIView(APIView):
         if getattr(user, "user_type", "") == "student":
             return Response({"detail": "Sinh viên không có quyền truy cập hoặc tự nhập điểm Hội đồng bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
 
-        council_member = CouncilMember.objects.filter(user=user).first()
+        council_id = request.data.get("council_id") or request.query_params.get("council_id")
+        batch_id = request.data.get("batch_id") or request.query_params.get("batch_id")
+        project_id = request.data.get("project_id")
+        council_member = _resolve_council_member(user, council_id=council_id, batch_id=batch_id, project_id=project_id)
         if not council_member:
             return Response({"detail": "Bạn không phải thành viên Hội đồng bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -2345,24 +2475,31 @@ class CouncilSubmitScoreAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        project_id = request.data.get("project_id")
         p_score = float(request.data.get("score_presentation", 0.0))
         c_score = float(request.data.get("score_content", 0.0))
         q_score = float(request.data.get("score_qa", 0.0))
         d_score = float(request.data.get("score_demo", 0.0))
         comments = request.data.get("comments", "").strip()
 
-        # Strict checks (TC-034): Supervisor cannot grade their own student in council -> 403 Forbidden
+        # Strict checks (TC-034): Supervisor and Reviewer cannot grade their own student in council -> 403 Forbidden
         project = get_object_or_404(GraduationProject, id=project_id, council=council_member.council)
         is_gvhd = (
-            (council_member.supervisor and project.supervisor == council_member.supervisor)
-            or (project.supervisor and project.supervisor.user == user)
+            _is_member_project_supervisor(council_member, project)
             or (hasattr(user, "supervisor_profile") and project.supervisor == user.supervisor_profile)
-            or (project.supervisor is not None and council_member.user == project.supervisor.user)
         )
         if is_gvhd:
             return Response(
                 {"detail": "Vi phạm quy chế: Giảng viên hướng dẫn không được phép chấm điểm Hội đồng cho chính sinh viên của mình.", "error": "supervisor_self_scoring_forbidden"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        is_gvpb = (
+            _is_member_project_reviewer(council_member, project)
+            or (hasattr(user, "supervisor_profile") and project.reviewer_id and project.reviewer == user.supervisor_profile)
+        )
+        if is_gvpb:
+            return Response(
+                {"detail": "Vi phạm quy chế: Giảng viên phản biện không được phép chấm điểm Hội đồng cho chính sinh viên mình phản biện.", "error": "reviewer_self_scoring_forbidden"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -2454,19 +2591,24 @@ class CouncilToggleLockAPIView(APIView):
             )
 
         if lock:
-            # TC-033: Bắt buộc 5/5 người chấm mới cho phép chốt
-            council_members_count = council.members.count()
-            required_scorers = council_members_count if council_members_count >= 5 else 5
-            projects = GraduationProject.objects.filter(council=council)
+            # TC-033: Bắt buộc đủ tất cả thành viên hợp lệ (trừ GVHD & GVPB) chấm mới cho phép chốt
+            all_members = list(council.members.select_related("user", "supervisor").all())
+            base_required = len(all_members) if len(all_members) >= 5 else 5
+            projects = GraduationProject.objects.filter(council=council).exclude(deferral_status="APPROVED").exclude(status="DEFERRED").select_related("student", "supervisor__user", "reviewer__user")
             for proj in projects:
+                excluded_count = sum(
+                    1 for m in all_members
+                    if _is_member_project_supervisor(m, proj) or _is_member_project_reviewer(m, proj)
+                )
+                required_scorers = max(1, base_required - excluded_count)
                 submitted_count = CouncilLiveScore.objects.filter(project=proj, council=council).count()
                 if submitted_count < required_scorers:
                     return Response({
-                        "detail": f"Báo lỗi: Bắt buộc {required_scorers}/{required_scorers} người chấm mới cho phép chốt.",
+                        "detail": f"Báo lỗi: Bắt buộc {required_scorers}/{required_scorers} thành viên hợp lệ chấm mới cho phép khóa điểm.",
                         "error": "incomplete_scoring",
                         "submitted_count": submitted_count,
                         "required_count": required_scorers,
-                        "student": proj.student.registration_no,
+                        "student": proj.student.registration_no if proj.student else "",
                     }, status=status.HTTP_400_BAD_REQUEST)
 
         council.is_locked = bool(lock)
@@ -2512,34 +2654,70 @@ class CouncilFinalizeScoresAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        council_members_count = council.members.count()
-        required_scorers = council_members_count if council_members_count >= 5 else 5
+        all_members = list(council.members.select_related("user", "supervisor").all())
+        base_required = len(all_members) if len(all_members) >= 5 else 5
 
         if project_id:
-            projects = GraduationProject.objects.filter(id=project_id, council=council)
+            projects = GraduationProject.objects.filter(id=project_id, council=council).exclude(deferral_status="APPROVED").exclude(status="DEFERRED").select_related("student", "supervisor__user", "reviewer__user")
         else:
-            projects = GraduationProject.objects.filter(council=council)
+            projects = GraduationProject.objects.filter(council=council).exclude(deferral_status="APPROVED").exclude(status="DEFERRED").select_related("student", "supervisor__user", "reviewer__user")
 
-        for proj in projects:
+        projects_list = list(projects)
+        for proj in projects_list:
+            excluded_count = sum(
+                1 for m in all_members
+                if _is_member_project_supervisor(m, proj) or _is_member_project_reviewer(m, proj)
+            )
+            required_scorers = max(1, base_required - excluded_count)
             submitted_count = CouncilLiveScore.objects.filter(project=proj, council=council).count()
+            student_reg = proj.student.registration_no if proj.student else str(proj.id)
             if submitted_count < required_scorers:
                 return Response({
-                    "detail": f"Báo lỗi: Bắt buộc {required_scorers}/{required_scorers} người chấm mới cho phép chốt.",
+                    "detail": f"Báo lỗi: Bắt buộc {required_scorers}/{required_scorers} thành viên hợp lệ chấm mới cho phép chốt (SV {student_reg}: {submitted_count}/{required_scorers}).",
                     "error": "incomplete_scoring",
                     "submitted_count": submitted_count,
                     "required_count": required_scorers,
                     "project_id": proj.id,
-                    "student": proj.student.registration_no,
+                    "student": student_reg,
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-        council.is_finalized = True
-        council.save(update_fields=["is_finalized"])
+            if proj.supervisor_score is None:
+                return Response({
+                    "detail": f"Báo lỗi: Sinh viên {student_reg} chưa có điểm Giảng viên hướng dẫn (GVHD).",
+                    "error": "missing_supervisor_score",
+                    "project_id": proj.id,
+                    "student": student_reg,
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if proj.reviewer_score is None:
+                return Response({
+                    "detail": f"Báo lỗi: Sinh viên {student_reg} chưa có điểm Giảng viên phản biện (GVPB).",
+                    "error": "missing_reviewer_score",
+                    "project_id": proj.id,
+                    "student": student_reg,
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            council.is_finalized = True
+            council.save(update_fields=["is_finalized"])
+
+            policy = EvaluationPolicy.objects.filter(batch=council.batch).first()
+            for proj in projects_list:
+                summary, _ = FinalGradeSummary.objects.get_or_create(project=proj)
+                summary.supervisor_score = proj.supervisor_score
+                summary.reviewer_score = proj.reviewer_score
+                all_scores = list(CouncilLiveScore.objects.filter(project=proj, council=council))
+                if all_scores:
+                    summary.council_avg_score = round(sum(s.total_score for s in all_scores) / len(all_scores), 2)
+                summary.is_finalized = True
+                summary.calculate_and_save(policy=policy)
 
         return Response({
             "success": True,
             "message": f"Tổng hợp và chốt điểm thành công cho Hội đồng {council.council_name}!",
             "is_locked": True,
-            "total_projects": projects.count(),
+            "is_finalized": True,
+            "total_projects": len(projects_list),
         }, status=status.HTTP_200_OK)
 
 
@@ -2549,7 +2727,10 @@ class CouncilChairSetDefenseStatusAPIView(APIView):
 
     def post(self, request):
         user = request.user
-        council_member = CouncilMember.objects.filter(user=user).select_related("council").first()
+        council_id = request.data.get("council_id") or request.query_params.get("council_id")
+        batch_id = request.data.get("batch_id") or request.query_params.get("batch_id")
+        project_id = request.data.get("project_id")
+        council_member = _resolve_council_member(user, council_id=council_id, batch_id=batch_id, project_id=project_id)
         if not council_member:
             return Response({"detail": "Bạn không thuộc Hội đồng bảo vệ nào."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -2557,7 +2738,6 @@ class CouncilChairSetDefenseStatusAPIView(APIView):
             return Response({"detail": "Chỉ Chủ tịch hội đồng (hoặc Thư ký) mới có quyền điều hành trạng thái buổi bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
 
         council = council_member.council
-        project_id = request.data.get("project_id")
         defense_status = request.data.get("defense_status", "DEFENDING")  # DEFENDING, DEFENDED, WAITING
 
         if not project_id:
@@ -2616,7 +2796,10 @@ class CouncilSecretaryRemindScoringAPIView(APIView):
 
     def post(self, request):
         user = request.user
-        council_member = CouncilMember.objects.filter(user=user).select_related("council").first()
+        council_id = request.data.get("council_id") or request.query_params.get("council_id")
+        batch_id = request.data.get("batch_id") or request.query_params.get("batch_id")
+        project_id = request.data.get("project_id")
+        council_member = _resolve_council_member(user, council_id=council_id, batch_id=batch_id, project_id=project_id)
         if not council_member:
             return Response({"detail": "Bạn không phải thành viên Hội đồng bảo vệ."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -2624,7 +2807,6 @@ class CouncilSecretaryRemindScoringAPIView(APIView):
             return Response({"detail": "Chỉ Thư ký hoặc Chủ tịch hội đồng mới có quyền gửi nhắc nhở nộp điểm."}, status=status.HTTP_403_FORBIDDEN)
 
         council = council_member.council
-        project_id = request.data.get("project_id")
         if not project_id:
             if council.current_defending_project_id:
                 project_id = council.current_defending_project_id
@@ -2633,10 +2815,10 @@ class CouncilSecretaryRemindScoringAPIView(APIView):
 
         project = get_object_or_404(GraduationProject, id=project_id, council=council)
 
-        # Find eligible members (exclude supervisor of this student)
+        # Find eligible members (exclude supervisor and reviewer of this student)
         eligible_members = [
-            m for m in council.members.select_related("user").all()
-            if not (m.supervisor_id and m.supervisor_id == project.supervisor_id)
+            m for m in council.members.select_related("user", "supervisor").all()
+            if not _is_member_project_supervisor(m, project) and not _is_member_project_reviewer(m, project)
         ]
 
         # Find members who already submitted score
@@ -4760,22 +4942,29 @@ class BatchFinalGradesExcelExportAPIView(APIView):
 
         for idx, p in enumerate(projects, 1):
             s = getattr(p, "final_grade_summary", None)
+            if p.status == "DEFERRED" or getattr(p, "deferral_status", None) == "APPROVED":
+                result_text = "Bảo lưu"
+            elif s and s.final_score_10 is not None:
+                result_text = "Đạt" if s.is_passed else "Không đạt"
+            else:
+                result_text = "Chưa chấm"
+
             ws.append([
                 idx,
-                p.student.registration_no,
-                p.student.user.get_full_name(),
-                p.student.get_degree_program_display(),
+                p.student.registration_no if p.student else "",
+                p.student.user.get_full_name() if (p.student and p.student.user) else "",
+                p.student.get_degree_program_display() if p.student else "",
                 p.topic_title_vi,
-                p.supervisor.user.get_full_name(),
+                p.supervisor.user.get_full_name() if (p.supervisor and p.supervisor.user) else "Chưa phân công",
                 p.council.council_name if p.council else "Chưa gán",
-                p.supervisor_score or "",
-                p.reviewer_score or "",
-                s.council_avg_score if s else "",
-                s.final_score_10 if s else "",
-                s.final_score_4 if s else "",
-                s.final_letter_grade if s else "",
-                s.classification if s else "",
-                "Đạt" if (s and s.is_passed) else ("Bảo lưu" if p.status == "DEFERRED" else "Không đạt")
+                p.supervisor_score if p.supervisor_score is not None else "",
+                p.reviewer_score if p.reviewer_score is not None else "",
+                s.council_avg_score if s and s.council_avg_score is not None else "",
+                s.final_score_10 if s and s.final_score_10 is not None else "",
+                s.final_score_4 if s and s.final_score_4 is not None else "",
+                s.final_letter_grade if s and s.final_letter_grade else "",
+                s.classification if s and s.classification else "",
+                result_text,
             ])
 
         buffer = io.BytesIO()
@@ -4949,6 +5138,21 @@ class CloseBatchAPIView(APIView):
 
     def post(self, request, pk):
         batch = get_object_or_404(AcademicBatch, pk=pk)
+
+        unfinalized_councils = list(
+            DefenseCouncil.objects.filter(batch=batch, is_finalized=False).values_list("council_name", flat=True)
+        )
+        if unfinalized_councils:
+            names = ", ".join(unfinalized_councils)
+            return Response(
+                {
+                    "detail": f"Không thể kết thúc đợt đồ án khi còn hội đồng chưa chốt điểm: {names}.",
+                    "error": "unfinalized_councils",
+                    "unfinalized_councils": unfinalized_councils,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         batch.current_stage = "COMPLETED"
         batch.is_closed = True
         batch.is_active = False

@@ -25,6 +25,23 @@ import '../components/EvaluationForm.css';
 import '../components/SkeletonLoader.css';
 import '../components/ExternalManagement.css';
 
+interface MyCouncilItem {
+  council_id: number;
+  council_number: number;
+  council_name: string;
+  batch_id: number | null;
+  batch_code: string | null;
+  batch_name: string | null;
+  role: string;
+  role_display: string;
+  session_date: string | null;
+  session_time: string | null;
+  defense_room: string | null;
+  is_finalized: boolean;
+  is_scores_locked: boolean;
+  student_count: number;
+}
+
 const CommitteeMemberDashboard: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
@@ -38,20 +55,46 @@ const CommitteeMemberDashboard: React.FC = () => {
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [showUTCSheet, setShowUTCSheet] = useState(false);
 
+  // Multi-batch / Multi-council selector state (Item 26a)
+  const [myCouncils, setMyCouncils] = useState<MyCouncilItem[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+  const [selectedCouncilId, setSelectedCouncilId] = useState<number | null>(null);
+
+  const uniqueBatches = React.useMemo(() => {
+    const map = new Map<number, { batch_id: number; batch_code: string; batch_name: string }>();
+    myCouncils.forEach((c) => {
+      if (c.batch_id != null && !map.has(c.batch_id)) {
+        map.set(c.batch_id, {
+          batch_id: c.batch_id,
+          batch_code: c.batch_code || `Đợt #${c.batch_id}`,
+          batch_name: c.batch_name || c.batch_code || `Đợt #${c.batch_id}`,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [myCouncils]);
+
+  const councilsInSelectedBatch = React.useMemo(() => {
+    if (selectedBatchId == null) return myCouncils;
+    return myCouncils.filter((c) => c.batch_id === selectedBatchId);
+  }, [myCouncils, selectedBatchId]);
+
   useEffect(() => {
     loadData();
+    loadMyCouncils();
   }, []);
 
   useEffect(() => {
     if (activeTab === 'groups' || activeTab === 'evaluations' || activeTab === 'documents') {
       loadPanelGroups();
     }
-  }, [activeTab]);
+  }, [activeTab, selectedBatchId, selectedCouncilId]);
 
   // Auto-sync when internet reconnects without page reload
   useEffect(() => {
     const handleOnlineSync = () => {
       loadData();
+      loadMyCouncils();
       if (activeTab === 'groups' || activeTab === 'evaluations' || activeTab === 'documents') {
         loadPanelGroups();
       }
@@ -60,7 +103,7 @@ const CommitteeMemberDashboard: React.FC = () => {
     return () => {
       window.removeEventListener('app:online-sync', handleOnlineSync);
     };
-  }, [activeTab]);
+  }, [activeTab, selectedBatchId, selectedCouncilId]);
 
   const loadData = async () => {
     try {
@@ -74,10 +117,42 @@ const CommitteeMemberDashboard: React.FC = () => {
     }
   };
 
+  const loadMyCouncils = async () => {
+    try {
+      const councils = await apiService.getMyCouncils();
+      setMyCouncils(councils);
+      if (councils.length > 0) {
+        setSelectedBatchId((prev) => prev ?? councils[0].batch_id);
+        setSelectedCouncilId((prev) => prev ?? councils[0].council_id);
+      }
+    } catch (error) {
+      console.error('Failed to load my councils:', error);
+    }
+  };
+
+  const handleBatchChange = (batchIdStr: string) => {
+    const newBatchId = batchIdStr ? Number(batchIdStr) : null;
+    setSelectedBatchId(newBatchId);
+    const matching = newBatchId != null
+      ? myCouncils.filter((c) => c.batch_id === newBatchId)
+      : myCouncils;
+    setSelectedCouncilId(matching.length > 0 ? matching[0].council_id : null);
+    setSelectedGroup(null);
+  };
+
+  const handleCouncilChange = (councilIdStr: string) => {
+    const newCouncilId = councilIdStr ? Number(councilIdStr) : null;
+    setSelectedCouncilId(newCouncilId);
+    setSelectedGroup(null);
+  };
+
   const loadPanelGroups = async () => {
     try {
       setGroupsLoading(true);
-      const response = await apiService.getCommitteeMemberGroups();
+      const params: { batch_id?: number; council_id?: number } = {};
+      if (selectedCouncilId != null) params.council_id = selectedCouncilId;
+      else if (selectedBatchId != null) params.batch_id = selectedBatchId;
+      const response = await apiService.getCommitteeMemberGroups(params);
       setPanelGroups(response.results || []);
     } catch (error) {
       console.error('Failed to load panel groups:', error);
@@ -102,8 +177,8 @@ const CommitteeMemberDashboard: React.FC = () => {
         <Navbar user={committeeMember} onLogout={logout} />
         <div className="container">
           <div className="dashboard-header">
-            <h1>Committee Member Dashboard</h1>
-            <p>Loading your dashboard...</p>
+            <h1>{t('dashboard.committeeTitle', 'Bảng Điều Khiển Hội Đồng Đánh Giá UTC')}</h1>
+            <p>{t('committee.loadingDashboard', 'Đang tải bảng điều khiển Hội đồng...')}</p>
           </div>
           <div className="card">
             <SkeletonProfile />
@@ -121,11 +196,47 @@ const CommitteeMemberDashboard: React.FC = () => {
           <p>{t('dashboard.welcome', 'Xin chào')}, {committeeMember?.user?.username}</p>
         </div>
 
+        {/* Multi-batch / Multi-council Selector Bar (Item 26a) */}
+        {myCouncils.length > 0 && (
+          <div className="utc-council-selector-bar">
+            {uniqueBatches.length > 0 && (
+              <div className="utc-council-selector-group">
+                <label htmlFor="committee-batch-select">📅 {t('committee.batchLabel', 'Đợt ĐATN')}:</label>
+                <select
+                  id="committee-batch-select"
+                  value={selectedBatchId ?? ''}
+                  onChange={(e) => handleBatchChange(e.target.value)}
+                >
+                  {uniqueBatches.map((b) => (
+                    <option key={b.batch_id} value={b.batch_id}>
+                      {b.batch_code} - {b.batch_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="utc-council-selector-group">
+              <label htmlFor="committee-council-select">🏛️ {t('committee.councilLabel', 'Hội đồng')}:</label>
+              <select
+                id="committee-council-select"
+                value={selectedCouncilId ?? ''}
+                onChange={(e) => handleCouncilChange(e.target.value)}
+              >
+                {councilsInSelectedBatch.map((c) => (
+                  <option key={c.council_id} value={c.council_id}>
+                    {c.council_name} ({c.role_display} • {c.student_count} SV)
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
         <div className="tabs">
           <button
             className={`tab ${activeTab === 'utc_live_defense' ? 'active' : ''}`}
             onClick={() => setActiveTab('utc_live_defense')}
-            style={{ fontWeight: 'bold', background: activeTab === 'utc_live_defense' ? '#003366' : undefined, color: activeTab === 'utc_live_defense' ? '#fff' : undefined }}
           >
             🏛️ Lịch Bảo Vệ & Chấm Điểm
           </button>
@@ -144,7 +255,12 @@ const CommitteeMemberDashboard: React.FC = () => {
         </div>
 
         <div className="tab-content">
-          {activeTab === 'utc_live_defense' && <UTCCouncilLiveDefenseView />}
+          {activeTab === 'utc_live_defense' && (
+            <UTCCouncilLiveDefenseView
+              councilId={selectedCouncilId}
+              batchId={selectedBatchId}
+            />
+          )}
           {activeTab === 'council_conflicts' && <CouncilConflictManager />}
 
           {activeTab === 'overview' && (
@@ -153,21 +269,21 @@ const CommitteeMemberDashboard: React.FC = () => {
                 <h2>{t('profile.title', 'Thông Tin Cá Nhân & Hồ Sơ UTC')}</h2>
                 <div className="profile-info">
                   <p><strong>{t('profile.supervisorId', 'Mã Hội Đồng')}:</strong> {profile?.committee_id}</p>
-                  <p><strong>Hội Đồng Chấm:</strong> {profile?.panel_info?.name || `Panel #${profile?.panel}` || 'N/A'}</p>
+                  <p><strong>Hội Đồng Chấm:</strong> {profile?.panel_info?.name || `Hội đồng #${profile?.panel}` || 'N/A'}</p>
                 </div>
               </div>
 
               {/* Panel Information */}
               {profile?.panel_info && (
                 <div className="card" style={{ marginTop: '20px' }}>
-                  <h2>📋 My Panel</h2>
+                  <h2>📋 {t('committee.myPanel', 'Hội Đồng Của Tôi')}</h2>
                   <div className="profile-info">
-                    <p><strong>Panel Name:</strong> {profile.panel_info.name || `Panel #${profile.panel_info.id}`}</p>
+                    <p><strong>{t('committee.panelName', 'Tên Hội Đồng')}:</strong> {profile.panel_info.name || `Hội đồng #${profile.panel_info.id}`}</p>
                   </div>
                   
                   {profile.panel_info.members && profile.panel_info.members.length > 0 ? (
                     <div style={{ marginTop: '15px' }}>
-                      <h4 style={{ marginBottom: '10px' }}>Other Panel Members</h4>
+                      <h4 style={{ marginBottom: '10px' }}>{t('committee.otherMembers', 'Các Thành Viên Khác Trong Hội Đồng')}</h4>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                         {profile.panel_info.members.map(member => (
                           <div key={member.id} className="panel-member-chip">
@@ -182,12 +298,12 @@ const CommitteeMemberDashboard: React.FC = () => {
                       </div>
                     </div>
                   ) : (
-                    <p className="dashboard-section-desc" style={{ marginTop: '15px' }}>You are the only member in this panel.</p>
+                    <p className="dashboard-section-desc" style={{ marginTop: '15px' }}>{t('committee.onlyMember', 'Bạn là thành viên duy nhất trong hội đồng này.')}</p>
                   )}
                   
                   <div className="panel-info-banner">
                     <p style={{ margin: 0, fontSize: '0.9rem' }}>
-                      <strong>Groups Assigned:</strong> {panelGroups.length} group(s) are assigned to your panel for evaluation.
+                      <strong>{t('committee.groupsAssigned', 'Số đồ án được phân công')}:</strong> {panelGroups.length} {t('committee.groupsAssignedDesc', 'đồ án được phân công cho hội đồng của bạn đánh giá.')}
                     </p>
                   </div>
                 </div>
@@ -203,20 +319,19 @@ const CommitteeMemberDashboard: React.FC = () => {
 
           {activeTab === 'groups' && (
             <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2>Groups in My Panel</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <h2>{t('committee.groupsInPanel', 'Danh Sách Đồ Án Thuộc Hội Đồng')}</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button className="btn btn-primary" onClick={handleExportConsolidatedReport}>
-                    📊 Export Grade Report
+                    📊 {t('committee.exportGradeReport', 'Xuất Báo Cáo Điểm')}
                   </button>
                   <button className="btn btn-secondary" onClick={loadPanelGroups} disabled={groupsLoading}>
-                    {groupsLoading ? 'Loading...' : 'Refresh'}
+                    {groupsLoading ? t('committee.loading', 'Đang tải...') : t('committee.refresh', 'Làm mới')}
                   </button>
                 </div>
               </div>
               <p className="dashboard-section-desc">
-                These are the student groups assigned to your panel for evaluation. 
-                Select a group to evaluate or view their submitted documents.
+                {t('committee.groupsInPanelDesc', 'Đây là các sinh viên/đồ án được phân công cho hội đồng của bạn đánh giá. Chọn một đồ án để chấm điểm hoặc xem tài liệu đã nộp.')}
               </p>
               <PanelGroupsList
                 groups={panelGroups}
@@ -235,33 +350,33 @@ const CommitteeMemberDashboard: React.FC = () => {
             <div className="card">
               {selectedGroup ? (
                 <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
-                      <h2>Documents - Group #{selectedGroup.id}</h2>
+                      <h2>{t('committee.documentsTitle', 'Tài liệu - Đồ án #')}{selectedGroup.id}</h2>
                       <p className="dashboard-section-desc" style={{ marginTop: '8px' }}>
-                        <strong>Project:</strong> {selectedGroup.project?.project_name || 'N/A'} | 
-                        <strong> Students:</strong> {selectedGroup.group?.student_1_details?.user ? formatFullName(selectedGroup.group.student_1_details.user) : (selectedGroup.group as any)?.student_1?.name || selectedGroup.group?.student_1_details?.user?.username || 'N/A'}
+                        <strong>{t('committee.project', 'Đề tài')}:</strong> {selectedGroup.project?.project_name || 'N/A'} |{' '}
+                        <strong>{t('committee.students', 'Sinh viên')}:</strong> {selectedGroup.group?.student_1_details?.user ? formatFullName(selectedGroup.group.student_1_details.user) : (selectedGroup.group as any)?.student_1?.name || selectedGroup.group?.student_1_details?.user?.username || 'N/A'}
                       </p>
                     </div>
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => setActiveTab('groups')}
                     >
-                      Change Group
+                      {t('committee.changeGroup', 'Đổi đồ án')}
                     </button>
                   </div>
                   <GroupDocumentsList groupId={selectedGroup.id} />
                 </>
               ) : (
                 <div className="empty-state">
-                  <h2>Documents</h2>
-                  <p>Please select a group from the "Panel Groups" tab to view their submitted documents.</p>
+                  <h2>{t('committee.documents', 'Tài liệu')}</h2>
+                  <p>{t('committee.selectGroupForDocs', 'Vui lòng chọn một đồ án ở tab "Sinh Viên & Đồ Án" để xem tài liệu đã nộp.')}</p>
                   <button
                     className="btn btn-primary"
                     onClick={() => setActiveTab('groups')}
                     style={{ marginTop: '16px' }}
                   >
-                    Go to Panel Groups
+                    {t('committee.goToPanelGroups', 'Đi tới Danh sách Đồ án')}
                   </button>
                 </div>
               )}
@@ -273,28 +388,27 @@ const CommitteeMemberDashboard: React.FC = () => {
               {selectedGroup ? (
                 <>
                   <div style={{ marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
-                        <h2>Evaluations for Group #{selectedGroup.id}</h2>
+                        <h2>{t('committee.evaluationsForGroup', 'Phiếu Đánh Giá - Đồ án #')}{selectedGroup.id}</h2>
                         <p className="dashboard-section-desc" style={{ marginTop: '8px' }}>
-                          <strong>Project:</strong> {selectedGroup.project?.project_name || 'N/A'} | 
-                          <strong> Students:</strong> {selectedGroup.group?.student_1_details?.user ? formatFullName(selectedGroup.group.student_1_details.user) : (selectedGroup.group as any)?.student_1?.name || selectedGroup.group?.student_1_details?.user?.username || 'N/A'}
+                          <strong>{t('committee.project', 'Đề tài')}:</strong> {selectedGroup.project?.project_name || 'N/A'} |{' '}
+                          <strong>{t('committee.students', 'Sinh viên')}:</strong> {selectedGroup.group?.student_1_details?.user ? formatFullName(selectedGroup.group.student_1_details.user) : (selectedGroup.group as any)?.student_1?.name || selectedGroup.group?.student_1_details?.user?.username || 'N/A'}
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button
-                          className="btn btn-outline btn-sm"
+                          className="btn btn-sm utc-print-sheet-btn"
                           onClick={() => setShowUTCSheet(true)}
-                          style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#003366', color: '#003366' }}
-                          title="Mở và in phiếu điểm đánh giá UTC"
+                          title={t('committee.printScoreSheetTitle', 'Mở và in phiếu điểm đánh giá UTC')}
                         >
-                          🖨️ In phiếu điểm
+                          🖨️ {t('committee.printScoreSheet', 'In phiếu điểm')}
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => setActiveTab('groups')}
                         >
-                          Change Group
+                          {t('committee.changeGroup', 'Đổi đồ án')}
                         </button>
                       </div>
                     </div>
@@ -303,14 +417,14 @@ const CommitteeMemberDashboard: React.FC = () => {
                 </>
               ) : (
                 <div className="empty-state">
-                  <h2>Evaluations</h2>
-                  <p>Please select a group from the "Panel Groups" tab to view and manage evaluations.</p>
+                  <h2>{t('committee.evaluations', 'Đánh Giá & Chấm Điểm')}</h2>
+                  <p>{t('committee.selectGroupForEval', 'Vui lòng chọn một đồ án ở tab "Sinh Viên & Đồ Án" để xem và quản lý phiếu chấm điểm.')}</p>
                   <button
                     className="btn btn-primary"
                     onClick={() => setActiveTab('groups')}
                     style={{ marginTop: '16px' }}
                   >
-                    Go to Panel Groups
+                    {t('committee.goToPanelGroups', 'Đi tới Danh sách Đồ án')}
                   </button>
                 </div>
               )}
@@ -320,20 +434,20 @@ const CommitteeMemberDashboard: React.FC = () => {
           {activeTab === 'templates' && (
             <div>
               <div className="card" style={{ marginBottom: '20px' }}>
-                <h2>Templates Management</h2>
+                <h2>{t('committee.templatesManagement', 'Quản Lý Biểu Mẫu')}</h2>
                 <p className="dashboard-section-desc">
-                  Upload document templates for students. Students can download these templates to use as guidelines.
+                  {t('committee.templatesDesc', 'Tải lên các biểu mẫu tài liệu chuẩn cho sinh viên tải về và sử dụng theo hướng dẫn.')}
                 </p>
                 <div className="form-group">
-                  <label>Template Type</label>
+                  <label>{t('committee.templateType', 'Loại biểu mẫu')}</label>
                   <select
                     value={selectedTemplateType}
                     onChange={(e) => setSelectedTemplateType(e.target.value)}
                   >
-                    <option value="scope_document_template">Scope Document Template</option>
-                    <option value="srs_template">SRS Template</option>
-                    <option value="sdd_template">SDD Template</option>
-                    <option value="final_report_template">Final Report Template</option>
+                    <option value="scope_document_template">{t('committee.scopeTemplate', 'Biểu mẫu Đề cương')}</option>
+                    <option value="srs_template">{t('committee.srsTemplate', 'Biểu mẫu Đặc tả yêu cầu (SRS)')}</option>
+                    <option value="sdd_template">{t('committee.sddTemplate', 'Biểu mẫu Thiết kế hệ thống (SDD)')}</option>
+                    <option value="final_report_template">{t('committee.finalReportTemplate', 'Biểu mẫu Báo cáo tốt nghiệp')}</option>
                   </select>
                 </div>
               </div>
@@ -393,6 +507,15 @@ const PanelGroupsList: React.FC<{
   loading: boolean;
   showDocumentsButton?: boolean;
 }> = ({ groups, onSelectGroup, onViewDocuments, selectedGroupId, loading, showDocumentsButton = false }) => {
+  const { t } = useTranslation();
+
+  const translateGroupStatus = (status: string) => {
+    if (status === 'accepted') return t('committee.statusAccepted', 'Đã duyệt');
+    if (status === 'rejected') return t('committee.statusRejected', 'Từ chối');
+    if (status === 'pending') return t('committee.statusPending', 'Chờ duyệt');
+    return status;
+  };
+
   if (loading) {
     return <SkeletonCardGrid count={3} />;
   }
@@ -400,7 +523,7 @@ const PanelGroupsList: React.FC<{
   if (groups.length === 0) {
     return (
       <div className="empty-state">
-        No groups assigned to your panel yet.
+        {t('committee.noGroups', 'Chưa có đồ án nào được phân công cho hội đồng của bạn.')}
       </div>
     );
   }
@@ -428,17 +551,17 @@ const PanelGroupsList: React.FC<{
           >
             {isSelected && (
               <span className="selected-badge">
-                Selected
+                {t('committee.selected', 'Đang chọn')}
               </span>
             )}
-            <h3 className="panel-group-title">Group #{group.id}</h3>
+            <h3 className="panel-group-title">{t('committee.groupPrefix', 'Đồ án #')}{group.id}</h3>
             <div className="panel-group-body">
               <p className="panel-group-item">
-                <span className="item-label">Project:</span>
+                <span className="item-label">{t('committee.project', 'Đề tài')}:</span>
                 <span className="item-value">{group.project?.project_name || 'N/A'}</span>
               </p>
               <div className="panel-group-item">
-                <span className="item-label">Students:</span>
+                <span className="item-label">{t('committee.students', 'Sinh viên')}:</span>
                 <div className="students-list">
                   <div className="student-entry">
                     <span className="student-name">{student1Name}</span>
@@ -457,14 +580,14 @@ const PanelGroupsList: React.FC<{
                 </div>
               </div>
               <p className="panel-group-item">
-                <span className="item-label">Supervisor:</span>
+                <span className="item-label">{t('committee.supervisor', 'GVHD')}:</span>
                 <span className="item-value">{supervisorName}</span>
               </p>
               <p className="panel-group-item">
-                <span className="item-label">Status:</span>
+                <span className="item-label">{t('committee.status', 'Trạng thái')}:</span>
                 <div>
                   <span className={`badge badge-${group.status === 'accepted' ? 'success' : 'pending'}`}>
-                    {group.status}
+                    {translateGroupStatus(group.status)}
                   </span>
                 </div>
               </p>
@@ -474,7 +597,7 @@ const PanelGroupsList: React.FC<{
                 className="btn btn-primary btn-sm btn-evaluate"
                 onClick={() => onSelectGroup(group)}
               >
-                📝 Evaluate
+                📝 {t('committee.evaluate', 'Chấm điểm')}
               </button>
               {showDocumentsButton && onViewDocuments && (
                 <button
@@ -482,7 +605,7 @@ const PanelGroupsList: React.FC<{
                   onClick={() => onViewDocuments(group)}
                   style={{ flex: 1 }}
                 >
-                  📄 Documents
+                  📄 {t('committee.documents', 'Tài liệu')}
                 </button>
               )}
             </div>
@@ -501,6 +624,7 @@ interface EvaluationData {
 }
 
 const CommitteeEvaluationsList: React.FC<{ groupId: number }> = ({ groupId }) => {
+  const { t } = useTranslation();
   const [evaluations, setEvaluations] = useState<EvaluationData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationType | null>(null);
@@ -596,9 +720,9 @@ const CommitteeEvaluationsList: React.FC<{ groupId: number }> = ({ groupId }) =>
               <div className="evaluation-card-header">
                 <h3>{evaluation.config.name}</h3>
                 <span className={`evaluation-card-status ${evaluation.status}`}>
-                  {evaluation.status === 'not-started' && 'Not Started'}
-                  {evaluation.status === 'in-progress' && 'In Progress'}
-                  {evaluation.status === 'completed' && 'Completed'}
+                  {evaluation.status === 'not-started' && t('committee.notStarted', 'Chưa chấm')}
+                  {evaluation.status === 'in-progress' && t('committee.inProgress', 'Đang chấm')}
+                  {evaluation.status === 'completed' && t('committee.completed', 'Hoàn thành')}
                 </span>
               </div>
               
@@ -615,7 +739,9 @@ const CommitteeEvaluationsList: React.FC<{ groupId: number }> = ({ groupId }) =>
               </div>
               
               <div className="evaluation-card-action">
-                Click to {evaluation.status === 'not-started' ? 'start' : 'edit'} evaluation
+                {evaluation.status === 'not-started'
+                  ? t('committee.clickToStart', 'Nhấn để bắt đầu chấm điểm')
+                  : t('committee.clickToEdit', 'Nhấn để chỉnh sửa đánh giá')}
               </div>
             </div>
           );
@@ -636,14 +762,15 @@ const CommitteeEvaluationsList: React.FC<{ groupId: number }> = ({ groupId }) =>
 
 // Group Documents List Component for Committee Members
 const DOCUMENT_TYPES = [
-  { value: 'scope_document', label: 'Scope Document' },
-  { value: 'srs_document', label: 'SRS Document' },
-  { value: 'sdd_document', label: 'SDD Document' },
-  { value: 'final_report_document', label: 'Final Report' },
-  { value: 'presentation_document', label: 'Presentation' },
+  { value: 'scope_document', label: 'Tài liệu Đề cương' },
+  { value: 'srs_document', label: 'Tài liệu Đặc tả yêu cầu (SRS)' },
+  { value: 'sdd_document', label: 'Tài liệu Thiết kế hệ thống (SDD)' },
+  { value: 'final_report_document', label: 'Báo cáo Khóa luận tốt nghiệp' },
+  { value: 'presentation_document', label: 'Slide Trình bày bảo vệ' },
 ];
 
 const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
+  const { t } = useTranslation();
   const [documents, setDocuments] = useState<{ [key: string]: Document[] }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -671,7 +798,7 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
       setDocuments(docsByType);
     } catch (err: any) {
       console.error('Failed to load documents:', err);
-      setError('Failed to load documents');
+      setError(t('committee.loadDocsError', 'Không thể tải danh sách tài liệu'));
     } finally {
       setLoading(false);
     }
@@ -699,11 +826,26 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
     }
   };
 
+  const translateDocStatus = (status: string): string => {
+    switch (status) {
+      case 'accepted':
+        return t('committee.statusAccepted', 'Đã duyệt');
+      case 'rejected':
+        return t('committee.statusRejected', 'Từ chối');
+      case 'accepted_by_student':
+        return 'SV đã xác nhận';
+      case 'pending':
+        return t('committee.statusPending', 'Chờ duyệt');
+      default:
+        return status.replace(/_/g, ' ');
+    }
+  };
+
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('vi-VN', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -718,7 +860,7 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
       <div className="empty-state">
         <p style={{ color: '#dc3545' }}>{error}</p>
         <button className="btn btn-primary" onClick={loadDocuments} style={{ marginTop: '10px' }}>
-          Retry
+          {t('committee.retry', 'Thử lại')}
         </button>
       </div>
     );
@@ -729,8 +871,8 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
   if (!hasAnyDocuments) {
     return (
       <div className="empty-state">
-        <h3>No Documents</h3>
-        <p>This group has not submitted any documents to the committee yet. Committee sees only documents that students have submitted after supervisor acceptance.</p>
+        <h3>{t('committee.noDocuments', 'Chưa có tài liệu')}</h3>
+        <p>{t('committee.noDocumentsDesc', 'Sinh viên/nhóm này chưa nộp tài liệu nào tới hội đồng. Hội đồng chỉ thấy các tài liệu đã được GVHD duyệt và nộp lên.')}</p>
       </div>
     );
   }
@@ -749,10 +891,10 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Title</th>
-                  <th>Status</th>
-                  <th>Uploaded</th>
-                  <th>Actions</th>
+                  <th>{t('committee.docTitle', 'Tiêu đề')}</th>
+                  <th>{t('committee.docStatus', 'Trạng thái')}</th>
+                  <th>{t('committee.docUploaded', 'Ngày nộp')}</th>
+                  <th>{t('committee.docActions', 'Thao tác')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -761,7 +903,7 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
                     <td>{doc.title}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(doc.status)}`}>
-                        {doc.status.replace(/_/g, ' ')}
+                        {translateDocStatus(doc.status)}
                       </span>
                     </td>
                     <td style={{ fontSize: '0.85rem', color: 'var(--text-soft, #64748b)' }}>
@@ -772,7 +914,7 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
                         className="btn btn-secondary btn-sm"
                         onClick={() => handleDownload(doc.uploaded_file, `${doc.title}.${doc.uploaded_file.split('.').pop()}`)}
                       >
-                        Download
+                        {t('committee.download', 'Tải xuống')}
                       </button>
                     </td>
                   </tr>
@@ -784,7 +926,7 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
       })}
       <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
         <button className="btn btn-secondary" onClick={loadDocuments}>
-          Refresh Documents
+          {t('committee.refreshDocuments', 'Làm mới tài liệu')}
         </button>
       </div>
     </div>

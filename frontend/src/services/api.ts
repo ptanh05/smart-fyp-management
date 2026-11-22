@@ -271,13 +271,34 @@ class ApiService {
   }
 
   // Committee Member Groups (for evaluation)
-  async getCommitteeMemberGroups(): Promise<{ results: SupervisorOfStudentGroup[]; count: number }> {
-    const response = await this.api.get<{ results: SupervisorOfStudentGroup[]; count: number } | SupervisorOfStudentGroup[]>('/committee-member/groups/');
+  async getCommitteeMemberGroups(params?: { batch_id?: number; council_id?: number }): Promise<{ results: SupervisorOfStudentGroup[]; count: number }> {
+    const response = await this.api.get<{ results: SupervisorOfStudentGroup[]; count: number } | SupervisorOfStudentGroup[]>('/committee-member/groups/', { params });
     // Handle paginated response
     if (Array.isArray(response.data)) {
       return { results: response.data, count: response.data.length };
     }
     return response.data;
+  }
+
+  // My Defense Councils (multi-batch / multi-council selector)
+  async getMyCouncils(): Promise<Array<{
+    council_id: number;
+    council_number: number;
+    council_name: string;
+    batch_id: number | null;
+    batch_code: string | null;
+    batch_name: string | null;
+    role: string;
+    role_display: string;
+    session_date: string | null;
+    session_time: string | null;
+    defense_room: string | null;
+    is_finalized: boolean;
+    is_scores_locked: boolean;
+    student_count: number;
+  }>> {
+    const response = await this.api.get('/council/my-councils/');
+    return Array.isArray(response.data) ? response.data : [];
   }
 
   // Students List
@@ -1149,7 +1170,7 @@ class ApiService {
   async toggleCouncilLock(councilId: number, isLocked: boolean): Promise<any> {
     const response = await this.api.post('/council/toggle-lock/', {
       council_id: councilId,
-      is_locked: isLocked,
+      lock: isLocked,
     });
     return response.data;
   }
