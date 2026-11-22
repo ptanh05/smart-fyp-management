@@ -7,6 +7,7 @@ import type { ThesisDeferralRequest } from '../types';
 import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
 import { formatFullName } from '../utils/nameHelper';
+import { formatDateVN, getTodayDateStr } from '../utils/dateUtils';
 import { isValidEmail, validatePhoneNumber, cleanPhoneNumber } from '../utils/validation';
 import './UTCStudentGraduationView.css';
 
@@ -1361,8 +1362,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 <span className={`utc-submitted-outline__status ${projectData.status === 'OUTLINE_APPROVED' ? 'is-approved' : 'is-pending'}`}>
                   {projectData.status === 'OUTLINE_APPROVED'
                     ? '🎉 Khoa đã phê duyệt'
-                    : (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED')
+                    : submittedOutline?.verdict === 'APPROVED'
                     ? '🟢 GVHD đã duyệt · Chờ Khoa'
+                    : submittedOutline?.verdict === 'REVISION_REQUIRED'
+                    ? '⚠️ GVHD yêu cầu sửa lại'
                     : '🟡 Đã gửi GVHD · Chờ duyệt'}
                 </span>
               </div>
@@ -1376,14 +1379,14 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 <span className="text-slate-500 font-bold">➔</span>
                 <div className="flex items-center gap-2">
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED' || projectData.status === 'OUTLINE_APPROVED')
+                    (submittedOutline?.verdict === 'APPROVED' || projectData.status === 'OUTLINE_APPROVED')
                       ? 'bg-emerald-500 text-white'
                       : 'bg-amber-500 text-slate-900 animate-pulse'
                   }`}>
-                    {(submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED' || projectData.status === 'OUTLINE_APPROVED') ? '✓' : '2'}
+                    {(submittedOutline?.verdict === 'APPROVED' || projectData.status === 'OUTLINE_APPROVED') ? '✓' : '2'}
                   </span>
                   <span className={`font-semibold ${
-                    (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED' || projectData.status === 'OUTLINE_APPROVED')
+                    (submittedOutline?.verdict === 'APPROVED' || projectData.status === 'OUTLINE_APPROVED')
                       ? 'text-emerald-300'
                       : 'text-amber-300'
                   }`}>
@@ -1395,7 +1398,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
                     projectData.status === 'OUTLINE_APPROVED'
                       ? 'bg-emerald-500 text-white'
-                      : (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED')
+                      : submittedOutline?.verdict === 'APPROVED'
                       ? 'bg-blue-500 text-white animate-pulse'
                       : 'bg-slate-700 text-slate-400'
                   }`}>
@@ -1404,7 +1407,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   <span className={`font-semibold ${
                     projectData.status === 'OUTLINE_APPROVED'
                       ? 'text-emerald-300'
-                      : (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED')
+                      : submittedOutline?.verdict === 'APPROVED'
                       ? 'text-blue-300'
                       : 'text-slate-500'
                   }`}>
@@ -1467,8 +1470,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                     <strong>
                       {projectData.status === 'OUTLINE_APPROVED'
                         ? '🎉 Cả 2 cấp hoàn tất: Khoa đã duyệt chính thức'
-                        : (submittedOutline?.verdict === 'APPROVED' || projectData.topic_review_status === 'GV_CONFIRMED')
+                        : submittedOutline?.verdict === 'APPROVED'
                         ? '🟢 Cấp 1 xong: GVHD đã duyệt & chốt ➔ Chờ Khoa'
+                        : submittedOutline?.verdict === 'REVISION_REQUIRED'
+                        ? '⚠️ Cấp 1: GVHD yêu cầu chỉnh sửa lại đề cương'
                         : '🟡 Cấp 1: Đã gửi GVHD ➔ Đang chờ GVHD xem xét & duyệt'}
                     </strong>
                   </div>
@@ -1797,7 +1802,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 }
 
                 return filtered.map((task) => {
-                  const isOverdue = task.due_date && !task.is_completed && new Date(task.due_date) < new Date();
+                  const todayStr = getTodayDateStr();
+                  const isOverdue = task.due_date && !task.is_completed && task.due_date < todayStr;
                   return (
                     <div
                       key={task.id}
@@ -1877,7 +1883,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                             </span>
                             {task.due_date && (
                               <span className={isOverdue ? 'text-rose-600 font-bold' : 'text-slate-600'}>
-                                ⏰ Hạn chót: <b>{task.due_date}</b> {isOverdue && '(Quá hạn)'}
+                                ⏰ Hạn chót: <b>{formatDateVN(task.due_date)}</b> {isOverdue && '(Quá hạn)'}
                               </span>
                             )}
                             {task.completed_at && (
@@ -2066,7 +2072,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           #{meetingLogs.length - idx}
                         </span>
                         <div>
-                          <span className="text-sm font-bold text-slate-900">Buổi hướng dẫn: {log.meeting_date}</span>
+                          <span className="text-sm font-bold text-slate-900">Buổi hướng dẫn: {formatDateVN(log.meeting_date)}</span>
                           <span className="text-xs text-slate-500 ml-2">({log.meeting_time})</span>
                         </div>
                       </div>
@@ -2126,7 +2132,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           <span className="font-bold text-blue-400">📌 Nhiệm vụ GVHD giao tuần tới:</span>
                           {log.tasks.map((t: any) => (
                             <div key={t.id} className="flex items-center justify-between text-slate-300 pl-2">
-                              <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-400">(Hạn nộp: {t.due_date})</span>}</span>
+                              <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-400">(Hạn nộp: {formatDateVN(t.due_date)})</span>}</span>
                               <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${t.is_completed ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-700 text-slate-300 border border-slate-600'}`}>
                                 {t.is_completed ? '✅ Đã xong' : '⏳ Cần làm'}
                               </span>

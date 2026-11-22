@@ -1157,12 +1157,14 @@ class StudentOutlineSubmissionAPIView(APIView):
                 project.topic_title_en = topic_title_en
             project.status = "OUTLINE_PENDING"
             project.topic_review_status = "DRAFT"
+            project.topic_revision_notes = ""
             project.save()
 
             review, _ = OutlineReview.objects.select_for_update().get_or_create(project=project)
             if outline_file:
                 review.outline_file = outline_file
             review.verdict = "PENDING"
+            review.reviewed_at = None
             review.save()
 
         return Response({
@@ -1672,6 +1674,17 @@ class SupervisorOutlineReviewAPIView(APIView):
             return stage_error
 
         with transaction.atomic():
+            if review.verdict == "APPROVED" and verdict != "APPROVED":
+                return Response(
+                    {"detail": "Đề cương đã được đồng ý duyệt và chuyển lên Khoa, không thể chuyển lại thành yêu cầu sửa hoặc không đạt nữa."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if project.status == "OUTLINE_APPROVED":
+                return Response(
+                    {"detail": "Khoa đã phê duyệt đề cương này, không thể thay đổi kết quả xét duyệt."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             review.reviewer = supervisor
             review.verdict = verdict
             review.comments = comments
@@ -3847,9 +3860,9 @@ class TopicDraftAPIView(APIView):
         is_resubmit = request.data.get("is_resubmit") or request.data.get("action") == "resubmit"
         if is_resubmit or project.topic_review_status == "REVISION_REQUIRED" or project.status == "TOPIC_REVISION":
             project.status = "PENDING_REVIEW"
-            project.topic_review_status = "GV_CONFIRMED"
+            project.topic_review_status = "DRAFT"
             project.topic_revision_notes = ""
-            msg = "Đã chỉnh sửa và nộp lại đề tài (Re-Submit thành công). Trạng thái chuyển thành 'Chờ Khoa duyệt'."
+            msg = "Đã chỉnh sửa và nộp lại đề tài. Hồ sơ đang chờ Giảng viên hướng dẫn xem xét & duyệt lại."
         else:
             project.status = "TOPIC_DRAFT"
             project.topic_review_status = "DRAFT"
@@ -3975,7 +3988,7 @@ class TopicReSubmitAPIView(APIView):
 
         # Chuyển trạng thái lại thành PENDING_REVIEW (Chờ duyệt đề tài)
         project.status = "PENDING_REVIEW"
-        project.topic_review_status = "GV_CONFIRMED"
+        project.topic_review_status = "DRAFT"
         project.topic_revision_notes = ""
         project.save(update_fields=["topic_title_vi", "topic_title_en", "status", "topic_review_status", "topic_revision_notes"])
 

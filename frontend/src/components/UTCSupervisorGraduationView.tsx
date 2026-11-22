@@ -1,7 +1,7 @@
 import { notify, notifyError, confirmDialog, promptDialog } from '../utils/notify';
 import React, { useState, useEffect, useMemo } from 'react';
 import { TablePagination } from './TablePagination';
-import { getRelativeTime } from '../utils/dateUtils';
+import { getRelativeTime, formatDateVN, getTodayDateStr } from '../utils/dateUtils';
 import { useModalGuard } from '../utils/modalHooks';
 import { apiService, apiClient } from '../services/api';
 import { safeExternalUrl } from '../utils/safeUrl';
@@ -434,6 +434,14 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       return;
     }
 
+    if (logAssignTask && logTaskDueDate) {
+      const today = getTodayDateStr();
+      if (logTaskDueDate < today) {
+        notify.warning('Hạn nộp công việc tuần tới không thể là ngày trong quá khứ!');
+        return;
+      }
+    }
+
     try {
       setSavingLog(true);
       const payload: any = {
@@ -487,6 +495,13 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supervisionProject || !taskTitle) return;
+    if (taskDueDate) {
+      const today = getTodayDateStr();
+      if (taskDueDate < today) {
+        notify.warning('Hạn nộp (Deadline) không thể là ngày trong quá khứ!');
+        return;
+      }
+    }
     try {
       setSavingTask(true);
       const res = await apiClient.post(
@@ -675,18 +690,22 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const handleReviewOutline = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProject) return;
+    const isAlreadyApproved = selectedProject.verdict === 'APPROVED' || selectedProject.project_status === 'OUTLINE_APPROVED';
+    const finalVerdict = isAlreadyApproved ? 'APPROVED' : verdict;
     try {
       await apiClient.post(
         `${API_BASE}/supervisor/outline/review/`,
         {
           project_id: selectedProject.id,
-          verdict,
+          verdict: finalVerdict,
           comments: outlineComments,
         },
         { headers: getHeaders()}
       );
       notify.success(
-        verdict === 'APPROVED'
+        isAlreadyApproved
+          ? 'Đã cập nhật ý kiến & nhận xét cho Hội đồng Khoa!'
+          : finalVerdict === 'APPROVED'
           ? 'GVHD đã chấp nhận đề cương. Hồ sơ đang chờ Khoa/Admin duyệt cuối.'
           : 'Đã cập nhật kết quả duyệt đề cương!'
       );
@@ -1234,15 +1253,15 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         ) : (
                           <span className={`text-xs px-2.5 py-0.5 rounded font-bold border ${
                             r.project_status === 'OUTLINE_APPROVED' ? 'bg-blue-50 text-blue-800 border-blue-300' :
-                            (r.verdict === 'APPROVED' || r.topic_review_status === 'GV_CONFIRMED') ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                            r.verdict === 'APPROVED' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
                             r.verdict === 'REVISION_REQUIRED' ? 'bg-amber-50 text-amber-800 border-amber-300' :
                             r.verdict === 'REJECTED' ? 'bg-rose-50 text-rose-800 border-rose-300' :
-                            'bg-emerald-50 text-emerald-800 border-emerald-300'
+                            'bg-blue-50 text-blue-800 border-blue-300'
                           }`}>
                             {r.project_status === 'OUTLINE_APPROVED' ? '🎉 Khoa đã phê duyệt' : 
-                             (r.verdict === 'APPROVED' || r.topic_review_status === 'GV_CONFIRMED') ? '🟢 GV đã chốt ➔ Chờ Khoa' : 
+                             r.verdict === 'APPROVED' ? '🟢 GV đã chốt ➔ Chờ Khoa' : 
                              r.verdict === 'REVISION_REQUIRED' ? '⚠️ Yêu cầu sửa' : 
-                             r.verdict === 'REJECTED' ? '❌ Không đạt' : '⏳ Đã nộp · Chờ GVHD duyệt'}
+                             r.verdict === 'REJECTED' ? '❌ Không đạt' : '⏳ Chờ GVHD xem xét & duyệt'}
                           </span>
                         )}
                       </div>
@@ -1304,6 +1323,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                               student_name: r.student_name,
                               topic_title_vi: r.topic_title,
                               outline_file: fileUrl,
+                              verdict: r.verdict,
+                              project_status: r.project_status,
                             });
                             setOutlineComments(r.comments || '');
                             setVerdict(r.verdict && r.verdict !== 'PENDING' ? r.verdict : 'APPROVED');
@@ -1313,7 +1334,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         >
                           {r.project_status === 'OUTLINE_APPROVED'
                             ? 'Xem Đề cương'
-                            : (r.verdict === 'APPROVED' || r.topic_review_status === 'GV_CONFIRMED')
+                            : r.verdict === 'APPROVED'
                             ? 'Đã duyệt · Chỉnh sửa'
                             : 'Duyệt & Chuyển Lên Khoa ➔'}
                         </button>
@@ -1695,22 +1716,40 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             )}
 
             <form onSubmit={handleReviewOutline} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Kết luận xét duyệt của GVHD</label>
-                <select
-                  value={verdict}
-                  onChange={(e) => setVerdict(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
-                >
-                  <option value="APPROVED">ĐỒNG Ý DUYỆT & CHUYỂN LÊN KHOA PHÊ DUYỆT</option>
-                  <option value="REVISION_REQUIRED">YÊU CẦU SINH VIÊN CHỈNH SỬA LẠI</option>
-                  <option value="REJECTED">KHÔNG ĐẠT / TỪ CHỐI ĐỀ TÀI</option>
-                </select>
-              </div>
+              {(() => {
+                const isAlreadyApproved = selectedProject?.verdict === 'APPROVED' || selectedProject?.project_status === 'OUTLINE_APPROVED';
+                return (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Kết luận xét duyệt của GVHD</label>
+                      <select
+                        value={isAlreadyApproved ? 'APPROVED' : verdict}
+                        onChange={(e) => setVerdict(e.target.value as any)}
+                        disabled={isAlreadyApproved}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E] disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed"
+                      >
+                        <option value="APPROVED">ĐỒNG Ý DUYỆT & CHUYỂN LÊN KHOA PHÊ DUYỆT</option>
+                        {!isAlreadyApproved && (
+                          <>
+                            <option value="REVISION_REQUIRED">YÊU CẦU SINH VIÊN CHỈNH SỬA LẠI</option>
+                            <option value="REJECTED">KHÔNG ĐẠT / TỪ CHỐI ĐỀ TÀI</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
 
-              <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-900 leading-relaxed">
-                ℹ️ <b>Quy trình 2 cấp:</b> Khi Thầy/Cô chọn <b>ĐỒNG Ý DUYỆT</b>, đề cương sẽ được chốt và tự động chuyển sang danh sách chờ duyệt của Khoa. Khi Khoa phê duyệt chính thức, hệ thống sẽ mở khóa Giai đoạn 4 cho sinh viên.
-              </div>
+                    {isAlreadyApproved ? (
+                      <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 leading-relaxed">
+                        ✅ <b>Đề cương đã được đồng ý duyệt & chuyển lên Khoa:</b> Không thể chuyển lại thành yêu cầu sửa hoặc không đạt. Thầy/Cô chỉ có thể cập nhật thêm Ý kiến & Nhận xét cho Hội đồng Khoa nếu cần.
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-900 leading-relaxed">
+                        ℹ️ <b>Quy trình 2 cấp:</b> Khi Thầy/Cô chọn <b>ĐỒNG Ý DUYỆT</b>, đề cương sẽ được chốt và tự động chuyển sang danh sách chờ duyệt của Khoa. Khi Khoa phê duyệt chính thức, hệ thống sẽ mở khóa Giai đoạn 4 cho sinh viên.
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Ý kiến & Nhận xét</label>
@@ -1735,7 +1774,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   type="submit"
                   className="px-4 py-2 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition"
                 >
-                  {verdict === 'APPROVED' ? 'Chốt duyệt & Chuyển lên Khoa ➔' : 'Lưu kết quả thẩm định'}
+                  {(selectedProject?.verdict === 'APPROVED' || selectedProject?.project_status === 'OUTLINE_APPROVED')
+                    ? 'Lưu cập nhật ý kiến & nhận xét'
+                    : verdict === 'APPROVED'
+                    ? 'Chốt duyệt & Chuyển lên Khoa ➔'
+                    : 'Lưu kết quả thẩm định'}
                 </button>
               </div>
             </form>
@@ -2079,6 +2122,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         <label className="block text-xs font-bold text-slate-700 mb-1">Hạn nộp (Deadline)</label>
                         <input
                           type="date"
+                          min={getTodayDateStr()}
                           value={taskDueDate}
                           onChange={(e) => setTaskDueDate(e.target.value)}
                           className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
@@ -2170,7 +2214,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                           </div>
                           {t.description && <p className="text-xs text-slate-600">{t.description}</p>}
                           <div className="text-[11px] text-slate-500 flex items-center gap-3 pt-0.5">
-                            {t.due_date && <span>Hạn: <b className="text-slate-700">{t.due_date}</b></span>}
+                            {t.due_date && <span>Hạn: <b className="text-slate-700">{formatDateVN(t.due_date)}</b></span>}
                             {t.completed_at && (
                               <span className="text-emerald-700 font-semibold">
                                 Hoàn thành lúc: {new Date(t.completed_at).toLocaleDateString('vi-VN')}
@@ -2395,6 +2439,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                               <label className="block text-[11px] font-bold text-slate-700 mb-1">Hạn nộp (Deadline)</label>
                               <input
                                 type="date"
+                                min={getTodayDateStr()}
                                 value={logTaskDueDate}
                                 onChange={(e) => setLogTaskDueDate(e.target.value)}
                                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-[#2D469E]"
@@ -2460,7 +2505,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-900">
-                              #{supervisionLogs.length - idx} - Ngày {log.meeting_date} ({log.meeting_time})
+                              #{supervisionLogs.length - idx} - Ngày {formatDateVN(log.meeting_date)} ({log.meeting_time})
                             </span>
                             <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold">
                               ⭐ Căn cứ điểm quá trình
@@ -2509,7 +2554,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                             <span className="font-bold text-amber-800">📌 Nhiệm vụ giao tuần tới (Căn cứ đánh giá):</span>
                             {log.tasks.map((t: any) => (
                               <div key={t.id} className="flex items-center justify-between text-slate-700 pl-2">
-                                <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-500">(Hạn: {t.due_date})</span>}</span>
+                                <span>• <b>{t.title}</b> {t.due_date && <span className="text-slate-500">(Hạn: {formatDateVN(t.due_date)})</span>}</span>
                                 <span className={`text-[10px] px-1.5 py-0.2 rounded uppercase font-bold border ${
                                   t.priority === 'URGENT' ? 'bg-rose-50 text-rose-800 border-rose-300' : 'bg-slate-100 text-slate-700 border-slate-300'
                                 }`}>
