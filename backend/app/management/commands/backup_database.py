@@ -144,7 +144,7 @@ class Command(BaseCommand):
                 json.dump(manifest, mf, indent=2, ensure_ascii=False)
 
             self.stdout.write(self.style.SUCCESS(
-                f"[OK] Sao luu CSDL thanh cong!\n"
+                f"[OK] Sao lưu CSDL thành công!\n"
                 f"    - Tep sao luu: {final_file}\n"
                 f"    - Dung luong: {manifest['size_formatted']}\n"
                 f"    - SHA256: {checksum[:16]}...\n"
