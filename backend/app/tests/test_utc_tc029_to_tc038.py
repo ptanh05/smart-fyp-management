@@ -313,7 +313,10 @@ class TC029toTC038GraduationSystemTests(APITestCase):
             defense_room="P.301"
         )
         self.project.council = council
-        self.project.save(update_fields=["council"])
+        # Từ commit 67aeb03: chốt điểm Hội đồng còn bắt buộc đã có điểm GVHD và GVPB.
+        self.project.supervisor_score = 8.0
+        self.project.reviewer_score = 7.5
+        self.project.save(update_fields=["council", "supervisor_score", "reviewer_score"])
 
         # Create 5 council members
         members = []
@@ -358,7 +361,9 @@ class TC029toTC038GraduationSystemTests(APITestCase):
         self.client.force_authenticate(user=chair_user)
         res_fail = self.client.post(f"/app/council/{council.id}/finalize-scores/")
         self.assertEqual(res_fail.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Bắt buộc 5/5 người chấm mới cho phép chốt", res_fail.data.get("detail", ""))
+        # Câu thông báo đổi trong commit 67aeb03 ("thành viên hợp lệ", có số đã chấm của từng SV).
+        self.assertIn("Bắt buộc 5/5 thành viên hợp lệ chấm mới cho phép chốt", res_fail.data.get("detail", ""))
+        self.assertIn(": 4/5)", res_fail.data.get("detail", ""))
 
         # 5th member grades
         CouncilLiveScore.objects.create(
@@ -377,6 +382,45 @@ class TC029toTC038GraduationSystemTests(APITestCase):
         self.assertEqual(res_success.status_code, status.HTTP_200_OK)
         council.refresh_from_db()
         self.assertTrue(council.is_locked)
+
+    def test_tc033b_council_finalize_rejects_missing_supervisor_or_reviewer_score(self):
+        """TC-033b: Đủ 5/5 điểm Hội đồng nhưng thiếu điểm GVHD/GVPB -> không được chốt"""
+        council = DefenseCouncil.objects.create(
+            batch=self.batch, council_number=2, council_name="Hội đồng Bảo vệ CNTT 02", defense_room="P.302"
+        )
+        self.project.council = council
+        self.project.supervisor_score = None
+        self.project.reviewer_score = 7.5
+        self.project.save(update_fields=["council", "supervisor_score", "reviewer_score"])
+
+        members = []
+        for idx, role in enumerate(["CHAIR", "SECRETARY", "MEMBER", "MEMBER", "MEMBER"]):
+            u = CustomUser.objects.create_user(
+                username=f"council_b_{idx}", password="password123", user_type="supervisor"
+            )
+            sup = Supervisor.objects.create(user=u, supervisor_id=f"CMB0{idx}", academic_title="TS")
+            members.append(CouncilMember.objects.create(council=council, supervisor=sup, user=u, role=role))
+        for m in members:
+            CouncilLiveScore.objects.create(
+                council=council, project=self.project, member=m,
+                score_presentation=3.0, score_content=3.0, score_qa=2.0, score_demo=1.5, total_score=9.5,
+            )
+
+        self.client.force_authenticate(user=members[0].user)
+        res = self.client.post(f"/app/council/{council.id}/finalize-scores/")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data.get("error"), "missing_supervisor_score")
+        council.refresh_from_db()
+        self.assertFalse(council.is_finalized)
+
+        self.project.supervisor_score = 8.0
+        self.project.reviewer_score = None
+        self.project.save(update_fields=["supervisor_score", "reviewer_score"])
+        res = self.client.post(f"/app/council/{council.id}/finalize-scores/")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res.data.get("error"), "missing_reviewer_score")
+        council.refresh_from_db()
+        self.assertFalse(council.is_finalized)
 
     # --------------------------------------------------------------------------
     # TC-034: Supervisor forbidden to score own student in council

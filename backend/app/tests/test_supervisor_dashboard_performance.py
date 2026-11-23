@@ -235,12 +235,49 @@ class SupervisorDashboardPerformanceTestCase(APITestCase):
 
         self.client.force_authenticate(user=self.user_a)
 
-        # Expected bounded queries: <= 6 queries regardless of project count (zero N+1)
-        with self.assertNumQueries(6):
+        # Expected bounded queries regardless of project count (zero N+1):
+        # 2 fixed queries from NotificationService.sync_student_graduation_notifications
+        # (supervised projects + quotas, added in commit 4e53768) + 6 dashboard queries.
+        # Count independence from N is asserted in test_query_count_independent_of_project_count.
+        with self.assertNumQueries(8):
             response = self.client.get(self.endpoint)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 5)
+
+    def _create_project_with_activity(self, i):
+        st = self._create_student(i)
+        p = GraduationProject.objects.create(
+            batch=self.batch, student=st, supervisor=self.sup_a,
+            topic_category=self.topic_area, topic_title_vi=f"Đề tài số {i}", status="ALLOCATED",
+        )
+        t = SupervisionTask.objects.create(project=p, assigned_by=self.sup_a, title=f"Task {i}", status="TODO")
+        log = SupervisionMeetingLog.objects.create(
+            project=p, meeting_date=datetime.date.today(), meeting_time=datetime.time(9, 0),
+            content_discussed="Trao đổi tiến độ",
+        )
+        log.tasks.add(t)
+        WeeklyProgressReport.objects.create(project=p, week_number=1, summary_content="Báo cáo tuần 1")
+
+    def test_query_count_independent_of_project_count(self):
+        """Zero N+1: query count with 3 projects must equal query count with 6 projects."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self.client.force_authenticate(user=self.user_a)
+        for i in range(40, 43):
+            self._create_project_with_activity(i)
+        with CaptureQueriesContext(connection) as small:
+            r1 = self.client.get(self.endpoint)
+        for i in range(43, 46):
+            self._create_project_with_activity(i)
+        with CaptureQueriesContext(connection) as large:
+            r2 = self.client.get(self.endpoint)
+
+        self.assertEqual(r1.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(r1.data), 3)
+        self.assertEqual(len(r2.data), 6)
+        self.assertEqual(len(small.captured_queries), len(large.captured_queries))
 
     def test_stage2_preferences_batch_fetching(self):
         """
@@ -289,10 +326,11 @@ class SupervisorDashboardPerformanceTestCase(APITestCase):
         self.client.force_authenticate(user=self.user_a)
 
         # Expected queries:
-        # 1. GraduationProject (empty for sup_a here)
-        # 2. StudentPreference stage 2
-        # 3. InternshipInfo batch fetch
-        with self.assertNumQueries(3):
+        # 1-2. Notification sync (supervised projects + quotas, commit 4e53768), fixed cost
+        # 3. GraduationProject (empty for sup_a here)
+        # 4. StudentPreference stage 2
+        # 5. InternshipInfo batch fetch
+        with self.assertNumQueries(5):
             response = self.client.get(self.endpoint)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
