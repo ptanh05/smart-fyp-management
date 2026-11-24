@@ -130,6 +130,11 @@ def serialize_version(v, request=None, include_matches=True, is_admin=False):
         "similarity_score": v.similarity_score,
         "similarity_level": fs.similarity_level(v.similarity_score),
         "similarity_checked_at": v.similarity_checked_at.isoformat() if v.similarity_checked_at else None,
+        "supervisor_review_status": v.supervisor_review_status,
+        "supervisor_review_status_display": v.get_supervisor_review_status_display(),
+        "supervisor_feedback": v.supervisor_feedback,
+        "reviewed_by": (v.reviewed_by.get_full_name() or v.reviewed_by.username) if v.reviewed_by_id else "",
+        "reviewed_at": v.reviewed_at.isoformat() if v.reviewed_at else None,
     }
     if include_matches:
         matches = v.similarity_matches or []
@@ -217,6 +222,54 @@ class SubmissionSimilarityRecheckAPIView(APIView):
             return _forbidden()
         fs.run_similarity_check(version)
         return Response(serialize_version(version, request, is_admin=(role == "ADMIN")))
+
+
+class SubmissionSupervisorReviewAPIView(APIView):
+    """GVHD duyệt hoặc yêu cầu sửa một phiên bản bản nháp REPORT ở GĐ4."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        version = get_object_or_404(
+            SubmissionVersion.objects.select_related("project__supervisor__user", "reviewed_by"),
+            pk=pk,
+            kind="REPORT",
+        )
+        project = version.project
+        if project_role(request.user, project) != "SUPERVISOR":
+            return _forbidden("Chỉ GVHD của đồ án mới được duyệt bản nháp này.")
+
+        stage_error = workflow_stages.check_stage_write(project, 4)
+        if stage_error:
+            stage_error.pop("workflow", None)
+            return Response(stage_error, status=status.HTTP_409_CONFLICT)
+
+        verdict = str(request.data.get("verdict") or "").upper()
+        if verdict not in {"APPROVED", "REVISION_REQUIRED"}:
+            return Response(
+                {"verdict": ["Trạng thái phải là APPROVED hoặc REVISION_REQUIRED."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        feedback = str(request.data.get("feedback") or "").strip()
+        if verdict == "REVISION_REQUIRED" and not feedback:
+            return Response(
+                {"feedback": ["Vui lòng nhập nội dung cần chỉnh sửa."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        version.supervisor_review_status = verdict
+        version.supervisor_feedback = feedback
+        version.reviewed_by = request.user
+        version.reviewed_at = timezone.now()
+        version.save(update_fields=[
+            "supervisor_review_status", "supervisor_feedback", "reviewed_by", "reviewed_at"
+        ])
+        _audit(
+            request.user,
+            "submission_review",
+            f"GVHD {verdict} bản nháp v{version.version_no} của đồ án #{project.id}",
+            request=request,
+        )
+        return Response(serialize_version(version, request, is_admin=False))
 
 
 # ==============================================================================

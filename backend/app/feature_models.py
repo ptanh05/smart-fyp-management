@@ -33,6 +33,11 @@ class SubmissionVersion(models.Model):
         ("CHECKED", "Đã kiểm tra"),
         ("UNSUPPORTED", "Không trích xuất được nội dung"),
     )
+    REVIEW_STATUS_CHOICES = (
+        ("PENDING", "Chờ GVHD duyệt"),
+        ("APPROVED", "GVHD đã duyệt"),
+        ("REVISION_REQUIRED", "GVHD yêu cầu sửa"),
+    )
 
     project = models.ForeignKey("GraduationProject", on_delete=models.CASCADE, related_name="submission_versions")
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, default="REPORT")
@@ -51,6 +56,15 @@ class SubmissionVersion(models.Model):
     similarity_score = models.FloatField(null=True, blank=True, help_text="Tỷ lệ % nội dung trùng cao nhất so với bài khác")
     similarity_matches = models.JSONField(default=list, blank=True)
     similarity_checked_at = models.DateTimeField(null=True, blank=True)
+    supervisor_review_status = models.CharField(
+        max_length=20, choices=REVIEW_STATUS_CHOICES, default="PENDING"
+    )
+    supervisor_feedback = models.TextField(blank=True, default="")
+    reviewed_by = models.ForeignKey(
+        "CustomUser", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="reviewed_submission_versions"
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "app_submissionversion"

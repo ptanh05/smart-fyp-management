@@ -697,6 +697,7 @@ urlpatterns = [
     # Tính năng mở rộng (views_features.py)
     path("graduation-project/<int:pk>/submissions/", vf.ProjectSubmissionVersionsAPIView.as_view(), name="project-submission-versions"),
     path("submissions/<int:pk>/similarity-check/", vf.SubmissionSimilarityRecheckAPIView.as_view(), name="submission-similarity-recheck"),
+    path("submissions/<int:pk>/supervisor-review/", vf.SubmissionSupervisorReviewAPIView.as_view(), name="submission-supervisor-review"),
     path("topics/similarity-check/", vf.TopicSimilarityCheckAPIView.as_view(), name="topic-similarity-check"),
     path("rubrics/", vf.RubricListCreateAPIView.as_view(), name="rubric-list-create"),
     path("graduation-project/<int:pk>/rubric-scores/", vf.ProjectRubricScoreAPIView.as_view(), name="project-rubric-scores"),

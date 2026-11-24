@@ -1454,6 +1454,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                     defaultKind="REPORT"
                     title="Các phiên bản bản nháp"
                     subtitle="Lịch sử bản nháp báo cáo/quyển đồ án sinh viên đã nộp."
+                    canReview
                   />
                 </div>
               ))}

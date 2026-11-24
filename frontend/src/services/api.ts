@@ -1566,6 +1566,18 @@ class ApiService {
     return response.data;
   }
 
+  async reviewSubmissionVersion(
+    versionId: number,
+    verdict: 'APPROVED' | 'REVISION_REQUIRED',
+    feedback = ''
+  ): Promise<SubmissionVersion> {
+    const response = await this.api.post<SubmissionVersion>(
+      `/submissions/${versionId}/supervisor-review/`,
+      { verdict, feedback }
+    );
+    return response.data;
+  }
+
   // Utility
   async logout(): Promise<void> {
     try {
@@ -1595,6 +1607,11 @@ export interface SubmissionVersion {
   similarity_status: 'NOT_CHECKED' | 'CHECKED' | 'UNSUPPORTED';
   similarity_score: number | null;
   similarity_level?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+  supervisor_review_status?: 'PENDING' | 'APPROVED' | 'REVISION_REQUIRED';
+  supervisor_review_status_display?: string;
+  supervisor_feedback?: string;
+  reviewed_by?: string;
+  reviewed_at?: string | null;
 }
 
 export interface TopicSimilarityResult {

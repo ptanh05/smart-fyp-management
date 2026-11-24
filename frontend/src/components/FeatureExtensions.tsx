@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiService } from '../services/api';
 import type { SubmissionKind, SubmissionVersion, TopicSimilarityResult } from '../services/api';
-import { notify, notifyError } from '../utils/notify';
+import { notify, notifyError, promptDialog } from '../utils/notify';
 import { safeExternalUrl } from '../utils/safeUrl';
 import './FeatureExtensions.css';
 
@@ -37,6 +37,7 @@ export function SubmissionVersionsPanel({
   defaultKind = 'REPORT',
   title = 'Lịch Sử Phiên Bản Bài Nộp',
   subtitle = 'Quản lý các bản nộp (Báo cáo, Đề cương, Slide, Mã nguồn) & đối soát tỷ lệ tương đồng.',
+  canReview = false,
 }: {
   projectId: number;
   canUpload: boolean;
@@ -44,6 +45,7 @@ export function SubmissionVersionsPanel({
   defaultKind?: SubmissionKind;
   title?: string;
   subtitle?: string;
+  canReview?: boolean;
 }) {
   const allowedKindsKey = allowedKinds?.join(',') || '';
   const [versions, setVersions] = useState<SubmissionVersion[]>([]);
@@ -51,6 +53,7 @@ export function SubmissionVersionsPanel({
   const [file, setFile] = useState<File | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -85,6 +88,32 @@ export function SubmissionVersionsPanel({
       notifyError('Nộp bài thất bại', err);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const review = async (version: SubmissionVersion, verdict: 'APPROVED' | 'REVISION_REQUIRED') => {
+    const feedback = await promptDialog(
+      verdict === 'APPROVED'
+        ? 'Nhập nhận xét duyệt bản nháp (có thể để trống):'
+        : 'Nhập nội dung sinh viên cần chỉnh sửa:',
+      {
+        title: verdict === 'APPROVED' ? 'Duyệt bản nháp' : 'Yêu cầu sửa bản nháp',
+        placeholder: 'Nhận xét của GVHD...',
+        required: verdict === 'REVISION_REQUIRED',
+        danger: verdict === 'REVISION_REQUIRED',
+        confirmText: verdict === 'APPROVED' ? 'Duyệt bản nháp' : 'Gửi yêu cầu sửa',
+      }
+    );
+    if (feedback === null) return;
+    try {
+      setReviewingId(version.id);
+      await apiService.reviewSubmissionVersion(version.id, verdict, feedback.trim());
+      notify.success(verdict === 'APPROVED' ? 'Đã duyệt bản nháp.' : 'Đã gửi yêu cầu chỉnh sửa.');
+      await load();
+    } catch (err) {
+      notifyError('Không thể cập nhật kết quả duyệt bản nháp', err);
+    } finally {
+      setReviewingId(null);
     }
   };
 
@@ -187,6 +216,31 @@ export function SubmissionVersionsPanel({
                   <span>🕒 {new Date(v.created_at).toLocaleString('vi-VN')}</span>
                   {v.note && <span className="utc-version-note">“{v.note}”</span>}
                 </div>
+                <div className={`utc-version-review-status ${v.supervisor_review_status?.toLowerCase() || 'pending'}`}>
+                  <strong>{v.supervisor_review_status_display || 'Chờ GVHD duyệt'}</strong>
+                  {v.supervisor_feedback && <span>Nhận xét: {v.supervisor_feedback}</span>}
+                  {v.reviewed_at && <small>{new Date(v.reviewed_at).toLocaleString('vi-VN')}</small>}
+                </div>
+                {canReview && v.kind === 'REPORT' && (
+                  <div className="utc-version-review-actions">
+                    <button
+                      type="button"
+                      disabled={reviewingId === v.id}
+                      className="utc-btn-review-approve"
+                      onClick={() => review(v, 'APPROVED')}
+                    >
+                      ✓ Duyệt bản nháp
+                    </button>
+                    <button
+                      type="button"
+                      disabled={reviewingId === v.id}
+                      className="utc-btn-review-revision"
+                      onClick={() => review(v, 'REVISION_REQUIRED')}
+                    >
+                      ↺ Yêu cầu sửa
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

@@ -63,6 +63,35 @@ class FeatureBase(APITestCase):
 
 
 class SubmissionVersionTests(FeatureBase):
+    def test_supervisor_can_approve_report_draft(self):
+        uploaded = self.upload(self.sv_user, self.project, LOREM)
+        self.client.force_authenticate(user=self.sup_user)
+
+        response = self.client.post(
+            f"/app/submissions/{uploaded.data['id']}/supervisor-review/",
+            {"verdict": "APPROVED", "feedback": "Bản nháp đạt yêu cầu."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["supervisor_review_status"], "APPROVED")
+        self.assertEqual(response.data["supervisor_feedback"], "Bản nháp đạt yêu cầu.")
+        version = SubmissionVersion.objects.get(pk=uploaded.data["id"])
+        self.assertEqual(version.reviewed_by, self.sup_user)
+        self.assertIsNotNone(version.reviewed_at)
+
+    def test_revision_request_requires_feedback_and_rejects_outsider(self):
+        uploaded = self.upload(self.sv_user, self.project, LOREM)
+        url = f"/app/submissions/{uploaded.data['id']}/supervisor-review/"
+
+        self.client.force_authenticate(user=self.sup_user)
+        missing = self.client.post(url, {"verdict": "REVISION_REQUIRED", "feedback": ""}, format="json")
+        self.assertEqual(missing.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=self.rev_user)
+        forbidden = self.client.post(url, {"verdict": "APPROVED"}, format="json")
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_report_draft_upload_is_limited_to_stage_4(self):
         self.batch.current_stage = "PHASE_5_IN_PROGRESS"
         self.batch.save(update_fields=["current_stage"])
