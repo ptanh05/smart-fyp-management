@@ -1342,7 +1342,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 <span>Nộp Đề Cương Đồ Án Tốt Nghiệp (Giai đoạn 3)</span>
               </h3>
               <p className="utc-card-subtitle mt-1">
-                Quy trình thẩm định 2 cấp: Sinh viên nộp đề cương ➔ GVHD thẩm định & chốt duyệt ➔ Khoa phê duyệt chính thức ➔ Mở GĐ 4 (Báo cáo tuần)
+            Quy trình thẩm định 2 cấp: Sinh viên nộp đề cương ➔ GVHD thẩm định & chốt duyệt ➔ Khoa phê duyệt chính thức ➔ Mở GĐ4 (Nộp bản nháp đồ án)
               </p>
             </div>
             {projectData && (
@@ -1374,7 +1374,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   <span>Đề Cương ĐATN Đã Được Khoa Phê Duyệt Chính Thức</span>
                 </div>
                 <p className="text-xs text-emerald-100/80 mt-1 leading-relaxed">
-                  Đề cương chi tiết của bạn đã hoàn tất xét duyệt. Giai đoạn 4 (Báo cáo tuần) đã sẵn sàng để bạn nộp tiến độ định kỳ!
+                Đề cương chi tiết đã hoàn tất xét duyệt. Giai đoạn 4 đã sẵn sàng để bạn nộp các phiên bản bản nháp báo cáo/quyển đồ án.
                 </p>
               </div>
               <button
@@ -1386,7 +1386,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   border: '1px solid #34d399',
                 }}
               >
-                Đến GĐ 4: Báo Cáo Tuần ➔
+                Đến GĐ4: Nộp Bản Nháp ➔
               </button>
             </div>
           )}
@@ -1611,8 +1611,20 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         </div>
       )}
 
-      {/* Tab 4: Weekly Reports */}
-      {activeTab === 'weekly' && (
+      {/* GĐ4: nộp và lưu lịch sử các phiên bản bản nháp đồ án */}
+      {activeTab === 'weekly' && projectData?.id && (
+        <SubmissionVersionsPanel
+          projectId={projectData.id}
+          canUpload={!isStageReadOnly}
+          allowedKinds={['REPORT']}
+          defaultKind="REPORT"
+          title="Bản Nháp Báo Cáo / Quyển Đồ Án"
+          subtitle="Nộp các phiên bản bản nháp để GVHD theo dõi. Mỗi lần nộp được lưu thành một phiên bản riêng và không ghi đè tệp cũ."
+        />
+      )}
+
+      {/* GĐ5: báo cáo tuần trong quá trình thực hiện đồ án */}
+      {activeTab === 'supervision' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Submit form */}
           <div className="lg:col-span-1 utc-graduation-card p-5 space-y-4">
@@ -1759,7 +1771,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         </div>
       )}
 
-      {/* Tab 5: Supervision Meeting Logs & Interactive Task Board */}
+      {/* GĐ5: Task Board & nhật ký hướng dẫn */}
       {activeTab === 'supervision' && (
         <div className="space-y-6">
           {/* Header */}
