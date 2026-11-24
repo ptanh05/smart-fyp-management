@@ -5,7 +5,12 @@ import { getRelativeTime, formatDateVN, getTodayDateStr } from '../utils/dateUti
 import { useModalGuard } from '../utils/modalHooks';
 import { apiService, apiClient } from '../services/api';
 import { safeExternalUrl } from '../utils/safeUrl';
-import { calculateStageCounts, getProjectStageNumber, resolveBatchWorkflowStageNumber } from '../utils/graduationStages';
+import {
+  calculateStageCounts,
+  getHighestStudentStage,
+  getProjectStageNumber,
+  resolveBatchWorkflowStageNumber,
+} from '../utils/graduationStages';
 import { SupervisorOfferedTopics } from './SupervisorOfferedTopics';
 import { UTCCouncilLiveDefenseView } from './UTCCouncilLiveDefenseView';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
@@ -124,6 +129,10 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
     return calculateStageCounts(batchProjects);
   }, [projects, effectiveBatchId]);
 
+  const highestStudentStage = useMemo(() => getHighestStudentStage(stageCounts), [stageCounts]);
+  const effectiveUnlockedStage = Math.min(6, Math.max(currentBatchStage, highestStudentStage));
+  const displaySupervisorStage = Math.min(6, Math.max(rawBatchStage, highestStudentStage));
+
   const isBatchEnded = Boolean(selectedBatch?.is_closed || selectedBatch?.current_stage === 'COMPLETED');
   const stageStudentCount = activeStageNumber ? (stageCounts?.[activeStageNumber] ?? 0) : 0;
   // Giai đoạn chỉ bị coi là kết thúc đối với Giảng viên khi:
@@ -141,17 +150,16 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
 
   useEffect(() => {
     const activeStage = SUPERVISOR_TAB_STAGES[activeTab];
-    const hasStudentsInStage = activeStage ? (stageCounts?.[activeStage] ?? 0) > 0 : false;
-    const isStageAllowed = activeStage ? (activeStage <= currentBatchStage || hasStudentsInStage) : true;
+    const isStageAllowed = activeStage ? activeStage <= effectiveUnlockedStage : true;
     if (activeStage && !isStageAllowed) {
       const fallbackTabs: Record<number, SupervisorGradTab> = {
         1: 'students', 2: 'survey', 3: 'outlines', 4: 'weekly', 5: 'supervision', 6: 'eval',
       };
-      const fallbackTab = fallbackTabs[currentBatchStage] || 'students';
+      const fallbackTab = fallbackTabs[effectiveUnlockedStage] || 'students';
       setActiveTab(fallbackTab);
       onSubtabChange?.(fallbackTab);
     }
-  }, [activeTab, currentBatchStage, stageCounts, onSubtabChange]);
+  }, [activeTab, effectiveUnlockedStage, onSubtabChange]);
 
   // Sync with initialTab prop if changed from outside
   useEffect(() => {
@@ -912,10 +920,17 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               <span className="utc-supervisor-nav-title-icon">📌</span>
               <span className="utc-supervisor-nav-title">Tiến trình 6 Giai đoạn ĐATN</span>
             </div>
-            <div className="utc-supervisor-stage-indicator">
+            <div
+              className="utc-supervisor-stage-indicator"
+              title={
+                highestStudentStage > rawBatchStage
+                  ? `Đợt chung đang ở GĐ ${rawBatchStage}/6, sinh viên hướng dẫn đã mở tới GĐ ${displaySupervisorStage}/6`
+                  : `Đợt đang ở GĐ ${rawBatchStage}/6`
+              }
+            >
               <span className="utc-stage-indicator-dot" />
-              <span>Tiến độ đợt:</span>
-              <strong className="utc-stage-indicator-badge">GĐ {currentBatchStage}/6</strong>
+              <span>{highestStudentStage > rawBatchStage ? `Đợt GĐ ${rawBatchStage}/6 · Mở tới:` : 'Tiến độ đợt:'}</span>
+              <strong className="utc-stage-indicator-badge">GĐ {displaySupervisorStage}/6</strong>
             </div>
           </div>
           <div className="utc-supervisor-tabs">
@@ -927,7 +942,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               { key: 'supervision' as SupervisorGradTab, number: 5, title: 'GĐ 5: Task board & Nhật ký', count: stageCounts[5] || 0, icon: '📋' },
               { key: 'eval' as SupervisorGradTab, number: 6, title: 'GĐ 6: Đánh giá & Bảo vệ', count: stageCounts[6] || 0, icon: '🏆' },
             ].map((tab) => {
-              const isLocked = Boolean(tab.number && tab.number > currentBatchStage);
+              const isLocked = Boolean(tab.number && tab.number > effectiveUnlockedStage);
               const isActive = activeTab === tab.key;
               return (
                 <button
@@ -935,14 +950,14 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   type="button"
                   onClick={() => {
                     if (isLocked) {
-                      notify.warning(`Đợt hiện đang ở GĐ ${currentBatchStage}. Giai đoạn ${tab.number} chưa mở.`);
+                      notify.warning(`Hiện mới mở tới GĐ ${displaySupervisorStage}. Giai đoạn ${tab.number} chưa có sinh viên mở khóa.`);
                       return;
                     }
                     handleSelectTab(tab.key);
                   }}
                   className={`utc-supervisor-tab-btn ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
                   disabled={isLocked}
-                  title={isLocked ? `Chưa mở: Đợt hiện đang ở GĐ ${currentBatchStage}` : `${tab.title} (${tab.count} SV)`}
+                  title={isLocked ? `Chưa mở: Hiện mới mở tới GĐ ${displaySupervisorStage}` : `${tab.title} (${tab.count} SV)`}
                 >
                   <span className="utc-tab-icon">{isLocked ? '🔒' : tab.icon}</span>
                   <span className="utc-tab-title">{tab.title}</span>

@@ -5,6 +5,7 @@ import {
   GRADUATION_STAGES,
   calculateStageCounts,
   getFallbackStageNumber,
+  getHighestStudentStage,
   getProjectStageNumber,
   getProjectWorkflow,
   getStageAccess,
@@ -190,5 +191,9 @@ describe('Sidebar / thanh tiến trình / nội dung / vai trò (kịch bản 14
       { status: 'DEFERRED', workflow_stage_number: 2 },
     ];
     expect(calculateStageCounts(projects)).toEqual({ 1: 0, 2: 1, 3: 1, 4: 1, 5: 1, 6: 0 });
+    expect(getHighestStudentStage(calculateStageCounts(projects))).toBe(5);
+    expect(getHighestStudentStage({ 1: 0, 2: 0, 3: 2, 4: 1, 5: 0, 6: 0 })).toBe(4);
+    expect(getHighestStudentStage({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 })).toBe(0);
+    expect(getHighestStudentStage(null)).toBe(0);
   });
 });

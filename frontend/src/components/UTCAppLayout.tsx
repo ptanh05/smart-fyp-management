@@ -8,6 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { BatchProgressProvider } from '../contexts/BatchProgressContext';
 import {
   GRADUATION_STAGES,
+  getHighestStudentStage,
   getProjectStageNumber,
   getProjectWorkflow,
   getStageAccess,
@@ -482,7 +483,9 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               {GRADUATION_STAGES.map((st) => {
                 const count = stageCounts?.[st.number] ?? 0;
                 const currentBatchStage = synchronizedProgress?.current_stage_number ?? 1;
-                const isAccessible = st.number <= currentBatchStage || count > 0;
+                const highestStudentStage = getHighestStudentStage(stageCounts);
+                const effectiveUnlockedStage = Math.max(currentBatchStage, highestStudentStage);
+                const isAccessible = st.number <= effectiveUnlockedStage || count > 0;
                 const isTabActive =
                   activeTab === `stage_${st.number}` ||
                   activeTab === st.key ||

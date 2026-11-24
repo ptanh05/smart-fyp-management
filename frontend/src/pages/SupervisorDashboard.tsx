@@ -69,7 +69,15 @@ const SupervisorDashboard: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [showUTCSheet, setShowUTCSheet] = useState(false);
 
-  const stageCounts = useMemo(() => calculateStageCounts(graduationProjects), [graduationProjects]);
+  const stageCounts = useMemo(() => {
+    const batchProjects = selectedBatchId
+      ? graduationProjects.filter((p) => {
+          const bId = typeof p.batch === 'object' ? p.batch?.id : p.batch;
+          return !bId || Number(bId) === Number(selectedBatchId);
+        })
+      : graduationProjects;
+    return calculateStageCounts(batchProjects);
+  }, [graduationProjects, selectedBatchId]);
 
   const isGraduationStageTab =
     activeTab.startsWith('stage_') ||
