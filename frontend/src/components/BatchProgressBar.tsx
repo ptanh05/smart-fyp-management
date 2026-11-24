@@ -8,6 +8,7 @@
  */
 import React, { useState } from 'react';
 import './BatchProgressBar.css';
+import type { ProjectWorkflow } from '../utils/graduationStages';
 
 export interface BatchStage {
   number: number;
@@ -39,6 +40,9 @@ export interface BatchProgressData {
   is_open: boolean;
   current_stage_number: number;
   current_stage?: BatchStage;
+  current_stage_key?: string;
+  current_stage_label?: string;
+  batch_status?: string | null;
   overall_percent: number;
   stages: BatchStage[];
   next_actions?: string[];
@@ -48,7 +52,11 @@ export interface BatchProgressData {
     status?: string;
     topic_title?: string;
     supervisor_name?: string;
+    topic_review_status?: string;
+    workflow?: ProjectWorkflow;
   };
+  /** Tiến trình cá nhân do backend tính (chỉ có với Sinh viên). */
+  workflow?: ProjectWorkflow;
 }
 
 interface Props {

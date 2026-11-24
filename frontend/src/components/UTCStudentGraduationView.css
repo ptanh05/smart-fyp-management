@@ -1989,6 +1989,98 @@
   color: #047857;
 }
 
+/* Outline approval tracker: explicit semantic colors keep every state readable
+   in both themes instead of relying on translucent utility classes. */
+.utc-outline-approval-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 8px;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #f0fdf4 0%, #fffbeb 50%, #eff6ff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+}
+
+.utc-outline-approval-flow__step {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.utc-outline-approval-flow__marker {
+  display: grid;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: #cbd5e1;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.utc-outline-approval-flow__label {
+  color: #475569;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.utc-outline-approval-flow__arrow {
+  flex: 0 0 auto;
+  color: #94a3b8;
+  font-weight: 900;
+}
+
+.utc-outline-approval-flow__step.is-complete .utc-outline-approval-flow__marker {
+  background: #059669;
+  color: #ffffff;
+}
+
+.utc-outline-approval-flow__step.is-complete .utc-outline-approval-flow__label {
+  color: #047857;
+}
+
+.utc-outline-approval-flow__step.is-active .utc-outline-approval-flow__marker {
+  background: #f59e0b;
+  color: #422006;
+}
+
+.utc-outline-approval-flow__step.is-active .utc-outline-approval-flow__label {
+  color: #92400e;
+}
+
+.utc-outline-approval-flow__step.is-current .utc-outline-approval-flow__marker {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.utc-outline-approval-flow__step.is-current .utc-outline-approval-flow__label {
+  color: #1d4ed8;
+}
+
+.utc-outline-approval-flow__step.is-pending .utc-outline-approval-flow__marker {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.utc-outline-approval-flow__step.is-pending .utc-outline-approval-flow__label {
+  color: #64748b;
+}
+
+.utc-outline-approval-flow__marker.is-pulsing {
+  animation: utc-outline-status-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes utc-outline-status-pulse {
+  50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.18); }
+}
+
 .utc-submitted-outline__body {
   padding: 18px 22px 22px;
 }
@@ -2135,6 +2227,17 @@
 
 @media (max-width: 720px) {
 
+  .utc-outline-approval-flow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .utc-outline-approval-flow__arrow {
+    margin-left: 6px;
+    transform: rotate(90deg);
+    transform-origin: center;
+  }
+
   .utc-submitted-outline__header,
   .utc-submitted-outline__file-card {
     align-items: flex-start;
@@ -2166,6 +2269,28 @@
 
 [data-theme="dark"] .utc-submitted-outline__header {
   border-bottom-color: rgba(52, 211, 153, 0.2);
+}
+
+[data-theme="dark"] .utc-outline-approval-flow {
+  border-color: rgba(96, 165, 250, 0.35);
+  background: linear-gradient(90deg, rgba(6, 78, 59, 0.42), rgba(120, 53, 15, 0.3), rgba(30, 64, 175, 0.3));
+  box-shadow: none;
+}
+
+[data-theme="dark"] .utc-outline-approval-flow__step.is-complete .utc-outline-approval-flow__label {
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .utc-outline-approval-flow__step.is-active .utc-outline-approval-flow__label {
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .utc-outline-approval-flow__step.is-current .utc-outline-approval-flow__label {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .utc-outline-approval-flow__step.is-pending .utc-outline-approval-flow__label {
+  color: #cbd5e1;
 }
 
 [data-theme="dark"] .utc-submitted-outline__heading h4,

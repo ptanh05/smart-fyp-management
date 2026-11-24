@@ -1,6 +1,6 @@
 import { notify } from '../utils/notify';
 import { formatFullName } from '../utils/nameHelper';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +15,12 @@ import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { UTCStudentGraduationView } from '../components/UTCStudentGraduationView';
 import { UTCSupervisorGroupChatView } from '../components/UTCSupervisorGroupChatView';
 import { SkeletonProfile } from '../components/SkeletonLoader';
-import { getProjectStageInfo } from '../utils/graduationStages';
+import {
+  getProjectStageInfo,
+  getProjectWorkflow,
+  getStageInfo,
+  resolveStageTab,
+} from '../utils/graduationStages';
 import './Dashboard.css';
 import '../components/SkeletonLoader.css';
 import '../components/StudentTemplatesView.css';
@@ -23,7 +28,7 @@ import '../components/StudentTemplatesView.css';
 const StudentDashboard: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const student = user as Student;
   const [activeTab, setActiveTab] = useState('overview');
   const [profile, setProfile] = useState<Student | null>(null);
@@ -32,16 +37,55 @@ const StudentDashboard: React.FC = () => {
   const [supervisionLogs, setSupervisionLogs] = useState<any[]>([]);
   const [supervisionLogsLoading, setSupervisionLogsLoading] = useState(false);
 
+  // Giai đoạn hiện tại lấy từ `workflow` do backend tính (cùng nguồn với sidebar
+  // và thanh tiến trình). Fallback trạng thái chỉ dùng khi API chưa trả workflow.
+  const graduationProject = profile?.graduation_project || (student as any)?.graduation_project;
+  const studentWorkflow =
+    getProjectWorkflow((profile as any)?.workflow) || getProjectWorkflow(graduationProject);
+  const currentStageInfo = studentWorkflow
+    ? getStageInfo(studentWorkflow.current_stage_number)
+    : getProjectStageInfo(graduationProject);
+  const warnedRedirectRef = useRef<string | null>(null);
+
+  /**
+   * Chọn subtab giai đoạn hợp lệ: subtab hợp lệ được giữ khi reload; subtab trỏ
+   * tới giai đoạn tương lai/bị khóa được chuyển về giai đoạn hiện tại kèm lý do,
+   * và URL được sửa lại để URL ↔ UI luôn đồng bộ.
+   */
+  const applyGraduationSubtab = useCallback((requested: string, syncUrl: boolean) => {
+    if (!profile) {
+      // Hồ sơ chưa tải: trang đang hiển thị loading, sẽ kiểm tra lại khi có workflow.
+      setActiveTab(requested);
+      return requested;
+    }
+    const resolved = resolveStageTab(requested, studentWorkflow, currentStageInfo.number);
+    setActiveTab(resolved.key);
+    if (resolved.redirected) {
+      if (resolved.reason && warnedRedirectRef.current !== requested) {
+        warnedRedirectRef.current = requested;
+        notify.warning(`Chưa thể mở giai đoạn này: ${resolved.reason} Đã chuyển về GĐ ${currentStageInfo.number}.`);
+      }
+      if (syncUrl) {
+        setSearchParams((currentParams) => {
+          const nextParams = new URLSearchParams(currentParams);
+          nextParams.set('tab', 'utc_graduation');
+          nextParams.set('subtab', resolved.key);
+          return nextParams;
+        }, { replace: true });
+      }
+    }
+    return resolved.key;
+  }, [profile, studentWorkflow, currentStageInfo.number, setSearchParams]);
+
   // Synchronize activeTab with URL search params and global notification events
   useEffect(() => {
     const tab = searchParams.get('tab');
     const subtab = searchParams.get('subtab');
     if (subtab && ['project', 'survey', 'outline', 'weekly', 'supervision', 'grade'].includes(subtab)) {
-      setActiveTab(subtab);
+      applyGraduationSubtab(subtab, true);
     } else if (tab) {
       if (tab === 'utc_graduation') {
-        const curStage = getProjectStageInfo(profile?.graduation_project);
-        setActiveTab(curStage.key);
+        setActiveTab(currentStageInfo.key);
       } else {
         setActiveTab(tab);
       }
@@ -51,8 +95,7 @@ const StudentDashboard: React.FC = () => {
       const targetTab = e.detail?.tab;
       if (targetTab) {
         if (targetTab === 'utc_graduation') {
-          const curStage = getProjectStageInfo(profile?.graduation_project);
-          setActiveTab(curStage.key);
+          setActiveTab(currentStageInfo.key);
         } else {
           setActiveTab(targetTab);
         }
@@ -62,7 +105,7 @@ const StudentDashboard: React.FC = () => {
     const handleSwitchSubtab = (e: any) => {
       const targetSubtab = e.detail?.subtab;
       if (targetSubtab && ['project', 'survey', 'outline', 'weekly', 'supervision', 'grade'].includes(targetSubtab)) {
-        setActiveTab(targetSubtab);
+        applyGraduationSubtab(targetSubtab, false);
       }
     };
 
@@ -72,7 +115,7 @@ const StudentDashboard: React.FC = () => {
       window.removeEventListener('app:switch-tab', handleSwitchTab);
       window.removeEventListener('app:switch-subtab', handleSwitchSubtab);
     };
-  }, [searchParams, profile?.graduation_project]);
+  }, [searchParams, currentStageInfo.key, applyGraduationSubtab]);
 
   const loadSupervisionLogs = async () => {
     try {
@@ -102,6 +145,33 @@ const StudentDashboard: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  /**
+   * Keep the selected dashboard tab and the URL in one place.  Previously the
+   * graduation view changed only local state, while its URL-sync effect kept
+   * reading the old `subtab` value and immediately switched the UI back.
+   */
+  const handleTabChange = useCallback((requestedTab: string) => {
+    const graduationSubtabs = ['project', 'survey', 'outline', 'weekly', 'supervision', 'grade'];
+    // Không cho chuyển sang giai đoạn bị khóa; URL ghi đúng tab thực sự hiển thị.
+    const nextTab = graduationSubtabs.includes(requestedTab) && profile
+      ? applyGraduationSubtab(requestedTab, false)
+      : requestedTab;
+    setActiveTab(nextTab);
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+
+      if (graduationSubtabs.includes(nextTab)) {
+        nextParams.set('tab', 'utc_graduation');
+        nextParams.set('subtab', nextTab);
+      } else {
+        nextParams.set('tab', nextTab);
+        nextParams.delete('subtab');
+      }
+
+      return nextParams;
+    }, { replace: true });
+  }, [setSearchParams, profile, applyGraduationSubtab]);
 
   // Reload overview data when switching back to overview
   useEffect(() => {
@@ -209,8 +279,6 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
-  const currentStageInfo = getProjectStageInfo(profile?.graduation_project || (student as any)?.graduation_project);
-
   // Chỉ mở Xem Phiếu Đánh Giá ĐATN Chuẩn UTC khi ĐÃ KẾT THÚC GIAI ĐOẠN 6 (Đã chấm điểm hoàn tất)
   const isPhase6Finished = (() => {
     const proj = profile?.graduation_project || (student as any)?.graduation_project;
@@ -255,7 +323,7 @@ const StudentDashboard: React.FC = () => {
       user={student}
       onLogout={logout}
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onTabChange={handleTabChange}
       currentStageNumber={currentStageInfo.number}
       selectedBatchId={profile?.academic_batch?.id || (profile as any)?.academic_batch_id || (student as any)?.academic_batch_id}
     >
@@ -305,7 +373,7 @@ const StudentDashboard: React.FC = () => {
           {isGraduationTab && (
             <UTCStudentGraduationView
               initialTab={(graduationSubtabs.includes(activeTab) ? activeTab : currentStageInfo.key) as any}
-              onSubtabChange={(st) => setActiveTab(st)}
+              onSubtabChange={handleTabChange}
               initialProjectData={profile?.graduation_project || (student as any)?.graduation_project}
             />
           )}

@@ -1,4 +1,9 @@
 // UTC FYP 6-Stage Workflow Definitions & Stage Determination
+//
+// NGUỒN SỰ THẬT: backend (app/workflow_stages.py) tính giai đoạn và trả về trong
+// trường `workflow` (BatchProgress, hồ sơ SV, danh sách đồ án GVHD/Admin).
+// Frontend CHỈ hiển thị theo `workflow`; fallback bên dưới chỉ dùng tạm khi dữ
+// liệu chưa tải xong và cố ý bảo thủ (không tự mở GĐ5).
 
 export type GraduationStageKey = 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade';
 
@@ -69,93 +74,208 @@ export const GRADUATION_STAGES: StageInfo[] = [
   },
 ];
 
+
+export type WorkflowStageStatus = 'completed' | 'active' | 'locked';
+
+export interface ProjectWorkflowStage {
+  number: number;
+  key: GraduationStageKey;
+  label: string;
+  status: WorkflowStageStatus;
+  accessible: boolean;
+  editable: boolean;
+  reason: string | null;
+}
+
+/** Contract tiến trình 6 giai đoạn do backend tính (workflow_stages.compute_project_progress). */
+export interface ProjectWorkflow {
+  contract_version?: string;
+  current_stage_number: number;
+  current_stage_key: GraduationStageKey;
+  current_stage_label: string;
+  current_step_key?: string;
+  current_step_label?: string | null;
+  overall_percent: number;
+  timeline_step?: number;
+  project_stage_number?: number;
+  batch_stage_number?: number;
+  project_status: string | null;
+  batch_status: string | null;
+  batch_closed?: boolean;
+  has_project?: boolean;
+  is_blocked?: boolean;
+  blocked_reason?: string | null;
+  block_kind?: string | null;
+  is_finished?: boolean;
+  defense_eligible?: boolean;
+  stages: ProjectWorkflowStage[];
+}
+
+const clampStage = (value: unknown): number => {
+  const num = Math.trunc(Number(value));
+  if (!Number.isFinite(num)) return 1;
+  return Math.min(6, Math.max(1, num));
+};
+
+export function isProjectWorkflow(value: any): value is ProjectWorkflow {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      Number.isFinite(Number(value.current_stage_number)) &&
+      Array.isArray(value.stages) &&
+      value.stages.length === 6
+  );
+}
+
+/** Lấy workflow backend từ một đối tượng bất kỳ (đồ án, my_project, hồ sơ, batch progress). */
+export function getProjectWorkflow(source: any): ProjectWorkflow | null {
+  if (!source || typeof source !== 'object') return null;
+  if (isProjectWorkflow(source)) return source;
+  if (isProjectWorkflow(source.workflow)) return source.workflow;
+  return null;
+}
+
+const OUTLINE_STATUSES = [
+  'TOPIC_DRAFT',
+  'TOPIC_CONFIRMED',
+  'PENDING_REVIEW',
+  'TOPIC_APPROVED',
+  'TOPIC_REVISION',
+  'OUTLINE_PENDING',
+  'OUTLINE_REVISION',
+];
+const DEFENSE_STATUSES = ['DEFENSE_READY', 'DEFENDING', 'DEFENDED', 'PASSED', 'FAILED'];
+
 /**
- * Tính toán giai đoạn hiện tại (1 -> 6) của Sinh viên / Đồ án
- * Nguyên tắc: Khi Giảng viên hướng dẫn duyệt thì sinh viên mới sang giai đoạn mới
+ * Fallback tạm thời khi CHƯA có workflow từ backend (đang tải / API cũ).
+ * Chỉ đọc trạng thái đã ghi rõ, không dùng heuristic (số báo cáo tuần, task...)
+ * và không tự mở GĐ5 vì GĐ5 phụ thuộc quyết định chuyển đợt của Khoa.
  */
-export function getProjectStageNumber(project: any): number {
-  if (!project) return 2; // Chưa được phân công đồ án -> Bước khảo sát nguyện vọng
-
-  // Giai đoạn 2: Khảo sát nguyện vọng & đề tài gợi ý
-  if (project.is_stage_2 || project.status === 'SURVEY' || project.stage === 2) {
-    return 2;
-  }
-
-  const tasks = Array.isArray(project.tasks) ? project.tasks : [];
-  const weeklyReports = Array.isArray(project.weekly_reports) ? project.weekly_reports : [];
-  const finalGrade = project.final_grade || project.final_grade_summary || null;
-  const supervisorScore =
-    project.supervisor_score !== null && project.supervisor_score !== undefined && project.supervisor_score !== ''
-      ? Number(project.supervisor_score)
-      : null;
-  const reviewerScore =
-    project.reviewer_score !== null && project.reviewer_score !== undefined && project.reviewer_score !== ''
-      ? Number(project.reviewer_score)
-      : null;
-
-  // Giai đoạn 6: GVHD đã đánh giá bảo vệ hoặc đủ điều kiện hoặc DEFENSE_READY / PASSED / FAILED / DEFENDING
+export function getFallbackStageNumber(project: any): number {
+  if (!project) return 2;
+  if (project.is_stage_2 || project.status === 'SURVEY' || project.stage === 2) return 2;
+  const status = String(project.status || '');
+  const review = String(project.topic_review_status || '');
+  if (status === 'FAILED' && review === 'REJECTED') return 3;
+  if (DEFENSE_STATUSES.includes(status)) return 6;
+  if (status === 'OUTLINE_APPROVED' || status === 'IN_PROGRESS') return 4;
   if (
-    project.is_eligible_for_defense ||
-    project.supervisor_defense_confirmed ||
-    supervisorScore !== null ||
-    reviewerScore !== null ||
-    finalGrade?.is_finalized ||
-    (finalGrade?.final_score_10 !== null && finalGrade?.final_score_10 !== undefined) ||
-    project.status === 'DEFENSE_READY' ||
-    project.status === 'PASSED' ||
-    project.status === 'FAILED' ||
-    project.status === 'DEFENDING'
-  ) {
-    return 6;
-  }
-
-  // Giai đoạn 5 & 4: Khi Đề cương đã được GVHD DUYỆT (OUTLINE_APPROVED hoặc outline_review.verdict === 'APPROVED')
-  const isOutlineApproved =
-    project.status === 'OUTLINE_APPROVED';
-
-  if (isOutlineApproved) {
-    const hasTasks = tasks.length > 0;
-    const hasReviewedWeekly = weeklyReports.some(
-      (r: any) =>
-        Boolean(r.reviewed_at) ||
-        Boolean(r.supervisor_feedback?.trim?.()) ||
-        (Boolean(r.supervisor_rating) && r.supervisor_rating !== 'PENDING')
-    );
-
-    // Nếu đã giao tasks hoặc đã có báo cáo tuần được GVHD đánh giá nhận xét -> Sang Giai đoạn 5: Task board & Nhật ký
-    if (hasTasks || hasReviewedWeekly || weeklyReports.length >= 5) {
-      return 5;
-    }
-    // Ngay sau khi GVHD duyệt đề cương -> Chuyển sang Giai đoạn 4: Báo cáo tuần
-    return 4;
-  }
-
-  // Giai đoạn 3: Sinh viên đã nộp đề cương / đang chờ duyệt đề cương
-  if (
-    project.signed_outline_file ||
-    ['OUTLINE_PENDING', 'OUTLINE_REVISION'].includes(project.status) ||
-    project.topic_review_status === 'APPROVED' ||
-    project.topic_review_status === 'GV_CONFIRMED'
+    OUTLINE_STATUSES.includes(status) ||
+    ['GV_CONFIRMED', 'APPROVED', 'REVISION_REQUIRED'].includes(review) ||
+    project.signed_outline_file
   ) {
     return 3;
   }
+  return 2;
+}
 
-  // Giai đoạn 2: Khoa đã phân công GVHD (ALLOCATED / TOPIC_DRAFT) -> Sinh viên cập nhật khảo sát & xây dựng đề cương
-  if (
-    ['ALLOCATED', 'TOPIC_DRAFT'].includes(project.status) ||
-    project.supervisor_id ||
-    project.supervisor
-  ) {
-    return 2;
+/**
+ * Giai đoạn hiện tại (1 -> 6) của Sinh viên / Đồ án.
+ * Luôn ưu tiên `workflow.current_stage_number` do backend tính.
+ */
+export function getProjectStageNumber(project: any): number {
+  const workflow = getProjectWorkflow(project);
+  if (workflow) return clampStage(workflow.current_stage_number);
+  if (project && project.workflow_stage_number !== undefined && project.workflow_stage_number !== null) {
+    return clampStage(project.workflow_stage_number);
   }
+  return getFallbackStageNumber(project);
+}
 
-  // Giai đoạn 1: Mới khởi tạo đợt, chưa có phân công GVHD
-  return 1;
+export function getStageInfo(stageNumber: number): StageInfo {
+  return GRADUATION_STAGES.find((s) => s.number === clampStage(stageNumber)) || GRADUATION_STAGES[0];
+}
+
+export function getStageByKey(key: string | null | undefined): StageInfo | undefined {
+  return GRADUATION_STAGES.find((s) => s.key === key);
 }
 
 export function getProjectStageInfo(project: any): StageInfo {
-  const num = getProjectStageNumber(project);
-  return GRADUATION_STAGES.find((s) => s.number === num) || GRADUATION_STAGES[0];
+  return getStageInfo(getProjectStageNumber(project));
+}
+
+export interface StageAccess {
+  number: number;
+  key: GraduationStageKey;
+  status: WorkflowStageStatus;
+  accessible: boolean;
+  editable: boolean;
+  reason: string | null;
+}
+
+/**
+ * Quyền truy cập một giai đoạn. Có workflow -> dùng nguyên giá trị backend.
+ * Không có -> suy ra từ giai đoạn hiện tại (chỉ giai đoạn hiện tại được sửa).
+ */
+export function getStageAccess(
+  workflow: ProjectWorkflow | null | undefined,
+  stageNumber: number,
+  fallbackCurrentStage = 1
+): StageAccess {
+  const info = getStageInfo(stageNumber);
+  const fromBackend = workflow?.stages?.find((s) => s.number === info.number);
+  if (fromBackend) {
+    return {
+      number: info.number,
+      key: info.key,
+      status: fromBackend.status,
+      accessible: Boolean(fromBackend.accessible),
+      editable: Boolean(fromBackend.editable),
+      reason: fromBackend.reason ?? null,
+    };
+  }
+  const current = clampStage(fallbackCurrentStage);
+  const status: WorkflowStageStatus =
+    info.number < current ? 'completed' : info.number === current ? 'active' : 'locked';
+  return {
+    number: info.number,
+    key: info.key,
+    status,
+    accessible: info.number <= current,
+    editable: info.number === current,
+    reason: info.number > current ? `Cần hoàn thành GĐ${current} trước.` : null,
+  };
+}
+
+export interface ResolvedStageTab {
+  key: GraduationStageKey;
+  redirected: boolean;
+  reason: string | null;
+}
+
+/**
+ * Chọn tab giai đoạn hợp lệ cho một yêu cầu (URL subtab / click / thông báo).
+ * - Tab hợp lệ và truy cập được -> giữ nguyên (reload giữ đúng tab).
+ * - Tab tương lai / bị khóa -> chuyển về giai đoạn hiện tại kèm lý do.
+ * - Không có / không hợp lệ -> giai đoạn hiện tại.
+ */
+export function resolveStageTab(
+  requestedKey: string | null | undefined,
+  workflow: ProjectWorkflow | null | undefined,
+  fallbackCurrentStage = 1
+): ResolvedStageTab {
+  const current = workflow ? clampStage(workflow.current_stage_number) : clampStage(fallbackCurrentStage);
+  const currentKey = getStageInfo(current).key;
+  const requested = getStageByKey(requestedKey);
+  if (!requested) {
+    return { key: currentKey, redirected: Boolean(requestedKey), reason: null };
+  }
+  const access = getStageAccess(workflow, requested.number, current);
+  if (access.accessible) {
+    return { key: requested.key, redirected: false, reason: null };
+  }
+  return {
+    key: currentKey,
+    redirected: true,
+    reason: access.reason || `Giai đoạn ${requested.number} chưa được mở.`,
+  };
+}
+
+/** Trạng thái hiển thị trên thanh tiến trình (BatchProgressBar) từ workflow backend. */
+export function workflowStageToBarStatus(status: WorkflowStageStatus): 'done' | 'active' | 'locked' {
+  if (status === 'completed') return 'done';
+  if (status === 'active') return 'active';
+  return 'locked';
 }
 
 /**

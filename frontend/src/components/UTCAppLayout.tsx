@@ -6,7 +6,14 @@ import type { Student, Supervisor, CommitteeMember, UserType } from '../types';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { BatchProgressProvider } from '../contexts/BatchProgressContext';
-import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
+import {
+  GRADUATION_STAGES,
+  getProjectStageNumber,
+  getProjectWorkflow,
+  getStageAccess,
+  workflowStageToBarStatus,
+  type ProjectWorkflow,
+} from '../utils/graduationStages';
 import { formatFullName } from '../utils/nameHelper';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
@@ -206,58 +213,71 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
     return [normalizedTitle, cleanName].filter(Boolean).join(' ');
   };
   const supervisorDisplayName = formatSupervisorDisplayName(supervisorAcademicTitle, supervisorName);
-  const projectStageNumber = currentStageNumber || getProjectStageNumber(studentProject);
-  const progressProjectStageNumber = batchProgress?.my_project?.has_project
-    ? getProjectStageNumber(batchProgress.my_project)
-    : 1;
-  const effectiveStageNumber = Math.max(
-    batchProgress?.current_stage_number || 1,
-    projectStageNumber || 1,
-    progressProjectStageNumber || 1
-  );
-  const highestStudentStage = Math.max(
-    1,
-    ...Object.entries(stageCounts || {})
-      .filter(([, count]) => Number(count) > 0)
-      .map(([stage]) => Number(stage))
-  );
+  // NGUỒN SỰ THẬT DUY NHẤT cho Sinh viên: `workflow` do backend tính
+  // (app/workflow_stages.py). Sidebar, thanh tiến trình và nội dung trang đều đọc
+  // cùng một object này nên không thể lệch nhau. Fallback chỉ dùng khi đang tải.
+  const studentWorkflow: ProjectWorkflow | null =
+    getProjectWorkflow(batchProgress?.workflow) ||
+    getProjectWorkflow(batchProgress?.my_project) ||
+    getProjectWorkflow(studentProject) ||
+    getProjectWorkflow((user as any)?.workflow);
+  const effectiveStageNumber = studentWorkflow
+    ? studentWorkflow.current_stage_number
+    : currentStageNumber || getProjectStageNumber(studentProject);
+  // GVHD: thanh tiến trình thể hiện giai đoạn của ĐỢT (Khoa điều khiển); số SV ở
+  // từng giai đoạn lấy từ workflow từng đồ án (stageCounts) và chỉ dùng cho sidebar.
   const synchronizedStageNumber = userType === 'supervisor'
-    ? Math.max(batchProgress?.current_stage_number || 1, highestStudentStage)
+    ? batchProgress?.current_stage_number || 1
     : effectiveStageNumber;
 
-  // Student screens use the student's real project progress. Keep the top batch
-  // progress bar, sidebar and inner workflow stepper on one shared stage model.
   const synchronizedProgress = React.useMemo<BatchProgressData | null>(() => {
     if (!batchProgress || !['student', 'supervisor'].includes(userType)) return batchProgress;
+    const useWorkflow = userType === 'student' ? studentWorkflow : null;
 
     const stages = batchProgress.stages.map((stage) => {
       const studentStage = GRADUATION_STAGES.find((item) => item.number === stage.number);
-      return {
+      const relabeled = {
         ...stage,
         label: studentStage?.label || stage.label,
         short_label: studentStage?.shortLabel || stage.short_label,
         icon: studentStage?.icon || stage.icon,
         description: studentStage?.description || stage.description,
-        status: stage.number < synchronizedStageNumber
+      };
+      if (useWorkflow) {
+        const wf = useWorkflow.stages.find((item) => item.number === stage.number);
+        const status = wf ? workflowStageToBarStatus(wf.status) : relabeled.status;
+        return {
+          ...relabeled,
+          status,
+          percent: status === 'done' ? 100 : status === 'active' ? stage.percent : 0,
+          action_hint: wf?.reason || relabeled.action_hint,
+        };
+      }
+      if (userType === 'student') {
+        // Chưa có workflow (đang tải): suy ra từ số giai đoạn fallback.
+        const status = stage.number < synchronizedStageNumber
           ? 'done' as const
           : stage.number === synchronizedStageNumber
           ? 'active' as const
-          : 'locked' as const,
-        percent: stage.number < synchronizedStageNumber ? 100 : stage.number === synchronizedStageNumber ? stage.percent : 0,
-      };
+          : 'locked' as const;
+        return { ...relabeled, status, percent: status === 'done' ? 100 : status === 'active' ? stage.percent : 0 };
+      }
+      return relabeled;
     });
     const currentStage = stages.find((stage) => stage.number === synchronizedStageNumber);
-    const minimumOverallPercent = Math.round(((synchronizedStageNumber - 1) / stages.length) * 100);
 
     return {
       ...batchProgress,
       current_stage_number: synchronizedStageNumber,
       current_stage: currentStage,
-      overall_percent: Math.max(batchProgress.overall_percent || 0, minimumOverallPercent),
+      overall_percent: useWorkflow ? useWorkflow.overall_percent : batchProgress.overall_percent,
       stages,
-      next_actions: currentStage ? [currentStage.description] : batchProgress.next_actions,
+      next_actions:
+        userType === 'student' && currentStage
+          ? [studentWorkflow?.current_step_label || studentWorkflow?.blocked_reason || currentStage.description]
+          : batchProgress.next_actions,
     };
-  }, [batchProgress, synchronizedStageNumber, userType]);
+  }, [batchProgress, synchronizedStageNumber, userType, studentWorkflow]);
 
   const handleNotificationNavigate = (url: string) => {
     const [path, queryString] = url.split('?');
@@ -347,7 +367,8 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               </div>
               {GRADUATION_STAGES.map((st) => {
                 const isCurrent = st.number === effectiveStageNumber;
-                const isAccessible = st.number <= effectiveStageNumber;
+                const stageAccess = getStageAccess(studentWorkflow, st.number, effectiveStageNumber);
+                const isAccessible = stageAccess.accessible;
                 const isActive =
                   activeTab === st.key ||
                   (st.number === 1 && (activeTab === 'project' || activeTab === 'utc_graduation'));
@@ -358,14 +379,14 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                     className={`utc-nav-item ${isActive ? 'active' : ''} ${!isAccessible ? 'locked' : ''}`}
                     onClick={() => {
                       if (!isAccessible) {
-                        notify.warning(`Bạn cần hoàn thành và được Khoa/GVHD duyệt các bước trước để mở ${st.label}!`);
+                        notify.warning(stageAccess.reason || `Bạn cần hoàn thành và được Khoa/GVHD duyệt các bước trước để mở ${st.label}!`);
                         return;
                       }
                       handleNavClick(st.key);
                     }}
                     title={
                       !isAccessible
-                        ? `Chờ hoàn thành bước trước để mở ${st.label}`
+                        ? stageAccess.reason || `Chờ hoàn thành bước trước để mở ${st.label}`
                         : `${st.label} ${isCurrent ? '- Giai đoạn bạn đang thực hiện' : ''}`
                     }
                   >

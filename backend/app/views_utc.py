@@ -67,127 +67,111 @@ from .serializers.utc_graduation_serializers import (
 )
 from .validators import validate_uploaded_file
 from .concurrency import retry_on_db_lock
+from . import workflow_stages
 
 logger = logging.getLogger(__name__)
 
-BATCH_STAGE_NUMBERS = {
-    "PHASE_1_SETUP": 1,
-    "PHASE_2_ALLOCATING": 2,
-    "PHASE_2_LOCKED": 2,
-    "PHASE_3_TOPIC": 3,
-    "PHASE_4_ELIGIBILITY": 4,
-    "PHASE_5_IN_PROGRESS": 5,
-    "PHASE_6_DEFENSE": 6,
-    "COMPLETED": 6,
-}
+# Quy tắc 6 giai đoạn nằm DUY NHẤT trong app/workflow_stages.py (contract dùng
+# chung với Admin Portal). Các helper dưới đây chỉ là lớp tương thích.
+BATCH_STAGE_NUMBERS = workflow_stages.BATCH_STAGE_TO_NUMBER
+
+
+def _stage_conflict_response(error):
+    return Response(error, status=status.HTTP_409_CONFLICT)
 
 
 def require_project_batch_stage(project, minimum_stage):
-    """Chặn nghiệp vụ chạy trước khi đợt được Khoa chuyển sang giai đoạn tương ứng."""
+    """Chặn nghiệp vụ chạy trước khi đồ án tới giai đoạn tối thiểu."""
     batch = getattr(project, "batch", None)
     if not batch:
         return None
-    current_stage = BATCH_STAGE_NUMBERS.get(batch.current_stage, 1)
+    progress = workflow_stages.compute_project_progress(project, batch)
+    current_stage = progress["current_stage_number"]
     if current_stage < minimum_stage:
-        return Response(
+        stage = progress["stages"][minimum_stage - 1]
+        return _stage_conflict_response(
             {
                 "detail": (
                     f"Giai đoạn {minimum_stage} chưa được mở. "
-                    f"Đợt hiện vẫn đang ở giai đoạn {current_stage}; hãy hoàn tất giai đoạn trước."
+                    f"Đồ án hiện đang ở giai đoạn {current_stage}; hãy hoàn tất giai đoạn trước."
                 ),
                 "current_stage": current_stage,
                 "required_stage": minimum_stage,
-            },
-            status=status.HTTP_409_CONFLICT,
+                "reason": stage["reason"],
+            }
         )
     return None
 
 
 def require_exact_batch_stage(batch_or_project, required_stage):
-    """Allow a stage-specific mutation only while its batch is in that stage.
+    """Chỉ cho phép thao tác GHI của một giai đoạn khi giai đoạn đó đang mở
+    và được phép sửa theo contract workflow_stages (đợt chưa đóng, đồ án không
+    bị bảo lưu/loại, đã đạt đúng giai đoạn).
 
-    Read endpoints intentionally remain available for completed stages. This
-    guard is for write actions so an old screen or direct API request cannot
-    modify data after the faculty has advanced the batch.
+    Endpoint đọc vẫn mở cho giai đoạn đã qua. Phản hồi 409 giữ nguyên khóa cũ
+    (detail, current_stage, required_stage, read_only) và bổ sung reason.
     """
     project = batch_or_project if isinstance(batch_or_project, GraduationProject) else None
-    batch = getattr(batch_or_project, "batch", None) or batch_or_project
+    batch = getattr(batch_or_project, "batch", None) if project else batch_or_project
     if not batch:
         return None
 
-    batch_stage = BATCH_STAGE_NUMBERS.get(getattr(batch, "current_stage", ""), 1)
-    current_stage = max(batch_stage, get_project_workflow_stage(project)) if project else batch_stage
-    if current_stage != required_stage:
-        if current_stage < required_stage:
+    if project is None:
+        # Thao tác cấp đợt (VD khảo sát nguyện vọng trước khi có đồ án).
+        batch_stage = workflow_stages.batch_stage_number(batch)
+        closed = workflow_stages.batch_is_closed(batch)
+        if batch_stage == required_stage and not closed:
+            return None
+        if closed:
+            detail = "Đợt đồ án đã đóng, mọi giai đoạn chỉ được xem."
+        elif batch_stage < required_stage:
             detail = (
                 f"Giai đoạn {required_stage} chưa được mở. "
-                f"Đợt hiện đang ở giai đoạn {current_stage}."
+                f"Đợt hiện đang ở giai đoạn {batch_stage}."
             )
         else:
             detail = (
                 f"Giai đoạn {required_stage} đã kết thúc và hiện chỉ được xem. "
-                f"Đợt đã chuyển sang giai đoạn {current_stage}."
+                f"Đợt đã chuyển sang giai đoạn {batch_stage}."
             )
-        return Response(
+        return _stage_conflict_response(
             {
                 "detail": detail,
-                "current_stage": current_stage,
+                "current_stage": batch_stage,
                 "required_stage": required_stage,
-                "read_only": current_stage > required_stage,
-            },
-            status=status.HTTP_409_CONFLICT,
+                "read_only": batch_stage >= required_stage,
+                "reason": detail,
+            }
         )
+
+    error = workflow_stages.check_stage_write(project, required_stage, batch)
+    if error:
+        error.pop("workflow", None)
+        return _stage_conflict_response(error)
+    return None
+
+
+def require_defense_action(project):
+    """Phản biện / Hội đồng chỉ được chấm khi đồ án ở GĐ6 và đủ ĐK bảo vệ."""
+    if not getattr(project, "batch", None):
+        return None
+    error = workflow_stages.check_defense_action(project)
+    if error:
+        error.pop("workflow", None)
+        return _stage_conflict_response(error)
     return None
 
 
 def get_project_workflow_stage(project):
-    """Resolve the student's real stage from project state.
-
-    A student may advance before the faculty moves the whole batch (for
-    example, an approved outline opens weekly reports). Keep this in sync with
-    frontend/utils/graduationStages.ts so UI and API enforce the same stage.
-    """
+    """Giai đoạn hiện tại của đồ án theo contract (giữ tên cũ cho tương thích)."""
     if not project:
         return 1
+    return workflow_stages.resolve_project_stage(project)
 
-    final_grade = getattr(project, "final_grade_summary", None)
-    has_final_score = bool(
-        final_grade and (
-            getattr(final_grade, "is_finalized", False) or
-            getattr(final_grade, "final_score_10", None) is not None
-        )
-    )
-    if (
-        project.is_eligible_for_defense or
-        project.supervisor_score is not None or
-        project.reviewer_score is not None or
-        has_final_score or
-        project.status in {"DEFENSE_READY", "PASSED", "FAILED", "DEFENDING"}
-    ):
-        return 6
 
-    if project.status == "OUTLINE_APPROVED":
-        reports = project.weekly_reports.all()
-        has_reviewed_weekly = (
-            reports.filter(reviewed_at__isnull=False).exists() or
-            reports.exclude(supervisor_feedback__isnull=True).exclude(supervisor_feedback="").exists() or
-            reports.exclude(supervisor_rating__in=["", "PENDING"]).exists()
-        )
-        if project.tasks.exists() or has_reviewed_weekly or reports.count() >= 5:
-            return 5
-        return 4
-
-    if (
-        project.signed_outline_file or
-        project.status in {"OUTLINE_PENDING", "OUTLINE_REVISION", "TOPIC_APPROVED", "TOPIC_CONFIRMED", "PENDING_REVIEW"} or
-        project.topic_review_status in {"APPROVED", "GV_CONFIRMED"}
-    ):
-        return 3
-
-    if project.status in {"ALLOCATED", "TOPIC_DRAFT"} or project.supervisor_id:
-        return 2
-
-    return 1
+def get_project_workflow(project, batch=None):
+    """Payload tiến trình 6 giai đoạn chuẩn hóa cho một đồ án."""
+    return workflow_stages.compute_project_progress(project, batch)
 
 
 # ==============================================================================
@@ -1087,13 +1071,15 @@ class StudentGraduationProjectAPIView(APIView):
             "reviewer__user",
             "council",
             "topic_category",
-            "final_grade_summary"
+            "final_grade_summary",
+            "batch",
         ).first()
 
         if not project:
             return Response({
                 "has_project": False,
-                "message": "Bạn chưa được phân công Đề tài và Giảng viên hướng dẫn."
+                "message": "Bạn chưa được phân công Đề tài và Giảng viên hướng dẫn.",
+                "workflow": get_project_workflow(None, student.academic_batch),
             }, status=status.HTTP_200_OK)
 
         try:
@@ -1103,7 +1089,8 @@ class StudentGraduationProjectAPIView(APIView):
 
         return Response({
             "has_project": True,
-            "project": GraduationProjectDetailSerializer(project).data
+            "project": GraduationProjectDetailSerializer(project).data,
+            "workflow": get_project_workflow(project),
         }, status=status.HTTP_200_OK)
 
 
@@ -1465,12 +1452,13 @@ class SupervisorGraduationProjectsAPIView(APIView):
         projects_qs = GraduationProject.objects.filter(supervisor=supervisor)
         if batch_id:
             projects_qs = projects_qs.filter(batch_id=batch_id)
-        projects = projects_qs.select_related(
+        projects = list(projects_qs.select_related(
             "student__user",
             "supervisor__user",
             "reviewer__user",
             "topic_category",
             "council",
+            "batch",
             "final_grade_summary",
             "outline_review__reviewer__user",
             "outline_review__review_group",
@@ -1478,11 +1466,18 @@ class SupervisorGraduationProjectsAPIView(APIView):
             Prefetch("tasks", queryset=tasks_qs),
             Prefetch("weekly_reports", queryset=WeeklyProgressReport.objects.all()),
             Prefetch("meeting_logs", queryset=meeting_logs_qs),
-        ).order_by("student__user__last_name")
+        ).order_by("student__user__last_name"))
 
         data = list(GraduationProjectDetailSerializer(
             projects, many=True, context={"include_task_history": False}
         ).data)
+        # Giai đoạn chuẩn hóa từ backend: GVHD hiển thị đúng giai đoạn như SV/Admin.
+        for project_obj, item in zip(projects, data):
+            workflow = get_project_workflow(project_obj)
+            item["workflow"] = workflow
+            item["workflow_stage_number"] = workflow["current_stage_number"]
+        # Lấy đợt từ dữ liệu đã join sẵn để không phát sinh thêm truy vấn.
+        selected_batch = projects[0].batch if projects else None
 
         # Stage 2 students: students who submitted survey preferences choosing this supervisor,
         # but do not have an active GraduationProject assigned yet in this batch
@@ -1499,7 +1494,7 @@ class SupervisorGraduationProjectsAPIView(APIView):
                 Q(batch_id=batch_id) | (Q(batch__isnull=True) & Q(student__academic_batch_id=batch_id))
             )
         stage2_prefs = stage2_prefs.exclude(student_id__in=assigned_student_ids).select_related(
-            "student__user", "student__course_class", "topic_direction"
+            "student__user", "student__course_class", "topic_direction", "batch"
         ).order_by("student__user__last_name", "student__user__first_name")
 
         stage2_prefs_list = list(stage2_prefs)
@@ -1585,6 +1580,9 @@ class SupervisorGraduationProjectsAPIView(APIView):
                 "final_grade_summary": None,
                 "outline_review": None,
             }
+            survey_workflow = get_project_workflow(None, selected_batch or pref.batch)
+            stage2_item["workflow"] = survey_workflow
+            stage2_item["workflow_stage_number"] = survey_workflow["current_stage_number"]
             data.append(stage2_item)
 
         return Response(data, status=status.HTTP_200_OK)
@@ -2190,13 +2188,13 @@ class ReviewerAssignedProjectsAPIView(APIView):
                     outline_file_url = p.outline_pdf_path
 
             batch_stage = p.batch.current_stage if p.batch else None
-            batch_stage_num = BATCH_STAGE_NUMBERS.get(batch_stage or "", 1)
-            effective_stage = max(batch_stage_num, get_project_workflow_stage(p))
+            workflow = get_project_workflow(p)
 
             p_data["thesis_file_url"] = thesis_file_url
             p_data["outline_file_url"] = outline_file_url
             p_data["batch_stage"] = batch_stage
-            p_data["batch_stage_number"] = effective_stage
+            p_data["batch_stage_number"] = workflow["current_stage_number"]
+            p_data["workflow"] = workflow
 
         return Response(serialized, status=status.HTTP_200_OK)
 
@@ -2226,14 +2224,15 @@ class ReviewerSubmitEvaluationAPIView(APIView):
 
         project = get_object_or_404(GraduationProject, id=project_id, reviewer=supervisor)
 
-        stage_error = require_exact_batch_stage(project, 6)
+        stage_error = require_defense_action(project)
         if stage_error:
             return stage_error
 
         with transaction.atomic():
             project.reviewer_score = score
             project.reviewer_feedback = reviewer_feedback
-            project.reviewer_verdict = reviewer_verdict
+            # reviewer_verdict là property suy ra từ reviewer_score (không có cột DB);
+            # gán trực tiếp gây AttributeError -> 500 nên chỉ lưu điểm và nhận xét.
             project.save()
 
             # Update Final Grade
@@ -3587,9 +3586,15 @@ class BatchProgressAPIView(APIView):
         # Bổ sung tiến độ cá nhân cho sinh viên
         if student is not None:
             project = getattr(student, "graduation_project", None)
+            # Tiến trình cá nhân theo contract workflow_stages: đây là giai đoạn
+            # thật của sinh viên (sidebar, thanh tiến trình, nội dung dùng chung).
+            workflow = get_project_workflow(project, None if project is not None else batch)
+            data["workflow"] = workflow
             data["my_project"] = {
                 "has_project": project is not None,
                 "status": getattr(project, "status", None),
+                "topic_review_status": getattr(project, "topic_review_status", None),
+                "workflow": workflow,
                 "topic_title": getattr(project, "topic_title_vi", ""),
                 "supervisor_name": (
                     project.supervisor.user.get_full_name() if project and project.supervisor_id else ""

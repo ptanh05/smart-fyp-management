@@ -1,10 +1,17 @@
 import { notify, notifyError } from '../utils/notify';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiService, apiClient } from '../services/api';
 import { safeExternalUrl } from '../utils/safeUrl';
 import type { ThesisDeferralRequest } from '../types';
-import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
+import {
+  GRADUATION_STAGES,
+  getProjectStageNumber,
+  getProjectWorkflow,
+  getStageAccess,
+  resolveStageTab,
+  type ProjectWorkflow,
+} from '../utils/graduationStages';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
 import { formatFullName } from '../utils/nameHelper';
 import { formatDateVN, getTodayDateStr } from '../utils/dateUtils';
@@ -30,7 +37,13 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade'>(initialTab || 'project');
   const [loading, setLoading] = useState(true);
-  const { progress: batchProgress, loading: batchProgressLoading } = useBatchProgress();
+  const {
+    progress: batchProgress,
+    loading: batchProgressLoading,
+    refresh: refreshBatchProgress,
+  } = useBatchProgress();
+  // Workflow mới nhất trả về kèm /student/graduation-project/ (sau mỗi thao tác).
+  const [fetchedWorkflow, setFetchedWorkflow] = useState<ProjectWorkflow | null>(null);
 
   // Project Data
   const [projectData, setProjectData] = useState<any>(initialProjectData || null);
@@ -56,14 +69,40 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     }
   }, [initialProjectData, projectData]);
 
-  // Sinh viên được quyền truy cập theo tiến độ thực tế cao nhất giữa Đợt chung và Đề tài cá nhân
-  const projectStageNum = getProjectStageNumber(projectData || initialProjectData);
-  const currentStageNum = Math.max(
-    batchProgress?.current_stage_number || 1,
-    projectStageNum
-  );
+  // Giai đoạn hiện tại = `workflow` do backend tính (cùng nguồn với sidebar và
+  // thanh tiến trình). Không tự lấy max với giai đoạn đợt ở frontend nữa.
+  const workflow =
+    getProjectWorkflow(batchProgress?.workflow) ||
+    fetchedWorkflow ||
+    getProjectWorkflow(projectData) ||
+    getProjectWorkflow(initialProjectData);
+
+  // Sau một thao tác làm đổi giai đoạn (VD: GVHD/Khoa vừa duyệt), làm mới tiến
+  // trình dùng chung để sidebar + thanh tiến trình + nội dung cùng đổi một lúc.
+  const sharedStage = batchProgress?.workflow?.current_stage_number;
+  const fetchedStage = fetchedWorkflow?.current_stage_number;
+  const sharedPercent = batchProgress?.workflow?.overall_percent;
+  const fetchedPercent = fetchedWorkflow?.overall_percent;
+  const lastSyncedSignatureRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (batchProgressLoading || fetchedStage === undefined || sharedStage === undefined) return;
+    if (fetchedStage !== sharedStage || fetchedPercent !== sharedPercent) {
+      // Chỉ làm mới một lần cho mỗi giá trị mới để tránh vòng lặp gọi API.
+      const signature = `${fetchedStage}:${fetchedPercent}`;
+      if (lastSyncedSignatureRef.current === signature) return;
+      lastSyncedSignatureRef.current = signature;
+      refreshBatchProgress?.().catch(() => undefined);
+    }
+  }, [fetchedStage, sharedStage, fetchedPercent, sharedPercent, batchProgressLoading, refreshBatchProgress]);
+  const currentStageNum = workflow
+    ? workflow.current_stage_number
+    : getProjectStageNumber(projectData || initialProjectData);
   const activeStageNumber = GRADUATION_STAGES.find((stage) => stage.key === activeTab)?.number || 1;
+  const activeStageAccess = getStageAccess(workflow, activeStageNumber, currentStageNum);
   const isViewingPastStage = activeStageNumber < currentStageNum;
+  // Chỉ được thao tác khi backend cho phép (đợt đóng, đồ án bị hoãn/đình chỉ,
+  // đã bảo vệ xong... đều chỉ xem). Backend cũng chặn ghi sai giai đoạn (HTTP 409).
+  const isStageReadOnly = !activeStageAccess.editable;
   const submittedOutline = projectData?.outline_review;
   const submittedOutlineUrl = submittedOutline?.outline_file_url || submittedOutline?.outline_file || '';
   const hasSubmittedOutline = Boolean(
@@ -85,8 +124,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
-    if (targetStage && targetStage.number > currentStageNum) {
-      notify.warning(`Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
+    const access = targetStage ? getStageAccess(workflow, targetStage.number, currentStageNum) : null;
+    if (targetStage && access && !access.accessible) {
+      notify.warning(access.reason || `Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
       return;
     }
     setActiveTab(tabKey);
@@ -102,42 +142,35 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     }
   }, [initialTab]);
 
-  // URL/thông báo có thể mở thẳng một tab chưa tới giai đoạn. Khi tiến trình đợt
-  // tải xong, đưa người dùng về đúng giai đoạn hiện tại thay vì hiển thị sai GĐ6.
+  // URL/thông báo có thể mở thẳng một tab chưa tới giai đoạn. Khi đã có workflow,
+  // đưa người dùng về đúng giai đoạn hiện tại (trang cha hiển thị lý do + sửa URL).
+  const hasStageSource = Boolean(workflow) || (!batchProgressLoading && Boolean(batchProgress));
   useEffect(() => {
-    if (batchProgressLoading || !batchProgress) return;
-
-    const selectedStage = GRADUATION_STAGES.find((stage) => stage.key === activeTab);
-    const isLockedStage = selectedStage && selectedStage.number > currentStageNum;
-
-    if (isLockedStage) {
-      const currentStage = GRADUATION_STAGES.find((stage) => stage.number === currentStageNum);
-      if (currentStage) {
-        setActiveTab(currentStage.key);
-        onSubtabChange?.(currentStage.key);
-      }
+    if (!hasStageSource) return;
+    const resolved = resolveStageTab(activeTab, workflow, currentStageNum);
+    if (resolved.redirected) {
+      setActiveTab(resolved.key);
+      onSubtabChange?.(resolved.key);
     }
-  }, [activeTab, batchProgress, batchProgressLoading, currentStageNum, onSubtabChange]);
+  }, [activeTab, hasStageSource, workflow, currentStageNum, onSubtabChange]);
 
   // Sync subtab from searchParams or global event
   useEffect(() => {
     const subtab = searchParams.get('subtab');
     if (subtab && ['project', 'survey', 'outline', 'weekly', 'supervision', 'grade'].includes(subtab)) {
       setActiveTab(subtab as any);
-      if (onSubtabChange) onSubtabChange(subtab as any);
     }
 
     const handleSwitchSubtab = (e: any) => {
       const st = e.detail?.subtab;
       if (st && ['project', 'survey', 'outline', 'weekly', 'supervision', 'grade'].includes(st)) {
         setActiveTab(st as any);
-        if (onSubtabChange) onSubtabChange(st as any);
       }
     };
 
     window.addEventListener('app:switch-subtab', handleSwitchSubtab);
     return () => window.removeEventListener('app:switch-subtab', handleSwitchSubtab);
-  }, [searchParams, onSubtabChange]);
+  }, [searchParams]);
 
   // Survey Data
   const [surveyData, setSurveyData] = useState<any>(null);
@@ -248,6 +281,11 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           setSecondaryCriteriaNote(surveyRes.data.survey.secondary_criteria_note || '');
           setTentativeTitle(surveyRes.data.survey.tentative_title || '');
         }
+      }
+
+      const latestWorkflow = getProjectWorkflow(projRes?.data?.workflow);
+      if (latestWorkflow) {
+        setFetchedWorkflow(latestWorkflow);
       }
 
       if (projRes?.data?.has_project) {
@@ -591,9 +629,10 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         </div>
         <div className="utc-stepper-group">
           {GRADUATION_STAGES.map((tab) => {
+            const access = getStageAccess(workflow, tab.number, currentStageNum);
             const isCurrent = tab.number === currentStageNum;
-            const isCompleted = tab.number < currentStageNum;
-            const isLocked = tab.number > currentStageNum;
+            const isCompleted = access.status === 'completed';
+            const isLocked = !access.accessible;
 
             return (
               <button
@@ -608,7 +647,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 }}
                 title={
                   isLocked
-                    ? `Chờ GVHD duyệt để mở Giai đoạn ${tab.number}`
+                    ? access.reason || `Chờ GVHD duyệt để mở Giai đoạn ${tab.number}`
                     : isCurrent
                     ? `Giai đoạn hiện tại (${tab.number}/6) - Đang thực hiện`
                     : isCompleted
@@ -632,15 +671,17 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         </div>
       </div>
 
-      {isViewingPastStage && (
+      {isStageReadOnly && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
-          🔒 Giai đoạn {activeStageNumber} đã kết thúc. Bạn có thể xem lại dữ liệu nhưng không thể thực hiện hoặc gửi lại thao tác của giai đoạn này.
+          {isViewingPastStage
+            ? `🔒 Giai đoạn ${activeStageNumber} đã kết thúc. Bạn có thể xem lại dữ liệu nhưng không thể thực hiện hoặc gửi lại thao tác của giai đoạn này.`
+            : `🔒 Giai đoạn ${activeStageNumber} đang ở chế độ chỉ xem. ${activeStageAccess.reason || ''}`}
         </div>
       )}
 
       <fieldset
-        disabled={isViewingPastStage}
-        aria-label={isViewingPastStage ? `Giai đoạn ${activeStageNumber} ở chế độ chỉ xem` : undefined}
+        disabled={isStageReadOnly}
+        aria-label={isStageReadOnly ? `Giai đoạn ${activeStageNumber} ở chế độ chỉ xem` : undefined}
         style={{ border: 0, margin: 0, padding: 0, minWidth: 0, width: '100%' }}
       >
 
@@ -1371,48 +1412,44 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               </div>
 
               {/* Visual 3-Step Flow Tracker */}
-              <div className="mt-3 mb-2 p-3 rounded-xl bg-slate-900/60 border border-blue-900/50 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-bold">✓</span>
-                  <span className="font-semibold text-emerald-300">1. Sinh viên nộp đề cương</span>
+              <div className="utc-outline-approval-flow">
+                <div className="utc-outline-approval-flow__step is-complete">
+                  <span className="utc-outline-approval-flow__marker">✓</span>
+                  <span className="utc-outline-approval-flow__label">1. Sinh viên nộp đề cương</span>
                 </div>
-                <span className="text-slate-500 font-bold">➔</span>
-                <div className="flex items-center gap-2">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                <span className="utc-outline-approval-flow__arrow">➔</span>
+                <div className={`utc-outline-approval-flow__step ${
+                  (submittedOutline?.verdict === 'APPROVED' || projectData.status === 'OUTLINE_APPROVED')
+                    ? 'is-complete'
+                    : 'is-active'
+                }`}>
+                  <span className={`utc-outline-approval-flow__marker ${
                     (submittedOutline?.verdict === 'APPROVED' || projectData.status === 'OUTLINE_APPROVED')
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-amber-500 text-slate-900 animate-pulse'
+                      ? ''
+                      : 'is-pulsing'
                   }`}>
                     {(submittedOutline?.verdict === 'APPROVED' || projectData.status === 'OUTLINE_APPROVED') ? '✓' : '2'}
                   </span>
-                  <span className={`font-semibold ${
-                    (submittedOutline?.verdict === 'APPROVED' || projectData.status === 'OUTLINE_APPROVED')
-                      ? 'text-emerald-300'
-                      : 'text-amber-300'
-                  }`}>
-                    2. GVHD duyệt & chốt
-                  </span>
+                  <span className="utc-outline-approval-flow__label">2. GVHD duyệt &amp; chốt</span>
                 </div>
-                <span className="text-slate-500 font-bold">➔</span>
-                <div className="flex items-center gap-2">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                <span className="utc-outline-approval-flow__arrow">➔</span>
+                <div className={`utc-outline-approval-flow__step ${
+                  projectData.status === 'OUTLINE_APPROVED'
+                    ? 'is-complete'
+                    : submittedOutline?.verdict === 'APPROVED'
+                    ? 'is-current'
+                    : 'is-pending'
+                }`}>
+                  <span className={`utc-outline-approval-flow__marker ${
                     projectData.status === 'OUTLINE_APPROVED'
-                      ? 'bg-emerald-500 text-white'
+                      ? ''
                       : submittedOutline?.verdict === 'APPROVED'
-                      ? 'bg-blue-500 text-white animate-pulse'
-                      : 'bg-slate-700 text-slate-400'
+                      ? 'is-pulsing'
+                      : ''
                   }`}>
                     {projectData.status === 'OUTLINE_APPROVED' ? '✓' : '3'}
                   </span>
-                  <span className={`font-semibold ${
-                    projectData.status === 'OUTLINE_APPROVED'
-                      ? 'text-emerald-300'
-                      : submittedOutline?.verdict === 'APPROVED'
-                      ? 'text-blue-300'
-                      : 'text-slate-500'
-                  }`}>
-                    3. Khoa duyệt & Mở GĐ 4
-                  </span>
+                  <span className="utc-outline-approval-flow__label">3. Khoa duyệt &amp; Mở GĐ 4</span>
                 </div>
               </div>
 

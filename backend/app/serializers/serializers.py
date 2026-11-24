@@ -77,6 +77,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     academic_batch = serializers.SerializerMethodField(read_only=True)
     graduation_project = serializers.SerializerMethodField(read_only=True)
     timeline_step = serializers.SerializerMethodField(read_only=True)
+    workflow = serializers.SerializerMethodField(read_only=True)
 
     def get_group_id(self, obj):
         proj = getattr(obj, "graduation_project", None)
@@ -183,46 +184,36 @@ class StudentProfileSerializer(serializers.ModelSerializer):
                     if final_grade
                     else None
                 ),
+                # Giai đoạn chuẩn hóa do backend tính (app/workflow_stages.py).
+                "workflow": self._get_workflow(obj),
             }
         return None
 
-    def get_timeline_step(self, obj):
-        batch = getattr(obj, "academic_batch", None)
-        if not batch:
-            from app.models import AcademicBatch
-            batch = AcademicBatch.get_active_batch()
-
-        batch_step = 1
-        if batch:
-            stage = getattr(batch, "current_stage", "")
-            if stage in ["PHASE_6_DEFENSE", "COMPLETED"]:
-                batch_step = 5
-            elif stage in ["PHASE_4_ELIGIBILITY", "PHASE_5_IN_PROGRESS"]:
-                batch_step = 4
-            elif stage == "PHASE_3_TOPIC":
-                batch_step = 3
-            elif stage == "PHASE_2_LOCKED":
-                batch_step = 2
-            elif stage in ["PHASE_1_SETUP", "PHASE_2_ALLOCATING"]:
-                batch_step = 1
+    def _get_workflow(self, obj):
+        """Tiến trình 6 giai đoạn theo contract, tính một lần cho mỗi sinh viên."""
+        cache = self.__dict__.setdefault("_workflow_cache", {})
+        if obj.pk in cache:
+            return cache[obj.pk]
+        from app.workflow_stages import compute_project_progress
 
         proj = getattr(obj, "graduation_project", None)
-        project_step = 1
-        if proj:
-            status = getattr(proj, "status", "")
-            review_status = getattr(proj, "topic_review_status", "")
-            if status in ["DEFENSE_READY", "DEFENSE_PASSED", "PASSED"]:
-                project_step = 5
-            elif status in ["SUBMITTED", "FINAL_SUBMISSION"]:
-                project_step = 4
-            elif status in ["IN_PROGRESS", "OUTLINE_APPROVED", "MIDTERM_EVALUATED"] or review_status == "APPROVED":
-                project_step = 3
-            elif status in ["ALLOCATED", "TOPIC_CONFIRMED", "OUTLINE_PENDING"] or review_status in ["GV_CONFIRMED", "REVISION_REQUIRED"]:
-                project_step = 2
-            else:
-                project_step = 1
+        if proj is not None:
+            workflow = compute_project_progress(proj)
+        else:
+            batch = getattr(obj, "academic_batch", None)
+            if not batch:
+                from app.models import AcademicBatch
+                batch = AcademicBatch.get_active_batch()
+            workflow = compute_project_progress(None, batch)
+        cache[obj.pk] = workflow
+        return workflow
 
-        return max(batch_step, project_step)
+    def get_workflow(self, obj):
+        return self._get_workflow(obj)
+
+    def get_timeline_step(self, obj):
+        # Dòng thời gian 5 bước suy ra từ giai đoạn chuẩn hóa, không tự ánh xạ riêng.
+        return self._get_workflow(obj)["timeline_step"]
 
     class Meta:
         model = Student
@@ -241,6 +232,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             "academic_batch",
             "graduation_project",
             "timeline_step",
+            "workflow",
         ]
 
 
@@ -255,19 +247,11 @@ class SupervisorProfileSerializer(serializers.ModelSerializer):
 
     def get_timeline_step(self, obj):
         from app.models import AcademicBatch
+        from app.workflow_stages import batch_stage_number, timeline_step_for_stage
         batch = AcademicBatch.get_active_batch()
         if not batch:
-            return 3
-        stage = getattr(batch, "current_stage", "")
-        if stage in ["PHASE_6_DEFENSE", "COMPLETED"]:
-            return 5
-        elif stage in ["PHASE_4_ELIGIBILITY", "PHASE_5_IN_PROGRESS"]:
-            return 4
-        elif stage == "PHASE_3_TOPIC":
-            return 3
-        elif stage == "PHASE_2_LOCKED":
-            return 2
-        return 1
+            return 1
+        return timeline_step_for_stage(batch_stage_number(batch))
 
     class Meta:
         model = Supervisor

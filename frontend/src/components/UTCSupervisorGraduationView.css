@@ -1027,3 +1027,56 @@
 [data-theme="dark"] .utc-supervisor-view .text-\[\#2D469E\] {
   color: #60a5fa !important;
 }
+/* Weekly report review action */
+.utc-weekly-review-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 6px;
+  padding: 7px 12px;
+  border: 1px solid #27469b;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3659b8 0%, #27469b 100%);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(45, 70, 158, 0.2);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+.utc-weekly-review-btn__icon {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.utc-weekly-review-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 6px 14px rgba(45, 70, 158, 0.28);
+}
+
+.utc-weekly-review-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 5px rgba(45, 70, 158, 0.22);
+}
+
+.utc-weekly-review-btn:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.3);
+  outline-offset: 2px;
+}
+
+[data-theme="dark"] .utc-weekly-review-btn {
+  border-color: #60a5fa;
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.32);
+}

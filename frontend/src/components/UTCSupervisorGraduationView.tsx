@@ -137,7 +137,9 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           return false;
         }
       }
-      return Math.max(getProjectStageNumber(project), currentBatchStage) >= stage;
+      // workflow backend đã gộp giai đoạn đợt + đồ án (kể cả hoãn/đình chỉ),
+      // nên GVHD thấy đúng số GĐ như Sinh viên và Admin.
+      return getProjectStageNumber(project) >= stage;
     });
   const stage1Projects = projectsAtOrPastStage(1);
   const stage2Projects = projectsAtOrPastStage(2);
@@ -1396,9 +1398,10 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                             setWeeklyFeedback(r.supervisor_feedback || '');
                             setShowWeeklyModal(true);
                           }}
-                          className="mt-1 text-xs text-[#2D469E] hover:underline font-bold"
+                          className="utc-weekly-review-btn"
                         >
-                          ✏️ Đánh giá / Sửa nhận xét
+                          <span className="utc-weekly-review-btn__icon" aria-hidden="true">✎</span>
+                          <span>Đánh giá / Sửa nhận xét</span>
                         </button>
                       </div>
                     ))}
