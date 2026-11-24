@@ -13,6 +13,7 @@ import {
 } from '../utils/graduationStages';
 import { SupervisorOfferedTopics } from './SupervisorOfferedTopics';
 import { UTCCouncilLiveDefenseView } from './UTCCouncilLiveDefenseView';
+import { SubmissionVersionsPanel } from './FeatureExtensions';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
 import DocumentViewerModal from './DocumentViewerModal';
 import './UTCSupervisorGraduationView.css';
@@ -142,7 +143,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   // Giai đoạn chỉ bị coi là kết thúc đối với Giảng viên khi:
   // 1) Toàn bộ đợt đồ án đã chính thức kết thúc/khóa (COMPLETED hoặc is_closed), HOẶC
   // 2) Đối với GĐ 1-3: Đợt đã chuyển sang giai đoạn sau VÀ không còn sinh viên nào cần xử lý ở giai đoạn này.
-  // 3) Đối với GĐ 4-5 (Báo cáo tuần & Task board): Chạy xuyên suốt 15 tuần thực hiện đồ án,
+  // 3) GĐ4 quản lý bản nháp; GĐ5 gồm báo cáo tuần, Task board và nhật ký thực hiện,
   //    chỉ kết thúc khi đợt/sinh viên đã chính thức chuyển sang GĐ 6 (Bảo vệ) hoặc đợt đã đóng.
   const isViewingPastStage = Boolean(
     isBatchEnded ||
@@ -942,8 +943,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
               { key: 'students' as SupervisorGradTab, number: 1, title: 'GĐ 1: Đề tài & Phân công', count: stageCounts[1] || 0, icon: '🎓' },
               { key: 'survey' as SupervisorGradTab, number: 2, title: 'GĐ 2: Khảo sát & Đề tài gợi ý', count: stageCounts[2] || 0, icon: '📝' },
               { key: 'outlines' as SupervisorGradTab, number: 3, title: 'GĐ 3: Duyệt Đề cương & Ký số', count: stageCounts[3] || 0, icon: '📄' },
-              { key: 'weekly' as SupervisorGradTab, number: 4, title: 'GĐ 4: Báo cáo tuần', count: stageCounts[4] || 0, icon: '📅' },
-              { key: 'supervision' as SupervisorGradTab, number: 5, title: 'GĐ 5: Task board & Nhật ký', count: stageCounts[5] || 0, icon: '📋' },
+              { key: 'weekly' as SupervisorGradTab, number: 4, title: 'GĐ 4: Bản nháp đồ án', count: stageCounts[4] || 0, icon: '📄' },
+              { key: 'supervision' as SupervisorGradTab, number: 5, title: 'GĐ 5: Thực hiện & Báo cáo', count: stageCounts[5] || 0, icon: '📋' },
               { key: 'eval' as SupervisorGradTab, number: 6, title: 'GĐ 6: Đánh giá & Bảo vệ', count: stageCounts[6] || 0, icon: '🏆' },
             ].map((tab) => {
               const isLocked = Boolean(tab.number && tab.number > effectiveUnlockedStage);
@@ -1422,11 +1423,14 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
         </div>
       )}
 
-      {/* Tab 3: Weekly Reports */}
+      {/* GĐ4: xem các phiên bản bản nháp sinh viên đã nộp */}
       {activeTab === 'weekly' && (
         <div className="utc-supervisor-card space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-            <h3 className="font-bold text-base text-slate-900">Đánh giá Báo cáo tiến độ tuần - Giai đoạn 4 ({stage4Projects.length} SV)</h3>
+            <div>
+              <h3 className="font-bold text-base text-slate-900">Bản nháp Báo cáo / Quyển đồ án – Giai đoạn 4</h3>
+              <p className="text-xs text-slate-500 mt-1">Theo dõi lịch sử các phiên bản bản nháp sinh viên nộp trước khi bước vào giai đoạn thực hiện.</p>
+            </div>
             <span className="text-xs px-3 py-1 rounded bg-[#EEF3FB] text-[#2D469E] border border-[#B9D1F8] font-bold">
               Hiện có {stageCounts[4] || 0} sinh viên ở giai đoạn này
             </span>
@@ -1434,11 +1438,47 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           {stage4Projects.length === 0 ? (
             <div className="utc-supervisor-empty-box">
               <h4>Chưa có sinh viên giai đoạn 4</h4>
-              <p className="text-sm">Chưa có sinh viên nào ở Giai đoạn 4.</p>
+              <p className="text-sm">Chưa có sinh viên nào được mở bước nộp bản nháp.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {stage4Projects.map((p) => (
+                <div key={p.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-3">
+                  <div className="font-bold text-sm text-slate-900">
+                    {p.student_name} <span className="text-xs text-slate-500">({p.student_reg_no})</span>
+                  </div>
+                  <SubmissionVersionsPanel
+                    projectId={p.id}
+                    canUpload={false}
+                    allowedKinds={['REPORT']}
+                    defaultKind="REPORT"
+                    title="Các phiên bản bản nháp"
+                    subtitle="Lịch sử bản nháp báo cáo/quyển đồ án sinh viên đã nộp."
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* GĐ5: đánh giá báo cáo tuần trong quá trình thực hiện */}
+      {activeTab === 'supervision' && (
+        <div className="utc-supervisor-card space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <h3 className="font-bold text-base text-slate-900">Đánh giá Báo cáo tiến độ tuần - Giai đoạn 5 ({stage5Projects.length} SV)</h3>
+            <span className="text-xs px-3 py-1 rounded bg-[#EEF3FB] text-[#2D469E] border border-[#B9D1F8] font-bold">
+              Hiện có {stageCounts[5] || 0} sinh viên ở giai đoạn này
+            </span>
+          </div>
+          {stage5Projects.length === 0 ? (
+            <div className="utc-supervisor-empty-box">
+              <h4>Chưa có sinh viên giai đoạn 5</h4>
+              <p className="text-sm">Chưa có sinh viên nào được mở bước thực hiện và báo cáo tiến độ.</p>
             </div>
           ) : (
           <div className="space-y-4">
-            {stage4Projects.map((p) => (
+            {stage5Projects.map((p) => (
               <div key={p.id} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-[#2D469E] hover:shadow-md transition space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <div>

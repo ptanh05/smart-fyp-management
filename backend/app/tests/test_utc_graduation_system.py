@@ -292,7 +292,7 @@ class UTCGraduationSystemTests(APITestCase):
 
     def test_weekly_progress_reports_and_supervisor_feedback(self):
         """Test Weekly progress report submission (Week 1 to 15) and rating"""
-        self.batch.current_stage = "PHASE_4_ELIGIBILITY"
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
         self.batch.save()
         proj = GraduationProject.objects.create(
             student=self.student,

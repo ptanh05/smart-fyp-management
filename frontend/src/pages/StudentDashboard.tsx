@@ -241,14 +241,14 @@ const StudentDashboard: React.FC = () => {
         };
       case 'weekly':
         return {
-          title: 'GĐ 4: Báo Cáo Tiến Độ Tuần 1 - 15',
-          subtitle: 'Nộp báo cáo định kỳ hàng tuần, đính kèm tài liệu, link GitHub và nhận xét đánh giá của GVHD',
+          title: 'GĐ 4: Nộp Bản Nháp Đồ Án',
+          subtitle: 'Nộp và quản lý các phiên bản bản nháp báo cáo/quyển đồ án trước khi bước vào giai đoạn thực hiện',
           badge: 'Giai đoạn 4',
         };
       case 'supervision':
         return {
-          title: 'GĐ 5: Task Board & Nhật Ký Hướng Dẫn',
-          subtitle: 'Quản lý bảng nhiệm vụ Kanban do GVHD giao, nộp sản phẩm hoàn thành và xem biên bản các buổi họp',
+          title: 'GĐ 5: Thực Hiện Đồ Án & Báo Cáo Tiến Độ',
+          subtitle: 'Nhận task từ GVHD, nộp sản phẩm, báo cáo tiến độ tuần và theo dõi nhật ký hướng dẫn',
           badge: 'Giai đoạn 5',
         };
       case 'grade':

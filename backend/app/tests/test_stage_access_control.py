@@ -100,7 +100,7 @@ class StageAccessControlTests(TestCase):
         self.project.refresh_from_db()
         self.assertEqual(self.project.topic_title_vi, "Đề tài ban đầu")
 
-    def test_approved_outline_opens_weekly_reports_before_batch_advances(self):
+    def test_approved_outline_does_not_open_weekly_reports_before_stage_5(self):
         self.batch.current_stage = "PHASE_3_TOPIC"
         self.batch.save(update_fields=["current_stage"])
         self.project.status = "OUTLINE_APPROVED"
@@ -116,8 +116,8 @@ class StageAccessControlTests(TestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["report"]["week_number"], 1)
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data["required_stage"], 5)
 
     def test_approved_outline_makes_phase_3_read_only_even_if_batch_is_phase_3(self):
         self.batch.current_stage = "PHASE_3_TOPIC"
@@ -136,7 +136,7 @@ class StageAccessControlTests(TestCase):
         self.assertTrue(response.data["read_only"])
 
     def test_weekly_reports_continue_after_supervisor_eval_and_during_stage_5(self):
-        self.batch.current_stage = "PHASE_3_TOPIC"
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
         self.batch.save(update_fields=["current_stage"])
         self.project.status = "OUTLINE_APPROVED"
         self.project.save(update_fields=["status"])
@@ -176,10 +176,7 @@ class StageAccessControlTests(TestCase):
         )
         self.assertEqual(r2.status_code, status.HTTP_200_OK)
 
-        # 5. When batch moves to PHASE_5_IN_PROGRESS, weekly reports still work
-        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
-        self.batch.save(update_fields=["current_stage"])
-
+        # 5. Weekly reports continue throughout GĐ5
         r3 = self.client.post(
             "/api/student/weekly-reports/",
             {"week_number": 3, "summary_content": "Báo cáo tuần 3 trong GĐ5", "planned_tasks": "Kế hoạch tuần 4"},
@@ -295,8 +292,8 @@ class StageAccessControlTests(TestCase):
         )
         self.assertEqual(supervisor_review.status_code, status.HTTP_409_CONFLICT)
 
-    def test_topic_approved_student_can_access_stage_4_weekly_reports(self):
-        """Khoa phê duyệt đề cương và đã có file đề cương -> SV mở GĐ4 và nộp báo cáo tuần."""
+    def test_topic_approved_student_cannot_submit_weekly_report_in_stage_4(self):
+        """Khoa duyệt đề cương chỉ mở GĐ4 nộp bản nháp; báo cáo tuần thuộc GĐ5."""
         self.project.topic_review_status = "APPROVED"
         self.project.outline_pdf_path = "outlines/1_signed.pdf"
         self.project.save(update_fields=["topic_review_status", "outline_pdf_path"])
@@ -307,10 +304,11 @@ class StageAccessControlTests(TestCase):
             {"week_number": 1, "summary_content": "Báo cáo tuần 1 sau khi Khoa duyệt đề cương"},
             format="json",
         )
-        self.assertIn(res.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(res.data["required_stage"], 5)
 
-    def test_force_approved_student_can_access_stage_4_weekly_reports(self):
-        """SV được đặc cách (FORCE_APPROVED) -> SV mở GĐ4 và nộp báo cáo tuần."""
+    def test_force_approved_student_still_waits_until_stage_5_for_weekly_reports(self):
+        """Đặc cách mở GĐ4 bản nháp, không mở sớm báo cáo tuần của GĐ5."""
         self.project.initial_eligibility = "FORCE_APPROVED"
         self.project.status = "IN_PROGRESS"
         self.project.save(update_fields=["initial_eligibility", "status"])
@@ -321,4 +319,5 @@ class StageAccessControlTests(TestCase):
             {"week_number": 1, "summary_content": "Báo cáo tuần 1 sinh viên đặc cách"},
             format="json",
         )
-        self.assertIn(res.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        self.assertEqual(res.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(res.data["required_stage"], 5)

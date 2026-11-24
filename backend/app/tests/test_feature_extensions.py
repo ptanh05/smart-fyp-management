@@ -63,6 +63,16 @@ class FeatureBase(APITestCase):
 
 
 class SubmissionVersionTests(FeatureBase):
+    def test_report_draft_upload_is_limited_to_stage_4(self):
+        self.batch.current_stage = "PHASE_5_IN_PROGRESS"
+        self.batch.save(update_fields=["current_stage"])
+
+        response = self.upload(self.sv_user, self.project, LOREM)
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data["current_stage"], 5)
+        self.assertEqual(response.data["required_stage"], 4)
+
     def test_versions_increment_and_never_overwrite(self):
         r1 = self.upload(self.sv_user, self.project, LOREM)
         r2 = self.upload(self.sv_user, self.project, LOREM + " ban sua")

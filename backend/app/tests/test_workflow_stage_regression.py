@@ -156,7 +156,7 @@ class WorkflowStageRegressionTests(TestCase):
         self.assertEqual(workflow["current_stage_number"], 3)
         self.assertEqual(workflow["current_step_key"], "outline_waiting_supervisor")
         self.assertIn("chờ GVHD", workflow["stages"][3]["reason"])
-        self.assert_conflict(self.post_weekly_report(), 3, 4)
+        self.assert_conflict(self.post_weekly_report(), 3, 5)
 
     def test_04_supervisor_approved_without_faculty_stays_gd3(self):
         self.set_batch("PHASE_3_TOPIC")
@@ -165,7 +165,7 @@ class WorkflowStageRegressionTests(TestCase):
         self.assertEqual(workflow["current_stage_number"], 3)
         self.assertEqual(workflow["current_step_key"], "outline_waiting_faculty")
         self.assertIn("chờ Khoa", workflow["stages"][3]["reason"])
-        self.assert_conflict(self.post_weekly_report(), 3, 4)
+        self.assert_conflict(self.post_weekly_report(), 3, 5)
 
     def test_05_faculty_approval_opens_gd4(self):
         self.set_batch("PHASE_3_TOPIC")
@@ -176,7 +176,8 @@ class WorkflowStageRegressionTests(TestCase):
         self.assertEqual(workflow["current_stage_number"], 4)
         self.assertEqual(workflow["stages"][2]["status"], "completed")
         self.assertFalse(workflow["stages"][2]["editable"])
-        self.assertEqual(self.post_weekly_report().status_code, status.HTTP_200_OK)
+        # GĐ4 chỉ nộp bản nháp; báo cáo tuần chỉ mở khi đợt sang GĐ5.
+        self.assert_conflict(self.post_weekly_report(), 4, 5)
         self.auth(self.student_user)
         topic_edit = self.client.post(
             "/api/graduation-project/topic-draft/", {"topic_title_vi": "Sửa muộn"}, format="json"

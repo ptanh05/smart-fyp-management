@@ -144,17 +144,6 @@ def require_exact_batch_stage(batch_or_project, required_stage):
             }
         )
 
-    # Báo cáo tuần vẫn tiếp tục khi đợt chuyển sang GĐ5; đây là ngoại lệ của
-    # endpoint GĐ4, không thay đổi contract editable chung của workflow.
-    if required_stage == 4:
-        progress = workflow_stages.compute_project_progress(project, batch)
-        if (
-            progress["current_stage_number"] == 5
-            and not progress["is_blocked"]
-            and not progress["batch_closed"]
-        ):
-            return None
-
     error = workflow_stages.check_stage_write(project, required_stage, batch)
     if error:
         error.pop("workflow", None)
@@ -1203,7 +1192,7 @@ class StudentWeeklyReportAPIView(APIView):
         if not project:
             return Response({"detail": "Chưa có đồ án."}, status=status.HTTP_400_BAD_REQUEST)
 
-        stage_error = require_exact_batch_stage(project, 4)
+        stage_error = require_exact_batch_stage(project, 5)
         if stage_error:
             return stage_error
 
@@ -1743,7 +1732,7 @@ class SupervisorWeeklyFeedbackAPIView(APIView):
             return Response({"detail": "Mức đánh giá báo cáo tuần không hợp lệ."}, status=status.HTTP_400_BAD_REQUEST)
 
         report = get_object_or_404(WeeklyProgressReport, id=report_id, project__supervisor=supervisor)
-        stage_error = require_exact_batch_stage(report.project, 4)
+        stage_error = require_exact_batch_stage(report.project, 5)
         if stage_error:
             return stage_error
         report.supervisor_rating = rating

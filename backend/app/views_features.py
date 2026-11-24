@@ -23,6 +23,7 @@ from .models import (
 )
 from .permissions import IsAdminUserRole
 from .validators import validate_uploaded_file
+from . import workflow_stages
 
 SUBMISSION_ALLOWED_EXTENSIONS = [".pdf", ".docx", ".zip", ".pptx", ".txt", ".md"]
 SUBMISSION_MAX_BYTES = 25 * 1024 * 1024
@@ -179,6 +180,15 @@ class ProjectSubmissionVersionsAPIView(APIView):
         kind = str(request.data.get("kind") or "REPORT").upper()
         if kind not in dict(SubmissionVersion.KIND_CHOICES):
             return Response({"kind": ["Loại bài nộp không hợp lệ."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Bản nháp báo cáo/quyển đồ án là sản phẩm của GĐ4. Những loại bài nộp
+        # khác vẫn giữ luồng cũ vì có thể thuộc giai đoạn bảo vệ/lưu trữ.
+        if kind == "REPORT":
+            stage_error = workflow_stages.check_stage_write(project, 4)
+            if stage_error:
+                stage_error.pop("workflow", None)
+                return Response(stage_error, status=status.HTTP_409_CONFLICT)
+
         ext = os.path.splitext(uploaded.name)[1].lower()
         if ext not in SUBMISSION_ALLOWED_EXTENSIONS:
             return Response({"file": [f"Chỉ chấp nhận: {', '.join(SUBMISSION_ALLOWED_EXTENSIONS)}"]}, status=status.HTTP_400_BAD_REQUEST)

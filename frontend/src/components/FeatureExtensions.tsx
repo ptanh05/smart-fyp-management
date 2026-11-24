@@ -30,20 +30,37 @@ export function SimilarityBadge({ version }: { version: SubmissionVersion }) {
 }
 
 /** Lịch sử phiên bản bài nộp: mọi lần nộp đều được giữ lại, kèm tỷ lệ tương đồng. */
-export function SubmissionVersionsPanel({ projectId, canUpload }: { projectId: number; canUpload: boolean }) {
+export function SubmissionVersionsPanel({
+  projectId,
+  canUpload,
+  allowedKinds,
+  defaultKind = 'REPORT',
+  title = 'Lịch Sử Phiên Bản Bài Nộp',
+  subtitle = 'Quản lý các bản nộp (Báo cáo, Đề cương, Slide, Mã nguồn) & đối soát tỷ lệ tương đồng.',
+}: {
+  projectId: number;
+  canUpload: boolean;
+  allowedKinds?: SubmissionKind[];
+  defaultKind?: SubmissionKind;
+  title?: string;
+  subtitle?: string;
+}) {
+  const allowedKindsKey = allowedKinds?.join(',') || '';
   const [versions, setVersions] = useState<SubmissionVersion[]>([]);
-  const [kind, setKind] = useState<SubmissionKind>('REPORT');
+  const [kind, setKind] = useState<SubmissionKind>(defaultKind);
   const [file, setFile] = useState<File | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setVersions(await apiService.getSubmissionVersions(projectId));
+      const loaded = await apiService.getSubmissionVersions(projectId);
+      setVersions(allowedKinds?.length ? loaded.filter((v) => allowedKinds.includes(v.kind)) : loaded);
     } catch (err) {
       notifyError('Không tải được lịch sử bài nộp', err);
     }
-  }, [projectId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, allowedKindsKey]);
 
   useEffect(() => {
     load();
@@ -75,10 +92,10 @@ export function SubmissionVersionsPanel({ projectId, canUpload }: { projectId: n
     <div className="utc-feature-card">
       <div className="utc-feature-card-header">
         <h4 className="utc-feature-card-title">
-          <span>📦</span> Lịch Sử Phiên Bản Bài Nộp
+           <span>📦</span> {title}
         </h4>
         <p className="utc-feature-card-subtitle">
-          Quản lý các bản nộp (Báo cáo, Đề cương, Slide, Mã nguồn) & đối soát tỷ lệ tương đồng.
+          {subtitle}
         </p>
       </div>
 
@@ -92,7 +109,7 @@ export function SubmissionVersionsPanel({ projectId, canUpload }: { projectId: n
                 onChange={(e) => setKind(e.target.value as SubmissionKind)}
                 className="utc-version-select"
               >
-                {(Object.keys(KIND_LABELS) as SubmissionKind[]).map((k) => (
+                {((allowedKinds?.length ? allowedKinds : Object.keys(KIND_LABELS)) as SubmissionKind[]).map((k) => (
                   <option key={k} value={k}>
                     {KIND_LABELS[k]}
                   </option>

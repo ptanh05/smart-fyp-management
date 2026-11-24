@@ -228,8 +228,8 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
 
       // 8. Báo cáo tuần
       if (titleLower.includes('báo cáo') || titleLower.includes('tuần') || type.includes('weekly')) {
-        if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation&subtab=weekly';
-        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation&subtab=weekly';
+        if (currentRole === 'student') return '/student/dashboard?tab=utc_graduation&subtab=supervision';
+        if (currentRole === 'supervisor') return '/supervisor/dashboard?tab=utc_graduation&subtab=supervision';
       }
 
       // 9. Điểm / Bảo vệ / Đánh giá
