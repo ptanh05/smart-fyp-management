@@ -110,12 +110,16 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   }, [myBatchCouncils]);
 
   const progressMatchesSelectedBatch = Number(batchProgress?.batch?.id) === Number(effectiveBatchId);
+  const officialBatchStage = resolveBatchWorkflowStageNumber(
+    selectedBatch?.current_stage || (progressMatchesSelectedBatch ? batchProgress?.batch?.current_stage : null),
+    null
+  );
   const rawBatchStage = progressMatchesSelectedBatch
     ? resolveBatchWorkflowStageNumber(
         selectedBatch?.current_stage || batchProgress?.batch?.current_stage,
         batchProgress?.current_stage_number
       )
-    : resolveBatchWorkflowStageNumber(selectedBatch?.current_stage, null);
+    : officialBatchStage;
   const currentBatchStage = myBatchCouncils.length > 0 ? Math.max(rawBatchStage, 6) : rawBatchStage;
   const activeStageNumber = SUPERVISOR_TAB_STAGES[activeTab];
 
@@ -923,13 +927,13 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             <div
               className="utc-supervisor-stage-indicator"
               title={
-                highestStudentStage > rawBatchStage
-                  ? `Đợt chung đang ở GĐ ${rawBatchStage}/6, sinh viên hướng dẫn đã mở tới GĐ ${displaySupervisorStage}/6`
-                  : `Đợt đang ở GĐ ${rawBatchStage}/6`
+                highestStudentStage > officialBatchStage
+                  ? `Đợt chung đang ở GĐ ${officialBatchStage}/6, sinh viên hướng dẫn đã mở tới GĐ ${displaySupervisorStage}/6`
+                  : `Đợt đang ở GĐ ${officialBatchStage}/6`
               }
             >
               <span className="utc-stage-indicator-dot" />
-              <span>{highestStudentStage > rawBatchStage ? `Đợt GĐ ${rawBatchStage}/6 · Mở tới:` : 'Tiến độ đợt:'}</span>
+              <span>{highestStudentStage > officialBatchStage ? `Đợt GĐ ${officialBatchStage}/6 · Mở tới:` : 'Tiến độ đợt:'}</span>
               <strong className="utc-stage-indicator-badge">GĐ {displaySupervisorStage}/6</strong>
             </div>
           </div>

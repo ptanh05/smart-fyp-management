@@ -225,10 +225,11 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const effectiveStageNumber = studentWorkflow
     ? studentWorkflow.current_stage_number
     : currentStageNumber || getProjectStageNumber(studentProject);
-  // GVHD: thanh tiến trình thể hiện giai đoạn của ĐỢT (Khoa điều khiển); số SV ở
-  // từng giai đoạn lấy từ workflow từng đồ án (stageCounts) và chỉ dùng cho sidebar.
+  const supervisorHighestStage = userType === 'supervisor' ? getHighestStudentStage(stageCounts) : 0;
+  const rawSupervisorBatchStage = batchProgress?.current_stage_number || 1;
+  // GVHD: đồng bộ thanh tiến trình & sidebar theo max(giai đoạn chung của Đợt, giai đoạn cao nhất SV hướng dẫn đã mở khóa).
   const synchronizedStageNumber = userType === 'supervisor'
-    ? batchProgress?.current_stage_number || 1
+    ? Math.min(6, Math.max(rawSupervisorBatchStage, supervisorHighestStage))
     : effectiveStageNumber;
 
   const synchronizedProgress = React.useMemo<BatchProgressData | null>(() => {
@@ -263,22 +264,43 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
           : 'locked' as const;
         return { ...relabeled, status, percent: status === 'done' ? 100 : status === 'active' ? stage.percent : 0 };
       }
+      if (userType === 'supervisor' && synchronizedStageNumber > rawSupervisorBatchStage) {
+        const svCount = stageCounts?.[stage.number] ?? 0;
+        const status = stage.number < synchronizedStageNumber
+          ? 'done' as const
+          : stage.number === synchronizedStageNumber
+          ? 'active' as const
+          : relabeled.status;
+        return {
+          ...relabeled,
+          status,
+          percent: status === 'done' ? 100 : status === 'active' ? Math.max(stage.percent || 0, 25) : 0,
+          stats: svCount > 0 ? { ...(relabeled.stats || {}), 'SV hướng dẫn ở GĐ này': svCount } : relabeled.stats,
+        };
+      }
       return relabeled;
     });
     const currentStage = stages.find((stage) => stage.number === synchronizedStageNumber);
+    const syncedOverallPercent = useWorkflow
+      ? useWorkflow.overall_percent
+      : userType === 'supervisor' && synchronizedStageNumber > rawSupervisorBatchStage
+      ? Math.max(batchProgress.overall_percent || 0, Math.round(((synchronizedStageNumber - 1) / 6) * 100))
+      : batchProgress.overall_percent;
 
     return {
       ...batchProgress,
       current_stage_number: synchronizedStageNumber,
       current_stage: currentStage,
-      overall_percent: useWorkflow ? useWorkflow.overall_percent : batchProgress.overall_percent,
+      overall_percent: syncedOverallPercent,
       stages,
       next_actions:
         userType === 'student' && currentStage
           ? [studentWorkflow?.current_step_label || studentWorkflow?.blocked_reason || currentStage.description]
+          : userType === 'supervisor' && synchronizedStageNumber > rawSupervisorBatchStage && currentStage
+          ? [`Đợt chung đang ở GĐ ${rawSupervisorBatchStage}/6 · Đã có sinh viên hướng dẫn mở khóa tới ${currentStage.label}`]
           : batchProgress.next_actions,
     };
-  }, [batchProgress, synchronizedStageNumber, userType, studentWorkflow]);
+  }, [batchProgress, synchronizedStageNumber, rawSupervisorBatchStage, stageCounts, userType, studentWorkflow]);
 
   const handleNotificationNavigate = (url: string) => {
     const [path, queryString] = url.split('?');
