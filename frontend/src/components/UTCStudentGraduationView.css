@@ -1303,6 +1303,43 @@
   box-shadow: 0 4px 16px rgba(45, 70, 158, 0.1);
 }
 
+.utc-weekly-feedback-box {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  border-left: 3px solid #10b981;
+  color: #1e293b;
+}
+
+.utc-weekly-feedback-label {
+  font-weight: 700;
+  color: #047857;
+}
+
+.utc-weekly-feedback-text {
+  color: #1e293b;
+  white-space: pre-line;
+}
+
+.utc-weekly-feedback-box.is-warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  border-left-color: #f59e0b;
+}
+
+.utc-weekly-feedback-box.is-warning .utc-weekly-feedback-label {
+  color: #b45309;
+}
+
+.utc-weekly-feedback-box.is-danger {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  border-left-color: #f43f5e;
+}
+
+.utc-weekly-feedback-box.is-danger .utc-weekly-feedback-label {
+  color: #be123c;
+}
+
 /* Dark mode: student workflow, cards, forms, tables and dialogs. */
 [data-theme="dark"] .utc-stepper-bar,
 [data-theme="dark"] .utc-graduation-card,
@@ -1594,6 +1631,45 @@
   background: rgba(245, 158, 11, 0.15) !important;
   border-color: rgba(245, 158, 11, 0.35) !important;
   color: #fde68a !important;
+}
+
+[data-theme="dark"] .utc-weekly-report-card .text-\[\#2D469E\] {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .utc-weekly-feedback-box {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  border-left: 3px solid #34d399 !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .utc-weekly-feedback-label {
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .utc-weekly-feedback-text {
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .utc-weekly-feedback-box.is-warning {
+  background: rgba(245, 158, 11, 0.14) !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+  border-left-color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .utc-weekly-feedback-box.is-warning .utc-weekly-feedback-label {
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .utc-weekly-feedback-box.is-danger {
+  background: rgba(244, 63, 94, 0.14) !important;
+  border-color: rgba(251, 113, 133, 0.35) !important;
+  border-left-color: #fb7185 !important;
+}
+
+[data-theme="dark"] .utc-weekly-feedback-box.is-danger .utc-weekly-feedback-label {
+  color: #fb7185 !important;
 }
 
 /* Dark mode text and badge contrast in .utc-graduation-card */
