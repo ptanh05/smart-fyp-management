@@ -39,14 +39,16 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerUrl, setViewerUrl] = useState('');
   const [viewerTitle, setViewerTitle] = useState('');
+  const [viewerType, setViewerType] = useState('Đề cương ĐATN');
 
-  const handleOpenViewer = (url: string, title?: string) => {
+  const handleOpenViewer = (url: string, title?: string, type?: string) => {
     if (!url) {
-      notify.warning('Không tìm thấy đường dẫn tệp đề cương.');
+      notify.warning('Không tìm thấy đường dẫn tệp.');
       return;
     }
     setViewerUrl(url);
-    setViewerTitle(title || 'Xem tệp Đề cương ĐATN');
+    setViewerTitle(title || 'Xem tệp tài liệu');
+    setViewerType(type || 'Đề cương ĐATN');
     setViewerOpen(true);
   };
 
@@ -63,7 +65,12 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     projectStageNum
   );
   const activeStageNumber = GRADUATION_STAGES.find((stage) => stage.key === activeTab)?.number || 1;
-  const isViewingPastStage = activeStageNumber < currentStageNum;
+  // GĐ 4 (Báo cáo tuần) chạy song song với GĐ 5 (Task board) suốt 15 tuần,
+  // chỉ coi là past stage khi đã sang GĐ 6 (Bảo vệ) hoặc đợt đã đóng.
+  const isViewingPastStage =
+    activeStageNumber === 4
+      ? currentStageNum >= 6 || Boolean(batchProgress?.batch?.is_closed)
+      : activeStageNumber < currentStageNum;
   const submittedOutline = projectData?.outline_review;
   const submittedOutlineUrl = submittedOutline?.outline_file_url || submittedOutline?.outline_file || '';
   const hasSubmittedOutline = Boolean(
@@ -85,7 +92,9 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
-    if (targetStage && targetStage.number > currentStageNum) {
+    // Khi đề cương đã duyệt (currentStageNum >= 4), sinh viên được mở cả GĐ 4 (Báo cáo tuần) và GĐ 5 (Task board)
+    const effectiveAllowedStage = currentStageNum >= 4 ? Math.max(currentStageNum, 5) : currentStageNum;
+    if (targetStage && targetStage.number > effectiveAllowedStage) {
       notify.warning(`Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
       return;
     }
@@ -108,7 +117,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     if (batchProgressLoading || !batchProgress) return;
 
     const selectedStage = GRADUATION_STAGES.find((stage) => stage.key === activeTab);
-    const isLockedStage = selectedStage && selectedStage.number > currentStageNum;
+    const effectiveAllowedStage = currentStageNum >= 4 ? Math.max(currentStageNum, 5) : currentStageNum;
+    const isLockedStage = selectedStage && selectedStage.number > effectiveAllowedStage;
 
     if (isLockedStage) {
       const currentStage = GRADUATION_STAGES.find((stage) => stage.number === currentStageNum);
@@ -1897,15 +1907,34 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           {(task.deliverable_file || task.deliverable_url) && (
                             <div className="utc-task-deliverable-box mt-2 p-2.5 rounded-lg border text-xs space-y-1">
                               <span className="utc-task-deliverable-title font-semibold">📦 Sản phẩm / Báo cáo kết quả:</span>
-                              <div className="flex flex-wrap items-center gap-3">
+                              <div className="flex flex-wrap items-center gap-2">
                                 {task.deliverable_file && (
-                                  <a href={task.deliverable_file} target="_blank" rel="noreferrer" className="utc-task-deliverable-link">
-                                    File đính kèm ↗
-                                  </a>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenViewer(task.deliverable_file, `Sản phẩm: ${task.title}`, 'Sản phẩm nhiệm vụ')}
+                                      className="utc-task-deliverable-link flex items-center gap-1 font-semibold text-[#2D469E] hover:underline bg-blue-50 px-2.5 py-1 rounded border border-blue-200 cursor-pointer"
+                                    >
+                                      <span>👁 Xem file đính kèm</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => apiService.downloadFile(task.deliverable_file)}
+                                      className="utc-task-deliverable-link flex items-center gap-1 text-slate-600 hover:text-slate-900 bg-slate-100 px-2 py-1 rounded border border-slate-200 cursor-pointer"
+                                      title="Tải tệp về máy"
+                                    >
+                                      <span>⬇ Tải file</span>
+                                    </button>
+                                  </div>
                                 )}
                                 {task.deliverable_url && (
-                                  <a href={safeExternalUrl(task.deliverable_url)} target="_blank" rel="noreferrer" className="utc-task-deliverable-link">
-                                    Link sản phẩm (Git/Drive/Demo) ↗
+                                  <a
+                                    href={safeExternalUrl(task.deliverable_url)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="utc-task-deliverable-link flex items-center gap-1 text-[#2D469E] hover:underline bg-emerald-50 px-2 py-1 rounded border border-emerald-200"
+                                  >
+                                    <span>🔗 Link sản phẩm (Git/Drive/Demo) ↗</span>
                                   </a>
                                 )}
                               </div>
@@ -2019,9 +2048,36 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           </div>
                           {entry.notes && <p className="utc-task-history-notes">“{entry.notes}”</p>}
                           {(entry.file_url || entry.deliverable_url) && (
-                            <div className="utc-task-history-links">
-                              {entry.file_url && <a href={safeExternalUrl(entry.file_url)} target="_blank" rel="noreferrer">📎 Xem file đã nộp</a>}
-                              {entry.deliverable_url && <a href={safeExternalUrl(entry.deliverable_url)} target="_blank" rel="noreferrer">🔗 Mở link sản phẩm</a>}
+                            <div className="utc-task-history-links flex flex-wrap items-center gap-2 mt-1">
+                              {entry.file_url && (
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenViewer(entry.file_url, `File nộp: ${entry.task?.title || 'Nhiệm vụ'}`, 'Sản phẩm nhiệm vụ')}
+                                    className="text-xs text-[#2D469E] hover:underline font-semibold flex items-center gap-1 cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-200"
+                                  >
+                                    <span>👁 Xem file đã nộp</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => apiService.downloadFile(entry.file_url)}
+                                    className="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-0.5 cursor-pointer bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"
+                                    title="Tải file về máy"
+                                  >
+                                    <span>⬇ Tải về</span>
+                                  </button>
+                                </div>
+                              )}
+                              {entry.deliverable_url && (
+                                <a
+                                  href={safeExternalUrl(entry.deliverable_url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs text-[#2D469E] hover:underline font-semibold flex items-center gap-1"
+                                >
+                                  <span>🔗 Mở link sản phẩm ↗</span>
+                                </a>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2598,7 +2654,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
         onClose={() => setViewerOpen(false)}
         title={viewerTitle}
         documentUrl={viewerUrl}
-        documentType="Đề cương ĐATN"
+        documentType={viewerType}
       />
     </div>
   );
