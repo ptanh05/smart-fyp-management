@@ -1673,7 +1673,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Đính kèm file (nếu có)</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Đính kèm file bản nháp của dự án (nếu có)</label>
                 <input
                   type="file"
                   onChange={(e) => setWeekFile(e.target.files?.[0] || null)}
