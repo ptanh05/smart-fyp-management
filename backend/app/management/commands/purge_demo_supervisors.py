@@ -522,7 +522,7 @@ class Command(BaseCommand):
             return
 
         if not options["yes"]:
-            answer = input("Xac nhan xoa? (yes/no): ").strip().lower()
+            answer = input("Xác nhận xóa? (yes/no): ").strip().lower()
             if answer not in ("y", "yes"):
                 self.stdout.write(self.style.WARNING("Đã hủy."))
                 return

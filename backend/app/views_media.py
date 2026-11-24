@@ -335,6 +335,9 @@ class SecureMediaDownloadView(APIView):
                 os.path.abspath(os.path.join(settings.BASE_DIR, "doc_templates", base_name)),
                 os.path.abspath(os.path.join(settings.MEDIA_ROOT, "outlines", base_name)),
                 os.path.abspath(os.path.join(settings.BASE_DIR, "outlines", base_name)),
+                os.path.abspath(os.path.join(settings.MEDIA_ROOT, "task_deliverables", base_name)),
+                os.path.abspath(os.path.join(settings.BASE_DIR, "media", "task_deliverables", base_name)),
+                os.path.abspath(os.path.join(settings.BASE_DIR, "task_deliverables", base_name)),
             ]
             for cand in candidate_paths:
                 if os.path.exists(cand) and os.path.isfile(cand):

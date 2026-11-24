@@ -350,11 +350,19 @@ class UTCGraduationSystemTests(APITestCase):
             user=self.sup1_user,
             role="MEMBER"
         )
+        # Từ commit 67aeb03 (TC-034): GVPB cũng không được chấm Hội đồng cho SV mình phản biện,
+        # nên GVPB phải là giảng viên ngoài hội đồng để sup2 là thành viên độc lập.
+        outside_reviewer = Supervisor.objects.create(
+            user=CustomUser.objects.create_user(
+                username="gv_pb_outside_live", password="password123", user_type="supervisor"
+            ),
+            supervisor_id="GV_PB_OUT_LIVE",
+        )
 
         proj = GraduationProject.objects.create(
             student=self.student,
             supervisor=self.sup1,
-            reviewer=self.sup2,
+            reviewer=outside_reviewer,
             council=council,
             batch=self.batch,
             topic_title_vi="Bảo vệ ĐATN K62",
@@ -497,11 +505,19 @@ class UTCGraduationSystemTests(APITestCase):
         CouncilMember.objects.create(council=council, user=chair_user, supervisor=chair_sup, role="CHAIR")
         CouncilMember.objects.create(council=council, user=sec_user, supervisor=sec_sup, role="SECRETARY")
         CouncilMember.objects.create(council=council, user=self.sup2_user, supervisor=self.sup2, role="MEMBER")
+        # Từ commit 67aeb03 (TC-034): GVPB không được chấm/nhắc chấm cho SV mình phản biện,
+        # nên GVPB là giảng viên ngoài hội đồng để cả 3 thành viên đều hợp lệ.
+        outside_reviewer = Supervisor.objects.create(
+            user=CustomUser.objects.create_user(
+                username="gv_pb_outside_remind", password="password123", user_type="supervisor"
+            ),
+            supervisor_id="GV_PB_OUT_REMIND",
+        )
 
         proj = GraduationProject.objects.create(
             student=self.student,
             supervisor=self.sup1, # sup1 không thuộc hội đồng này -> cả 3 thành viên trên đều được chấm
-            reviewer=self.sup2,
+            reviewer=outside_reviewer,
             council=council,
             batch=self.batch,
             topic_title_vi="Đồ án bảo vệ trực tiếp",

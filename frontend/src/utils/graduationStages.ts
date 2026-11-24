@@ -101,7 +101,6 @@ export function getProjectStageNumber(project: any): number {
   }
 
   const tasks = Array.isArray(project.tasks) ? project.tasks : [];
-  const weeklyReports = Array.isArray(project.weekly_reports) ? project.weekly_reports : [];
   const finalGrade = project.final_grade || project.final_grade_summary || null;
   const supervisorScore =
     project.supervisor_score !== null && project.supervisor_score !== undefined && project.supervisor_score !== ''
@@ -122,38 +121,36 @@ export function getProjectStageNumber(project: any): number {
     (finalGrade?.final_score_10 !== null && finalGrade?.final_score_10 !== undefined) ||
     project.status === 'DEFENSE_READY' ||
     project.status === 'PASSED' ||
-    project.status === 'FAILED' ||
-    project.status === 'DEFENDING'
+    project.status === 'DEFENDING' ||
+    (project.status === 'FAILED' && project.topic_review_status !== 'REJECTED')
   ) {
     return 6;
   }
 
-  // Giai đoạn 5 & 4: Khi Đề cương đã được GVHD DUYỆT (OUTLINE_APPROVED hoặc outline_review.verdict === 'APPROVED')
+  // Giai đoạn 5 & 4: Khi Đề cương đã được GVHD / Khoa DUYỆT (OUTLINE_APPROVED, IN_PROGRESS, hoặc đã ký nộp & Khoa duyệt) hoặc đã Force Approve
   const isOutlineApproved =
-    project.status === 'OUTLINE_APPROVED';
+    project.status === 'OUTLINE_APPROVED' ||
+    project.status === 'IN_PROGRESS' ||
+    project.initial_eligibility === 'FORCE_APPROVED' ||
+    project.is_force_approved === true ||
+    (project.topic_review_status === 'APPROVED' && (project.outline_pdf_path || project.signed_outline_file));
 
   if (isOutlineApproved) {
     const hasTasks = tasks.length > 0;
-    const hasReviewedWeekly = weeklyReports.some(
-      (r: any) =>
-        Boolean(r.reviewed_at) ||
-        Boolean(r.supervisor_feedback?.trim?.()) ||
-        (Boolean(r.supervisor_rating) && r.supervisor_rating !== 'PENDING')
-    );
-
-    // Nếu đã giao tasks hoặc đã có báo cáo tuần được GVHD đánh giá nhận xét -> Sang Giai đoạn 5: Task board & Nhật ký
-    if (hasTasks || hasReviewedWeekly || weeklyReports.length >= 5) {
+    // Báo cáo tuần (GĐ4) chạy xuyên suốt 15 tuần. Việc GVHD nhận xét/đánh giá báo cáo tuần
+    // là nghiệp vụ bình thường trong GĐ4, KHÔNG đẩy sinh viên sang GĐ5 hay kết thúc GĐ4.
+    // Sinh viên chỉ sang GĐ5 khi GVHD đã giao nhiệm vụ trên Task Board (tasks.length > 0).
+    if (hasTasks) {
       return 5;
     }
-    // Ngay sau khi GVHD duyệt đề cương -> Chuyển sang Giai đoạn 4: Báo cáo tuần
+    // Ngay sau khi GVHD/Khoa duyệt đề cương -> Chuyển sang Giai đoạn 4: Báo cáo tuần
     return 4;
   }
 
-  // Giai đoạn 3: Sinh viên đã nộp đề cương / đang chờ duyệt đề cương
+  // Giai đoạn 3: Sinh viên đã nộp đề cương / đang chờ GVHD duyệt hoặc chờ Khoa phê duyệt
   if (
     project.signed_outline_file ||
-    ['OUTLINE_PENDING', 'OUTLINE_REVISION'].includes(project.status) ||
-    project.topic_review_status === 'APPROVED' ||
+    ['OUTLINE_PENDING', 'OUTLINE_REVISION', 'TOPIC_CONFIRMED', 'PENDING_REVIEW'].includes(project.status) ||
     project.topic_review_status === 'GV_CONFIRMED'
   ) {
     return 3;

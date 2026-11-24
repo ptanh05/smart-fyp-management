@@ -2281,7 +2281,7 @@ class ProjectDetailAPiView(RetrieveUpdateDestroyAPIView):
             if "topic_review_status" in data:
                 project.topic_review_status = data["topic_review_status"]
             elif project.topic_review_status == "REVISION_REQUIRED":
-                project.topic_review_status = "GV_CONFIRMED"
+                project.topic_review_status = "DRAFT"
                 project.topic_revision_notes = ""
             project.save()
             return Response({

@@ -118,6 +118,12 @@ def require_exact_batch_stage(batch_or_project, required_stage):
     batch_stage = BATCH_STAGE_NUMBERS.get(getattr(batch, "current_stage", ""), 1)
     current_stage = max(batch_stage, get_project_workflow_stage(project)) if project else batch_stage
     if current_stage != required_stage:
+        # Giai đoạn 4 (Báo cáo tuần) và Giai đoạn 5 (Task board / Nhiệm vụ) diễn ra đồng thời
+        # trong suốt 15 tuần thực hiện đồ án sau khi Đề cương đã được duyệt.
+        # Do đó, khi project/batch đang ở GĐ 4 hoặc 5, các nghiệp vụ nộp/đánh giá của cả GĐ 4 và 5 đều được phép.
+        if required_stage in (4, 5) and current_stage in (4, 5):
+            return None
+
         if current_stage < required_stage:
             detail = (
                 f"Giai đoạn {required_stage} chưa được mở. "
@@ -162,25 +168,27 @@ def get_project_workflow_stage(project):
         project.supervisor_score is not None or
         project.reviewer_score is not None or
         has_final_score or
-        project.status in {"DEFENSE_READY", "PASSED", "FAILED", "DEFENDING"}
+        project.status in {"DEFENSE_READY", "PASSED", "DEFENDING"} or
+        (project.status == "FAILED" and project.topic_review_status != "REJECTED")
     ):
         return 6
 
-    if project.status == "OUTLINE_APPROVED":
-        reports = project.weekly_reports.all()
-        has_reviewed_weekly = (
-            reports.filter(reviewed_at__isnull=False).exists() or
-            reports.exclude(supervisor_feedback__isnull=True).exclude(supervisor_feedback="").exists() or
-            reports.exclude(supervisor_rating__in=["", "PENDING"]).exists()
-        )
-        if project.tasks.exists() or has_reviewed_weekly or reports.count() >= 5:
+    if (
+        project.status in {"OUTLINE_APPROVED", "IN_PROGRESS"} or
+        getattr(project, "initial_eligibility", None) == "FORCE_APPROVED" or
+        getattr(project, "is_force_approved", False) or
+        (project.topic_review_status == "APPROVED" and (getattr(project, "outline_pdf_path", None) or getattr(project, "signed_outline_file", None)))
+    ):
+        tasks = getattr(project, "tasks", None)
+        has_tasks = tasks.exists() if hasattr(tasks, "exists") else bool(tasks)
+        if has_tasks:
             return 5
         return 4
 
     if (
         project.signed_outline_file or
-        project.status in {"OUTLINE_PENDING", "OUTLINE_REVISION", "TOPIC_APPROVED", "TOPIC_CONFIRMED", "PENDING_REVIEW"} or
-        project.topic_review_status in {"APPROVED", "GV_CONFIRMED"}
+        project.status in {"OUTLINE_PENDING", "OUTLINE_REVISION", "TOPIC_CONFIRMED", "PENDING_REVIEW"} or
+        project.topic_review_status == "GV_CONFIRMED"
     ):
         return 3
 
@@ -1157,12 +1165,14 @@ class StudentOutlineSubmissionAPIView(APIView):
                 project.topic_title_en = topic_title_en
             project.status = "OUTLINE_PENDING"
             project.topic_review_status = "DRAFT"
+            project.topic_revision_notes = ""
             project.save()
 
             review, _ = OutlineReview.objects.select_for_update().get_or_create(project=project)
             if outline_file:
                 review.outline_file = outline_file
             review.verdict = "PENDING"
+            review.reviewed_at = None
             review.save()
 
         return Response({
@@ -1677,6 +1687,17 @@ class SupervisorOutlineReviewAPIView(APIView):
             return stage_error
 
         with transaction.atomic():
+            if review.verdict == "APPROVED" and verdict != "APPROVED":
+                return Response(
+                    {"detail": "Đề cương đã được đồng ý duyệt và chuyển lên Khoa, không thể chuyển lại thành yêu cầu sửa hoặc không đạt nữa."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if project.status == "OUTLINE_APPROVED":
+                return Response(
+                    {"detail": "Khoa đã phê duyệt đề cương này, không thể thay đổi kết quả xét duyệt."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             review.reviewer = supervisor
             review.verdict = verdict
             review.comments = comments
@@ -3855,9 +3876,9 @@ class TopicDraftAPIView(APIView):
         is_resubmit = request.data.get("is_resubmit") or request.data.get("action") == "resubmit"
         if is_resubmit or project.topic_review_status == "REVISION_REQUIRED" or project.status == "TOPIC_REVISION":
             project.status = "PENDING_REVIEW"
-            project.topic_review_status = "GV_CONFIRMED"
+            project.topic_review_status = "DRAFT"
             project.topic_revision_notes = ""
-            msg = "Đã chỉnh sửa và nộp lại đề tài (Re-Submit thành công). Trạng thái chuyển thành 'Chờ Khoa duyệt'."
+            msg = "Đã chỉnh sửa và nộp lại đề tài. Hồ sơ đang chờ Giảng viên hướng dẫn xem xét & duyệt lại."
         else:
             project.status = "TOPIC_DRAFT"
             project.topic_review_status = "DRAFT"
@@ -3983,7 +4004,7 @@ class TopicReSubmitAPIView(APIView):
 
         # Chuyển trạng thái lại thành PENDING_REVIEW (Chờ duyệt đề tài)
         project.status = "PENDING_REVIEW"
-        project.topic_review_status = "GV_CONFIRMED"
+        project.topic_review_status = "DRAFT"
         project.topic_revision_notes = ""
         project.save(update_fields=["topic_title_vi", "topic_title_en", "status", "topic_review_status", "topic_revision_notes"])
 

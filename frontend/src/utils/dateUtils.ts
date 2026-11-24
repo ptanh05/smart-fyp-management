@@ -48,6 +48,36 @@ export const formatShortDate = (dateString: string | Date | undefined | null): s
 };
 
 /**
+ * Formats a date string (YYYY-MM-DD, ISO, etc.) to Vietnamese standard DD/MM/YYYY.
+ */
+export const formatDateVN = (dateString: string | Date | undefined | null): string => {
+  if (!dateString) return '';
+  if (typeof dateString === 'string') {
+    const datePart = dateString.split('T')[0].trim();
+    const parts = datePart.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      const [year, month, day] = parts;
+      return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+    }
+  }
+  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+  if (!date || isNaN(date.getTime())) return String(dateString);
+  return date.toLocaleDateString('vi-VN');
+};
+
+/**
+ * Gets today's date string in YYYY-MM-DD according to client local timezone.
+ * Ideal for `min` attributes on <input type="date"> to prevent past date selection.
+ */
+export const getTodayDateStr = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Formats a date string to date and time.
  */
 export const formatDateTime = (

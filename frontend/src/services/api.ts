@@ -53,6 +53,25 @@ const resolveApiBaseUrl = (): string => {
   return url;
 };
 
+export const normalizeMediaUrl = (fileUrl: string): string => {
+  if (!fileUrl) return '';
+  const trimmed = fileUrl.trim();
+  const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '').replace(/\/api\/?$/, '');
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    if (rootUrl && trimmed.startsWith('/')) {
+      return `${rootUrl}${trimmed}`;
+    }
+    return trimmed;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    if (trimmed.includes('localhost:8000') || trimmed.includes('127.0.0.1:8000')) {
+      const path = trimmed.replace(/^https?:\/\/[^/]+/, '');
+      return rootUrl ? `${rootUrl}${path}` : path;
+    }
+  }
+  return trimmed;
+};
+
 export const API_BASE_URL = resolveApiBaseUrl();
 
 
@@ -638,13 +657,7 @@ class ApiService {
   }
 
   async fetchDocumentBlob(fileUrl: string): Promise<Blob> {
-    let targetUrl = fileUrl;
-    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-      const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '').replace(/\/api\/?$/, '');
-      if (rootUrl && targetUrl.startsWith('/')) {
-        targetUrl = `${rootUrl}${targetUrl}`;
-      }
-    }
+    let targetUrl = normalizeMediaUrl(fileUrl);
     if (targetUrl.includes('?')) {
       targetUrl += '&preview=1';
     } else {
@@ -961,13 +974,7 @@ class ApiService {
     }
 
     // Determine target URL for authenticated this.api client
-    let targetUrl = fileUrl;
-    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-      const rootUrl = (API_BASE_URL || '/app').replace(/\/app\/?$/, '');
-      if (rootUrl && targetUrl.startsWith('/')) {
-        targetUrl = `${rootUrl}${targetUrl}`;
-      }
-    }
+    const targetUrl = normalizeMediaUrl(fileUrl);
 
     try {
       // Use this.api with responseType: 'blob' so request interceptor attaches Authorization: Bearer

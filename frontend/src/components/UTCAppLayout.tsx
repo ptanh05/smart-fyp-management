@@ -219,15 +219,12 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
     projectStageNumber || 1,
     progressProjectStageNumber || 1
   );
-  const highestStudentStage = Math.max(
-    1,
-    ...Object.entries(stageCounts || {})
-      .filter(([, count]) => Number(count) > 0)
-      .map(([stage]) => Number(stage))
-  );
-  const synchronizedStageNumber = userType === 'supervisor'
-    ? Math.max(rawBatchWorkflowStage, highestStudentStage)
-    : effectiveStageNumber;
+  // For students, synchronize the batch progress with their individual project stage.
+  // For supervisors, the batch progress represents the official academic batch stage.
+  // (Individual student stages are reflected in stageCounts badges and per-stage lists).
+  const synchronizedStageNumber = userType === 'student'
+    ? effectiveStageNumber
+    : (batchProgress?.current_stage_number || 1);
 
   // Student screens use the student's real project progress. Keep the top batch
   // progress bar, sidebar and inner workflow stepper on one shared stage model.
@@ -351,7 +348,8 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               </div>
               {GRADUATION_STAGES.map((st) => {
                 const isCurrent = st.number === effectiveStageNumber;
-                const isAccessible = st.number <= effectiveStageNumber;
+                const effectiveAllowedStage = effectiveStageNumber >= 4 ? Math.max(effectiveStageNumber, 5) : effectiveStageNumber;
+                const isAccessible = st.number <= effectiveAllowedStage;
                 const isActive =
                   activeTab === st.key ||
                   (st.number === 1 && (activeTab === 'project' || activeTab === 'utc_graduation'));
