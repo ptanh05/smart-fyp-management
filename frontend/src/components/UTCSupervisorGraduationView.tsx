@@ -105,9 +105,13 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   }, [myBatchCouncils]);
 
   const progressMatchesSelectedBatch = Number(batchProgress?.batch?.id) === Number(effectiveBatchId);
-  const currentBatchStage = progressMatchesSelectedBatch
-    ? batchProgress?.current_stage_number || 1
-    : batchStageNumbers[selectedBatch?.current_stage] ?? 1;
+  const rawBatchStage = progressMatchesSelectedBatch
+    ? resolveBatchWorkflowStageNumber(
+        selectedBatch?.current_stage || batchProgress?.batch?.current_stage,
+        batchProgress?.current_stage_number
+      )
+    : resolveBatchWorkflowStageNumber(selectedBatch?.current_stage, null);
+  const currentBatchStage = myBatchCouncils.length > 0 ? Math.max(rawBatchStage, 6) : rawBatchStage;
   const activeStageNumber = SUPERVISOR_TAB_STAGES[activeTab];
 
   const stageCounts = useMemo(() => {

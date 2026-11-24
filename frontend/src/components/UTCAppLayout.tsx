@@ -224,7 +224,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   // (Individual student stages are reflected in stageCounts badges and per-stage lists).
   const synchronizedStageNumber = userType === 'student'
     ? effectiveStageNumber
-    : (batchProgress?.current_stage_number || 1);
+    : rawBatchWorkflowStage;
 
   // Student screens use the student's real project progress. Keep the top batch
   // progress bar, sidebar and inner workflow stepper on one shared stage model.
