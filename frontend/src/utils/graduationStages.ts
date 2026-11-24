@@ -94,6 +94,16 @@ export function resolveBatchWorkflowStageNumber(
   return Math.min(6, Math.max(fromCode, Number(progressStageNumber) || 1));
 }
 
+/** Giai đoạn cao nhất mà sinh viên do GVHD phụ trách trong đợt đã đạt tới (1..6, hoặc 0 nếu chưa có). */
+export function getHighestStudentStage(
+  stageCounts?: Record<number, number> | null
+): number {
+  if (!stageCounts) return 0;
+  return Object.entries(stageCounts).reduce((max, [stageNum, count]) => {
+    return Number(count) > 0 ? Math.max(max, Number(stageNum) || 0) : max;
+  }, 0);
+}
+
 
 export type WorkflowStageStatus = 'completed' | 'active' | 'locked';
 
