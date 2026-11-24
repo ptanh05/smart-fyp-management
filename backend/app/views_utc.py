@@ -1418,12 +1418,17 @@ class SupervisorMyBatchesAPIView(APIView):
 
         from django.db.models import Q
 
-        # Các đợt giảng viên được cấu hình tham gia, hướng dẫn hoặc phản biện.
+        # Các đợt giảng viên được cấu hình tham gia, hướng dẫn, phản biện hoặc tham gia Hội đồng bảo vệ.
         project_batch_ids = GraduationProject.objects.filter(
             Q(supervisor=supervisor) | Q(reviewer=supervisor)
         ).values_list("batch_id", flat=True).distinct()
+        council_batch_ids = CouncilMember.objects.filter(
+            Q(user=user) | Q(supervisor=supervisor)
+        ).values_list("council__batch_id", flat=True).distinct()
         batches = AcademicBatch.objects.filter(
-            Q(id__in=project_batch_ids) | Q(supervisor_quotas__supervisor=supervisor)
+            Q(id__in=project_batch_ids)
+            | Q(id__in=council_batch_ids)
+            | Q(supervisor_quotas__supervisor=supervisor)
         ).distinct().order_by("-id")
 
         from .serializers.utc_graduation_serializers import AcademicBatchSerializer
@@ -2261,7 +2266,10 @@ def _is_member_project_reviewer(member, project):
 
 
 def _resolve_council_member(user, council_id=None, batch_id=None, project_id=None):
-    qs = CouncilMember.objects.filter(user=user).select_related("council__batch")
+    from django.db.models import Q
+    qs = CouncilMember.objects.filter(
+        Q(user=user) | Q(supervisor__user=user)
+    ).select_related("council__batch")
     if council_id:
         return qs.filter(council_id=council_id).first()
     if project_id:
@@ -2280,9 +2288,10 @@ class CouncilMyCouncilsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from django.db.models import Q
         user = request.user
         memberships = list(
-            CouncilMember.objects.filter(user=user)
+            CouncilMember.objects.filter(Q(user=user) | Q(supervisor__user=user))
             .select_related("council__batch")
             .order_by("-council__batch__is_active", "-council__batch__created_at", "council__council_number")
         )
@@ -2292,6 +2301,8 @@ class CouncilMyCouncilsAPIView(APIView):
             from django.db.models import Count
             counts_qs = (
                 GraduationProject.objects.filter(council_id__in=council_ids)
+                .exclude(deferral_status="APPROVED")
+                .exclude(status__in=["DEFERRED", "DISQUALIFIED"])
                 .values("council_id")
                 .annotate(cnt=Count("id"))
             )
@@ -2337,11 +2348,16 @@ class CouncilLiveDefenseSessionAPIView(APIView):
         council = council_member.council
         all_members = list(council.members.select_related("user", "supervisor").all())
 
-        projects = GraduationProject.objects.filter(council=council).select_related(
-            "student__user",
-            "supervisor__user",
-            "reviewer__user",
-            "final_grade_summary"
+        projects = (
+            GraduationProject.objects.filter(council=council)
+            .exclude(deferral_status="APPROVED")
+            .exclude(status__in=["DEFERRED", "DISQUALIFIED"])
+            .select_related(
+                "student__user",
+                "supervisor__user",
+                "reviewer__user",
+                "final_grade_summary"
+            )
         )
 
         from .utils.vietnamese_sort import sort_by_vietnamese_name
@@ -2380,7 +2396,8 @@ class CouncilLiveDefenseSessionAPIView(APIView):
                 is_rev = _is_member_project_reviewer(m, p)
                 m_score = p_scores.get(m.id)
                 has_sub = m_score is not None
-                if not is_sup and not is_rev:
+                # Theo quy chế UTC: chỉ GVHD bị chặn chấm điểm Hội đồng; GVPB là thành viên Hội đồng vẫn chấm điểm HĐ bình thường
+                if not is_sup:
                     eligible_count += 1
                     if has_sub:
                         submitted_count += 1
@@ -2481,7 +2498,8 @@ class CouncilSubmitScoreAPIView(APIView):
         d_score = float(request.data.get("score_demo", 0.0))
         comments = request.data.get("comments", "").strip()
 
-        # Strict checks (TC-034): Supervisor and Reviewer cannot grade their own student in council -> 403 Forbidden
+        # Strict checks (TC-034): Supervisor cannot grade their own student in council -> 403 Forbidden
+        # (Reviewer / GVPB is a council member and IS allowed to submit their council member score)
         project = get_object_or_404(GraduationProject, id=project_id, council=council_member.council)
         is_gvhd = (
             _is_member_project_supervisor(council_member, project)
@@ -2490,16 +2508,6 @@ class CouncilSubmitScoreAPIView(APIView):
         if is_gvhd:
             return Response(
                 {"detail": "Vi phạm quy chế: Giảng viên hướng dẫn không được phép chấm điểm Hội đồng cho chính sinh viên của mình.", "error": "supervisor_self_scoring_forbidden"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        is_gvpb = (
-            _is_member_project_reviewer(council_member, project)
-            or (hasattr(user, "supervisor_profile") and project.reviewer_id and project.reviewer == user.supervisor_profile)
-        )
-        if is_gvpb:
-            return Response(
-                {"detail": "Vi phạm quy chế: Giảng viên phản biện không được phép chấm điểm Hội đồng cho chính sinh viên mình phản biện.", "error": "reviewer_self_scoring_forbidden"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -2598,7 +2606,7 @@ class CouncilToggleLockAPIView(APIView):
             for proj in projects:
                 excluded_count = sum(
                     1 for m in all_members
-                    if _is_member_project_supervisor(m, proj) or _is_member_project_reviewer(m, proj)
+                    if _is_member_project_supervisor(m, proj)
                 )
                 required_scorers = max(1, base_required - excluded_count)
                 submitted_count = CouncilLiveScore.objects.filter(project=proj, council=council).count()
@@ -2666,7 +2674,7 @@ class CouncilFinalizeScoresAPIView(APIView):
         for proj in projects_list:
             excluded_count = sum(
                 1 for m in all_members
-                if _is_member_project_supervisor(m, proj) or _is_member_project_reviewer(m, proj)
+                if _is_member_project_supervisor(m, proj)
             )
             required_scorers = max(1, base_required - excluded_count)
             submitted_count = CouncilLiveScore.objects.filter(project=proj, council=council).count()
@@ -2815,10 +2823,10 @@ class CouncilSecretaryRemindScoringAPIView(APIView):
 
         project = get_object_or_404(GraduationProject, id=project_id, council=council)
 
-        # Find eligible members (exclude supervisor and reviewer of this student)
+        # Find eligible members (exclude supervisor of this student)
         eligible_members = [
             m for m in council.members.select_related("user", "supervisor").all()
-            if not _is_member_project_supervisor(m, project) and not _is_member_project_reviewer(m, project)
+            if not _is_member_project_supervisor(m, project)
         ]
 
         # Find members who already submitted score

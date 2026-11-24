@@ -6,7 +6,7 @@ import type { Student, Supervisor, CommitteeMember, UserType } from '../types';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import { BatchProgressProvider } from '../contexts/BatchProgressContext';
-import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
+import { GRADUATION_STAGES, getProjectStageNumber, resolveBatchWorkflowStageNumber } from '../utils/graduationStages';
 import { formatFullName } from '../utils/nameHelper';
 import ChangePasswordModal from './ChangePasswordModal';
 import NotificationDropdown from './NotificationDropdown';
@@ -210,8 +210,12 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   const progressProjectStageNumber = batchProgress?.my_project?.has_project
     ? getProjectStageNumber(batchProgress.my_project)
     : 1;
+  const rawBatchWorkflowStage = resolveBatchWorkflowStageNumber(
+    batchProgress?.batch?.current_stage,
+    batchProgress?.current_stage_number
+  );
   const effectiveStageNumber = Math.max(
-    batchProgress?.current_stage_number || 1,
+    rawBatchWorkflowStage,
     projectStageNumber || 1,
     progressProjectStageNumber || 1
   );
@@ -222,7 +226,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
       .map(([stage]) => Number(stage))
   );
   const synchronizedStageNumber = userType === 'supervisor'
-    ? Math.max(batchProgress?.current_stage_number || 1, highestStudentStage)
+    ? Math.max(rawBatchWorkflowStage, highestStudentStage)
     : effectiveStageNumber;
 
   // Student screens use the student's real project progress. Keep the top batch
@@ -509,6 +513,14 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
 
               {/* 3. ĐÁNH GIÁ & BẢO LƯU */}
               <div className="utc-sidebar-section-title">ĐÁNH GIÁ & BẢO LƯU</div>
+              <div
+                className={`utc-nav-item ${activeTab === 'council_defense' ? 'active' : ''}`}
+                onClick={() => handleNavClick('council_defense')}
+                title="Hội Đồng Bảo Vệ & Chấm Thi ĐATN"
+              >
+                <span className="utc-nav-icon">🏛️</span>
+                <span className="utc-nav-label">Hội Đồng Bảo Vệ & Chấm Thi</span>
+              </div>
               <div
                 className={`utc-nav-item ${activeTab === 'reviewer' ? 'active' : ''}`}
                 onClick={() => handleNavClick('reviewer')}

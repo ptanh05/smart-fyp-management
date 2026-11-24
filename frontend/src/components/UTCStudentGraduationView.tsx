@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { apiService, apiClient } from '../services/api';
 import { safeExternalUrl } from '../utils/safeUrl';
 import type { ThesisDeferralRequest } from '../types';
-import { GRADUATION_STAGES, getProjectStageNumber } from '../utils/graduationStages';
+import { GRADUATION_STAGES, getProjectStageNumber, resolveBatchWorkflowStageNumber } from '../utils/graduationStages';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
 import { formatFullName } from '../utils/nameHelper';
 import { isValidEmail, validatePhoneNumber, cleanPhoneNumber } from '../utils/validation';
@@ -58,7 +58,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   // Sinh viên được quyền truy cập theo tiến độ thực tế cao nhất giữa Đợt chung và Đề tài cá nhân
   const projectStageNum = getProjectStageNumber(projectData || initialProjectData);
   const currentStageNum = Math.max(
-    batchProgress?.current_stage_number || 1,
+    resolveBatchWorkflowStageNumber(batchProgress?.batch?.current_stage, batchProgress?.current_stage_number),
     projectStageNum
   );
   const activeStageNumber = GRADUATION_STAGES.find((stage) => stage.key === activeTab)?.number || 1;

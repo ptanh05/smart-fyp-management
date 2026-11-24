@@ -5,15 +5,16 @@ import { getRelativeTime } from '../utils/dateUtils';
 import { useModalGuard } from '../utils/modalHooks';
 import { apiService, apiClient } from '../services/api';
 import { safeExternalUrl } from '../utils/safeUrl';
-import { calculateStageCounts, getProjectStageNumber } from '../utils/graduationStages';
+import { calculateStageCounts, getProjectStageNumber, resolveBatchWorkflowStageNumber } from '../utils/graduationStages';
 import { SupervisorOfferedTopics } from './SupervisorOfferedTopics';
+import { UTCCouncilLiveDefenseView } from './UTCCouncilLiveDefenseView';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
 import DocumentViewerModal from './DocumentViewerModal';
 import './UTCSupervisorGraduationView.css';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
 
-export type SupervisorGradTab = 'students' | 'survey' | 'outlines' | 'weekly' | 'supervision' | 'eval' | 'reviewer' | 'deferrals';
+export type SupervisorGradTab = 'students' | 'survey' | 'outlines' | 'weekly' | 'supervision' | 'eval' | 'council_defense' | 'reviewer' | 'deferrals';
 
 const SUPERVISOR_TAB_STAGES: Partial<Record<SupervisorGradTab, number>> = {
   students: 1,
@@ -45,6 +46,8 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const [activeTab, setActiveTab] = useState<SupervisorGradTab>(initialTab || 'students');
   const [projects, setProjects] = useState<any[]>([]);
   const [reviewerProjects, setReviewerProjects] = useState<any[]>([]);
+  const [myCouncils, setMyCouncils] = useState<any[]>([]);
+  const [selectedCouncilId, setSelectedCouncilId] = useState<number | null>(null);
   const [outlineReviews, setOutlineReviews] = useState<any[]>([]);
 
   // Document Viewer Modal State
@@ -73,20 +76,40 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const effectiveBatches = controlledBatches ?? batches;
   const effectiveBatchId = controlledBatchId ?? (selectedBatchId === 'all' ? null : selectedBatchId);
   const selectedBatch = effectiveBatches.find((batch: any) => batch.id === effectiveBatchId);
-  const batchStageNumbers: Record<string, number> = {
-    PHASE_1_SETUP: 1,
-    PHASE_2_ALLOCATING: 2,
-    PHASE_2_LOCKED: 2,
-    PHASE_3_TOPIC: 3,
-    PHASE_4_ELIGIBILITY: 4,
-    PHASE_5_IN_PROGRESS: 5,
-    PHASE_6_DEFENSE: 6,
-    COMPLETED: 6,
-  };
+  const myBatchCouncils = useMemo(() => {
+    if (!effectiveBatchId) return myCouncils;
+    return myCouncils.filter((c) => Number(c.batch_id) === Number(effectiveBatchId));
+  }, [myCouncils, effectiveBatchId]);
+
+  useEffect(() => {
+    apiService
+      .getMyCouncils()
+      .then((list) => {
+        setMyCouncils(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        setMyCouncils([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (myBatchCouncils.length > 0) {
+      setSelectedCouncilId((prev) =>
+        prev && myBatchCouncils.some((c) => c.council_id === prev) ? prev : myBatchCouncils[0].council_id
+      );
+    } else {
+      setSelectedCouncilId(null);
+    }
+  }, [myBatchCouncils]);
+
   const progressMatchesSelectedBatch = Number(batchProgress?.batch?.id) === Number(effectiveBatchId);
-  const currentBatchStage = progressMatchesSelectedBatch
-    ? batchProgress?.current_stage_number || 1
-    : batchStageNumbers[selectedBatch?.current_stage] ?? 1;
+  const rawBatchStage = progressMatchesSelectedBatch
+    ? resolveBatchWorkflowStageNumber(
+        selectedBatch?.current_stage || batchProgress?.batch?.current_stage,
+        batchProgress?.current_stage_number
+      )
+    : resolveBatchWorkflowStageNumber(selectedBatch?.current_stage, null);
+  const currentBatchStage = myBatchCouncils.length > 0 ? Math.max(rawBatchStage, 6) : rawBatchStage;
   const activeStageNumber = SUPERVISOR_TAB_STAGES[activeTab];
   const isViewingPastStage = Boolean(activeStageNumber && activeStageNumber < currentBatchStage);
 
@@ -892,6 +915,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           </div>
           <div className="utc-supervisor-tabs">
             {[
+              { key: 'council_defense' as SupervisorGradTab, title: 'Hội đồng Bảo vệ & Chấm thi', count: myBatchCouncils.length, icon: '🏛️' },
               { key: 'reviewer' as SupervisorGradTab, title: 'Đồ án Phản biện', count: reviewerProjects.length, icon: '🔍' },
               { key: 'deferrals' as SupervisorGradTab, title: 'Đơn Bảo lưu', count: deferralRequests.length, icon: '📋' },
             ].map((tab) => {
@@ -1489,7 +1513,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           {stage6Projects.length === 0 ? (
             <div className="utc-supervisor-empty-box">
               <h4>Chưa có sinh viên giai đoạn 6</h4>
-              <p className="text-sm">Chưa có sinh viên nào ở Giai đoạn 6.</p>
+              <p className="text-sm">Chưa có sinh viên nào do Thầy/Cô hướng dẫn ở Giai đoạn 6.</p>
             </div>
           ) : (
           <div className="space-y-3">
@@ -1540,6 +1564,73 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             ))}
           </div>
           )}
+
+          {/* Nếu Giảng viên đồng thời là Thành viên Hội đồng Bảo vệ trong đợt này -> Hiển thị luôn bảng chấm điểm Hội đồng ngay tại GĐ 6 */}
+          {myBatchCouncils.length > 0 && (
+            <div className="pt-4 border-t border-slate-200 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h4 className="font-bold text-sm text-slate-900">
+                  🏛️ Hội đồng Bảo vệ & Chấm điểm ĐATN của Thầy/Cô trong đợt này
+                </h4>
+                {myBatchCouncils.length > 1 && (
+                  <select
+                    value={selectedCouncilId ?? ''}
+                    onChange={(e) => setSelectedCouncilId(e.target.value ? Number(e.target.value) : null)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold"
+                  >
+                    {myBatchCouncils.map((c) => (
+                      <option key={c.council_id} value={c.council_id}>
+                        {c.council_name} ({c.role_display} • {c.student_count} SV)
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <UTCCouncilLiveDefenseView
+                councilId={selectedCouncilId}
+                batchId={effectiveBatchId}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Council Live Defense & Grading directly inside Supervisor Portal (Item 11 & 26b) */}
+      {activeTab === 'council_defense' && (
+        <div className="utc-supervisor-card space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <div>
+              <h3 className="font-bold text-base text-slate-900">
+                🏛️ Hội đồng Đánh giá & Chấm thi Bảo vệ Đồ án Tốt nghiệp (40%)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Chấm điểm trực tiếp cho các sinh viên thuộc Hội đồng mà Thầy/Cô là thành viên (Chủ tịch / Thư ký / Ủy viên)
+              </p>
+            </div>
+            {myBatchCouncils.length > 1 && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="sup-council-select" className="text-xs font-bold text-slate-700">
+                  Chọn Hội đồng:
+                </label>
+                <select
+                  id="sup-council-select"
+                  value={selectedCouncilId ?? ''}
+                  onChange={(e) => setSelectedCouncilId(e.target.value ? Number(e.target.value) : null)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold"
+                >
+                  {myBatchCouncils.map((c) => (
+                    <option key={c.council_id} value={c.council_id}>
+                      {c.council_name} ({c.role_display} • {c.student_count} SV)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          <UTCCouncilLiveDefenseView
+            councilId={selectedCouncilId}
+            batchId={effectiveBatchId}
+          />
         </div>
       )}
 

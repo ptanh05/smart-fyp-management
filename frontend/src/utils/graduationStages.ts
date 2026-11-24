@@ -69,6 +69,25 @@ export const GRADUATION_STAGES: StageInfo[] = [
   },
 ];
 
+export const BATCH_STAGE_CODE_TO_NUMBER: Record<string, number> = {
+  PHASE_1_SETUP: 1,
+  PHASE_2_ALLOCATING: 2,
+  PHASE_2_LOCKED: 2,
+  PHASE_3_TOPIC: 3,
+  PHASE_4_ELIGIBILITY: 4,
+  PHASE_5_IN_PROGRESS: 5,
+  PHASE_6_DEFENSE: 6,
+  COMPLETED: 6,
+};
+
+export function resolveBatchWorkflowStageNumber(
+  batchStageCode?: string | null,
+  progressStageNumber?: number | null
+): number {
+  const fromCode = batchStageCode ? BATCH_STAGE_CODE_TO_NUMBER[batchStageCode] || 1 : 1;
+  return Math.max(fromCode, Number(progressStageNumber) || 1);
+}
+
 /**
  * Tính toán giai đoạn hiện tại (1 -> 6) của Sinh viên / Đồ án
  * Nguyên tắc: Khi Giảng viên hướng dẫn duyệt thì sinh viên mới sang giai đoạn mới

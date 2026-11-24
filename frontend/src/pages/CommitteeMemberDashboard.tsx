@@ -153,7 +153,14 @@ const CommitteeMemberDashboard: React.FC = () => {
       if (selectedCouncilId != null) params.council_id = selectedCouncilId;
       else if (selectedBatchId != null) params.batch_id = selectedBatchId;
       const response = await apiService.getCommitteeMemberGroups(params);
-      setPanelGroups(response.results || []);
+      const list = response.results || [];
+      setPanelGroups(list);
+      setSelectedGroup((prev) => {
+        if (prev && list.some((g: any) => g.id === prev.id)) {
+          return prev;
+        }
+        return list.length > 0 ? list[0] : null;
+      });
     } catch (error) {
       console.error('Failed to load panel groups:', error);
       setPanelGroups([]);
@@ -384,50 +391,80 @@ const CommitteeMemberDashboard: React.FC = () => {
           )}
 
           {activeTab === 'evaluations' && (
-            <div className="card">
-              {selectedGroup ? (
-                <>
-                  <div style={{ marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                      <div>
-                        <h2>{t('committee.evaluationsForGroup', 'Phiếu Đánh Giá - Đồ án #')}{selectedGroup.id}</h2>
-                        <p className="dashboard-section-desc" style={{ marginTop: '8px' }}>
-                          <strong>{t('committee.project', 'Đề tài')}:</strong> {selectedGroup.project?.project_name || 'N/A'} |{' '}
-                          <strong>{t('committee.students', 'Sinh viên')}:</strong> {selectedGroup.group?.student_1_details?.user ? formatFullName(selectedGroup.group.student_1_details.user) : (selectedGroup.group as any)?.student_1?.name || selectedGroup.group?.student_1_details?.user?.username || 'N/A'}
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button
-                          className="btn btn-sm utc-print-sheet-btn"
-                          onClick={() => setShowUTCSheet(true)}
-                          title={t('committee.printScoreSheetTitle', 'Mở và in phiếu điểm đánh giá UTC')}
-                        >
-                          🖨️ {t('committee.printScoreSheet', 'In phiếu điểm')}
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => setActiveTab('groups')}
-                        >
-                          {t('committee.changeGroup', 'Đổi đồ án')}
-                        </button>
-                      </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Khu vực chấm điểm trực tiếp Hội đồng Bảo vệ UTC (Thang 10) */}
+              <UTCCouncilLiveDefenseView
+                councilId={selectedCouncilId}
+                batchId={selectedBatchId}
+              />
+
+              {/* Khu vực phiếu đánh giá chi tiết theo tiêu chí */}
+              <div className="card">
+                {panelGroups.length > 0 && (
+                  <div className="utc-council-selector-bar" style={{ marginBottom: '16px' }}>
+                    <div className="utc-council-selector-group">
+                      <label htmlFor="eval-student-select">👨‍🎓 Chọn sinh viên / đồ án chấm phiếu tiêu chí:</label>
+                      <select
+                        id="eval-student-select"
+                        value={selectedGroup?.id ?? ''}
+                        onChange={(e) => {
+                          const found = panelGroups.find((g) => Number(g.id) === Number(e.target.value));
+                          if (found) setSelectedGroup(found);
+                        }}
+                      >
+                        {panelGroups.map((g) => {
+                          const stName = g.group?.student_1_details?.user
+                            ? formatFullName(g.group.student_1_details.user)
+                            : (g.group as any)?.student_1?.name || `Đồ án #${g.id}`;
+                          const stReg = g.group?.student_1_details?.registration_no || '';
+                          return (
+                            <option key={g.id} value={g.id}>
+                              {stName} {stReg ? `(${stReg})` : ''} — {g.project?.project_name || 'Đồ án'}
+                            </option>
+                          );
+                        })}
+                      </select>
                     </div>
                   </div>
-                  <CommitteeEvaluationsList groupId={selectedGroup.id} />
-                </>
-              ) : (
-                <div className="empty-state">
-                  <h2>{t('committee.evaluations', 'Đánh Giá & Chấm Điểm')}</h2>
-                  <p>{t('committee.selectGroupForEval', 'Vui lòng chọn một đồ án ở tab "Sinh Viên & Đồ Án" để xem và quản lý phiếu chấm điểm.')}</p>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setActiveTab('groups')}
-                    style={{ marginTop: '16px' }}
-                  >
-                    {t('committee.goToPanelGroups', 'Đi tới Danh sách Đồ án')}
-                  </button>
-                </div>
-              )}
+                )}
+
+                {selectedGroup ? (
+                  <>
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <h2>{t('committee.evaluationsForGroup', 'Phiếu Đánh Giá Tiêu Chí - Đồ án #')}{selectedGroup.id}</h2>
+                          <p className="dashboard-section-desc" style={{ marginTop: '8px' }}>
+                            <strong>{t('committee.project', 'Đề tài')}:</strong> {selectedGroup.project?.project_name || 'N/A'} |{' '}
+                            <strong>{t('committee.students', 'Sinh viên')}:</strong> {selectedGroup.group?.student_1_details?.user ? formatFullName(selectedGroup.group.student_1_details.user) : (selectedGroup.group as any)?.student_1?.name || selectedGroup.group?.student_1_details?.user?.username || 'N/A'}
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button
+                            className="btn btn-sm utc-print-sheet-btn"
+                            onClick={() => setShowUTCSheet(true)}
+                            title={t('committee.printScoreSheetTitle', 'Mở và in phiếu điểm đánh giá UTC')}
+                          >
+                            🖨️ {t('committee.printScoreSheet', 'In phiếu điểm')}
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setActiveTab('groups')}
+                          >
+                            {t('committee.changeGroup', 'Danh sách đồ án')}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <CommitteeEvaluationsList groupId={selectedGroup.id} />
+                  </>
+                ) : (
+                  <div className="empty-state">
+                    <h2>{t('committee.evaluations', 'Đánh Giá & Chấm Điểm')}</h2>
+                    <p>{t('committee.noGroups', 'Chưa có sinh viên nào đủ điều kiện bảo vệ được phân công vào Hội đồng này.')}</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
