@@ -144,6 +144,17 @@ def require_exact_batch_stage(batch_or_project, required_stage):
             }
         )
 
+    # Báo cáo tuần vẫn tiếp tục khi đợt chuyển sang GĐ5; đây là ngoại lệ của
+    # endpoint GĐ4, không thay đổi contract editable chung của workflow.
+    if required_stage == 4:
+        progress = workflow_stages.compute_project_progress(project, batch)
+        if (
+            progress["current_stage_number"] == 5
+            and not progress["is_blocked"]
+            and not progress["batch_closed"]
+        ):
+            return None
+
     error = workflow_stages.check_stage_write(project, required_stage, batch)
     if error:
         error.pop("workflow", None)

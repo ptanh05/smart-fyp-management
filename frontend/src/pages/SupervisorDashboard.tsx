@@ -80,6 +80,7 @@ const SupervisorDashboard: React.FC = () => {
       'weekly',
       'supervision',
       'eval',
+      'council_defense',
       'reviewer',
       'deferrals',
       'utc_graduation',
@@ -106,6 +107,8 @@ const SupervisorDashboard: React.FC = () => {
       case 'stage_6':
       case 'eval':
         return 'eval';
+      case 'council_defense':
+        return 'council_defense';
       case 'reviewer':
         return 'reviewer';
       case 'deferrals':

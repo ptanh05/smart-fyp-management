@@ -1474,7 +1474,9 @@ class CommitteeMemberProfileView(APIView):
 
     def get(self, request):
         user = request.user
-        cm = CouncilMember.objects.filter(user=user).select_related("council", "supervisor").first()
+        cm = CouncilMember.objects.filter(
+            Q(user=user) | Q(supervisor__user=user)
+        ).select_related("council", "supervisor").first()
         council_data = None
         if cm and cm.council:
             council_data = {
@@ -1758,10 +1760,10 @@ class DocumentUploadAPIView(CreateAPIView, ListAPIView, UpdateAPIView):
 def _is_authorized_committee_member(user):
     if not user or not getattr(user, "is_authenticated", False):
         return False
-    if getattr(user, "user_type", None) in ("committee_member", "admin") or getattr(user, "is_staff", False):
+    if getattr(user, "user_type", None) in ("committee_member", "supervisor", "admin") or getattr(user, "is_staff", False):
         return True
     from app.models import CouncilMember
-    return CouncilMember.objects.filter(user=user).exists()
+    return CouncilMember.objects.filter(Q(user=user) | Q(supervisor__user=user)).exists()
 
 
 def _resolve_committee_eval_object(view, model_cls):
@@ -2134,7 +2136,9 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
 
     def list(self, request, *args, **kwargs):
         from app.models import CouncilMember, GraduationProject
-        c_members = CouncilMember.objects.filter(user=request.user).select_related("council__batch")
+        c_members = CouncilMember.objects.filter(
+            Q(user=request.user) | Q(supervisor__user=request.user)
+        ).select_related("council__batch")
         council_id = request.query_params.get("council_id")
         batch_id = request.query_params.get("batch_id") or request.query_params.get("batch")
         if council_id:
@@ -2143,7 +2147,12 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
             c_members = c_members.filter(council__batch_id=batch_id)
         council_ids = [cm.council_id for cm in c_members if cm.council_id]
         if council_ids:
-            projects = GraduationProject.objects.filter(council_id__in=council_ids).select_related('student', 'student__user', 'supervisor', 'supervisor__user', 'council', 'batch')
+            projects = (
+                GraduationProject.objects.filter(council_id__in=council_ids)
+                .exclude(deferral_status="APPROVED")
+                .exclude(status__in=["DEFERRED", "DISQUALIFIED"])
+                .select_related('student', 'student__user', 'supervisor', 'supervisor__user', 'council', 'batch')
+            )
             results = []
             for gp in projects:
                 results.append({

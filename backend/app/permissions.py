@@ -29,8 +29,8 @@ class IsSupervisor(BasePermission):
 
 class IsCommitteeMember(BasePermission):
     """
-    Cho phép thành viên Hội đồng đánh giá (CouncilMember), 
-    người dùng có user_type == 'committee_member' và admin. Giảng viên chỉ được vào khi là thành viên hội đồng.
+    Cho phép thành viên Hội đồng đánh giá (CouncilMember) và quản trị viên.
+    Giảng viên thông thường chỉ được vào khi thực sự có bản ghi CouncilMember.
     """
     message = "You must be a committee member to access this resource."
 
@@ -40,8 +40,9 @@ class IsCommitteeMember(BasePermission):
         user_type = getattr(request.user, 'user_type', None)
         if user_type in ['committee_member', 'admin'] or request.user.is_staff or request.user.is_superuser:
             return True
+        from django.db.models import Q
         from app.models import CouncilMember
-        return CouncilMember.objects.filter(user=request.user).exists()
+        return CouncilMember.objects.filter(Q(user=request.user) | Q(supervisor__user=request.user)).exists()
 
 
 class IsExternalExaminer(BasePermission):

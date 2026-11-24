@@ -185,6 +185,14 @@ def achieved_stage(project):
             return 3
         return 2
 
+    # Một số API cũ giữ nguyên status nhưng ghi topic_review_status=APPROVED
+    # cùng đường dẫn đề cương đã ký. Đây là bằng chứng tương đương
+    # OUTLINE_APPROVED và phải mở GĐ4.
+    if review == "APPROVED" and (
+        _get(project, "outline_pdf_path") or _get(project, "signed_outline_file")
+    ):
+        return 4
+
     if (
         status in OUTLINE_STAGE_STATUSES
         or review in {"GV_CONFIRMED", "APPROVED", "REVISION_REQUIRED"}

@@ -1,6 +1,14 @@
 import logging
 import threading
-from celery import shared_task
+try:
+    from celery import shared_task
+except ImportError:
+    def shared_task(*args, **kwargs):
+        def decorator(f):
+            return f
+        if len(args) == 1 and callable(args[0]):
+            return args[0]
+        return decorator
 from django.conf import settings
 
 logger = logging.getLogger(__name__)

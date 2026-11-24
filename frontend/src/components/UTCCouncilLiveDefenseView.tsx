@@ -309,7 +309,6 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
     );
     if (!me) return null;
     if (me.is_supervisor) return 'GVHD';
-    if (me.is_reviewer) return 'GVPB';
     return null;
   };
 
