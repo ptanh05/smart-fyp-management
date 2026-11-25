@@ -4885,18 +4885,35 @@ class CouncilMinutesPdfExportAPIView(APIView):
             id=council_id
         )
 
-        # FLOW_33: Bắt buộc 100% thành viên Hội đồng nhập điểm đầy đủ cho toàn bộ SV mới cho phép xuất Biên bản PDF
-        council_members_count = council.members.count()
-        required_scorers = council_members_count if council_members_count >= 5 else (council_members_count or 5)
-        projects_in_council = list(council.projects.select_related("student__user").all())
+        # FLOW_33: Bắt buộc 100% thành viên hợp lệ trong Hội đồng (trừ GVHD/GVPB xung đột lợi ích) chấm điểm
+        all_members = list(council.members.select_related("user", "supervisor").all())
+        council_members_count = len(all_members)
+        base_required = council_members_count if council_members_count >= 5 else (council_members_count or 5)
+        projects_in_council = list(
+            council.projects.exclude(deferral_status="APPROVED")
+            .exclude(status__in=["DEFERRED", "DISQUALIFIED"])
+            .select_related("student__user", "supervisor__user", "reviewer__user")
+        )
 
-        if projects_in_council and required_scorers > 0:
+        if projects_in_council and base_required > 0:
             incomplete_students = []
             for proj in projects_in_council:
-                submitted_count = CouncilLiveScore.objects.filter(project=proj, council=council).count()
+                eligible_members = [
+                    m for m in all_members
+                    if not _is_member_project_supervisor(m, proj) and not _is_member_project_reviewer(m, proj)
+                ]
+                excluded_count = council_members_count - len(eligible_members)
+                required_scorers = max(1, base_required - excluded_count)
+                if eligible_members:
+                    submitted_count = CouncilLiveScore.objects.filter(
+                        project=proj, council=council, member__in=eligible_members
+                    ).count()
+                else:
+                    submitted_count = CouncilLiveScore.objects.filter(project=proj, council=council).count()
                 if submitted_count < required_scorers:
-                    st_name = proj.student.user.get_full_name() if (proj.student and proj.student.user) else proj.student.registration_no
-                    incomplete_students.append(f"SV {st_name} ({proj.student.registration_no}): {submitted_count}/{required_scorers} người")
+                    st_name = proj.student.user.get_full_name() if (proj.student and proj.student.user) else (proj.student.registration_no if proj.student else str(proj.id))
+                    st_reg = proj.student.registration_no if proj.student else ""
+                    incomplete_students.append(f"SV {st_name} ({st_reg}): {submitted_count}/{required_scorers} người")
 
             if incomplete_students:
                 return Response(

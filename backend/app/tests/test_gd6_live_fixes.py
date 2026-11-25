@@ -165,6 +165,17 @@ class GD6LiveFixesTests(APITestCase):
         self.assertEqual(export_res.status_code, status.HTTP_200_OK)
         self.assertIn("spreadsheetml.sheet", export_res["Content-Type"])
 
+        # Export minutes PDF with 4/4 non-conflicted scores -> 200 OK (chair is GVPB COI)
+        pdf_res = self.client.get(f"/app/council/{self.council.id}/export-minutes-pdf/")
+        self.assertEqual(pdf_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(pdf_res["Content-Type"], "application/pdf")
+
+        # Supervisor Excel progress report -> 200 OK (no ProgrammingError on missing legacy table)
+        self.client.force_authenticate(user=self.sup.user)
+        sup_rep_res = self.client.get("/app/export/report/")
+        self.assertEqual(sup_rep_res.status_code, status.HTTP_200_OK)
+        self.assertIn("spreadsheetml.sheet", sup_rep_res["Content-Type"])
+
         # Student profile exposes full grade breakdown & names for UTCEvaluationSheetModal
         self.client.force_authenticate(user=self.st_user)
         prof_res = self.client.get("/app/student/profile/")

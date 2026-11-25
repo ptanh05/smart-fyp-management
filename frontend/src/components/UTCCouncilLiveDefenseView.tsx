@@ -1176,6 +1176,9 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
             supervisorName: evalSheetProject.supervisor?.full_name || undefined,
             reviewerName: evalSheetProject.reviewer?.full_name || undefined,
             committeeName:
+              evalSheetProject.scoring_summary?.members_breakdown?.find(
+                (m: any) => m.role_code === 'CHAIR' || (m.role || '').toLowerCase().includes('chủ tịch')
+              )?.name ||
               councilData?.members?.find((m: any) => m.role_code === 'CHAIR')?.name ||
               councilData?.council_name ||
               undefined,

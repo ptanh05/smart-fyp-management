@@ -2749,6 +2749,8 @@ class ExportReportAPIView(APIView):
     permission_classes = [IsAuthenticated, IsSupervisor]
 
     def get(self, request, *args, **kwargs):
+        from app.models import GraduationProject
+
         try:
             supervisor = Supervisor.objects.get(user=request.user)
         except Supervisor.DoesNotExist:
@@ -2757,9 +2759,16 @@ class ExportReportAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        supervisor_groups = SupervisorOfStudentGroup.objects.filter(
-            supervisor=supervisor, status="accepted"
-        )
+        projects = GraduationProject.objects.filter(supervisor=supervisor).select_related(
+            "student__user",
+            "batch",
+            "council",
+            "final_grade_summary",
+        ).order_by("student__registration_no", "id")
+
+        batch_id = request.query_params.get("batch_id")
+        if batch_id:
+            projects = projects.filter(batch_id=batch_id)
 
         workbook = Workbook()
         sheet = workbook.active
@@ -2770,71 +2779,44 @@ class ExportReportAPIView(APIView):
 
         # UTC Official Header
         sheet.append(["BỘ GIÁO DỤC VÀ ĐÀO TẠO - TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI (UTC)"])
-        sheet.append(["BÁO CÁO TỔNG HỢP TIẾN ĐỘ ĐỒ ÁN TỐT NGHIỆP"])
+        sheet.append(["BÁO CÁO TỔNG HỢP TIẾN ĐỘ & KẾT QUẢ HƯỚNG DẪN ĐỒ ÁN TỐT NGHIỆP"])
         sheet.append([])
 
-        # Header row
         headers = [
-            "Group ID",
-            "Student 1 Name",
-            "Student 1 Email",
-            "Student 1 Reg. No",
-            "Student 2 Name",
-            "Student 2 Email",
-            "Student 2 Reg. No",
-            "Project Title",
-            "Scope Doc",
-            "SRS Doc",
-            "SDD Doc",
-            "Final Report",
-            "Presentation",
-            "Status",
+            "STT",
+            "MSSV",
+            "Họ và tên",
+            "Email",
+            "Đợt đồ án",
+            "Tên đề tài",
+            "Trạng thái",
+            "Đủ ĐK Bảo vệ",
+            "Điểm GVHD (30%)",
+            "Điểm GVPB (20%)",
+            "Điểm Tổng (10)",
+            "Điểm chữ",
         ]
         sheet.append(headers)
 
-        for group in supervisor_groups:
-            documents = Document.objects.filter(group=group, status="accepted")
-            student_1 = getattr(group.group, "student_1", None)
-            student_2 = getattr(group.group, "student_2", None)
+        for idx, gp in enumerate(projects, 1):
+            summary = getattr(gp, "final_grade_summary", None)
+            st_user = gp.student.user if gp.student else None
             row = [
-                group.id,
-                student_1.user.username if student_1 and student_1.user else "N/A",
-                student_1.user.email if student_1 and student_1.user else "N/A",
-                student_1.registration_no if student_1 else "N/A",
-                student_2.user.username if student_2 and student_2.user else "N/A",
-                student_2.user.email if student_2 and student_2.user else "N/A",
-                student_2.registration_no if student_2 else "N/A",
-                group.project.project_name if group.project else "N/A",
-                ",".join(
-                    documents.filter(document_type="scope_document").values_list(
-                        "uploaded_file", flat=True
-                    )
-                ),
-                ",".join(
-                    documents.filter(document_type="srs_document").values_list(
-                        "uploaded_file", flat=True
-                    )
-                ),
-                ",".join(
-                    documents.filter(document_type="sdd_document").values_list(
-                        "uploaded_file", flat=True
-                    )
-                ),
-                ",".join(
-                    documents.filter(document_type="final_report_document").values_list(
-                        "uploaded_file", flat=True
-                    )
-                ),
-                ",".join(
-                    documents.filter(document_type="presentation_document").values_list(
-                        "uploaded_file", flat=True
-                    )
-                ),
-                group.status,
+                idx,
+                gp.student.registration_no if gp.student else "N/A",
+                st_user.get_full_name() if st_user else "N/A",
+                st_user.email if st_user else "N/A",
+                gp.batch.batch_name if gp.batch else "N/A",
+                gp.topic_title_vi or "N/A",
+                gp.status,
+                "Đủ ĐK" if gp.is_eligible_for_defense else "Chưa",
+                gp.supervisor_score if gp.supervisor_score is not None else "",
+                gp.reviewer_score if gp.reviewer_score is not None else "",
+                summary.final_score_10 if (summary and summary.final_score_10 is not None) else "",
+                summary.final_letter_grade if (summary and summary.final_letter_grade) else "",
             ]
             sheet.append(row)
 
-        # Create HTTP response with Excel file
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
