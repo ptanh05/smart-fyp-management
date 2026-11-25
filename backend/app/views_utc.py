@@ -1197,7 +1197,7 @@ class StudentWeeklyReportAPIView(APIView):
 
         project = GraduationProject.objects.filter(student=student).first()
         if not project:
-            return Response({"detail": "Chưa có đồ án."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response([], status=status.HTTP_200_OK)
 
         reports = WeeklyProgressReport.objects.filter(project=project).order_by("week_number")
         return Response(WeeklyProgressReportSerializer(reports, many=True).data, status=status.HTTP_200_OK)
@@ -1285,9 +1285,13 @@ class StudentSupervisionLogsAPIView(APIView):
 
         project = GraduationProject.objects.filter(student=student).first()
         if not project:
-            membership = GroupMember.objects.filter(student=student).first()
-            if membership and membership.group:
-                project = GraduationProject.objects.filter(student__group_memberships__group=membership.group).first()
+            try:
+                membership = GroupMember.objects.filter(student=student).first()
+                if membership and membership.group:
+                    project = GraduationProject.objects.filter(student__group_memberships__group=membership.group).first()
+            except Exception:
+                # Bảng nhóm legacy (unmanaged) có thể không tồn tại trên môi trường production.
+                project = None
 
         if not project:
             return Response([], status=status.HTTP_200_OK)
@@ -1309,7 +1313,7 @@ class StudentTasksAPIView(APIView):
 
         project = GraduationProject.objects.filter(student=student).first()
         if not project:
-            return Response({"detail": "Chưa được phân công đề tài."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"stats": {"total": 0, "completed": 0, "in_progress": 0, "todo": 0, "completion_rate": 0}, "tasks": []}, status=status.HTTP_200_OK)
 
         tasks = SupervisionTask.objects.filter(project=project).order_by("is_completed", "due_date", "-created_at")
         total = tasks.count()
@@ -5100,6 +5104,9 @@ class StudentDeferralRequestAPIView(APIView):
             evidence_file=evidence_file,
             status="PENDING",
         )
+        if project.deferral_status in (None, "", "NONE"):
+            project.deferral_status = "REQUESTED"
+            project.save(update_fields=["deferral_status"])
 
         return Response({
             "success": True,
@@ -5172,12 +5179,20 @@ class AdminReviewDeferralRequestAPIView(APIView):
             project = deferral.project
             if decision == "APPROVED":
                 project.status = "DEFERRED"
+                project.deferral_status = "APPROVED"
+                project.is_eligible_for_defense = False
                 msg = f"Khoa đã duyệt đơn bảo lưu đồ án cho sinh viên {project.student.registration_no}."
             else:
                 project.status = "DISQUALIFIED"
+                project.deferral_status = "REJECTED"
                 msg = f"Khoa không duyệt đơn bảo lưu. Sinh viên {project.student.registration_no} bị loại khỏi đợt."
+            project.deferral_reason = deferral.reason
+            project.deferral_decided_at = timezone.now()
 
-            project.save(update_fields=["status"])
+            project.save(update_fields=[
+                "status", "deferral_status", "deferral_reason",
+                "deferral_decided_at", "is_eligible_for_defense",
+            ])
 
         # Thông báo tới SV
         try:

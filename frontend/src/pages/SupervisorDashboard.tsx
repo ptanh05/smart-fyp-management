@@ -739,8 +739,8 @@ const SupervisorDashboard: React.FC = () => {
                 </>
               ) : (
                 <div className="empty-state">
-                  <h2>Evaluations</h2>
-                  <p>Please select a group from the "My Groups" tab to view and manage evaluations.</p>
+                  <h2>Đánh giá</h2>
+                  <p>Vui lòng chọn một nhóm ở tab "Nhóm của tôi" để xem và quản lý đánh giá.</p>
                 </div>
               )}
             </div>

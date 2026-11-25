@@ -102,7 +102,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const isViewingPastStage = activeStageNumber < currentStageNum;
   // Chỉ được thao tác khi backend cho phép (đợt đóng, đồ án bị hoãn/đình chỉ,
   // đã bảo vệ xong... đều chỉ xem). Backend cũng chặn ghi sai giai đoạn (HTTP 409).
-  const isStageReadOnly = !activeStageAccess.editable;
   const submittedOutline = projectData?.outline_review;
   const submittedOutlineUrl = submittedOutline?.outline_file_url || submittedOutline?.outline_file || '';
   const hasSubmittedOutline = Boolean(
@@ -125,6 +124,8 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   // Survey Data
   const [surveyData, setSurveyData] = useState<any>(null);
   const canSubmitSupplementary = Boolean(surveyData?.can_submit_supplementary);
+  const isStageReadOnly =
+    !activeStageAccess.editable && !(activeTab === 'survey' && canSubmitSupplementary);
 
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
@@ -683,6 +684,21 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
           {isViewingPastStage
             ? `🔒 Giai đoạn ${activeStageNumber} đã kết thúc. Bạn có thể xem lại dữ liệu nhưng không thể thực hiện hoặc gửi lại thao tác của giai đoạn này.`
             : `🔒 Giai đoạn ${activeStageNumber} đang ở chế độ chỉ xem. ${activeStageAccess.reason || ''}`}
+        </div>
+      )}
+
+      {(projectData || initialProjectData) && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowDeferralModal(true)}
+            className="utc-btn utc-btn-deferral"
+            title="Nộp hoặc xem tiến độ đơn xin hoãn / bảo lưu ĐATN (luôn khả dụng ở mọi giai đoạn)"
+          >
+            <span>📝</span>
+            <span>Đơn xin bảo lưu</span>
+            <span className="utc-deferral-count">{deferralRequests.length}</span>
+          </button>
         </div>
       )}
 
