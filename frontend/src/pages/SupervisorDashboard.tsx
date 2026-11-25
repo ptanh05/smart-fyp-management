@@ -16,6 +16,7 @@ import CommentsSection from '../components/CommentsSection';
 import SupervisorAnalytics from '../components/SupervisorAnalytics';
 import AuditLogViewer from '../components/AuditLogViewer';
 import UTCFypTimeline from '../components/UTCFypTimeline';
+import RoleHomeWidget from '../components/RoleHomeWidget';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { UTCSupervisorGraduationView } from '../components/UTCSupervisorGraduationView';
 import { UTCSupervisorGroupChatView } from '../components/UTCSupervisorGroupChatView';
@@ -474,6 +475,8 @@ const SupervisorDashboard: React.FC = () => {
 
           {activeTab === 'overview' && (
             <>
+              <RoleHomeWidget role="supervisor" batchId={selectedBatchId} />
+
               <UTCFypTimeline currentStep={profile?.timeline_step || 3} />
 
               <div className="card">

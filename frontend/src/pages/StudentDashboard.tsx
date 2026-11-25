@@ -11,6 +11,7 @@ import Navbar from '../components/Navbar';
 import UTCAppLayout from '../components/UTCAppLayout';
 import StudentTemplatesView from '../components/StudentTemplatesView';
 import UTCFypTimeline from '../components/UTCFypTimeline';
+import RoleHomeWidget from '../components/RoleHomeWidget';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { UTCStudentGraduationView } from '../components/UTCStudentGraduationView';
 import { UTCSupervisorGroupChatView } from '../components/UTCSupervisorGroupChatView';
@@ -380,6 +381,9 @@ const StudentDashboard: React.FC = () => {
 
           {activeTab === 'overview' && (
             <>
+              {/* Role Home Widget: Việc cần làm ngay & đếm ngược */}
+              <RoleHomeWidget role="student" />
+
               {/* UTC FYP Progress Timeline */}
               <UTCFypTimeline currentStep={profile?.timeline_step || 3} />
 

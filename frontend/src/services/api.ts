@@ -1484,9 +1484,61 @@ class ApiService {
     return response.data;
   }
 
+  async submitSupervisorDeferralFeedback(requestId: number, supervisorFeedback: string): Promise<any> {
+    const response = await this.api.post(`/supervisor/deferral-request/${requestId}/feedback/`, {
+      supervisor_feedback: supervisorFeedback,
+    });
+    return response.data;
+  }
+
+  async adminCreateDeferralRequest(data: {
+    project_id?: number;
+    student_id?: number;
+    reason: string;
+    admin_notes?: string;
+    auto_approve?: boolean;
+  }): Promise<any> {
+    const response = await this.api.post('/admin/deferrals/', data);
+    return response.data;
+  }
+
   async exportCouncilMinutesPdf(councilId: number): Promise<Blob> {
     const response = await this.api.get(`/council/${councilId}/export-minutes-pdf/`, {
       responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  async getCouncilMinutesSignatures(councilId: number, projectId?: number): Promise<any> {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await this.api.get(`/council/${councilId}/minutes-signatures/`, { params });
+    return response.data;
+  }
+
+  async signCouncilMinutes(councilId: number, projectId: number, note = ''): Promise<any> {
+    const response = await this.api.post(`/council/${councilId}/minutes-signatures/`, {
+      project_id: projectId,
+      note,
+    });
+    return response.data;
+  }
+
+  async getRoleHomeSummary(batchId?: number): Promise<any> {
+    const params = batchId ? { batch_id: batchId } : {};
+    const response = await this.api.get('/dashboard/home-summary/', { params });
+    return response.data;
+  }
+
+  async requestPasswordReset(email: string): Promise<any> {
+    const response = await this.api.post('/password/reset/', { email });
+    return response.data;
+  }
+
+  async confirmPasswordReset(email: string, code: string, newPassword: string): Promise<any> {
+    const response = await this.api.post('/password/reset/confirm/', {
+      email,
+      code,
+      new_password: newPassword,
     });
     return response.data;
   }

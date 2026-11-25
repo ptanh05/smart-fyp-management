@@ -13,6 +13,7 @@ from app.views_media import (
     TemplateSecureDownloadView,
     SecureMediaDownloadView,
 )
+from app.openapi_docs import make_schema_view, make_swagger_docs_view
 
 def health_check(request):
     render_commit = os.environ.get("RENDER_GIT_COMMIT", "")
@@ -25,6 +26,8 @@ def health_check(request):
 
 urlpatterns = [
     path("", health_check, name="health-check"),
+    path("api/schema/", make_schema_view("Smart FYP UTC — Portal API", "API Cổng Sinh viên, Giảng viên & Hội đồng"), name="api-schema"),
+    path("api/docs/", make_swagger_docs_view("Smart FYP UTC — Portal API", "/api/schema/"), name="api-docs"),
     path("admin/", admin.site.urls),
     path("app/", include("app.urls")),
     path("api/", include("app.urls")),

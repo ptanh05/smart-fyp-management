@@ -28,6 +28,7 @@ from .models import (
     DefenseCouncil,
     CouncilMember,
     CouncilLiveScore,
+    DefenseMinutesSignature,
     EvaluationPolicy,
     FinalGradeSummary,
     AcademicBatch,
@@ -883,6 +884,9 @@ class StudentSurveyAPIView(APIView):
                         if sup["is_topic_match"]:
                             supervisors_for_topic.append(sup)
 
+        is_assigned_sup = GraduationProject.objects.filter(student=student, supervisor__isnull=False).exists()
+        is_supplementary_open = bool(batch and getattr(batch, "supplementary_open", False) and not getattr(batch, "is_closed", False))
+
         return Response({
             "student": {
                 "id": student.id,
@@ -901,8 +905,11 @@ class StudentSurveyAPIView(APIView):
             "batch": {
                 "id": getattr(batch, "id", None) if batch else None,
                 "batch_code": getattr(batch, "batch_code", "") if batch else "",
-                "batch_name": getattr(batch, "batch_name", "") if batch else ""
+                "batch_name": getattr(batch, "batch_name", "") if batch else "",
+                "supplementary_open": bool(getattr(batch, "supplementary_open", False)) if batch else False,
             },
+            "has_assigned_supervisor": is_assigned_sup,
+            "can_submit_supplementary": bool(is_supplementary_open and not is_assigned_sup),
             "topic_areas": topic_areas_data,
             "supervisors": supervisors_data,
             "selected_topic_area_id": selected_topic_id or "",
@@ -923,15 +930,23 @@ class StudentSurveyAPIView(APIView):
         if not batch:
             return Response({"detail": "Không có đợt làm đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
-        stage_error = require_exact_batch_stage(batch, 2)
-        if stage_error:
-            return stage_error
+        has_assigned_sup = GraduationProject.objects.filter(student=student, supervisor__isnull=False).exists()
+        is_supplementary_allowed = bool(
+            getattr(batch, "supplementary_open", False)
+            and not getattr(batch, "is_closed", False)
+            and not has_assigned_sup
+        )
 
-        if InternshipInfo.objects.filter(student=student).exists() or StudentPreference.objects.filter(student=student).exists():
-            return Response(
-                {"detail": "Bạn đã gửi danh sách nguyện vọng. Mỗi sinh viên chỉ được gửi một lần."},
-                status=status.HTTP_409_CONFLICT,
-            )
+        if not is_supplementary_allowed:
+            stage_error = require_exact_batch_stage(batch, 2)
+            if stage_error:
+                return stage_error
+
+            if InternshipInfo.objects.filter(student=student).exists() or StudentPreference.objects.filter(student=student).exists():
+                return Response(
+                    {"detail": "Bạn đã gửi danh sách nguyện vọng. Mỗi sinh viên chỉ được gửi một lần."},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
         data = request.data
         is_interning = str(data.get("is_interning", "false")).lower() in ["true", "1"]
@@ -993,7 +1008,9 @@ class StudentSurveyAPIView(APIView):
 
         with transaction.atomic():
             student = Student.objects.select_for_update().get(pk=student.pk)
-            if InternshipInfo.objects.filter(student=student).exists() or StudentPreference.objects.filter(student=student).exists():
+            if not is_supplementary_allowed and (
+                InternshipInfo.objects.filter(student=student).exists() or StudentPreference.objects.filter(student=student).exists()
+            ):
                 return Response(
                     {"detail": "Bạn đã gửi danh sách nguyện vọng. Mỗi sinh viên chỉ được gửi một lần."},
                     status=status.HTTP_409_CONFLICT,
@@ -1014,24 +1031,28 @@ class StudentSurveyAPIView(APIView):
             user.save()
 
             # Update or create InternshipInfo
-            survey = InternshipInfo.objects.create(
+            survey, _ = InternshipInfo.objects.update_or_create(
                 student=student,
-                batch=batch,
-                is_interning=is_interning,
-                company_name=company_name if is_interning else "",
-                topic_direction=topic_direction,
-                tentative_title=tentative_title,
+                defaults={
+                    "batch": batch,
+                    "is_interning": is_interning,
+                    "company_name": company_name if is_interning else "",
+                    "topic_direction": topic_direction,
+                    "tentative_title": tentative_title,
+                },
             )
 
             # Update or create StudentPreference
-            StudentPreference.objects.create(
+            StudentPreference.objects.update_or_create(
                 student=student,
-                batch=batch,
-                topic_direction=topic_direction,
-                preference_1=sup1,
-                preference_2=sup2,
-                preference_3=sup3,
-                sub_criteria=secondary_criteria_note,
+                defaults={
+                    "batch": batch,
+                    "topic_direction": topic_direction,
+                    "preference_1": sup1,
+                    "preference_2": sup2,
+                    "preference_3": sup3,
+                    "sub_criteria": secondary_criteria_note,
+                },
             )
 
         # Cảnh báo (không chặn): GVHD được chọn không thuộc chuyên ngành sinh viên đã chọn
@@ -2367,13 +2388,20 @@ class CouncilLiveDefenseSessionAPIView(APIView):
         member_scores = {getattr(s, "project_id", getattr(s.project, "id", None)): s for s in CouncilLiveScore.objects.filter(member=council_member)}
         all_live_scores = list(CouncilLiveScore.objects.filter(council=council).select_related("member__user"))
 
-        # Group scores by project_id
+        # Group scores & minutes signatures by project_id
         scores_by_project = {}
         for s in all_live_scores:
             p_id = s.project_id
             if p_id not in scores_by_project:
                 scores_by_project[p_id] = {}
             scores_by_project[p_id][s.member_id] = s
+
+        all_sigs = list(
+            DefenseMinutesSignature.objects.filter(council=council).select_related("member__user")
+        )
+        sigs_by_project = {}
+        for sig in all_sigs:
+            sigs_by_project.setdefault(sig.project_id, {})[sig.member_id] = sig
 
         projects_data = []
         for p in projects_list:
@@ -2412,6 +2440,27 @@ class CouncilLiveDefenseSessionAPIView(APIView):
             p_conflicts = CouncilConflictService.check_project_assignment(council, p)
             p_data["conflicts"] = p_conflicts
             p_data["has_conflict"] = len(p_conflicts) > 0
+
+            p_sigs = sigs_by_project.get(p.id, {})
+            p_data["minutes_signatures"] = {
+                "signed_count": len(p_sigs),
+                "total_members": len(all_members),
+                "is_fully_signed": len(all_members) > 0 and len(p_sigs) >= len(all_members),
+                "signed_by_me": council_member.id in p_sigs,
+                "members": [
+                    {
+                        "member_id": m.id,
+                        "user_id": m.user_id,
+                        "name": m.user.get_full_name() or m.user.username,
+                        "role": m.get_role_display(),
+                        "role_code": m.role,
+                        "signed": m.id in p_sigs,
+                        "signed_at": p_sigs[m.id].signed_at if m.id in p_sigs else None,
+                        "note": p_sigs[m.id].note if m.id in p_sigs else "",
+                    }
+                    for m in all_members
+                ],
+            }
 
             p_data["scoring_summary"] = {
                 "total_eligible_members": eligible_count,
@@ -5156,6 +5205,15 @@ class CloseBatchAPIView(APIView):
 
     def post(self, request, pk):
         batch = get_object_or_404(AcademicBatch, pk=pk)
+
+        if getattr(batch, "supplementary_open", False):
+            return Response(
+                {
+                    "detail": "Đợt đồ án đang mở đăng ký bổ sung. Vui lòng chốt phân công bổ sung trước khi kết thúc đợt.",
+                    "error": "supplementary_open",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         unfinalized_councils = list(
             DefenseCouncil.objects.filter(batch=batch, is_finalized=False).values_list("council_name", flat=True)

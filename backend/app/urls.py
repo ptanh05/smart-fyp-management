@@ -180,6 +180,13 @@ from .views_media import (
     TemplateSecureDownloadView,
 )
 from .views_auth_sso import GoogleSSOLoginAPIView
+from .views_enhancements import (
+    BatchMilestonesPublicAPIView,
+    SupervisorDeferralFeedbackAPIView,
+    AdminCreateDeferralAPIView,
+    DefenseMinutesSignAPIView,
+    RoleHomeSummaryAPIView,
+)
 
 
 urlpatterns = [
@@ -645,6 +652,7 @@ urlpatterns = [
     path("batches/<int:pk>/close/", CloseBatchAPIView.as_view(), name="utc-batches-close"),
     path("batches/<int:pk>/reopen/", ReopenBatchAPIView.as_view(), name="utc-batches-reopen"),
     path("batches/progress/", BatchProgressAPIView.as_view(), name="utc-batches-progress"),
+    path("batches/milestones/", BatchMilestonesPublicAPIView.as_view(), name="utc-batches-milestones"),
     path("students/import/", StudentImportAPIView.as_view(), name="utc-students-import"),
     path("student/import/", StudentImportAPIView.as_view(), name="utc-student-import"),
     path("academic/grades/import/", AcademicGradesImportAPIView.as_view(), name="utc-academic-grades-import"),
@@ -680,12 +688,15 @@ urlpatterns = [
     path("supervisor/tasks/<int:pk>/review/", SupervisorReviewTaskAPIView.as_view(), name="utc-supervisor-task-review"),
     path("supervisor/projects/<int:pk>/complete-stage-5/", SupervisorConfirmStage5CompletionAPIView.as_view(), name="utc-supervisor-complete-stage-5"),
 
-    # Phase 6: Minutes PDF & Final Grades Excel Export
+    # Phase 6: Minutes PDF & Final Grades Excel Export + Digital Signatures
     path("council/<int:council_id>/export-minutes-pdf/", CouncilMinutesPdfExportAPIView.as_view(), name="utc-council-export-minutes-pdf"),
+    path("council/<int:council_id>/minutes-signatures/", DefenseMinutesSignAPIView.as_view(), name="utc-council-minutes-signatures"),
     path("batch/<int:batch_id>/export-final-grades-excel/", BatchFinalGradesExcelExportAPIView.as_view(), name="utc-batch-export-final-grades-excel"),
 
     # Deferral Branch (FLOW_24)
     path("student/deferral-request/", StudentDeferralRequestAPIView.as_view(), name="utc-student-deferral-request"),
+    path("supervisor/deferral-request/<int:pk>/feedback/", SupervisorDeferralFeedbackAPIView.as_view(), name="utc-supervisor-deferral-feedback"),
+    path("admin/deferrals/", AdminCreateDeferralAPIView.as_view(), name="utc-admin-create-deferral"),
     path("admin/deferral-request/list/", AdminDeferralRequestListAPIView.as_view(), name="utc-admin-deferral-request-list"),
     path("admin/deferral-requests/", AdminDeferralRequestListAPIView.as_view(), name="utc-admin-deferral-requests"),
     path("admin/deferral-request/<int:pk>/review/", AdminReviewDeferralRequestAPIView.as_view(), name="utc-admin-review-deferral-request"),
@@ -693,6 +704,7 @@ urlpatterns = [
     path("faculty/deferral-request/<int:pk>/review/", AdminReviewDeferralRequestAPIView.as_view(), name="utc-faculty-deferral-request-review"),
 
     path("global-search/", GlobalSearchAPIView.as_view(), name="global-search"),
+    path("dashboard/home-summary/", RoleHomeSummaryAPIView.as_view(), name="dashboard-home-summary"),
 
     # Tính năng mở rộng (views_features.py)
     path("graduation-project/<int:pk>/submissions/", vf.ProjectSubmissionVersionsAPIView.as_view(), name="project-submission-versions"),

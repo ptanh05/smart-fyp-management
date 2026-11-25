@@ -31,3 +31,6 @@ export const useBatchProgress = (): BatchProgressContextValue => {
   }
   return context;
 };
+
+export const useOptionalBatchProgress = (): BatchProgressContextValue | undefined =>
+  useContext(BatchProgressContext);

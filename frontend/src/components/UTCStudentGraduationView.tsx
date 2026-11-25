@@ -122,9 +122,18 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     }
   })();
 
+  // Survey Data
+  const [surveyData, setSurveyData] = useState<any>(null);
+  const canSubmitSupplementary = Boolean(surveyData?.can_submit_supplementary);
+
   const handleSelectTab = (tabKey: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => {
     const targetStage = GRADUATION_STAGES.find((s) => s.key === tabKey);
     const access = targetStage ? getStageAccess(workflow, targetStage.number, currentStageNum) : null;
+    if (tabKey === 'survey' && canSubmitSupplementary) {
+      setActiveTab(tabKey);
+      onSubtabChange?.(tabKey);
+      return;
+    }
     if (targetStage && access && !access.accessible) {
       notify.warning(access.reason || `Bạn cần hoàn thành GĐ ${currentStageNum} trước khi mở ${targetStage.label}!`);
       return;
@@ -147,12 +156,13 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
   const hasStageSource = Boolean(workflow) || (!batchProgressLoading && Boolean(batchProgress));
   useEffect(() => {
     if (!hasStageSource) return;
+    if (canSubmitSupplementary && activeTab === 'survey') return;
     const resolved = resolveStageTab(activeTab, workflow, currentStageNum);
     if (resolved.redirected) {
       setActiveTab(resolved.key);
       onSubtabChange?.(resolved.key);
     }
-  }, [activeTab, hasStageSource, workflow, currentStageNum, onSubtabChange]);
+  }, [activeTab, hasStageSource, workflow, currentStageNum, onSubtabChange, canSubmitSupplementary]);
 
   // Sync subtab from searchParams or global event
   useEffect(() => {
@@ -171,9 +181,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
     window.addEventListener('app:switch-subtab', handleSwitchSubtab);
     return () => window.removeEventListener('app:switch-subtab', handleSwitchSubtab);
   }, [searchParams]);
-
-  // Survey Data
-  const [surveyData, setSurveyData] = useState<any>(null);
   const [isInterning, setIsInterning] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [topicDirectionId, setTopicDirectionId] = useState<number | string>('');
@@ -1002,7 +1009,19 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
             </div>
           )}
 
-          {surveyData?.survey ? (
+          {canSubmitSupplementary && (
+            <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-1">
+              <div className="flex items-center gap-2 font-bold text-sm text-amber-950">
+                <span>🔓</span>
+                <span>Khoa đang mở Đăng ký Nguyện vọng Bổ sung GVHD</span>
+              </div>
+              <p className="leading-relaxed">
+                Bạn hiện chưa được phân công Giảng viên hướng dẫn. Hãy điền hoặc cập nhật đầy đủ NV1-NV3 dưới đây và bấm Lưu trước khi Khoa chốt danh sách bổ sung.
+              </p>
+            </div>
+          )}
+
+          {surveyData?.survey && !canSubmitSupplementary ? (
             <div className="space-y-4">
               <div className="p-4 rounded-xl utc-survey-submitted-box bg-emerald-50 border border-emerald-200 text-emerald-900">
                 <div className="flex items-center gap-2">

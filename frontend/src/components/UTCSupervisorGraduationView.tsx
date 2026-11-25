@@ -312,6 +312,11 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
   const [showTaskReviewModal, setShowTaskReviewModal] = useState(false);
   const [confirmingStage5ProjectId, setConfirmingStage5ProjectId] = useState<number | null>(null);
 
+  // Deferral Feedback Modal State (GVHD góp ý đơn bảo lưu)
+  const [deferralFeedbackReq, setDeferralFeedbackReq] = useState<any>(null);
+  const [deferralFeedbackText, setDeferralFeedbackText] = useState('');
+  const [savingDeferralFeedback, setSavingDeferralFeedback] = useState(false);
+
 
   // Modal Guards with ESC & dirty form protection
   const outlineGuard = useModalGuard({
@@ -653,6 +658,35 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       notifyError('Lỗi duyệt bảo lưu', err);
     } finally {
       setReviewingDeferral(false);
+    }
+  };
+
+  const handleOpenDeferralFeedback = (req: any) => {
+    setDeferralFeedbackReq(req);
+    setDeferralFeedbackText(req.supervisor_feedback || '');
+  };
+
+  const handleSubmitDeferralFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deferralFeedbackReq || savingDeferralFeedback) return;
+    if (!deferralFeedbackText.trim()) {
+      notify.error('Vui lòng nhập nội dung góp ý của GVHD.');
+      return;
+    }
+    try {
+      setSavingDeferralFeedback(true);
+      const res = await apiService.submitSupervisorDeferralFeedback(
+        deferralFeedbackReq.id,
+        deferralFeedbackText.trim()
+      );
+      notify.success(res?.message || 'Đã lưu góp ý GVHD cho đơn bảo lưu.');
+      setDeferralFeedbackReq(null);
+      setDeferralFeedbackText('');
+      fetchData();
+    } catch (err: any) {
+      notifyError('Lỗi gửi góp ý GVHD', err);
+    } finally {
+      setSavingDeferralFeedback(false);
     }
   };
 
@@ -3003,7 +3037,17 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         </span>
                       </td>
                       <td className="p-3 max-w-xs whitespace-pre-line">
-                        {req.reason || req.reason_details}
+                        <div>{req.reason || req.reason_details}</div>
+                        {req.created_by_admin && (
+                          <div className="mt-1 inline-block text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            🏛️ Khoa lập hộ
+                          </div>
+                        )}
+                        {req.supervisor_feedback && (
+                          <div className="mt-1.5 p-2 rounded-lg bg-sky-50 border border-sky-200 text-sky-900 text-xs">
+                            <span className="font-bold">💬 Ý kiến GVHD:</span> {req.supervisor_feedback}
+                          </div>
+                        )}
                       </td>
                       <td className="p-3">
                         {req.evidence_file ? (
@@ -3033,7 +3077,15 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <div className="inline-flex items-center gap-1.5">
+                        <div className="inline-flex items-center gap-1.5 flex-wrap justify-end">
+                          <button
+                            onClick={() => handleOpenDeferralFeedback(req)}
+                            disabled={savingDeferralFeedback}
+                            className="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs transition shadow-sm flex items-center gap-1 disabled:opacity-50"
+                            title="GVHD góp ý / xác nhận tình trạng đồ án"
+                          >
+                            <span>💬</span> Góp ý GVHD
+                          </button>
                           <button
                             onClick={() => handleReviewDeferral(req.id, 'APPROVED')}
                             disabled={reviewingDeferral}
@@ -3116,6 +3168,54 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           </div>
         </div>
       )}
+      {/* Modal GVHD góp ý đơn xin bảo lưu */}
+      {deferralFeedbackReq && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-sky-600 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4 text-slate-900">
+            <div className="border-b border-slate-200 pb-3">
+              <span className="text-xs text-sky-800 font-bold uppercase tracking-wider bg-sky-50 px-2.5 py-0.5 rounded border border-sky-200">
+                💬 GVHD góp ý đơn xin bảo lưu
+              </span>
+              <h3 className="text-base font-bold text-slate-900 mt-2">
+                {deferralFeedbackReq.student?.full_name || deferralFeedbackReq.student_name || 'Sinh viên'} (
+                {deferralFeedbackReq.student?.registration_no || deferralFeedbackReq.student_registration_no || 'N/A'})
+              </h3>
+            </div>
+            <form onSubmit={handleSubmitDeferralFeedback} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Nhận xét / Xác nhận của GVHD (*)
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={deferralFeedbackText}
+                  onChange={(e) => setDeferralFeedbackText(e.target.value)}
+                  placeholder="Nhận xét quá trình hướng dẫn, tiến độ SV và kiến nghị Khoa xem xét bảo lưu..."
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-sky-600"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setDeferralFeedbackReq(null)}
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingDeferralFeedback}
+                  className="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
+                >
+                  {savingDeferralFeedback ? 'Đang lưu...' : '💾 Lưu góp ý GVHD'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal xem trước file Đề cương / Tài liệu cho Giảng viên */}
       <DocumentViewerModal
         isOpen={viewerOpen}

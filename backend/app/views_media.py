@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from .session_auth import SessionTrackingJWTAuthentication as JWTAuthentication
 from rest_framework_simplejwt.tokens import AccessToken
 from django.contrib.auth import get_user_model
 from rest_framework import status

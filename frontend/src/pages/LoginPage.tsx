@@ -34,6 +34,16 @@ const LoginPage: React.FC = () => {
   const [ssoLoading, setSsoLoading] = useState(false);
   const [ssoError, setSsoError] = useState('');
 
+  // Forgot Password 2-Step Modal States
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'request' | 'confirm'>('request');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+
   const handleFillStudent = (mssv: string, pass: string, name: string) => {
     setUserType('student');
     setRegistrationNo(mssv);
@@ -634,7 +644,18 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="utc-form-options">
-              <a href="#forgot" onClick={(e) => { e.preventDefault(); notify.info('Vui lòng liên hệ Giáo vụ Khoa UTC để lấy lại mật khẩu.'); }}>
+              <a
+                href="#forgot"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setForgotStep('request');
+                  setForgotError('');
+                  setForgotMessage('');
+                  setForgotCode('');
+                  setForgotNewPassword('');
+                  setShowForgotModal(true);
+                }}
+              >
                 {t('portal.forgotPassword', 'Quên mật khẩu?')}
               </a>
               <a href="#help" onClick={(e) => { e.preventDefault(); notify.info('Hỗ trợ kỹ thuật UTC: 024 3766 4078 | Email: dev@utc.edu.vn'); }}>
@@ -774,6 +795,160 @@ const LoginPage: React.FC = () => {
                 {ssoLoading ? 'ĐANG XÁC THỰC...' : '🚀 XÁC THỰC VÀ ĐĂNG NHẬP'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Self-Service Forgot Password 2-Step Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-blue-500/30 rounded-2xl max-w-md w-full p-6 text-slate-100 shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => setShowForgotModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white w-8 h-8 rounded-full bg-slate-800/60 hover:bg-slate-800 flex items-center justify-center transition"
+            >
+              ✕
+            </button>
+            <h3 className="text-lg font-bold text-white mb-1">🔐 Khôi Phục Mật Khẩu UTC</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              {forgotStep === 'request'
+                ? 'Nhập địa chỉ email đã đăng ký tài khoản để nhận mã xác thực 6 chữ số.'
+                : 'Nhập mã OTP 6 chữ số đã gửi về email cùng mật khẩu mới (tối thiểu 8 ký tự).'}
+            </p>
+
+            {forgotError && (
+              <div className="mb-3 p-2.5 rounded-lg bg-red-950/70 border border-red-500/40 text-red-300 text-xs">
+                ⚠️ {forgotError}
+              </div>
+            )}
+            {forgotMessage && (
+              <div className="mb-3 p-2.5 rounded-lg bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 text-xs">
+                ✅ {forgotMessage}
+              </div>
+            )}
+
+            {forgotStep === 'request' ? (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setForgotError('');
+                  setForgotMessage('');
+                  try {
+                    setForgotLoading(true);
+                    await apiService.requestPasswordReset(forgotEmail.trim());
+                    setForgotMessage('Mã khôi phục 6 chữ số đã được gửi tới email của bạn.');
+                    setForgotStep('confirm');
+                  } catch (err: any) {
+                    const data = err.response?.data;
+                    setForgotError(
+                      data?.email?.[0] || data?.message || data?.detail || 'Không thể gửi mã đặt lại mật khẩu.'
+                    );
+                  } finally {
+                    setForgotLoading(false);
+                  }
+                }}
+                className="space-y-3"
+              >
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email tài khoản (*)</label>
+                  <input
+                    type="email"
+                    required
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="vd: 201200001@utc.edu.vn"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="w-1/3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-2/3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold disabled:opacity-50"
+                  >
+                    {forgotLoading ? 'Đang gửi mã...' : '📩 Gửi mã xác nhận'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setForgotError('');
+                  setForgotMessage('');
+                  if (forgotNewPassword.length < 8) {
+                    setForgotError('Mật khẩu mới phải có ít nhất 8 ký tự.');
+                    return;
+                  }
+                  try {
+                    setForgotLoading(true);
+                    await apiService.confirmPasswordReset(
+                      forgotEmail.trim(),
+                      forgotCode.trim(),
+                      forgotNewPassword
+                    );
+                    notify.success('Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.');
+                    setShowForgotModal(false);
+                  } catch (err: any) {
+                    const data = err.response?.data;
+                    setForgotError(
+                      data?.code?.[0] || data?.new_password?.[0] || data?.message || data?.detail || 'Mã xác nhận không hợp lệ hoặc đã hết hạn.'
+                    );
+                  } finally {
+                    setForgotLoading(false);
+                  }
+                }}
+                className="space-y-3"
+              >
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Mã OTP 6 chữ số (*)</label>
+                  <input
+                    type="text"
+                    required
+                    value={forgotCode}
+                    onChange={(e) => setForgotCode(e.target.value)}
+                    placeholder="Nhập 6 chữ số từ email"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Mật khẩu mới (*)</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    placeholder="Tối thiểu 8 ký tự"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setForgotStep('request')}
+                    className="w-1/3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  >
+                    ← Gửi lại mã
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-2/3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50"
+                  >
+                    {forgotLoading ? 'Đang cập nhật...' : '✅ Xác nhận đổi mật khẩu'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

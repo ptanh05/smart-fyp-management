@@ -147,7 +147,7 @@ class GoogleSSOLoginAPIView(APIView):
             pass
 
         # Generate JWT Tokens
-        token_data = get_tokens_for_user(user)
+        token_data = get_tokens_for_user(user, request=request, portal="sso")
         refresh_token = token_data.get("refresh")
 
         user_info = {

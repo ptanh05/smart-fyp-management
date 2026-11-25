@@ -40,6 +40,11 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [locking, setLocking] = useState(false);
 
+  // Minutes Signature Modal
+  const [signModalProject, setSignModalProject] = useState<any>(null);
+  const [signNote, setSignNote] = useState('');
+  const [signingMinutes, setSigningMinutes] = useState(false);
+
   const initialScoreRef = useRef({
     scorePres: 2.5,
     scoreContent: 2.5,
@@ -235,6 +240,31 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
       notifyError('Lỗi chấm điểm', err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleOpenSignModal = (project: any) => {
+    setSignModalProject(project);
+    const mySig = project.minutes_signatures?.members?.find(
+      (m: any) => Number(m.user_id) === Number(councilData?.my_user_id) && m.signed
+    );
+    setSignNote(mySig?.note || '');
+  };
+
+  const handleConfirmSignMinutes = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signModalProject || !councilData?.id || signingMinutes) return;
+    try {
+      setSigningMinutes(true);
+      const res = await apiService.signCouncilMinutes(councilData.id, signModalProject.id, signNote.trim());
+      notify.success(res?.message || 'Đã ký xác nhận biên bản bảo vệ!');
+      setSignModalProject(null);
+      setSignNote('');
+      await fetchData(true);
+    } catch (err: any) {
+      notifyError('Lỗi ký xác nhận biên bản', err);
+    } finally {
+      setSigningMinutes(false);
     }
   };
 
@@ -770,6 +800,23 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
                         {councilData.is_locked ? '👁️ Xem điểm' : hasMyScore ? 'Sửa điểm' : '✍️ Chấm điểm bảo vệ'}
                       </button>
                     )}
+
+                    {/* Minutes Signature Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenSignModal(p)}
+                      className={`px-3 py-2 rounded-lg text-xs font-semibold border transition flex items-center gap-1 ${
+                        p.minutes_signatures?.signed_by_me
+                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40'
+                          : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/30'
+                      }`}
+                      title="Ký xác nhận biên bản bảo vệ (chuẩn 5 thành viên)"
+                    >
+                      <span>{p.minutes_signatures?.signed_by_me ? '✅' : '🖋️'}</span>
+                      <span>
+                        Ký BB ({p.minutes_signatures?.signed_count || 0}/{p.minutes_signatures?.total_members || councilData.members?.length || 5})
+                      </span>
+                    </button>
                   </div>
                 </div>
 
@@ -970,6 +1017,98 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
                     {submitting ? 'Đang lưu...' : 'Xác nhận Điểm Chấm'}
                   </button>
                 )}
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Minutes Signature Modal */}
+      {signModalProject && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="utc-live-surface border border-indigo-500/30 p-6 rounded-2xl max-w-lg w-full shadow-2xl space-y-4">
+            <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                  🖋️ Ký Xác Nhận Biên Bản Bảo Vệ (1CT - 2TK - 2UV)
+                </span>
+                <h3 className="text-base font-bold utc-live-title mt-2">
+                  {signModalProject.student_name} ({signModalProject.student_reg_no})
+                </h3>
+                <p className="text-xs utc-live-muted mt-0.5">{signModalProject.topic_title_vi}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSignModalProject(null)}
+                className="text-slate-400 hover:text-slate-600 text-sm px-2 py-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold utc-live-body">
+                <span>Trạng thái chữ ký thành viên Hội đồng:</span>
+                <span className="text-indigo-600 dark:text-indigo-400">
+                  {signModalProject.minutes_signatures?.signed_count || 0} /{' '}
+                  {signModalProject.minutes_signatures?.total_members || 5} đã ký
+                </span>
+              </div>
+              <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                {(signModalProject.minutes_signatures?.members || []).map((m: any) => (
+                  <div
+                    key={m.member_id}
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs ${
+                      m.signed
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                        : 'utc-live-subsurface'
+                    }`}
+                  >
+                    <div>
+                      <span className="font-bold">{m.name}</span>
+                      <span className="ml-2 text-[11px] opacity-80">({m.role})</span>
+                      {m.note && <div className="text-[11px] opacity-80 mt-0.5">Ghi chú: {m.note}</div>}
+                    </div>
+                    <span className="font-bold whitespace-nowrap">
+                      {m.signed ? '✅ Đã ký' : '⏳ Chưa ký'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmSignMinutes} className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div>
+                <label className="block text-xs font-semibold utc-live-muted mb-1">
+                  Ghi chú xác nhận biên bản (tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  value={signNote}
+                  onChange={(e) => setSignNote(e.target.value)}
+                  placeholder="VD: Đồng ý với kết quả chấm điểm và nhận xét trong biên bản..."
+                  className="w-full px-3 py-2 utc-live-input rounded-lg text-xs"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSignModalProject(null)}
+                  className="px-4 py-2 rounded-lg utc-live-btn-neutral text-xs"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={signingMinutes}
+                  className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md disabled:opacity-50"
+                >
+                  {signingMinutes
+                    ? 'Đang ký...'
+                    : signModalProject.minutes_signatures?.signed_by_me
+                    ? '🔄 Cập nhật chữ ký'
+                    : '🖋️ Xác Nhận Ký Biên Bản'}
+                </button>
               </div>
             </form>
           </div>

@@ -748,6 +748,9 @@ export interface ThesisDeferralRequest {
   status_display?: string;
   admin_notes?: string;
   faculty_review_notes?: string;
+  supervisor_feedback?: string | null;
+  supervisor_reviewed_at?: string | null;
+  created_by_admin?: boolean;
   created_at: string;
   reviewed_at?: string | null;
 }

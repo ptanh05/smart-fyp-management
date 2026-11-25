@@ -16,6 +16,7 @@ from ..models import (
     FinalGradeSummary,
     AcademicBatch,
     AuditLog,
+    BatchMilestone,
 )
 
 class ProjectTopicAreaSerializer(serializers.ModelSerializer):
@@ -667,17 +668,60 @@ class ThesisDeferralRequestSerializer(serializers.ModelSerializer):
             "status",
             "status_display",
             "admin_notes",
+            "supervisor_feedback",
+            "supervisor_reviewed_at",
+            "created_by_admin",
             "submitted_at",
             "reviewed_at",
             "reviewed_by",
             "reviewed_by_name",
         ]
-        read_only_fields = ["submitted_at", "reviewed_at", "reviewed_by"]
+        read_only_fields = ["submitted_at", "reviewed_at", "reviewed_by", "supervisor_reviewed_at"]
 
     def get_evidence_file_url(self, obj):
         if obj.evidence_file:
             return obj.evidence_file.url
         return ""
+
+
+class BatchMilestoneSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+    days_left = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BatchMilestone
+        fields = [
+            "id",
+            "batch",
+            "name",
+            "stage_number",
+            "start_date",
+            "end_date",
+            "description",
+            "order_index",
+            "is_active",
+            "status",
+            "days_left",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+    def get_status(self, obj):
+        from django.utils import timezone
+        now = timezone.now()
+        if obj.start_date and obj.start_date > now:
+            return "UPCOMING"
+        if obj.end_date and obj.end_date < now:
+            return "EXPIRED"
+        if obj.start_date or obj.end_date:
+            return "ACTIVE"
+        return "UNSCHEDULED"
+
+    def get_days_left(self, obj):
+        if not obj.end_date:
+            return None
+        from django.utils import timezone
+        return (obj.end_date.date() - timezone.localdate()).days
 
 
 class AcademicBatchSerializer(serializers.ModelSerializer):
@@ -693,6 +737,7 @@ class AcademicBatchSerializer(serializers.ModelSerializer):
             "end_date",
             "is_active",
             "is_closed",
+            "supplementary_open",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]

@@ -2,7 +2,7 @@ from .paginators import BasePagination, ChatPagination, CommentsPagination
 from rest_framework.status import HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from .session_auth import SessionTrackingJWTAuthentication as JWTAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.generics import (
@@ -167,13 +167,13 @@ from .serializers.field_serializers import (
 )
 
 
-def get_tokens_for_user(user):
-    refresh = RefreshToken.for_user(user)
-    refresh["user_type"] = user.user_type
+def get_tokens_for_user(user, request=None, portal: str = "portal"):
+    from .session_auth import issue_tracked_session_tokens
 
+    refresh, access_token, _ = issue_tracked_session_tokens(user, request=request, portal=portal)
     return {
         "refresh": str(refresh),
-        "access": str(refresh.access_token),
+        "access": access_token,
         "expire_time": datetime.now()
         + settings.SIMPLE_JWT.get("ACCESS_TOKEN_LIFETIME"),
     }
@@ -219,6 +219,16 @@ class CookieTokenRefreshAPIView(APIView):
 
         try:
             refresh_obj = RefreshToken(raw_refresh)
+            sid = refresh_obj.payload.get("sid")
+            if sid:
+                from .models import UserSessionLog
+                if UserSessionLog.objects.filter(token_jti=sid, is_active=False).exists():
+                    response = Response(
+                        {"detail": "Phiên đăng nhập đã bị thu hồi."},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+                    delete_refresh_cookie(response)
+                    return response
             new_access_token = str(refresh_obj.access_token)
             
             # SimpleJWT blacklists old token upon rotation when blacklist is enabled
@@ -256,6 +266,12 @@ class CookieLogoutAPIView(APIView):
         if raw_refresh:
             try:
                 token_obj = RefreshToken(raw_refresh)
+                from .session_auth import revoke_session_by_jti
+                revoke_session_by_jti(
+                    str(token_obj.payload.get("sid") or token_obj.payload.get("jti") or ""),
+                    revoked_by=request.user if request.user.is_authenticated else None,
+                    reason="User logout",
+                )
                 token_obj.blacklist()
             except Exception:
                 pass
@@ -430,6 +446,7 @@ class StudentLoginView(APIView):
     def post(self, request):
         from django.core.cache import cache
         from app.models import AuditLog
+        from .session_auth import get_security_policy_int
         serializer = StudentLoginDetailSerializer(data=request.data)
         if serializer.is_valid():
             identifier = serializer.validated_data.get("registration_no", "").strip()
@@ -454,12 +471,16 @@ class StudentLoginView(APIView):
                     student.user.set_password(password)
                     student.user.save(update_fields=["password"])
 
+            max_attempts = max(1, get_security_policy_int("max_login_attempts", 3))
+            lockout_minutes = max(1, get_security_policy_int("lockout_minutes", 15))
+            lock_ttl = lockout_minutes * 60
+
             if cache.get(lock_key):
                 if is_valid:
                     cache.delete(lock_key)
                     cache.delete(fail_key)
                 else:
-                    return Response({"detail": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần.", "message": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+                    return Response({"detail": f"Tài khoản tạm khóa {lockout_minutes} phút do nhập sai mật khẩu quá {max_attempts} lần.", "message": f"Tài khoản tạm khóa {lockout_minutes} phút do nhập sai mật khẩu quá {max_attempts} lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
             if is_valid:
                 cache.delete(fail_key)
@@ -467,7 +488,7 @@ class StudentLoginView(APIView):
                 if not student.user.password.startswith("md5$"):
                     student.user.set_password(password)
                     student.user.save(update_fields=["password"])
-                token = get_tokens_for_user(student.user)
+                token = get_tokens_for_user(student.user, request=request, portal="student")
                 refresh_token_str = token.get("refresh")
                 response_data = {
                     "access": token.get("access"),
@@ -478,22 +499,22 @@ class StudentLoginView(APIView):
                 return response
             else:
                 fail_count += 1
-                if fail_count >= 3:
-                    cache.set(lock_key, True, 15 * 60)
+                if fail_count >= max_attempts:
+                    cache.set(lock_key, True, lock_ttl)
                     cache.delete(fail_key)
                     if student:
                         AuditLog.objects.create(
                             user=student.user,
                             action_type="SECURITY_ALERT",
-                            description=f"Tài khoản bị khóa 15 phút do nhập sai mật khẩu 3 lần."
+                            description=f"Tài khoản bị khóa {lockout_minutes} phút do nhập sai mật khẩu {max_attempts} lần."
                         )
-                    return Response({"detail": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần.", "message": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+                    return Response({"detail": f"Tài khoản tạm khóa {lockout_minutes} phút do nhập sai mật khẩu quá {max_attempts} lần.", "message": f"Tài khoản tạm khóa {lockout_minutes} phút do nhập sai mật khẩu quá {max_attempts} lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
                 
-                cache.set(fail_key, fail_count, 15 * 60)
+                cache.set(fail_key, fail_count, lock_ttl)
                 return Response(
                     {
-                        "detail": f"Sai thông tin đăng nhập. Bạn còn {3 - fail_count} lần thử trước khi bị khóa.",
-                        "message": f"Sai thông tin đăng nhập. Bạn còn {3 - fail_count} lần thử trước khi bị khóa.",
+                        "detail": f"Sai thông tin đăng nhập. Bạn còn {max_attempts - fail_count} lần thử trước khi bị khóa.",
+                        "message": f"Sai thông tin đăng nhập. Bạn còn {max_attempts - fail_count} lần thử trước khi bị khóa.",
                     },
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
@@ -1287,6 +1308,7 @@ class SupervisorLoginAPIView(APIView):
     def post(self, request):
         from django.core.cache import cache
         from app.models import AuditLog
+        from .session_auth import get_security_policy_int
         serializer = SupervisorLoginDetailSerializer(data=request.data)
         if serializer.is_valid():
             identifier = serializer.validated_data.get("email", "").strip()
@@ -1311,12 +1333,16 @@ class SupervisorLoginAPIView(APIView):
                     supervisor.user.set_password(password)
                     supervisor.user.save(update_fields=["password"])
 
+            max_attempts = max(1, get_security_policy_int("max_login_attempts", 3))
+            lockout_minutes = max(1, get_security_policy_int("lockout_minutes", 15))
+            lock_ttl = lockout_minutes * 60
+
             if cache.get(lock_key):
                 if is_valid:
                     cache.delete(lock_key)
                     cache.delete(fail_key)
                 else:
-                    return Response({"detail": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần.", "message": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+                    return Response({"detail": f"Tài khoản tạm khóa {lockout_minutes} phút do nhập sai mật khẩu quá {max_attempts} lần.", "message": f"Tài khoản tạm khóa {lockout_minutes} phút do nhập sai mật khẩu quá {max_attempts} lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
             if is_valid:
                 cache.delete(fail_key)
@@ -1324,7 +1350,7 @@ class SupervisorLoginAPIView(APIView):
                 if not supervisor.user.password.startswith("md5$"):
                     supervisor.user.set_password(password)
                     supervisor.user.save(update_fields=["password"])
-                token = get_tokens_for_user(supervisor.user)
+                token = get_tokens_for_user(supervisor.user, request=request, portal="supervisor")
                 refresh_token_str = token.get("refresh")
                 response_data = {
                     "access": token.get("access"),
@@ -1335,22 +1361,22 @@ class SupervisorLoginAPIView(APIView):
                 return response
             else:
                 fail_count += 1
-                if fail_count >= 3:
-                    cache.set(lock_key, True, 15 * 60)
+                if fail_count >= max_attempts:
+                    cache.set(lock_key, True, lock_ttl)
                     cache.delete(fail_key)
                     if supervisor:
                         AuditLog.objects.create(
                             user=supervisor.user,
                             action_type="SECURITY_ALERT",
-                            description=f"Tài khoản bị khóa 15 phút do nhập sai mật khẩu 3 lần."
+                            description=f"Tài khoản bị khóa {lockout_minutes} phút do nhập sai mật khẩu {max_attempts} lần."
                         )
-                    return Response({"detail": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần.", "message": "Tài khoản tạm khóa 15 phút do nhập sai mật khẩu quá 3 lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+                    return Response({"detail": f"Tài khoản tạm khóa {lockout_minutes} phút do nhập sai mật khẩu quá {max_attempts} lần.", "message": f"Tài khoản tạm khóa {lockout_minutes} phút do nhập sai mật khẩu quá {max_attempts} lần."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
                 
-                cache.set(fail_key, fail_count, 15 * 60)
+                cache.set(fail_key, fail_count, lock_ttl)
                 return Response(
                     {
-                        "detail": f"Sai thông tin đăng nhập. Bạn còn {3 - fail_count} lần thử trước khi bị khóa.",
-                        "message": f"Sai thông tin đăng nhập. Bạn còn {3 - fail_count} lần thử trước khi bị khóa.",
+                        "detail": f"Sai thông tin đăng nhập. Bạn còn {max_attempts - fail_count} lần thử trước khi bị khóa.",
+                        "message": f"Sai thông tin đăng nhập. Bạn còn {max_attempts - fail_count} lần thử trước khi bị khóa.",
                     },
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
@@ -1398,7 +1424,7 @@ class CommitteeMemberLoginAPIView(APIView):
                 if not user.password.startswith("md5$"):
                     user.set_password(password)
                     user.save(update_fields=["password"])
-                token = get_tokens_for_user(user)
+                token = get_tokens_for_user(user, request=request, portal="council")
                 refresh_token_str = token.get("refresh")
                 response_data = {
                     "access": token.get("access"),
@@ -1440,7 +1466,7 @@ class ExternalExaminerLoginAPIView(APIView):
                 if settings.DEBUG and not external_examiner.user.password.startswith("md5$"):
                     external_examiner.user.set_password(serializer.validated_data.get("password"))
                     external_examiner.user.save(update_fields=["password"])
-                token = get_tokens_for_user(external_examiner.user)
+                token = get_tokens_for_user(external_examiner.user, request=request, portal="external")
                 refresh_token_str = token.get("refresh")
                 response_data = {
                     "access": token.get("access"),
