@@ -1,9 +1,9 @@
 import { notify } from '../utils/notify';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { apiService } from '../services/api';
+import { apiService, API_BASE_URL } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import './LoginPage.css';
 import utcLogo from '../asset/images/utc_logo.webp';
@@ -18,7 +18,25 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSlowLogin, setIsSlowLogin] = useState(false);
   const [filledAccountInfo, setFilledAccountInfo] = useState<string | null>(null);
+
+  // Pre-warm sleeping Render Free Tier backend when opening login page
+  useEffect(() => {
+    if (typeof API_BASE_URL === 'string' && API_BASE_URL.startsWith('http')) {
+      const rootUrl = API_BASE_URL.replace(/\/app\/?$/, '').replace(/\/api\/?$/, '') + '/';
+      fetch(rootUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      setIsSlowLogin(false);
+      return;
+    }
+    const timer = setTimeout(() => setIsSlowLogin(true), 4000);
+    return () => clearTimeout(timer);
+  }, [loading]);
   
   // Validation States
   const [fieldErrors, setFieldErrors] = useState<{ registrationNo?: string; email?: string; password?: string }>({});
@@ -666,8 +684,17 @@ const LoginPage: React.FC = () => {
             {error && <div className="utc-error-box">{error}</div>}
 
             <button type="submit" className="utc-btn-submit" disabled={loading}>
-              {loading ? t('login.loggingIn', 'ĐANG ĐĂNG NHẬP...') : t('login.submit', 'ĐĂNG NHẬP')}
+              {loading
+                ? isSlowLogin
+                  ? 'ĐANG ĐÁNH THỨC MÁY CHỦ (~30-50s)...'
+                  : t('login.loggingIn', 'ĐANG ĐĂNG NHẬP...')
+                : t('login.submit', 'ĐĂNG NHẬP')}
             </button>
+            {loading && isSlowLogin && (
+              <div style={{ marginTop: '8px', fontSize: '0.78rem', color: '#93c5fd', textAlign: 'center', lineHeight: 1.4 }}>
+                ⏳ Máy chủ Render đang khởi động lại từ chế độ nghỉ. Vui lòng chờ trong giây lát...
+              </div>
+            )}
 
             <div className="utc-divider">
               <span>{t('portal.orLoginWith', 'hoặc đăng nhập')}</span>

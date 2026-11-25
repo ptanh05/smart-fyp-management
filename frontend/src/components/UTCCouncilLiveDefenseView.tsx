@@ -17,6 +17,7 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
   const [councilData, setCouncilData] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [councilUnavailable, setCouncilUnavailable] = useState(false);
   const [autoSync, setAutoSync] = useState(true);
   const [exportingMinutes, setExportingMinutes] = useState(false);
 
@@ -86,11 +87,20 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
       });
       setCouncilData(res.data.council);
       setProjects(res.data.projects || []);
-    } catch (err) {
-      console.error(err);
-      if (!silent) {
-        setCouncilData(null);
-        setProjects([]);
+      setCouncilUnavailable(false);
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        setCouncilUnavailable(true);
+        if (!silent) {
+          setCouncilData(null);
+          setProjects([]);
+        }
+      } else {
+        console.error(err);
+        if (!silent) {
+          setCouncilData(null);
+          setProjects([]);
+        }
       }
     } finally {
       if (!silent) setLoading(false);
@@ -98,17 +108,18 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
   };
 
   useEffect(() => {
+    setCouncilUnavailable(false);
     fetchData();
   }, [councilId, batchId]);
 
-  // Real-time auto sync every 5 seconds
+  // Real-time auto sync every 5 seconds (stop cleanly when not assigned to a council)
   useEffect(() => {
-    if (!autoSync) return;
+    if (!autoSync || councilUnavailable) return;
     const interval = setInterval(() => {
       fetchData(true);
     }, 5000);
     return () => clearInterval(interval);
-  }, [autoSync, councilId, batchId]);
+  }, [autoSync, councilUnavailable, councilId, batchId]);
 
   // Live session timer countdown
   useEffect(() => {

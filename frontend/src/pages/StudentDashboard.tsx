@@ -498,7 +498,11 @@ const StudentDashboard: React.FC = () => {
                         }}
                       >
                         <span>{currentStageInfo.icon}</span>
-                        <span>Vào GĐ {currentStageInfo.number}: {currentStageInfo.label}</span>
+                        <span>
+                          {currentStageInfo.label.startsWith('GĐ ')
+                            ? `Vào ${currentStageInfo.label}`
+                            : `Vào GĐ ${currentStageInfo.number}: ${currentStageInfo.label}`}
+                        </span>
                         <span>➔</span>
                       </button>
                     </div>

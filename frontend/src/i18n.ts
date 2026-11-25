@@ -16,7 +16,9 @@ i18n
     fallbackLng: 'vi',
     supportedLngs: ['en', 'vi'],
     detection: {
-      order: ['localStorage', 'navigator'],
+      // Only honor an explicit user language selection saved in localStorage;
+      // default to Vietnamese so English-locale browsers do not flash English.
+      order: ['localStorage'],
       caches: ['localStorage'],
     },
     interpolation: {
