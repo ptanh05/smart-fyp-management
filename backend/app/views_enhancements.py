@@ -38,6 +38,63 @@ from .serializers.utc_graduation_serializers import (
 )
 
 
+def _build_milestone_todos(current_milestone, is_closed=False, user_stage_number=None, role="student"):
+    """Sinh việc cần làm cảnh báo khi mốc giai đoạn hiện tại sắp đến hạn (<= 3 ngày) hoặc quá hạn."""
+    if not current_milestone or is_closed:
+        return []
+    days_left = current_milestone.get("days_left")
+    if days_left is None or days_left > 3:
+        return []
+    ms_stage = current_milestone.get("stage_number")
+    if user_stage_number is not None and ms_stage is not None and user_stage_number > ms_stage:
+        return []
+
+    student_tabs = {1: "project", 2: "survey", 3: "outline", 4: "weekly", 5: "supervision", 6: "grade"}
+    action_tab = student_tabs.get(ms_stage, "overview") if role == "student" else f"stage_{ms_stage or 1}"
+    action_url = (
+        f"/student/dashboard?tab=utc_graduation&subtab={action_tab}"
+        if role == "student"
+        else f"/supervisor/dashboard?tab={action_tab}"
+    )
+    ms_name = current_milestone.get("name") or f"Mốc GĐ {ms_stage or ''}".strip()
+    end_hint = ""
+    if current_milestone.get("end_date"):
+        try:
+            end_local = timezone.localtime(timezone.datetime.fromisoformat(current_milestone["end_date"]))
+            end_hint = f" (Hạn: {end_local.strftime('%d/%m/%Y')})"
+        except Exception:
+            end_hint = ""
+
+    if days_left < 0:
+        title = f'Mốc "{ms_name}" đã quá hạn {abs(days_left)} ngày'
+        urgency = "high"
+        todo_type = "milestone_overdue"
+        description = f"Mốc giai đoạn {ms_stage or ''} đã vượt hạn chót{end_hint}. Hãy kiểm tra và hoàn tất ngay.".strip()
+    elif days_left == 0:
+        title = f"Hạn chót hôm nay: {ms_name}"
+        urgency = "high"
+        todo_type = "milestone_due_today"
+        description = f"Hôm nay là hạn cuối của mốc GĐ {ms_stage or ''}{end_hint}.".strip()
+    else:
+        title = f"Sắp tới hạn ({days_left} ngày): {ms_name}"
+        urgency = "high" if days_left <= 1 else "medium"
+        todo_type = "milestone_upcoming"
+        description = f"Còn {days_left} ngày tới hạn chót mốc GĐ {ms_stage or ''}{end_hint}.".strip()
+
+    return [{
+        "id": f"milestone-{current_milestone.get('id')}",
+        "type": todo_type,
+        "urgency": urgency,
+        "title": title,
+        "description": description,
+        "due_date": current_milestone.get("end_date"),
+        "project_id": None,
+        "student_name": "",
+        "action_tab": action_tab,
+        "action_url": action_url,
+    }]
+
+
 def _resolve_user_batch(request):
     batch_id = request.query_params.get("batch_id")
     if batch_id:
@@ -47,14 +104,20 @@ def _resolve_user_batch(request):
         return student.academic_batch
     sup = getattr(request.user, "supervisor_profile", None)
     if sup:
-        proj_batch = (
-            GraduationProject.objects.filter(supervisor=sup)
-            .select_related("batch")
-            .order_by("-created_at")
+        sup_projects = GraduationProject.objects.filter(supervisor=sup).select_related("batch")
+        open_proj = (
+            sup_projects.filter(batch__is_closed=False)
+            .order_by("-batch__is_active", "-created_at")
             .first()
         )
-        if proj_batch and proj_batch.batch:
-            return proj_batch.batch
+        if open_proj and open_proj.batch:
+            return open_proj.batch
+        active_batch = AcademicBatch.get_active_batch()
+        if active_batch:
+            return active_batch
+        any_proj = sup_projects.order_by("-created_at").first()
+        if any_proj and any_proj.batch:
+            return any_proj.batch
     return AcademicBatch.get_active_batch() or AcademicBatch.objects.order_by("-id").first()
 
 
@@ -70,9 +133,15 @@ class BatchMilestonesPublicAPIView(APIView):
         milestones = BatchMilestone.objects.filter(batch=batch, is_active=True).order_by(
             "order_index", "start_date", "id"
         )
+        from app.utils.batch_progress import DB_STAGE_TO_NUMBER, select_current_milestone
+
         serialized = BatchMilestoneSerializer(milestones, many=True).data
-        current = next((m for m in serialized if m.get("status") == "ACTIVE"), None) or (
-            serialized[0] if serialized else None
+        current_stage_num = DB_STAGE_TO_NUMBER.get(batch.current_stage, 1)
+        is_closed = bool(batch.is_closed or batch.current_stage == "COMPLETED")
+        current = select_current_milestone(
+            serialized,
+            current_number=current_stage_num,
+            is_closed=is_closed,
         )
         return Response(
             {
@@ -382,14 +451,20 @@ class RoleHomeSummaryAPIView(APIView):
         batch = _resolve_user_batch(request)
         today = timezone.localdate()
 
+        from app.utils.batch_progress import DB_STAGE_TO_NUMBER, select_current_milestone
+
         milestones = []
         current_milestone = None
+        is_batch_closed = bool(batch and (batch.is_closed or batch.current_stage == "COMPLETED"))
         if batch:
             ms_qs = BatchMilestone.objects.filter(batch=batch, is_active=True).order_by("order_index", "start_date", "id")
             milestones = BatchMilestoneSerializer(ms_qs, many=True).data
-            current_milestone = next((m for m in milestones if m.get("status") == "ACTIVE"), None) or (
-                next((m for m in milestones if m.get("status") == "UPCOMING"), None)
-            ) or (milestones[0] if milestones else None)
+            current_stage_num = DB_STAGE_TO_NUMBER.get(batch.current_stage, 1)
+            current_milestone = select_current_milestone(
+                milestones,
+                current_number=current_stage_num,
+                is_closed=is_batch_closed,
+            )
 
         batch_payload = (
             {
@@ -408,7 +483,15 @@ class RoleHomeSummaryAPIView(APIView):
         if getattr(user, "user_type", "") == "student":
             student = getattr(user, "student_profile", None)
             if not student:
-                return Response({"role": "student", "batch": batch_payload, "current_milestone": current_milestone, "todos": []})
+                milestone_todos = _build_milestone_todos(
+                    current_milestone, is_closed=is_batch_closed, user_stage_number=None, role="student"
+                )
+                return Response({
+                    "role": "student",
+                    "batch": batch_payload,
+                    "current_milestone": current_milestone,
+                    "todos": milestone_todos,
+                })
 
             project = GraduationProject.objects.filter(student=student).select_related("supervisor__user", "outline_review").first()
             tasks = list(SupervisionTask.objects.filter(project=project)) if project else []
@@ -418,7 +501,18 @@ class RoleHomeSummaryAPIView(APIView):
             logs_count = SupervisionMeetingLog.objects.filter(project=project).count() if project else 0
             has_pref = StudentPreference.objects.filter(student=student).exists() or InternshipInfo.objects.filter(student=student).exists()
 
-            todos = []
+            from app.workflow_stages import compute_project_progress
+            student_stage_num = (
+                compute_project_progress(project, batch)["current_stage_number"]
+                if (project and batch and getattr(project, "batch_id", None) == batch.id)
+                else None
+            )
+            todos = _build_milestone_todos(
+                current_milestone,
+                is_closed=is_batch_closed,
+                user_stage_number=student_stage_num,
+                role="student",
+            )
             if batch and getattr(batch, "supplementary_open", False) and (not project or not project.supervisor_id):
                 todos.append({
                     "urgency": "high",
@@ -543,16 +637,61 @@ class RoleHomeSummaryAPIView(APIView):
                 reasons.append("Đề tài/Đề cương cần chỉnh sửa")
             if p.initial_eligibility == "INELIGIBLE":
                 reasons.append("Chưa đủ điều kiện học vụ ban đầu")
-            if p.status == "IN_PROGRESS" and len(p_reports) == 0 and len(p_logs) == 0:
+            now_ts = timezone.now()
+            stage5_elapsed = None
+            stage5_ms = next((m for m in milestones if m.get("stage_number") == 5 and m.get("start_date") and m.get("end_date")), None)
+            if stage5_ms:
+                try:
+                    s5_start = timezone.datetime.fromisoformat(stage5_ms["start_date"])
+                    s5_end = timezone.datetime.fromisoformat(stage5_ms["end_date"])
+                    if s5_end > s5_start:
+                        stage5_elapsed = min(1.0, max(0.0, (now_ts - s5_start).total_seconds() / (s5_end - s5_start).total_seconds()))
+                except Exception:
+                    stage5_elapsed = None
+
+            task_done_ratio = (
+                sum(1 for t in p_tasks if t.is_completed) / len(p_tasks)
+                if p_tasks else None
+            )
+            zero_activity_late = (
+                p.status == "IN_PROGRESS"
+                and len(p_reports) == 0
+                and len(p_logs) == 0
+                and (stage5_elapsed is None or stage5_elapsed >= 0.30)
+            )
+            if zero_activity_late:
                 reasons.append("Chưa có báo cáo tuần & nhật ký HD")
 
-            if overdue or p.initial_eligibility == "INELIGIBLE" or (p.status == "IN_PROGRESS" and len(p_reports) == 0 and len(p_logs) == 0):
+            elapsed_pct_label = int(round(stage5_elapsed * 100)) if stage5_elapsed is not None else None
+            milestone_at_risk = (
+                stage5_elapsed is not None
+                and stage5_elapsed >= 0.65
+                and p.status == "IN_PROGRESS"
+                and (len(p_reports) == 0 or (task_done_ratio is not None and task_done_ratio < 0.35))
+            )
+            milestone_behind = (
+                stage5_elapsed is not None
+                and stage5_elapsed >= 0.25
+                and p.status == "IN_PROGRESS"
+                and (
+                    len(p_reports) < max(1, round(stage5_elapsed * 4))
+                    or (task_done_ratio is not None and task_done_ratio < stage5_elapsed * 0.5)
+                )
+            )
+            fallback_behind = stage5_elapsed is None and p.status == "IN_PROGRESS" and len(p_reports) < 2
+
+            if overdue or p.initial_eligibility == "INELIGIBLE" or zero_activity_late or milestone_at_risk:
                 risk_level = "AT_RISK"
+                if milestone_at_risk and not reasons:
+                    reasons.append(f"Đã qua {elapsed_pct_label}% thời gian GĐ5 nhưng tiến độ thực hiện rất thấp")
                 at_risk_cnt += 1
-            elif p.topic_review_status == "REVISION_REQUIRED" or (p.status == "IN_PROGRESS" and len(p_reports) < 2):
+            elif p.topic_review_status == "REVISION_REQUIRED" or milestone_behind or fallback_behind:
                 risk_level = "BEHIND"
                 if not reasons:
-                    reasons.append("Tiến độ báo cáo tuần còn ít")
+                    if milestone_behind and elapsed_pct_label is not None:
+                        reasons.append(f"Chậm nhịp mốc GĐ5 ({elapsed_pct_label}% thời gian đã trôi qua)")
+                    else:
+                        reasons.append("Tiến độ báo cáo tuần còn ít")
                 behind_cnt += 1
             else:
                 on_track_cnt += 1
@@ -567,7 +706,12 @@ class RoleHomeSummaryAPIView(APIView):
                     "status": p.status,
                 })
 
-        sup_todos = []
+        sup_todos = _build_milestone_todos(
+            current_milestone,
+            is_closed=is_batch_closed,
+            user_stage_number=None,
+            role="supervisor",
+        )
         if pending_outlines_cnt > 0:
             sup_todos.append({
                 "urgency": "high",

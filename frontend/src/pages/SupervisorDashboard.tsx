@@ -475,9 +475,12 @@ const SupervisorDashboard: React.FC = () => {
 
           {activeTab === 'overview' && (
             <>
-              <RoleHomeWidget role="supervisor" batchId={selectedBatchId} />
+              <RoleHomeWidget role="supervisor" batchId={selectedBatchId} onNavigateTab={setActiveTab} />
 
-              <UTCFypTimeline currentStep={profile?.timeline_step || 3} />
+              <UTCFypTimeline
+                currentStep={profile?.timeline_step || 1}
+                onStageClick={(stageNum) => setActiveTab(`stage_${stageNum}`)}
+              />
 
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>

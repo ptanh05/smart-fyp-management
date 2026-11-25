@@ -314,3 +314,116 @@ class HomeSummaryAndSessionSecurityTests(ClientEnhancementsBase):
         self.assertEqual(r1.status_code, status.HTTP_401_UNAUTHORIZED)
         r2 = anon.post("/app/student/login/", {"registration_no": "20261002", "password": "bad"}, format="json")
         self.assertEqual(r2.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class MilestoneSyncAndTimelineIntegrationTests(APITestCase):
+    def test_supervisor_open_batch_preference_milestone_todos_risk_and_calendar(self):
+        import datetime as dt
+        from app.feature_services import collect_calendar_events
+        from app.models import AcademicBatch, BatchMilestone, CustomUser, GraduationProject, Student, Supervisor
+        from app.utils.batch_progress import compute_milestone_days_left
+
+        today = timezone.localdate()
+        tz = timezone.get_current_timezone()
+
+        sup_user = CustomUser.objects.create_user(
+            username="sup_ms_sync",
+            email="sup_ms_sync@utc.edu.vn",
+            password="Password123!",
+            first_name="Bình",
+            last_name="Trần",
+            user_type="supervisor",
+        )
+        sup = Supervisor.objects.create(user=sup_user, supervisor_id="GV_MS_01", academic_title="TS")
+
+        sv_user = CustomUser.objects.create_user(
+            username="sv_ms_sync",
+            email="sv_ms_sync@utc.edu.vn",
+            password="Password123!",
+            first_name="Lan",
+            last_name="Lê",
+            user_type="student",
+        )
+        old_batch = AcademicBatch.objects.create(
+            batch_code="K62-OLD",
+            batch_name="Đợt Cũ Đã Đóng",
+            current_stage="COMPLETED",
+            is_active=False,
+            is_closed=True,
+        )
+        old_sv_user = CustomUser.objects.create_user(
+            username="sv_old_closed",
+            email="sv_old_closed@utc.edu.vn",
+            password="Password123!",
+            user_type="student",
+        )
+        old_sv = Student.objects.create(user=old_sv_user, registration_no="SV_OLD_01", academic_batch=old_batch)
+        GraduationProject.objects.create(
+            student=old_sv,
+            supervisor=sup,
+            batch=old_batch,
+            status="PASSED",
+        )
+
+        new_batch = AcademicBatch.objects.create(
+            batch_code="K65-ACTIVE",
+            batch_name="Đợt Đang Thực Hiện",
+            current_stage="PHASE_5_IN_PROGRESS",
+            is_active=True,
+            is_closed=False,
+        )
+        sv = Student.objects.create(user=sv_user, registration_no="SV_MS_01", academic_batch=new_batch)
+        GraduationProject.objects.create(
+            student=sv,
+            supervisor=sup,
+            batch=new_batch,
+            status="IN_PROGRESS",
+            initial_eligibility="ELIGIBLE",
+        )
+
+        # GĐ2 active milestone + GĐ5 active milestone (80% elapsed, due in 1 day)
+        BatchMilestone.objects.create(
+            batch=new_batch,
+            name="Mốc GĐ2 Đăng ký",
+            stage_number=2,
+            start_date=timezone.make_aware(dt.datetime.combine(today - dt.timedelta(days=5), dt.time(8, 0)), tz),
+            end_date=timezone.make_aware(dt.datetime.combine(today + dt.timedelta(days=10), dt.time(23, 59)), tz),
+            order_index=1,
+            is_active=True,
+        )
+        ms5 = BatchMilestone.objects.create(
+            batch=new_batch,
+            name="Mốc GĐ5 Thực hiện",
+            stage_number=5,
+            start_date=timezone.make_aware(dt.datetime.combine(today - dt.timedelta(days=20), dt.time(8, 0)), tz),
+            end_date=timezone.make_aware(dt.datetime.combine(today + dt.timedelta(days=1), dt.time(23, 59)), tz),
+            order_index=2,
+            is_active=True,
+        )
+        self.assertEqual(compute_milestone_days_left(ms5.end_date, today=today), 1)
+
+        # Supervisor without batch_id MUST get K65-ACTIVE (not K62-OLD) and current_milestone=GĐ5
+        self.client.force_authenticate(user=sup_user)
+        ms_res = self.client.get("/app/batches/milestones/")
+        self.assertEqual(ms_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(ms_res.data["batch"]["batch_code"], "K65-ACTIVE")
+        self.assertEqual(ms_res.data["current_milestone"]["stage_number"], 5)
+
+        prog_res = self.client.get("/app/batches/progress/")
+        self.assertEqual(prog_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(prog_res.data["batch"]["batch_code"], "K65-ACTIVE")
+
+        home_sup = self.client.get("/app/dashboard/home-summary/")
+        self.assertEqual(home_sup.status_code, status.HTTP_200_OK)
+        self.assertEqual(home_sup.data["current_milestone"]["stage_number"], 5)
+        self.assertTrue(any(t["type"] == "milestone_upcoming" for t in home_sup.data["todos"]))
+        self.assertEqual(home_sup.data["risk_summary"]["at_risk"], 1)
+
+        # Student sees milestone_upcoming todo and ICS calendar milestone
+        self.client.force_authenticate(user=sv_user)
+        home_sv = self.client.get("/app/dashboard/home-summary/")
+        self.assertEqual(home_sv.status_code, status.HTTP_200_OK)
+        self.assertTrue(any(t["type"] == "milestone_upcoming" for t in home_sv.data["todos"]))
+
+        events = collect_calendar_events(sv_user)
+        self.assertTrue(any(ev["uid"] == f"batch-milestone-{ms5.id}" for ev in events))

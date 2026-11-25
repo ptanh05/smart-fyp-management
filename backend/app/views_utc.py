@@ -248,6 +248,8 @@ class BatchCreateAPIView(APIView):
                 end_date=end_date or None,
                 is_active=is_active
             )
+            from app.utils.batch_progress import seed_default_milestones_for_batch
+            seed_default_milestones_for_batch(batch, replace=False)
             # Ensure evaluation policy exists for batch
             EvaluationPolicy.objects.get_or_create(
                 batch=batch,
@@ -3634,15 +3636,25 @@ class BatchProgressAPIView(APIView):
                         status=status.HTTP_403_FORBIDDEN,
                     )
             elif supervisor is not None:
-                batch = (
-                    GraduationProject.objects.filter(supervisor=supervisor)
-                    .select_related("batch")
-                    .order_by("-created_at")
+                sup_projects = GraduationProject.objects.filter(supervisor=supervisor).select_related("batch")
+                open_batch_id = (
+                    sup_projects.filter(batch__is_closed=False)
+                    .order_by("-batch__is_active", "-created_at")
                     .values_list("batch", flat=True)
                     .first()
                 )
-                if batch is not None:
-                    batch = AcademicBatch.objects.filter(id=batch).first()
+                if open_batch_id is not None:
+                    batch = AcademicBatch.objects.filter(id=open_batch_id).first()
+                if batch is None:
+                    batch = AcademicBatch.get_active_batch()
+                if batch is None:
+                    any_batch_id = (
+                        sup_projects.order_by("-created_at")
+                        .values_list("batch", flat=True)
+                        .first()
+                    )
+                    if any_batch_id is not None:
+                        batch = AcademicBatch.objects.filter(id=any_batch_id).first()
 
         if batch is None:
             batch = AcademicBatch.get_active_batch() or AcademicBatch.objects.order_by("-id").first()

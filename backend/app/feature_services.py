@@ -631,12 +631,33 @@ def collect_calendar_events(user):
             "summary": f"[Bảo vệ] {s.project.topic_title_vi}",
             "description": f"Hội đồng: {getattr(s.council, 'council_name', '')}", "location": s.room or "",
         })
+    from app.models import AcademicBatch, BatchMilestone
+    from app.utils.batch_progress import milestone_local_date
+
+    batch_ids = set()
     for p in projects.select_related("batch"):
+        if p.batch_id:
+            batch_ids.add(p.batch_id)
         if p.batch and p.batch.end_date:
             events.append({
                 "uid": f"batch-end-{p.batch_id}", "all_day": True, "date": p.batch.end_date,
                 "summary": f"[Kết thúc đợt] {p.batch.batch_name}", "description": "",
             })
+    if not batch_ids:
+        active_batch = AcademicBatch.get_active_batch()
+        if active_batch:
+            batch_ids.add(active_batch.id)
+    if batch_ids:
+        for ms in BatchMilestone.objects.filter(batch_id__in=batch_ids, is_active=True, end_date__isnull=False):
+            end_local = milestone_local_date(ms.end_date)
+            if end_local:
+                events.append({
+                    "uid": f"batch-milestone-{ms.id}",
+                    "all_day": True,
+                    "date": end_local,
+                    "summary": f"[Mốc GĐ{ms.stage_number}] {ms.name}",
+                    "description": ms.description or "",
+                })
     # Bỏ trùng (vd. hạn đợt của nhiều đồ án cùng đợt)
     unique = {}
     for e in events:

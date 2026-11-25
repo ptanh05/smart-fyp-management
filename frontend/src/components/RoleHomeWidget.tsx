@@ -5,9 +5,10 @@ import { apiService } from '../services/api';
 interface RoleHomeWidgetProps {
   role: 'student' | 'supervisor';
   batchId?: number | null;
+  onNavigateTab?: (tabKey: string) => void;
 }
 
-export const RoleHomeWidget: React.FC<RoleHomeWidgetProps> = ({ role, batchId }) => {
+export const RoleHomeWidget: React.FC<RoleHomeWidgetProps> = ({ role, batchId, onNavigateTab }) => {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -33,7 +34,7 @@ export const RoleHomeWidget: React.FC<RoleHomeWidgetProps> = ({ role, batchId })
 
   if (loading || !summary) return null;
 
-  const todos: Array<{ urgency: 'high' | 'medium' | 'info'; title: string; description: string; action_url: string }> =
+  const todos: Array<{ urgency: 'high' | 'medium' | 'info'; title: string; description: string; action_url: string; action_tab?: string }> =
     summary.todos || [];
   const milestone = summary.current_milestone;
   const riskAlerts: Array<{
@@ -83,7 +84,9 @@ export const RoleHomeWidget: React.FC<RoleHomeWidgetProps> = ({ role, batchId })
           >
             ⏳ {milestone.name}
             {typeof milestone.days_left === 'number'
-              ? milestone.days_left >= 0
+              ? milestone.days_left === 0
+                ? ' • Hạn hôm nay'
+                : milestone.days_left > 0
                 ? ` • Còn ${milestone.days_left} ngày`
                 : ` • Quá hạn ${Math.abs(milestone.days_left)} ngày`
               : ''}
@@ -103,7 +106,13 @@ export const RoleHomeWidget: React.FC<RoleHomeWidgetProps> = ({ role, batchId })
               <button
                 key={idx}
                 type="button"
-                onClick={() => item.action_url && navigate(item.action_url)}
+                onClick={() => {
+                  if (onNavigateTab && item.action_tab) {
+                    onNavigateTab(item.action_tab);
+                  } else if (item.action_url) {
+                    navigate(item.action_url);
+                  }
+                }}
                 style={{
                   textAlign: 'left',
                   padding: '12px 14px',

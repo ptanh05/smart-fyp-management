@@ -17,6 +17,7 @@ import { UTCStudentGraduationView } from '../components/UTCStudentGraduationView
 import { UTCSupervisorGroupChatView } from '../components/UTCSupervisorGroupChatView';
 import { SkeletonProfile } from '../components/SkeletonLoader';
 import {
+  GRADUATION_STAGES,
   getProjectStageInfo,
   getProjectWorkflow,
   getStageInfo,
@@ -218,7 +219,7 @@ const StudentDashboard: React.FC = () => {
       case 'overview':
         return {
           title: 'Tổng Quan Dashboard & Học Vụ',
-          subtitle: 'Theo dõi tiến trình 5 bước UTC FYP Milestone, hồ sơ học vụ và lịch gặp GVHD',
+          subtitle: 'Theo dõi tiến trình 6 giai đoạn UTC FYP Milestone, hồ sơ học vụ và lịch gặp GVHD',
           badge: 'Tổng quan',
         };
       case 'project':
@@ -382,10 +383,16 @@ const StudentDashboard: React.FC = () => {
           {activeTab === 'overview' && (
             <>
               {/* Role Home Widget: Việc cần làm ngay & đếm ngược */}
-              <RoleHomeWidget role="student" />
+              <RoleHomeWidget role="student" onNavigateTab={handleTabChange} />
 
               {/* UTC FYP Progress Timeline */}
-              <UTCFypTimeline currentStep={profile?.timeline_step || 3} />
+              <UTCFypTimeline
+                currentStep={currentStageInfo.number}
+                onStageClick={(stageNum) => {
+                  const st = GRADUATION_STAGES.find((item) => item.number === stageNum);
+                  if (st) handleTabChange(st.key);
+                }}
+              />
 
               {/* UTC Academic Batch & Project Quick Action Banner */}
               {profile?.academic_batch && (

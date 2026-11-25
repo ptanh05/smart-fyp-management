@@ -682,6 +682,28 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             loading={batchProgressLoading}
             variant="portal"
             onRefresh={fetchBatchProgress}
+            onStageClick={(stage) => {
+              const st = GRADUATION_STAGES.find((item) => item.number === stage.number);
+              if (!st) return;
+              if (userType === 'student') {
+                const access = getStageAccess(studentWorkflow, st.number, effectiveStageNumber);
+                if (!access.accessible) {
+                  notify.warning(access.reason || `Bạn cần hoàn thành và được Khoa/GVHD duyệt các bước trước để mở ${st.label}!`);
+                  return;
+                }
+                handleNavClick(st.key);
+                return;
+              }
+              if (userType === 'supervisor') {
+                const count = stageCounts?.[st.number] ?? 0;
+                const isAccessible = st.number <= synchronizedStageNumber || count > 0;
+                if (!isAccessible) {
+                  notify.warning(`Đợt đang ở GĐ ${rawSupervisorBatchStage}. Hãy hoàn thành giai đoạn trước để mở ${st.sidebarLabel}.`);
+                  return;
+                }
+                handleNavClick(`stage_${st.number}`);
+              }
+            }}
             title="Tiến Trình Đợt Đồ Án"
           />
         )}
