@@ -1,4 +1,4 @@
-﻿from datetime import timedelta
+from datetime import timedelta
 from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
