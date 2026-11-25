@@ -194,3 +194,25 @@ class LateSubmissionAndChatAttachmentTests(APITestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn('attachment', serializer.errors)
         self.assertIn('exceeds maximum allowed size of 25MB', str(serializer.errors['attachment']))
+
+    def test_chatroom_post_endpoint_creates_legacy_message_and_validates_errors(self):
+        self.client.force_authenticate(user=self.student_user)
+        # Valid legacy group payload should reach full ChatRoom creation & set sent_by
+        ok_res = self.client.post(
+            '/app/chatroom/',
+            {'group': self.sup_group.id, 'message': 'Xin chào thầy'},
+            format='json',
+        )
+        self.assertEqual(ok_res.status_code, status.HTTP_201_CREATED)
+        msg = ChatRoom.objects.get(id=ok_res.data['id'])
+        self.assertEqual(msg.sent_by, 'student')
+        self.assertEqual(msg.student_id, self.student.id)
+        self.assertEqual(msg.message, 'Xin chào thầy')
+
+        # Valid group with empty message & no attachment should return 400 validation error
+        bad_res = self.client.post(
+            '/app/chatroom/',
+            {'group': self.sup_group.id, 'message': ''},
+            format='json',
+        )
+        self.assertEqual(bad_res.status_code, status.HTTP_400_BAD_REQUEST)

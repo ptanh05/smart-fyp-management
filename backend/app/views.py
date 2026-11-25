@@ -2633,22 +2633,24 @@ class ChatRoomAPIView(CreateAPIView, ListAPIView):
 
     def post(self, request, *args, **kwargs):
         from .views_supervisor_group_chat import SupervisorGroupChatMessagesAPIView
-        try:
-            serializer = ChatRoomSerializer(data=request.data)
-            if not serializer.is_valid():
-                return SupervisorGroupChatMessagesAPIView().post(request)
-            return super().post(request, *args, **kwargs)
-        except Exception:
+
+        if not request.data.get("group"):
             return SupervisorGroupChatMessagesAPIView().post(request)
+
+        serializer = ChatRoomSerializer(data=request.data)
+        if not serializer.is_valid():
+            if "group" in serializer.errors:
+                return SupervisorGroupChatMessagesAPIView().post(request)
+            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
         sent_by = None
         student = None
         supervisor = None
 
+        group_obj = serializer.validated_data.get("group")
+        group_id = getattr(group_obj, "id", group_obj)
         try:
-            group = SupervisorOfStudentGroup.objects.get(
-                id=serializer.validated_data["group"].id
-            )
+            group = SupervisorOfStudentGroup.objects.get(id=group_id)
         except SupervisorOfStudentGroup.DoesNotExist:
             return Response(
                 {"message": "Group not found"}, status=status.HTTP_404_NOT_FOUND

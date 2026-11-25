@@ -681,16 +681,19 @@ class NotificationService:
         
         # If sender is a student, notify supervisor and other student
         if hasattr(sender_user, 'student_profile'):
-            recipients.append(supervisor.user)
+            if supervisor and supervisor.user:
+                recipients.append(supervisor.user)
             sender_student = sender_user.student_profile
-            if group.student_1 != sender_student:
+            if group and group.student_1 and group.student_1 != sender_student and group.student_1.user:
                 recipients.append(group.student_1.user)
-            if group.student_2 != sender_student:
+            if group and group.student_2 and group.student_2 != sender_student and group.student_2.user:
                 recipients.append(group.student_2.user)
         # If sender is supervisor, notify both students
         elif hasattr(sender_user, 'supervisor_profile'):
-            recipients.append(group.student_1.user)
-            recipients.append(group.student_2.user)
+            if group and group.student_1 and group.student_1.user:
+                recipients.append(group.student_1.user)
+            if group and group.student_2 and group.student_2.user:
+                recipients.append(group.student_2.user)
         
         # Truncate message preview
         if len(message_preview) > 50:
