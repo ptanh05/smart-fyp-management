@@ -777,14 +777,17 @@ const SupervisorDashboard: React.FC = () => {
           student1RegNo: selectedGroup?.group?.student_1_details?.registration_no || (selectedGroup?.group as any)?.student_1?.registration_no || '201200101',
           student2Name: selectedGroup?.group?.student_2_details?.user
             ? formatFullName(selectedGroup.group.student_2_details.user)
-            : (selectedGroup?.group as any)?.student_2?.name || selectedGroup?.group?.student_2_details?.user?.username || 'Sinh viên 2 (UTC)',
-          student2RegNo: selectedGroup?.group?.student_2_details?.registration_no || (selectedGroup?.group as any)?.student_2?.registration_no || '201200102',
-          supervisorName: supervisor?.user ? formatFullName(supervisor.user) : 'TS. Nguyễn Văn Minh',
-          reviewerName: 'PGS.TS. Trần Thị Mai',
-          committeeName: 'PGS.TS. Nguyễn Đức Thắng',
-          supervisorScore: 8.8,
-          reviewerScore: 8.2,
-          committeeScore: 8.5,
+            : (selectedGroup?.group as any)?.student_2?.name || selectedGroup?.group?.student_2_details?.user?.username,
+          student2RegNo: selectedGroup?.group?.student_2_details?.registration_no || (selectedGroup?.group as any)?.student_2?.registration_no,
+          supervisorName: supervisor?.user ? formatFullName(supervisor.user) : undefined,
+          reviewerName: (selectedGroup as any)?.reviewer_name || undefined,
+          committeeName: (selectedGroup as any)?.council_name || undefined,
+          supervisorScore: (selectedGroup as any)?.supervisor_score ?? null,
+          reviewerScore: (selectedGroup as any)?.reviewer_score ?? null,
+          committeeScore: (selectedGroup as any)?.council_avg_score ?? null,
+          finalScore10: (selectedGroup as any)?.final_score_10 ?? null,
+          letterGrade: (selectedGroup as any)?.final_letter_grade ?? null,
+          isPass: (selectedGroup as any)?.is_passed ?? null,
         }}
       />
     </UTCAppLayout>

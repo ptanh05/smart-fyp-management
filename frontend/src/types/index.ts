@@ -742,6 +742,7 @@ export interface ThesisDeferralRequest {
   batch_name?: string;
   reason_category: DeferralReasonCategory;
   reason_category_display?: string;
+  reason?: string;
   reason_details: string;
   evidence_file?: string | null;
   status: DeferralStatus;
@@ -751,6 +752,7 @@ export interface ThesisDeferralRequest {
   supervisor_feedback?: string | null;
   supervisor_reviewed_at?: string | null;
   created_by_admin?: boolean;
+  submitted_at?: string | null;
   created_at: string;
   reviewed_at?: string | null;
 }

@@ -526,8 +526,15 @@ const CommitteeMemberDashboard: React.FC = () => {
             student2RegNo: selectedGroup.group?.student_2_details?.registration_no || (selectedGroup.group as any)?.student_2?.registration_no,
             supervisorName: selectedGroup.supervisor?.user
               ? formatFullName(selectedGroup.supervisor.user)
-              : selectedGroup.supervisor?.user?.username || 'GVHD',
-            committeeName: profile?.committee_id || 'Hội đồng Bảo vệ UTC',
+              : (selectedGroup.supervisor as any)?.name || selectedGroup.supervisor?.user?.username || 'Chưa phân công',
+            reviewerName: (selectedGroup as any).reviewer_name || undefined,
+            committeeName: (selectedGroup as any).council_name || profile?.committee_id || 'Hội đồng Bảo vệ UTC',
+            supervisorScore: (selectedGroup as any).supervisor_score ?? null,
+            reviewerScore: (selectedGroup as any).reviewer_score ?? null,
+            committeeScore: (selectedGroup as any).council_avg_score ?? null,
+            finalScore10: (selectedGroup as any).final_score_10 ?? null,
+            letterGrade: (selectedGroup as any).final_letter_grade ?? null,
+            isPass: (selectedGroup as any).is_passed ?? null,
           }}
         />
       )}

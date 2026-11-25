@@ -2180,7 +2180,12 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
                 .select_related('student', 'student__user', 'supervisor', 'supervisor__user', 'council', 'batch')
             )
             results = []
-            for gp in projects:
+            for gp in projects.select_related("reviewer__user", "final_grade_summary"):
+                summary = getattr(gp, "final_grade_summary", None)
+                sup_name = gp.supervisor.user.get_full_name() if gp.supervisor and gp.supervisor.user else ""
+                sup_full = f"{gp.supervisor.academic_title} {sup_name}".strip() if (gp.supervisor and gp.supervisor.academic_title and sup_name) else sup_name
+                rev_name = gp.reviewer.user.get_full_name() if gp.reviewer and gp.reviewer.user else ""
+                rev_full = f"{gp.reviewer.academic_title} {rev_name}".strip() if (gp.reviewer and gp.reviewer.academic_title and rev_name) else rev_name
                 results.append({
                     "id": gp.id,
                     "council_id": gp.council_id,
@@ -2206,7 +2211,7 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
                     },
                     "supervisor": {
                         "id": gp.supervisor.id if gp.supervisor else 0,
-                        "name": gp.supervisor.user.get_full_name() if gp.supervisor and gp.supervisor.user else "",
+                        "name": sup_full,
                         "academic_title": gp.supervisor.academic_title if gp.supervisor else "",
                         "user": {
                             "id": gp.supervisor.user.id if gp.supervisor and gp.supervisor.user else 0,
@@ -2215,6 +2220,13 @@ class CommitteeMemberGroupsAPIView(ListAPIView):
                             "last_name": gp.supervisor.user.last_name if gp.supervisor and gp.supervisor.user else "",
                         } if gp.supervisor and gp.supervisor.user else None
                     },
+                    "reviewer_name": rev_full,
+                    "supervisor_score": gp.supervisor_score,
+                    "reviewer_score": gp.reviewer_score,
+                    "council_avg_score": summary.council_avg_score if summary else None,
+                    "final_score_10": summary.final_score_10 if summary else None,
+                    "final_letter_grade": summary.final_letter_grade if summary else None,
+                    "is_passed": summary.is_passed if summary else None,
                     "project": {
                         "id": gp.id,
                         "project_name": gp.topic_title_vi,
@@ -4205,22 +4217,55 @@ def admin_dashboard(request):
 
 class ConsolidatedEvaluationExportAPIView(APIView):
     """
-    Export consolidated grade report for student groups including Supervisor, 
-    Committee, and External Examiner evaluation scores.
+    Export consolidated UTC graduation project scores report (Supervisor 30%,
+    Reviewer 20%, Council 50%) for council members, supervisors, and admins.
     """
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        groups = SupervisorOfStudentGroup.objects.filter(status="accepted").select_related(
-            "group__student_1__user",
-            "group__student_2__user",
-            "project",
-            "supervisor__user"
-        )
+        from app.models import CouncilMember, GraduationProject
+
+        user = request.user
+        user_type = getattr(user, "user_type", "")
+        if user_type == "student" or (
+            not user.is_staff
+            and not user.is_superuser
+            and user_type not in ("admin", "academic_staff", "supervisor", "committee_member")
+        ):
+            return Response(
+                {"detail": "Bạn không có quyền xuất báo cáo tổng hợp điểm."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        projects = GraduationProject.objects.select_related(
+            "student__user",
+            "student__course_class",
+            "supervisor__user",
+            "reviewer__user",
+            "council",
+            "batch",
+            "final_grade_summary",
+        ).order_by("student__registration_no", "id")
+
+        batch_id = request.query_params.get("batch_id")
+        council_id = request.query_params.get("council_id")
+        if batch_id:
+            projects = projects.filter(batch_id=batch_id)
+        if council_id:
+            projects = projects.filter(council_id=council_id)
+
+        is_admin = bool(user.is_staff or user.is_superuser or user_type in ("admin", "academic_staff"))
+        if not is_admin:
+            council_ids = list(
+                CouncilMember.objects.filter(Q(user=user) | Q(supervisor__user=user)).values_list("council_id", flat=True)
+            )
+            projects = projects.filter(
+                Q(council_id__in=council_ids) | Q(supervisor__user=user) | Q(reviewer__user=user)
+            ).distinct()
 
         MAX_EXPORT_ROWS = 1000
-        total_count = groups.count()
+        total_count = projects.count()
         if total_count > MAX_EXPORT_ROWS:
             return Response(
                 {"detail": f"Export payload size ({total_count} records) exceeds maximum limit of {MAX_EXPORT_ROWS} records. Please apply filtering parameters."},
@@ -4236,62 +4281,63 @@ class ConsolidatedEvaluationExportAPIView(APIView):
 
         # UTC Official Header
         sheet.append(["BỘ GIÁO DỤC VÀ ĐÀO TẠO - TRƯỜNG ĐẠI HỌC GIAO THÔNG VẬN TẢI (UTC)"])
-        sheet.append(["BẢNG TỔNG HỢP ĐIỂM VÀ ĐÁNH GIÁ ĐỒ ÁN TỐT NGHIỆP"])
+        sheet.append(["BẢNG TỔNG HỢP ĐIỂM VÀ ĐÁNH GIÁ ĐỒ ÁN TỐT NGHIỆP (30% GVHD + 20% GVPB + 50% HỘI ĐỒNG)"])
         sheet.append([])
 
         headers = [
-            "Assignment ID",
-            "Student 1",
-            "Reg No 1",
-            "Student 2",
-            "Reg No 2",
-            "Project Title",
-            "Supervisor",
-            "External Examiner",
-            "External Score",
-            "Grade",
-            "Status"
+            "STT",
+            "MSSV",
+            "Họ và tên",
+            "Đợt đồ án",
+            "Tên đề tài",
+            "GVHD",
+            "GVPB",
+            "Hội đồng",
+            "Điểm GVHD (30%)",
+            "Điểm GVPB (20%)",
+            "Điểm TB HĐ (50%)",
+            "Điểm Tổng (10)",
+            "Hệ 4",
+            "Điểm chữ",
+            "Kết quả",
         ]
         sheet.append(headers)
 
-        for rel in groups:
-            assignment = ExternalGroupAssignment.objects.filter(supervisor_group=rel).first()
-            ext_examiner_name = "Unassigned"
-            ext_score = "N/A"
-            grade = "N/A"
-            pass_fail = "Pending"
+        for idx, gp in enumerate(projects, 1):
+            summary = getattr(gp, "final_grade_summary", None)
+            if gp.status == "DEFERRED" or getattr(gp, "deferral_status", None) == "APPROVED":
+                result_text = "Bảo lưu"
+            elif gp.status == "DISQUALIFIED":
+                result_text = "Không đạt ĐK"
+            elif summary and summary.final_score_10 is not None:
+                result_text = "Đạt" if summary.is_passed else "Không đạt"
+            else:
+                result_text = "Chưa chấm đủ"
 
-            if assignment:
-                ext_examiner_name = assignment.external_group.external_examiner.user.get_full_name() or assignment.external_group.external_examiner.user.username
-                try:
-                    eval_obj = ExternalEvaluation.objects.get(assignment=assignment)
-                    ext_score = str(eval_obj.total_marks)
-                    grade = eval_obj.grade
-                    pass_fail = "PASS" if eval_obj.is_pass else "FAIL"
-                except ExternalEvaluation.DoesNotExist:
-                    pass
+            st_name = gp.student.user.get_full_name() if (gp.student and gp.student.user) else "N/A"
+            st_reg = gp.student.registration_no if gp.student else "N/A"
+            sup_name = gp.supervisor.user.get_full_name() if (gp.supervisor and gp.supervisor.user) else "Chưa phân công"
+            rev_name = gp.reviewer.user.get_full_name() if (gp.reviewer and gp.reviewer.user) else "Chưa phân công"
+            council_name = gp.council.council_name if gp.council else "Chưa xếp HĐ"
+            batch_name = gp.batch.batch_name if gp.batch else "N/A"
 
-            std1_name = rel.group.student_1.user.get_full_name() or rel.group.student_1.user.username if rel.group.student_1 else "N/A"
-            std1_reg = rel.group.student_1.registration_no if rel.group.student_1 else "N/A"
-            std2_name = rel.group.student_2.user.get_full_name() or rel.group.student_2.user.username if rel.group.student_2 else "N/A"
-            std2_reg = rel.group.student_2.registration_no if rel.group.student_2 else "N/A"
-            proj_name = rel.project.project_name if rel.project else "N/A"
-            sup_name = rel.supervisor.user.get_full_name() or rel.supervisor.user.username
-
-            row = [
-                rel.id,
-                std1_name,
-                std1_reg,
-                std2_name,
-                std2_reg,
-                proj_name,
+            sheet.append([
+                idx,
+                st_reg,
+                st_name,
+                batch_name,
+                gp.topic_title_vi or "N/A",
                 sup_name,
-                ext_examiner_name,
-                ext_score,
-                grade,
-                pass_fail
-            ]
-            sheet.append(row)
+                rev_name,
+                council_name,
+                gp.supervisor_score if gp.supervisor_score is not None else "",
+                gp.reviewer_score if gp.reviewer_score is not None else "",
+                summary.council_avg_score if (summary and summary.council_avg_score is not None) else "",
+                summary.final_score_10 if (summary and summary.final_score_10 is not None) else "",
+                summary.final_score_4 if (summary and summary.final_score_4 is not None) else "",
+                summary.final_letter_grade if (summary and summary.final_letter_grade) else "",
+                result_text,
+            ])
 
         response = HttpResponse(
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

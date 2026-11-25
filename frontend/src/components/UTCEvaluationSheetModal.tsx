@@ -18,9 +18,14 @@ export interface UTCEvaluationSheetModalProps {
     supervisorName?: string;
     reviewerName?: string;
     committeeName?: string;
-    supervisorScore?: number;
-    reviewerScore?: number;
-    committeeScore?: number;
+    supervisorScore?: number | null;
+    reviewerScore?: number | null;
+    committeeScore?: number | null;
+    finalScore10?: number | null;
+    gpa4?: number | null;
+    letterGrade?: string | null;
+    classification?: string | null;
+    isPass?: boolean | null;
   };
 }
 
@@ -36,11 +41,32 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
 
   if (!isOpen) return null;
 
-  const supScore = groupData.supervisorScore ?? 8.5;
-  const revScore = groupData.reviewerScore ?? 8.0;
-  const comScore = groupData.committeeScore ?? 8.7;
+  const hasSup = groupData.supervisorScore !== null && groupData.supervisorScore !== undefined && Number.isFinite(Number(groupData.supervisorScore));
+  const hasRev = groupData.reviewerScore !== null && groupData.reviewerScore !== undefined && Number.isFinite(Number(groupData.reviewerScore));
+  const hasCom = groupData.committeeScore !== null && groupData.committeeScore !== undefined && Number.isFinite(Number(groupData.committeeScore));
 
-  const result = calculateUTCWeightedScore(supScore, revScore, comScore);
+  const supScore = hasSup ? Number(groupData.supervisorScore) : null;
+  const revScore = hasRev ? Number(groupData.reviewerScore) : null;
+  const comScore = hasCom ? Number(groupData.committeeScore) : null;
+
+  const computed = calculateUTCWeightedScore(supScore ?? 0, revScore ?? 0, comScore ?? 0);
+  const allComponentsScored = hasSup && hasRev && hasCom;
+  const hasFinalScore =
+    (groupData.finalScore10 !== null && groupData.finalScore10 !== undefined && Number.isFinite(Number(groupData.finalScore10))) ||
+    allComponentsScored;
+  const finalScore10 =
+    groupData.finalScore10 !== null && groupData.finalScore10 !== undefined && Number.isFinite(Number(groupData.finalScore10))
+      ? Number(groupData.finalScore10)
+      : computed.score10;
+  const finalGpa4 =
+    groupData.gpa4 !== null && groupData.gpa4 !== undefined && Number.isFinite(Number(groupData.gpa4))
+      ? Number(groupData.gpa4)
+      : computed.gpa4;
+  const finalLetter = groupData.letterGrade || computed.letterGrade;
+  const finalClass = groupData.classification || computed.classification;
+  const finalPass =
+    typeof groupData.isPass === 'boolean' ? groupData.isPass : computed.isPass;
+  const finalBadgeColor = computed.color;
 
   const handlePrint = () => {
     window.print();
@@ -132,7 +158,7 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
             <div className="utc-info-row">
               <div className="utc-info-label">Giảng viên Hướng dẫn:</div>
               <div className="utc-info-value">
-                {formatFullName(groupData.supervisorName) || 'PGS.TS. Nguyễn Văn Minh'}
+                {formatFullName(groupData.supervisorName) || 'Chưa cập nhật'}
               </div>
             </div>
           </div>
@@ -151,22 +177,22 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
             <tbody>
               <tr>
                 <td style={{ textAlign: 'left' }}>1. Điểm Giảng viên Hướng dẫn</td>
-                <td>40%</td>
-                <td><strong>{supScore.toFixed(1)}</strong></td>
+                <td>30%</td>
+                <td><strong>{supScore !== null ? supScore.toFixed(1) : '—'}</strong></td>
                 <td>-</td>
                 <td>-</td>
               </tr>
               <tr>
                 <td style={{ textAlign: 'left' }}>2. Điểm Cán bộ Phản biện / Chấm ngoài</td>
                 <td>20%</td>
-                <td><strong>{revScore.toFixed(1)}</strong></td>
+                <td><strong>{revScore !== null ? revScore.toFixed(1) : '—'}</strong></td>
                 <td>-</td>
                 <td>-</td>
               </tr>
               <tr>
                 <td style={{ textAlign: 'left' }}>3. Điểm Hội đồng Bảo vệ UTC</td>
-                <td>40%</td>
-                <td><strong>{comScore.toFixed(1)}</strong></td>
+                <td>50%</td>
+                <td><strong>{comScore !== null ? comScore.toFixed(1) : '—'}</strong></td>
                 <td>-</td>
                 <td>-</td>
               </tr>
@@ -177,21 +203,25 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
                 <td><strong>100%</strong></td>
                 <td>
                   <strong style={{ fontSize: '1.1rem', color: '#003366' }}>
-                    {result.score10.toFixed(1)}
+                    {hasFinalScore ? finalScore10.toFixed(2).replace(/\.00$/, '.0') : '—'}
                   </strong>
                 </td>
                 <td>
                   <strong style={{ fontSize: '1.1rem', color: '#2563eb' }}>
-                    {result.gpa4.toFixed(1)} / 4.0
+                    {hasFinalScore ? `${finalGpa4.toFixed(1)} / 4.0` : '—'}
                   </strong>
                 </td>
                 <td>
-                  <span
-                    className="utc-grade-badge"
-                    style={{ backgroundColor: result.color }}
-                  >
-                    {result.letterGrade} ({result.classification})
-                  </span>
+                  {hasFinalScore ? (
+                    <span
+                      className="utc-grade-badge"
+                      style={{ backgroundColor: finalBadgeColor }}
+                    >
+                      {finalLetter} ({finalClass})
+                    </span>
+                  ) : (
+                    <span>Chưa đủ điểm</span>
+                  )}
                 </td>
               </tr>
             </tbody>
@@ -201,31 +231,33 @@ const UTCEvaluationSheetModal: React.FC<UTCEvaluationSheetModalProps> = ({
           <div
             style={{
               padding: '12px 16px',
-              backgroundColor: result.isPass ? '#f0fdf4' : '#fef2f2',
-              border: `1px solid ${result.isPass ? '#bbf7d0' : '#fecaca'}`,
+              backgroundColor: !hasFinalScore ? '#f8fafc' : finalPass ? '#f0fdf4' : '#fef2f2',
+              border: `1px solid ${!hasFinalScore ? '#cbd5e1' : finalPass ? '#bbf7d0' : '#fecaca'}`,
               borderRadius: '8px',
               fontWeight: 600,
-              color: result.isPass ? '#166534' : '#991b1b',
+              color: !hasFinalScore ? '#475569' : finalPass ? '#166534' : '#991b1b',
               marginBottom: '32px',
               textAlign: 'center',
             }}
           >
-            KẾT LUẬN HỘI ĐỒNG: {result.isPass ? '✅ ĐẠT YÊU CẦU BẢO VỆ ĐỒ ÁN TỐT NGHIỆP' : '❌ KHÔNG ĐẠT YÊU CẦU BẢO VỆ'}
+            {!hasFinalScore
+              ? 'KẾT LUẬN HỘI ĐỒNG: ⏳ CHƯA ĐỦ ĐIỂM ĐỂ TỔNG HỢP'
+              : `KẾT LUẬN HỘI ĐỒNG: ${finalPass ? '✅ ĐẠT YÊU CẦU BẢO VỆ ĐỒ ÁN TỐT NGHIỆP' : '❌ KHÔNG ĐẠT YÊU CẦU BẢO VỆ'}`}
           </div>
 
           {/* Signatures */}
           <div className="utc-signatures">
             <div className="utc-sig-box">
               <div className="utc-sig-title">GIẢNG VIÊN HƯỚNG DẪN</div>
-              <div className="utc-sig-name">{formatFullName(groupData.supervisorName) || 'TS. Nguyễn Văn Minh'}</div>
+              <div className="utc-sig-name">{formatFullName(groupData.supervisorName) || 'Chưa cập nhật'}</div>
             </div>
             <div className="utc-sig-box">
               <div className="utc-sig-title">CÁN BỘ PHẢN BIỆN</div>
-              <div className="utc-sig-name">{formatFullName(groupData.reviewerName) || 'PGS.TS. Trần Thị Mai'}</div>
+              <div className="utc-sig-name">{formatFullName(groupData.reviewerName) || 'Chưa cập nhật'}</div>
             </div>
             <div className="utc-sig-box">
               <div className="utc-sig-title">CHỦ TỊCH HỘI ĐỒNG UTC</div>
-              <div className="utc-sig-name">{formatFullName(groupData.committeeName) || 'PGS.TS. Nguyễn Đức Thắng'}</div>
+              <div className="utc-sig-name">{formatFullName(groupData.committeeName) || 'Chưa cập nhật'}</div>
             </div>
           </div>
         </div>

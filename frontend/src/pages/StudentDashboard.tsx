@@ -548,7 +548,7 @@ const StudentDashboard: React.FC = () => {
                     <strong>Trạng thái học vụ đồ án:</strong>{' '}
                     {profile?.graduation_project?.initial_eligibility === 'INELIGIBLE' ? (
                       <span style={{ color: '#ef4444', fontWeight: 600 }}>
-                        ❌ Không đủ điều kiện (Nợ $\ge$ 10 tín chỉ)
+                        ❌ Không đủ điều kiện (Nợ ≥ 10 tín chỉ)
                       </span>
                     ) : (
                       <span style={{ color: '#10b981', fontWeight: 600 }}>
@@ -672,29 +672,56 @@ const StudentDashboard: React.FC = () => {
           onClose={() => setShowUTCSheet(false)}
           groupData={{
             groupId: profile?.graduation_project?.id || profile?.id || 1,
-            projectTitle: profile?.graduation_project?.topic_title_vi || 'Hệ thống Quản lý Đồ án Smart FYP UTC',
+            projectTitle: profile?.graduation_project?.topic_title_vi || 'Đồ án Tốt nghiệp UTC',
             facultyDepartment: profile?.department || 'Khoa Công nghệ Thông tin - UTC',
             student1Name: profile?.user ? formatFullName(profile.user) : 'Sinh viên UTC',
-            student1RegNo: profile?.registration_no || '201200101',
-            supervisorName: profile?.graduation_project?.supervisor_name || 'TS. Nguyễn Văn Minh',
-            reviewerName: 'PGS.TS. Trần Thị Mai',
-            committeeName: 'PGS.TS. Nguyễn Đức Thắng',
-            supervisorScore: Number(
+            student1RegNo: profile?.registration_no || '',
+            supervisorName: (() => {
+              const title = (profile?.graduation_project as any)?.supervisor_academic_title || '';
+              const name = profile?.graduation_project?.supervisor_name || '';
+              return name ? `${title} ${name}`.trim() : undefined;
+            })(),
+            reviewerName: (profile?.graduation_project as any)?.reviewer_name || undefined,
+            committeeName:
+              (profile?.graduation_project as any)?.council_chair_name ||
+              (profile?.graduation_project as any)?.council_name ||
+              undefined,
+            supervisorScore:
               (profile?.graduation_project as any)?.supervisor_score ??
               (profile?.graduation_project as any)?.final_grade?.supervisor_score ??
-              (profile?.graduation_project as any)?.final_grade_summary?.supervisor_score ?? 0
-            ),
-            reviewerScore: Number(
+              (profile?.graduation_project as any)?.final_grade_summary?.supervisor_score ??
+              null,
+            reviewerScore:
               (profile?.graduation_project as any)?.reviewer_score ??
               (profile?.graduation_project as any)?.final_grade?.reviewer_score ??
-              (profile?.graduation_project as any)?.final_grade_summary?.reviewer_score ?? 0
-            ),
-            committeeScore: Number(
+              (profile?.graduation_project as any)?.final_grade_summary?.reviewer_score ??
+              null,
+            committeeScore:
               (profile?.graduation_project as any)?.council_score ??
               (profile?.graduation_project as any)?.committee_score ??
               (profile?.graduation_project as any)?.final_grade?.council_avg_score ??
-              (profile?.graduation_project as any)?.final_grade_summary?.council_avg_score ?? 0
-            ),
+              (profile?.graduation_project as any)?.final_grade_summary?.council_avg_score ??
+              null,
+            finalScore10:
+              (profile?.graduation_project as any)?.final_grade?.final_score_10 ??
+              (profile?.graduation_project as any)?.final_grade_summary?.final_score_10 ??
+              null,
+            gpa4:
+              (profile?.graduation_project as any)?.final_grade?.final_score_4 ??
+              (profile?.graduation_project as any)?.final_grade_summary?.final_score_4 ??
+              null,
+            letterGrade:
+              (profile?.graduation_project as any)?.final_grade?.final_letter_grade ??
+              (profile?.graduation_project as any)?.final_grade_summary?.final_letter_grade ??
+              null,
+            classification:
+              (profile?.graduation_project as any)?.final_grade?.classification ??
+              (profile?.graduation_project as any)?.final_grade_summary?.classification ??
+              null,
+            isPass:
+              (profile?.graduation_project as any)?.final_grade?.is_passed ??
+              (profile?.graduation_project as any)?.final_grade_summary?.is_passed ??
+              null,
           }}
         />
       )}

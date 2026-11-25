@@ -126,6 +126,25 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             # exact 1 -> 6 stage without falling back to an outdated value.
             outline_review = getattr(proj, "outline_review", None)
             final_grade = getattr(proj, "final_grade_summary", None)
+            rev = getattr(proj, "reviewer", None)
+            rev_name = None
+            if rev and getattr(rev, "user", None):
+                r_raw = rev.user.get_full_name() or rev.user.username
+                rev_name = f"{rev.academic_title} {r_raw}".strip() if rev.academic_title else r_raw
+            council = getattr(proj, "council", None)
+            council_name = council.council_name if council else None
+            council_chair_name = None
+            if council is not None:
+                try:
+                    chair = council.members.filter(role="CHAIR").select_related("user", "supervisor__user").first()
+                    if chair:
+                        c_user = chair.user or (chair.supervisor.user if chair.supervisor else None)
+                        if c_user:
+                            c_raw = c_user.get_full_name() or c_user.username
+                            c_title = getattr(chair.supervisor, "academic_title", "") if chair.supervisor else ""
+                            council_chair_name = f"{c_title} {c_raw}".strip() if c_title else c_raw
+                except Exception:
+                    council_chair_name = None
             try:
                 tasks = [
                     {"id": t.id, "status": t.status, "is_completed": t.is_completed}
@@ -164,7 +183,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
                 "supervisor_score": proj.supervisor_score,
                 "supervisor_feedback": proj.supervisor_feedback,
                 "supervisor_defense_confirmed": proj.supervisor_defense_confirmed,
+                "reviewer_name": rev_name,
                 "reviewer_score": proj.reviewer_score,
+                "council_name": council_name,
+                "council_chair_name": council_chair_name,
                 "is_eligible_for_defense": getattr(proj, "is_eligible_for_defense", False),
                 "outline_review": (
                     {
@@ -179,7 +201,14 @@ class StudentProfileSerializer(serializers.ModelSerializer):
                 "final_grade": (
                     {
                         "is_finalized": final_grade.is_finalized,
+                        "supervisor_score": final_grade.supervisor_score,
+                        "reviewer_score": final_grade.reviewer_score,
+                        "council_avg_score": final_grade.council_avg_score,
                         "final_score_10": final_grade.final_score_10,
+                        "final_score_4": final_grade.final_score_4,
+                        "final_letter_grade": final_grade.final_letter_grade,
+                        "classification": final_grade.classification,
+                        "is_passed": final_grade.is_passed,
                     }
                     if final_grade
                     else None

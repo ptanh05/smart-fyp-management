@@ -1652,7 +1652,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
       {activeTab === 'eval' && (
         <div className="utc-supervisor-card space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-            <h3 className="font-bold text-base text-slate-900">Đánh giá Sơ khảo & Chấm điểm GVHD (40%) - Giai đoạn 6 ({stage6Projects.length} SV)</h3>
+            <h3 className="font-bold text-base text-slate-900">Đánh giá Sơ khảo & Chấm điểm GVHD (30%) - Giai đoạn 6 ({stage6Projects.length} SV)</h3>
             <span className="text-xs px-3 py-1 rounded bg-[#EEF3FB] text-[#2D469E] border border-[#B9D1F8] font-bold">
               Hiện có {stageCounts[6] || 0} sinh viên ở giai đoạn này
             </span>
@@ -1748,7 +1748,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
               <h3 className="font-bold text-base text-slate-900">
-                🏛️ Hội đồng Đánh giá & Chấm thi Bảo vệ Đồ án Tốt nghiệp (40%)
+                🏛️ Hội đồng Đánh giá & Chấm thi Bảo vệ Đồ án Tốt nghiệp (50%)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Chấm điểm trực tiếp cho các sinh viên thuộc Hội đồng mà Thầy/Cô là thành viên (Chủ tịch / Thư ký / Ủy viên)

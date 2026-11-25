@@ -2495,8 +2495,12 @@ class CouncilLiveDefenseSessionAPIView(APIView):
                 "my_user_id": user.id,
                 "is_finalized": getattr(council, "is_finalized", False),
                 "is_locked": getattr(council, "is_locked", False),
-                "locked_at": council.locked_at if getattr(council, "is_locked", False) else None,
-                "locked_by": council.locked_by.get_full_name() or council.locked_by.username if getattr(council, "is_locked", False) and council.locked_by else None,
+                "locked_at": getattr(council, "locked_at", None) if getattr(council, "is_locked", False) else None,
+                "locked_by": (
+                    (getattr(council, "locked_by").get_full_name() or getattr(council, "locked_by").username)
+                    if getattr(council, "is_locked", False) and getattr(council, "locked_by", None)
+                    else None
+                ),
                 "can_lock": can_lock,
                 "my_role_code": council_member.role,
                 "current_defending_project_id": council.current_defending_project_id,
@@ -2599,10 +2603,19 @@ class CouncilSubmitScoreAPIView(APIView):
             policy = EvaluationPolicy.objects.filter(batch=project.batch).first()
             summary.calculate_and_save(policy=policy)
 
-            # If all evaluations exist, mark PASSED/FAILED
-            if summary.final_score_10 is not None:
+            # Only mark PASSED/FAILED after all eligible council members scored and turn is not actively DEFENDING
+            target_council = project.council or council_member.council
+            eligible_members = [
+                m for m in target_council.members.select_related("user", "supervisor").all()
+                if not _is_member_project_supervisor(m, project) and not _is_member_project_reviewer(m, project)
+            ]
+            scored_member_ids = set(
+                CouncilLiveScore.objects.filter(project=project, member__in=eligible_members).values_list("member_id", flat=True)
+            )
+            all_eligible_scored = (len(eligible_members) == 0) or (len(scored_member_ids) >= len(eligible_members))
+            if summary.final_score_10 is not None and project.status != "DEFENDING" and all_eligible_scored:
                 project.status = "PASSED" if summary.is_passed else "FAILED"
-                project.save()
+                project.save(update_fields=["status"])
 
             # Automatic notification when External council member submits evaluation score
             if council_member.role == "EXTERNAL_MEMBER":
@@ -2685,7 +2698,7 @@ class CouncilToggleLockAPIView(APIView):
         return Response({
             "message": f"Đã {action} điểm hội đồng {council.council_name} thành công!",
             "is_locked": council.is_locked,
-            "locked_at": council.locked_at,
+            "locked_at": getattr(council, "locked_at", None),
             "locked_by": user.get_full_name() or user.username if lock else None
         }, status=status.HTTP_200_OK)
 
@@ -2823,7 +2836,19 @@ class CouncilChairSetDefenseStatusAPIView(APIView):
 
                 status_msg = f"Đã chuyển sinh viên {project.student.user.get_full_name()} ({project.student.registration_no}) sang trạng thái 'Đang bảo vệ'."
             elif defense_status == "DEFENDED":
-                project.status = "DEFENDED"
+                summary = getattr(project, "final_grade_summary", None)
+                eligible_members = [
+                    m for m in council.members.select_related("user", "supervisor").all()
+                    if not _is_member_project_supervisor(m, project) and not _is_member_project_reviewer(m, project)
+                ]
+                scored_member_ids = set(
+                    CouncilLiveScore.objects.filter(project=project, member__in=eligible_members).values_list("member_id", flat=True)
+                )
+                all_eligible_scored = (len(eligible_members) == 0) or (len(scored_member_ids) >= len(eligible_members))
+                if summary and summary.final_score_10 is not None and all_eligible_scored and project.supervisor_score is not None and project.reviewer_score is not None:
+                    project.status = "PASSED" if summary.is_passed else "FAILED"
+                else:
+                    project.status = "DEFENDED"
                 project.save(update_fields=["status"])
 
                 if council.current_defending_project_id == project.id:

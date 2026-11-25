@@ -2,6 +2,7 @@ import { notify, notifyError, confirmDialog } from '../utils/notify';
 import React, { useState, useEffect, useRef } from 'react';
 import { useModalGuard } from '../utils/modalHooks';
 import { apiService, apiClient } from '../services/api';
+import UTCEvaluationSheetModal from './UTCEvaluationSheetModal';
 
 import { API_BASE_URL as API_BASE } from '../services/api';
 
@@ -18,6 +19,7 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [councilUnavailable, setCouncilUnavailable] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [autoSync, setAutoSync] = useState(true);
   const [exportingMinutes, setExportingMinutes] = useState(false);
 
@@ -45,6 +47,9 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
   const [signModalProject, setSignModalProject] = useState<any>(null);
   const [signNote, setSignNote] = useState('');
   const [signingMinutes, setSigningMinutes] = useState(false);
+
+  // Score Sheet Preview Modal
+  const [evalSheetProject, setEvalSheetProject] = useState<any>(null);
 
   const initialScoreRef = useRef({
     scorePres: 2.5,
@@ -88,9 +93,11 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
       setCouncilData(res.data.council);
       setProjects(res.data.projects || []);
       setCouncilUnavailable(false);
+      setLoadError(null);
     } catch (err: any) {
       if (err?.response?.status === 404) {
         setCouncilUnavailable(true);
+        setLoadError(null);
         if (!silent) {
           setCouncilData(null);
           setProjects([]);
@@ -98,6 +105,7 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
       } else {
         console.error(err);
         if (!silent) {
+          setLoadError(err?.response?.data?.detail || 'Không thể tải dữ liệu phiên bảo vệ (lỗi máy chủ). Vui lòng thử lại.');
           setCouncilData(null);
           setProjects([]);
         }
@@ -346,15 +354,31 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
   const getMyProjectConflict = (project: any) => {
     if (!project || !councilData?.my_user_id) return null;
     const me = project.scoring_summary?.members_breakdown?.find(
-      (m: any) => m.user_id === councilData.my_user_id
+      (m: any) => Number(m.user_id) === Number(councilData.my_user_id)
     );
     if (!me) return null;
     if (me.is_supervisor) return 'GVHD';
+    if (me.is_reviewer) return 'GVPB';
     return null;
   };
 
   if (loading) {
     return <div className="p-8 text-center utc-live-muted">Đang tải phiên bảo vệ trực tiếp của Hội đồng...</div>;
+  }
+
+  if (loadError && !councilData) {
+    return (
+      <div className="p-8 text-center utc-live-surface rounded-xl space-y-3 border border-red-500/30">
+        <h4 className="text-base font-bold text-red-600 dark:text-red-400">Lỗi tải phiên bảo vệ</h4>
+        <p className="text-xs utc-live-muted">{loadError}</p>
+        <button
+          onClick={() => fetchData(false)}
+          className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
+        >
+          Thử tải lại
+        </button>
+      </div>
+    );
   }
 
   if (!councilData) {
@@ -532,7 +556,9 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
                   {currentDefendingProject.student_reg_no}
                 </span>
                 <h3 className="text-lg font-bold utc-live-title">{currentDefendingProject.student_name}</h3>
-                <span className="text-xs utc-live-muted">Lớp: {currentDefendingProject.student_class}</span>
+                {currentDefendingProject.student_class ? (
+                  <span className="text-xs utc-live-muted">Lớp: {currentDefendingProject.student_class}</span>
+                ) : null}
               </div>
 
               <h4 className="text-sm font-semibold utc-live-body">
@@ -657,7 +683,9 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
                       <span className="text-xs font-bold utc-live-muted">{idx + 1}.</span>
                       <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{p.student_reg_no}</span>
                       <span className="font-bold text-sm utc-live-title">{p.student_name}</span>
-                      <span className="text-xs utc-live-muted">({p.student_class})</span>
+                      {p.student_class ? (
+                        <span className="text-xs utc-live-muted">({p.student_class})</span>
+                      ) : null}
 
                       {/* Defense Status Badge */}
                       {isCurrentlyDefending && (
@@ -827,6 +855,15 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
                       <span>
                         Ký BB ({p.minutes_signatures?.signed_count || 0}/{p.minutes_signatures?.total_members || councilData.members?.length || 5})
                       </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEvalSheetProject(p)}
+                      className="px-3 py-2 rounded-lg text-xs font-semibold border transition utc-live-btn-neutral"
+                      title="Xem và in Phiếu đánh giá kết quả bảo vệ ĐATN UTC"
+                    >
+                      🖨️ Phiếu điểm
                     </button>
                   </div>
                 </div>
@@ -1124,6 +1161,42 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
             </form>
           </div>
         </div>
+      )}
+
+      {evalSheetProject && (
+        <UTCEvaluationSheetModal
+          isOpen={Boolean(evalSheetProject)}
+          onClose={() => setEvalSheetProject(null)}
+          groupData={{
+            groupId: evalSheetProject.id,
+            projectTitle: evalSheetProject.topic_title_vi || 'Đồ án Tốt nghiệp UTC',
+            facultyDepartment: 'Khoa Công nghệ Thông tin - UTC',
+            student1Name: evalSheetProject.student_name || 'Sinh viên UTC',
+            student1RegNo: evalSheetProject.student_reg_no || '',
+            supervisorName: evalSheetProject.supervisor?.full_name || undefined,
+            reviewerName: evalSheetProject.reviewer?.full_name || undefined,
+            committeeName:
+              councilData?.members?.find((m: any) => m.role_code === 'CHAIR')?.name ||
+              councilData?.council_name ||
+              undefined,
+            supervisorScore: evalSheetProject.supervisor_score ?? null,
+            reviewerScore: evalSheetProject.reviewer_score ?? null,
+            committeeScore: (() => {
+              if (evalSheetProject.final_grade?.council_avg_score != null) {
+                return Number(evalSheetProject.final_grade.council_avg_score);
+              }
+              const submitted = (evalSheetProject.scoring_summary?.members_breakdown || []).filter(
+                (m: any) => !m.is_supervisor && !m.is_reviewer && m.has_submitted && m.total_score != null
+              );
+              if (submitted.length === 0) return null;
+              const avg = submitted.reduce((acc: number, m: any) => acc + Number(m.total_score), 0) / submitted.length;
+              return Math.round(avg * 100) / 100;
+            })(),
+            finalScore10: evalSheetProject.final_grade?.final_score_10 ?? null,
+            letterGrade: evalSheetProject.final_grade?.final_letter_grade ?? null,
+            isPass: evalSheetProject.final_grade?.is_passed ?? null,
+          }}
+        />
       )}
     </div>
   );

@@ -760,17 +760,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                     <p className="text-sm text-slate-500 italic mt-0.5">{projectData.topic_title_en}</p>
                   )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowDeferralModal(true)}
-                  className="utc-btn utc-btn-deferral"
-                  title="Nộp hoặc xem tiến độ đơn xin hoãn / bảo lưu ĐATN"
-                >
-                  <span>📝</span>
-                  <span>Đơn xin bảo lưu</span>
-                  <span className="utc-deferral-count">{deferralRequests.length}</span>
-                </button>
               </div>
 
               {/* Action Banner: Khi Khoa yêu cầu sửa đề tài */}
@@ -2325,30 +2314,17 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                       <span className="utc-final-status-badge is-passed">
                         ✅ ĐẠT YÊU CẦU
                       </span>
+                    ) : projectData.final_grade.final_score_10 !== null && projectData.final_grade.final_score_10 !== undefined ? (
+                      <span className="utc-final-status-badge is-failed">
+                        ❌ KHÔNG ĐẠT
+                      </span>
                     ) : (
                       <span className="utc-final-status-badge is-pending">
-                        Đang bảo vệ
+                        Đang cập nhật
                       </span>
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* Deferral Quick Action Banner in Tab 6 */}
-              <div className="utc-deferral-quick-card flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800">Đơn Xin Hoãn / Bảo Lưu Đồ Án Tốt Nghiệp</h4>
-                  <p className="text-xs text-slate-500">Trường hợp chưa đủ điều kiện bảo vệ hoặc lý do học vụ cần bảo lưu kết quả sang đợt sau.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowDeferralModal(true)}
-                  className="utc-btn utc-btn-deferral"
-                >
-                  <span>📝</span>
-                  <span>Đơn xin bảo lưu</span>
-                  <span className="utc-deferral-count">{deferralRequests.length}</span>
-                </button>
               </div>
             </div>
           ) : (
@@ -2592,7 +2568,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           {req.status_display || req.status}
                         </span>
                       </div>
-                      <p className="text-slate-700 whitespace-pre-line">{req.reason_details}</p>
+                      <p className="text-slate-700 whitespace-pre-line">{req.reason || req.reason_details}</p>
                       {req.evidence_file && (
                         <p>
                           <a href={req.evidence_file} target="_blank" rel="noreferrer" className="text-[#2D469E] underline font-bold hover:text-blue-900">
@@ -2600,13 +2576,18 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                           </a>
                         </p>
                       )}
-                      {req.faculty_review_notes && (
+                      {req.supervisor_feedback && (
+                        <div className="p-2.5 rounded bg-sky-50 border border-sky-200 text-sky-950">
+                          <span className="font-bold text-sky-800">Nhận xét GVHD:</span> {req.supervisor_feedback}
+                        </div>
+                      )}
+                      {(req.admin_notes || req.faculty_review_notes) && (
                         <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-amber-950">
-                          <span className="font-bold text-amber-800">Ý kiến Khoa:</span> {req.faculty_review_notes}
+                          <span className="font-bold text-amber-800">Ý kiến Khoa:</span> {req.admin_notes || req.faculty_review_notes}
                         </div>
                       )}
                       <div className="text-[10px] text-slate-500">
-                        Nộp lúc: {new Date(req.created_at).toLocaleString('vi-VN')}
+                        Nộp lúc: {(req.submitted_at || req.created_at) ? new Date(req.submitted_at || req.created_at).toLocaleString('vi-VN') : '—'}
                       </div>
                     </div>
                   ))}
