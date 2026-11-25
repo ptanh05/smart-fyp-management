@@ -16,6 +16,7 @@ import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
 import { UTCStudentGraduationView } from '../components/UTCStudentGraduationView';
 import { UTCSupervisorGroupChatView } from '../components/UTCSupervisorGroupChatView';
 import { SkeletonProfile } from '../components/SkeletonLoader';
+import RagUtcChatWidget from '../components/RagUtcChatWidget';
 import {
   GRADUATION_STAGES,
   getProjectStageInfo,
@@ -321,7 +322,8 @@ const StudentDashboard: React.FC = () => {
   })();
 
   return (
-    <UTCAppLayout
+    <>
+      <UTCAppLayout
       user={student}
       onLogout={logout}
       activeTab={activeTab}
@@ -732,7 +734,9 @@ const StudentDashboard: React.FC = () => {
           }}
         />
       )}
-    </UTCAppLayout>
+      </UTCAppLayout>
+      <RagUtcChatWidget />
+    </>
   );
 };
 

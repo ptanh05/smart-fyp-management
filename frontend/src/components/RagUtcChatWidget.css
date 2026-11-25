@@ -1,0 +1,85 @@
+/* Floating preview widget chỉ hiển thị trên /student/dashboard */
+.rag-utc-fab-btn {
+  border: 0;
+  font-family: inherit;
+  background: linear-gradient(135deg, #173f9e 0%, #2563eb 100%);
+  box-shadow: 0 10px 25px -5px rgba(23, 63, 158, 0.42), 0 4px 10px -2px rgba(37, 99, 235, 0.25);
+}
+
+.rag-utc-fab-btn:hover {
+  background: linear-gradient(135deg, #133485 0%, #1d4ed8 100%);
+  transform: translateY(-2px);
+}
+
+.rag-utc-fab-btn:focus-visible,
+.rag-utc-close-btn:focus-visible,
+.rag-utc-confirm-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.rag-utc-popup-card {
+  animation: ragUtcPopupIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid #e2e8f0;
+  font-family: inherit;
+}
+
+.rag-utc-popup-header {
+  background: linear-gradient(135deg, #173f9e 0%, #2563eb 100%);
+}
+
+.rag-utc-close-btn {
+  border: 0;
+  font-family: inherit;
+}
+
+.rag-utc-confirm-btn {
+  border: 0;
+  font-family: inherit;
+  background: linear-gradient(135deg, #173f9e 0%, #2563eb 100%);
+}
+
+.rag-utc-confirm-btn:hover {
+  background: linear-gradient(135deg, #133485 0%, #1d4ed8 100%);
+}
+
+@keyframes ragUtcPopupIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Hỗ trợ Dark Mode nếu sinh viên bật giao diện tối */
+[data-theme='dark'] .rag-utc-popup-card {
+  background: #16213e !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme='dark'] .rag-utc-popup-intro,
+[data-theme='dark'] .rag-utc-popup-item {
+  color: #cbd5e1 !important;
+}
+
+[data-theme='dark'] .rag-utc-status-box {
+  background: rgba(245, 158, 11, 0.14) !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+}
+
+[data-theme='dark'] .rag-utc-status-title {
+  color: #fcd34d !important;
+}
+
+[data-theme='dark'] .rag-utc-status-desc {
+  color: #fde68a !important;
+}
+
+[data-theme='dark'] .rag-utc-feature-list {
+  background: rgba(30, 41, 59, 0.7) !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
