@@ -130,7 +130,7 @@ class BatchMilestonesPublicAPIView(APIView):
         if not batch:
             return Response({"batch": None, "milestones": [], "current_milestone": None}, status=status.HTTP_200_OK)
 
-        milestones = BatchMilestone.objects.filter(batch=batch, is_active=True).order_by(
+        milestones = BatchMilestone.objects.filter(batch=batch, is_active=True).select_related("batch").order_by(
             "order_index", "start_date", "id"
         )
         from app.utils.batch_progress import DB_STAGE_TO_NUMBER, select_current_milestone
@@ -457,7 +457,7 @@ class RoleHomeSummaryAPIView(APIView):
         current_milestone = None
         is_batch_closed = bool(batch and (batch.is_closed or batch.current_stage == "COMPLETED"))
         if batch:
-            ms_qs = BatchMilestone.objects.filter(batch=batch, is_active=True).order_by("order_index", "start_date", "id")
+            ms_qs = BatchMilestone.objects.filter(batch=batch, is_active=True).select_related("batch").order_by("order_index", "start_date", "id")
             milestones = BatchMilestoneSerializer(ms_qs, many=True).data
             current_stage_num = DB_STAGE_TO_NUMBER.get(batch.current_stage, 1)
             current_milestone = select_current_milestone(
