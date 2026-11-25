@@ -1,21 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { isEnglish, tr } from '../utils/i18nHelper';
 import './RagUtcChatWidget.css';
 
 const STUDENT_DASHBOARD_PATH = '/student/dashboard';
 
-const UPCOMING_CAPABILITIES = [
+const UPCOMING_CAPABILITIES_VI = [
   'Tra cứu nhanh quy trình và các giai đoạn làm Đồ án Tốt nghiệp UTC.',
   'Giải đáp cách điền, kiểm tra và nộp các biểu mẫu chuẩn của nhà trường.',
   'Hỏi đáp mốc thời gian, hạn chót quan trọng và quy định học vụ liên quan.',
 ];
 
+const UPCOMING_CAPABILITIES_EN = [
+  'Quickly look up UTC graduation thesis workflow and 6-stage requirements.',
+  'Get guidance on filling out, verifying, and submitting official UTC templates.',
+  'Ask about milestone deadlines, important schedules, and academic regulations.',
+];
+
 /**
- * Floating preview widget for "Hỏi AI RAG-UTC".
+ * Floating preview widget for "Hỏi AI RAG-UTC" (bilingual Vietnamese – English).
  * Guarded to render exclusively on the `/student/dashboard` route.
  */
 const RagUtcChatWidget: React.FC = () => {
   const { pathname } = useLocation();
+  const { i18n } = useTranslation();
+  const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const [isOpen, setIsOpen] = useState(false);
 
   const normalizedPath = (pathname || '').replace(/\/+$/, '');
@@ -35,6 +45,8 @@ const RagUtcChatWidget: React.FC = () => {
   if (!isStudentDashboardRoute) {
     return null;
   }
+
+  const capabilities = isEn ? UPCOMING_CAPABILITIES_EN : UPCOMING_CAPABILITIES_VI;
 
   return (
     <div
@@ -69,10 +81,10 @@ const RagUtcChatWidget: React.FC = () => {
                   id="rag-utc-popup-title"
                   className="m-0 text-sm font-bold leading-snug text-white"
                 >
-                  Hỏi đáp AI RAG-UTC
+                  {tr(isEn, 'Hỏi đáp AI RAG-UTC', 'RAG-UTC AI Assistant')}
                 </h3>
                 <p className="m-0 text-xs text-blue-100">
-                  Tích hợp trên hệ thống Smart FYP UTC
+                  {tr(isEn, 'Tích hợp trên hệ thống Smart FYP UTC', 'Integrated with Smart FYP UTC')}
                 </p>
               </div>
             </div>
@@ -81,8 +93,8 @@ const RagUtcChatWidget: React.FC = () => {
               type="button"
               onClick={() => setIsOpen(false)}
               className="rag-utc-close-btn flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-white/15 text-white transition hover:bg-white/25"
-              aria-label="Đóng khung giới thiệu Hỏi AI RAG-UTC"
-              title="Đóng"
+              aria-label={tr(isEn, 'Đóng khung giới thiệu Hỏi AI RAG-UTC', 'Close RAG-UTC AI introduction')}
+              title={tr(isEn, 'Đóng', 'Close')}
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 6 6 18" />
@@ -97,20 +109,32 @@ const RagUtcChatWidget: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-2 w-2 rounded-full bg-amber-500" aria-hidden="true" />
                 <span className="rag-utc-status-title text-xs font-bold uppercase tracking-wide text-amber-800">
-                  Tính năng đang được phát triển
+                  {tr(isEn, 'Tính năng đang được phát triển', 'Feature Under Development')}
                 </span>
               </div>
               <p className="rag-utc-status-desc mt-1 mb-0 text-xs leading-relaxed text-amber-900/90">
-                Hệ thống đang hoàn thiện dữ liệu tri thức và sẽ sớm ra mắt sinh viên trong thời gian tới.
+                {tr(
+                  isEn,
+                  'Hệ thống đang hoàn thiện dữ liệu tri thức và sẽ sớm ra mắt sinh viên trong thời gian tới.',
+                  'The knowledge base is currently being finalized and will be launched for students soon.'
+                )}
               </p>
             </div>
 
             <p className="rag-utc-popup-intro m-0 text-xs leading-relaxed text-slate-600">
-              Trợ lý <strong className="font-semibold text-[#173f9e]">Hỏi đáp AI RAG-UTC</strong> sẽ đồng hành cùng bạn trong suốt kỳ làm đồ án với các tiện ích sắp tới:
+              {isEn ? (
+                <>
+                  The <strong className="font-semibold text-[#173f9e]">RAG-UTC AI Assistant</strong> will support you throughout your thesis semester with upcoming capabilities:
+                </>
+              ) : (
+                <>
+                  Trợ lý <strong className="font-semibold text-[#173f9e]">Hỏi đáp AI RAG-UTC</strong> sẽ đồng hành cùng bạn trong suốt kỳ làm đồ án với các tiện ích sắp tới:
+                </>
+              )}
             </p>
 
             <ul className="rag-utc-feature-list m-0 list-none space-y-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
-              {UPCOMING_CAPABILITIES.map((text, idx) => (
+              {capabilities.map((text, idx) => (
                 <li
                   key={idx}
                   className="rag-utc-popup-item flex items-start gap-2 text-xs leading-relaxed text-slate-700"
@@ -133,7 +157,7 @@ const RagUtcChatWidget: React.FC = () => {
               onClick={() => setIsOpen(false)}
               className="rag-utc-confirm-btn w-full cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-sm transition"
             >
-              Đã hiểu
+              {tr(isEn, 'Đã hiểu', 'Got it')}
             </button>
           </div>
         </section>
@@ -145,7 +169,7 @@ const RagUtcChatWidget: React.FC = () => {
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
         aria-controls="rag-utc-preview-dialog"
-        aria-label="Hỏi AI RAG-UTC (Tính năng đang phát triển)"
+        aria-label={tr(isEn, 'Hỏi AI RAG-UTC (Tính năng đang phát triển)', 'Ask AI RAG-UTC (Feature under development)')}
         className="rag-utc-fab-btn relative flex cursor-pointer items-center gap-2.5 rounded-full px-4 py-3 text-sm font-bold text-white shadow-lg transition-all duration-200"
       >
         <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-white/15" aria-hidden="true">
@@ -157,10 +181,10 @@ const RagUtcChatWidget: React.FC = () => {
             <path d="M9.5 16.2h5" />
           </svg>
         </span>
-        <span className="whitespace-nowrap">Hỏi AI RAG-UTC</span>
+        <span className="whitespace-nowrap">{tr(isEn, 'Hỏi AI RAG-UTC', 'Ask AI RAG-UTC')}</span>
         <span
           className="inline-flex items-center gap-1 rounded-full bg-amber-300/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-200 border border-amber-300/40"
-          title="Tính năng đang được phát triển"
+          title={tr(isEn, 'Tính năng đang được phát triển', 'Feature under development')}
         >
           <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
           Beta

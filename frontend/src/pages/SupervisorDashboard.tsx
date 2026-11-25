@@ -26,6 +26,7 @@ import { TablePagination } from '../components/TablePagination';
 import { getRelativeTime } from '../utils/dateUtils';
 import { useModalGuard } from '../utils/modalHooks';
 import { calculateStageCounts } from '../utils/graduationStages';
+import { isEnglish, tr } from '../utils/i18nHelper';
 import type { SupervisorGradTab } from '../components/UTCSupervisorGraduationView';
 import StudentTemplatesView from '../components/StudentTemplatesView';
 import { LecturerWorkspaceTab } from '../components/lecturer/LecturerWorkspaceTab';
@@ -36,7 +37,8 @@ import '../components/SkeletonLoader.css';
 import '../components/CommentsSection.css';
 
 const SupervisorDashboard: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const { user, logout } = useAuth();
   const [searchParams] = useSearchParams();
   const supervisor = user as Supervisor;
@@ -343,13 +345,13 @@ const SupervisorDashboard: React.FC = () => {
         <div className="utc-page-header-card">
           <div>
             <div className="utc-header-meta-row">
-              <span className="utc-header-badge">Giảng Viên Hướng Dẫn</span>
+              <span className="utc-header-badge">{tr(isEn, 'Giảng Viên Hướng Dẫn', 'Academic Supervisor')}</span>
               <span className="utc-header-meta">
-                Mã GV: <strong>{supervisor?.supervisor_id || supervisor?.user?.username || '---'}</strong>
+                {tr(isEn, 'Mã GV:', 'Staff ID:')} <strong>{supervisor?.supervisor_id || supervisor?.user?.username || '---'}</strong>
               </span>
               {supervisor?.academic_title && (
                 <span className="utc-header-meta">
-                  | Học vị: <strong>{supervisor.academic_title}</strong>
+                  | {tr(isEn, 'Học vị:', 'Title:')} <strong>{supervisor.academic_title}</strong>
                 </span>
               )}
             </div>
@@ -357,18 +359,22 @@ const SupervisorDashboard: React.FC = () => {
               {t('dashboard.supervisorTitle', 'Bảng Điều Khiển Giảng Viên Hướng Dẫn')}
             </h1>
             <p className="utc-header-subtitle">
-              Quản lý phân công đề tài, theo dõi tiến độ tuần 1 - 15 và phê duyệt đề cương sinh viên ĐATN UTC
+              {tr(
+                isEn,
+                'Quản lý phân công đề tài, theo dõi tiến độ tuần 1 - 15 và phê duyệt đề cương sinh viên ĐATN UTC',
+                'Manage topic allocations, monitor weekly thesis progress, and approve UTC student outlines'
+              )}
             </p>
           </div>
           <div className="utc-header-actions">
             <label className="utc-supervisor-batch-filter">
-              <span>📅 Đợt ĐATN</span>
+              <span>📅 {tr(isEn, 'Đợt ĐATN', 'Thesis Batch')}</span>
               <select
                 value={selectedBatchId ?? ''}
                 onChange={(event) => setSelectedBatchId(Number(event.target.value))}
                 disabled={batchesLoading || supervisorBatches.length === 0}
               >
-                {supervisorBatches.length === 0 && <option value="">Chưa có đợt được phân công</option>}
+                {supervisorBatches.length === 0 && <option value="">{tr(isEn, 'Chưa có đợt được phân công', 'No assigned batch')}</option>}
                 {supervisorBatches.map((batch) => (
                   <option key={batch.id} value={batch.id}>
                     {batch.batch_code} - {batch.batch_name}
@@ -403,7 +409,7 @@ const SupervisorDashboard: React.FC = () => {
             onClick={() => setActiveTab('utc_graduation')}
             style={{ fontWeight: 'bold', background: isGraduationStageTab ? '#2D469E' : undefined, color: isGraduationStageTab ? '#fff' : undefined }}
           >
-            🎓 Quản lý ĐATN UTC (Duyệt Đề cương, Báo cáo & Chấm Điểm)
+            🎓 {tr(isEn, 'Quản lý ĐATN UTC (Duyệt Đề cương, Báo cáo & Chấm Điểm)', 'UTC Thesis Management (Outlines, Reports & Grading)')}
           </button>
           <button
             className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
@@ -427,7 +433,7 @@ const SupervisorDashboard: React.FC = () => {
             className={`tab ${activeTab === 'offered_topics' ? 'active' : ''}`}
             onClick={() => setActiveTab('offered_topics')}
           >
-            💡 Đề Tài Gợi Ý
+            💡 {tr(isEn, 'Đề Tài Gợi Ý', 'Suggested Topics')}
           </button>
           <button
             className={`tab ${activeTab === 'documents' ? 'active' : ''}`}
@@ -457,7 +463,7 @@ const SupervisorDashboard: React.FC = () => {
             className={`tab ${activeTab === 'workload' ? 'active' : ''}`}
             onClick={() => setActiveTab('workload')}
           >
-            Khối Lượng & Chấm Điểm
+            {tr(isEn, 'Khối Lượng & Chấm Điểm', 'Workload & Grading')}
           </button>
         </div>
 

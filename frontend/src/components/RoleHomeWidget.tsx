@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
+import { isEnglish, localizeDynamicText, tr } from '../utils/i18nHelper';
+import './RoleHomeWidget.css';
 
 interface RoleHomeWidgetProps {
   role: 'student' | 'supervisor';
@@ -10,6 +13,8 @@ interface RoleHomeWidgetProps {
 
 export const RoleHomeWidget: React.FC<RoleHomeWidgetProps> = ({ role, batchId, onNavigateTab }) => {
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
+  const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,66 +51,65 @@ export const RoleHomeWidget: React.FC<RoleHomeWidgetProps> = ({ role, batchId, o
   }> = summary.student_risk_alerts || [];
   const riskSummary = summary.risk_summary;
 
+  const milestoneStateCls =
+    typeof milestone?.days_left === 'number'
+      ? milestone.days_left < 0
+        ? 'overdue'
+        : milestone.days_left === 0
+        ? 'today'
+        : ''
+      : '';
+
   return (
-    <div
-      style={{
-        background: '#ffffff',
-        border: '1px solid #e2e8f0',
-        borderRadius: '14px',
-        padding: '18px 20px',
-        marginBottom: '20px',
-        boxShadow: '0 4px 14px rgba(15, 23, 42, 0.05)',
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+    <div className="utc-rhw-card">
+      <div className="utc-rhw-header">
         <div>
-          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
-            {role === 'student' ? '📌 Việc Cần Làm Ngay' : '🧭 Bảng Nhắc Việc & Cảnh Báo Tiến Độ'}
+          <h3 className="utc-rhw-title">
+            {role === 'student'
+              ? tr(isEn, '📌 Việc Cần Làm Ngay', '📌 Action Required Now')
+              : tr(isEn, '🧭 Bảng Nhắc Việc & Cảnh Báo Tiến Độ', '🧭 Action Items & Progress Risk Alerts')}
           </h3>
           {summary.batch && (
-            <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>
-              Đợt <b>{summary.batch.batch_code}</b>
-              {summary.batch.supplementary_open ? ' • 🔓 Đang mở ĐK bổ sung' : ''}
+            <div className="utc-rhw-batch-sub">
+              {tr(isEn, 'Đợt', 'Batch')} <b>{summary.batch.batch_code}</b>
+              {summary.batch.supplementary_open
+                ? tr(isEn, ' • 🔓 Đang mở ĐK bổ sung', ' • 🔓 Supplementary Reg. Open')
+                : ''}
             </div>
           )}
         </div>
 
         {milestone && (
-          <div
-            style={{
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              color: '#1d4ed8',
-              borderRadius: '999px',
-              padding: '5px 12px',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-            }}
-          >
-            ⏳ {milestone.name}
+          <div className={`utc-rhw-milestone-pill ${milestoneStateCls}`.trim()}>
+            ⏳ {localizeDynamicText(milestone.name, isEn)}
             {typeof milestone.days_left === 'number'
               ? milestone.days_left === 0
-                ? ' • Hạn hôm nay'
+                ? tr(isEn, ' • Hạn hôm nay', ' • Due today')
                 : milestone.days_left > 0
-                ? ` • Còn ${milestone.days_left} ngày`
-                : ` • Quá hạn ${Math.abs(milestone.days_left)} ngày`
+                ? tr(isEn, ` • Còn ${milestone.days_left} ngày`, ` • ${milestone.days_left} days left`)
+                : tr(isEn, ` • Quá hạn ${Math.abs(milestone.days_left)} ngày`, ` • Overdue ${Math.abs(milestone.days_left)} days`)
               : ''}
           </div>
         )}
       </div>
 
       {todos.length === 0 ? (
-        <div style={{ fontSize: '0.86rem', color: '#059669', background: '#ecfdf5', padding: '10px 14px', borderRadius: '10px', border: '1px solid #a7f3d0', fontWeight: 600 }}>
-          ✅ Hiện tại không có đầu việc gấp hoặc quá hạn nào. Tiến độ đang ổn định!
+        <div className="utc-rhw-empty">
+          {tr(
+            isEn,
+            '✅ Hiện tại không có đầu việc gấp hoặc quá hạn nào. Tiến độ đang ổn định!',
+            '✅ No urgent or overdue items right now. Your progress is on track!'
+          )}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
+        <div className="utc-rhw-todo-grid">
           {todos.map((item, idx) => {
             const isHigh = item.urgency === 'high';
             return (
               <button
                 key={idx}
                 type="button"
+                className={`utc-rhw-todo-btn ${isHigh ? 'high' : ''}`.trim()}
                 onClick={() => {
                   if (onNavigateTab && item.action_tab) {
                     onNavigateTab(item.action_tab);
@@ -113,22 +117,13 @@ export const RoleHomeWidget: React.FC<RoleHomeWidgetProps> = ({ role, batchId, o
                     navigate(item.action_url);
                   }
                 }}
-                style={{
-                  textAlign: 'left',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  border: `1px solid ${isHigh ? '#fca5a5' : '#fcd34d'}`,
-                  background: isHigh ? '#fef2f2' : '#fffbeb',
-                  cursor: 'pointer',
-                  transition: 'transform 0.12s ease',
-                }}
               >
-                <div style={{ fontWeight: 700, fontSize: '0.88rem', color: isHigh ? '#b91c1c' : '#92400e' }}>
+                <div className="utc-rhw-todo-title">
                   {isHigh ? '🔥 ' : '⚡ '}
-                  {item.title}
+                  {localizeDynamicText(item.title, isEn)}
                 </div>
-                <div style={{ fontSize: '0.79rem', color: '#475569', marginTop: '4px', lineHeight: 1.4 }}>
-                  {item.description}
+                <div className="utc-rhw-todo-desc">
+                  {localizeDynamicText(item.description, isEn)}
                 </div>
               </button>
             );
@@ -137,43 +132,37 @@ export const RoleHomeWidget: React.FC<RoleHomeWidgetProps> = ({ role, batchId, o
       )}
 
       {role === 'supervisor' && riskSummary && (
-        <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>
-              🚦 Phân Loại Rủi Ro Tiến Độ Sinh Viên
+        <div className="utc-rhw-risk-section">
+          <div className="utc-rhw-risk-header">
+            <span className="utc-rhw-risk-title">
+              {tr(isEn, '🚦 Phân Loại Rủi Ro Tiến Độ Sinh Viên', '🚦 Student Progress Risk Breakdown')}
             </span>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '0.78rem', fontWeight: 700 }}>
-              <span style={{ padding: '2px 8px', borderRadius: '999px', background: '#fee2e2', color: '#b91c1c' }}>
-                🔴 Nguy cơ cao (AT_RISK): {riskSummary.at_risk}
+            <div className="utc-rhw-risk-pills">
+              <span className="utc-rhw-risk-pill at-risk">
+                {tr(isEn, '🔴 Nguy cơ cao (AT_RISK):', '🔴 High Risk (AT_RISK):')} {riskSummary.at_risk}
               </span>
-              <span style={{ padding: '2px 8px', borderRadius: '999px', background: '#fef3c7', color: '#92400e' }}>
-                🟡 Chậm nhịp (BEHIND): {riskSummary.behind}
+              <span className="utc-rhw-risk-pill behind">
+                {tr(isEn, '🟡 Chậm nhịp (BEHIND):', '🟡 Behind Schedule (BEHIND):')} {riskSummary.behind}
               </span>
-              <span style={{ padding: '2px 8px', borderRadius: '999px', background: '#dcfce7', color: '#166534' }}>
-                🟢 Đúng tiến độ: {riskSummary.on_track}
+              <span className="utc-rhw-risk-pill on-track">
+                {tr(isEn, '🟢 Đúng tiến độ:', '🟢 On Track:')} {riskSummary.on_track}
               </span>
             </div>
           </div>
 
           {riskAlerts.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px' }}>
+            <div className="utc-rhw-risk-grid">
               {riskAlerts.slice(0, 6).map((alert) => (
                 <div
                   key={alert.project_id}
-                  style={{
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    background: alert.risk_level === 'AT_RISK' ? '#fff1f2' : '#fefce8',
-                    border: `1px solid ${alert.risk_level === 'AT_RISK' ? '#fecdd3' : '#fde68a'}`,
-                    fontSize: '0.82rem',
-                  }}
+                  className={`utc-rhw-risk-alert ${alert.risk_level === 'AT_RISK' ? 'at-risk' : ''}`.trim()}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#0f172a' }}>
+                  <div className="utc-rhw-risk-alert-head">
                     <span>{alert.student_name} ({alert.student_reg_no})</span>
-                    <span style={{ color: alert.risk_level === 'AT_RISK' ? '#dc2626' : '#d97706' }}>{alert.risk_level}</span>
+                    <span className="utc-rhw-risk-level">{alert.risk_level}</span>
                   </div>
-                  <div style={{ color: '#475569', fontSize: '0.77rem', marginTop: '3px' }}>
-                    {alert.reasons.join(' • ')}
+                  <div className="utc-rhw-risk-reasons">
+                    {alert.reasons.map((r) => localizeDynamicText(r, isEn)).join(' • ')}
                   </div>
                 </div>
               ))}

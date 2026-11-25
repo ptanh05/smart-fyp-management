@@ -1,6 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBatchProgress } from '../contexts/BatchProgressContext';
 import { GRADUATION_STAGES } from '../utils/graduationStages';
+import { getLocalizedStageText, isEnglish, localizeDynamicText, tr } from '../utils/i18nHelper';
 import type { BatchMilestoneItem } from './BatchProgressBar';
 import './UTCFypTimeline.css';
 
@@ -17,11 +19,14 @@ const formatDateShort = (iso?: string | null) => {
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
 };
 
-const formatDaysLeftLabel = (daysLeft?: number | null) => {
+const formatDaysLeftLabel = (daysLeft: number | null | undefined, isEn: boolean) => {
   if (daysLeft === null || daysLeft === undefined) return '';
-  if (daysLeft < 0) return `Quá hạn ${Math.abs(daysLeft)} ngày`;
-  if (daysLeft === 0) return 'Hạn hôm nay';
-  return `Còn ${daysLeft} ngày`;
+  if (daysLeft < 0) {
+    const abs = Math.abs(daysLeft);
+    return tr(isEn, `Quá hạn ${abs} ngày`, `Overdue ${abs} days`);
+  }
+  if (daysLeft === 0) return tr(isEn, 'Hạn hôm nay', 'Due today');
+  return tr(isEn, `Còn ${daysLeft} ngày`, `${daysLeft} days left`);
 };
 
 const UTCFypTimeline: React.FC<UTCFypTimelineProps> = ({
@@ -29,6 +34,8 @@ const UTCFypTimeline: React.FC<UTCFypTimelineProps> = ({
   milestones: propMilestones,
   onStageClick,
 }) => {
+  const { i18n } = useTranslation();
+  const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const { progress } = useBatchProgress();
   const dynamicMilestones: BatchMilestoneItem[] =
     (propMilestones && propMilestones.length > 0 ? propMilestones : progress?.milestones) || [];
@@ -40,9 +47,11 @@ const UTCFypTimeline: React.FC<UTCFypTimelineProps> = ({
     return (
       <div className="utc-timeline-card">
         <div className="utc-timeline-header">
-          <h3>📅 Lộ trình mốc thời gian Đồ án Tốt nghiệp (UTC)</h3>
+          <h3>{tr(isEn, '📅 Lộ trình mốc thời gian Đồ án Tốt nghiệp (UTC)', '📅 UTC Graduation Thesis Milestone Timeline')}</h3>
           <span className="utc-timeline-badge">
-            {progress?.batch?.batch_code ? `${progress.batch.batch_code} · GĐ ${activeStageNumber}/6` : `Giai đoạn ${activeStageNumber}/6`}
+            {progress?.batch?.batch_code
+              ? `${progress.batch.batch_code} · ${tr(isEn, 'GĐ', 'Stage')} ${activeStageNumber}/6`
+              : `${tr(isEn, 'Giai đoạn', 'Stage')} ${activeStageNumber}/6`}
           </span>
         </div>
         <div className="utc-timeline-steps">
@@ -57,8 +66,17 @@ const UTCFypTimeline: React.FC<UTCFypTimelineProps> = ({
             const clickableCls = onStageClick ? 'clickable' : '';
             const sStr = formatDateShort(m.start_date);
             const eStr = formatDateShort(m.end_date);
-            const dateRange = sStr && eStr ? `${sStr} – ${eStr}` : eStr ? `Hạn ${eStr}` : sStr ? `Từ ${sStr}` : 'Chưa ấn định';
-            const daysText = !isCompleted ? formatDaysLeftLabel(m.days_left) : '';
+            const dateRange =
+              sStr && eStr
+                ? `${sStr} – ${eStr}`
+                : eStr
+                ? `${tr(isEn, 'Hạn', 'Due')} ${eStr}`
+                : sStr
+                ? `${tr(isEn, 'Từ', 'From')} ${sStr}`
+                : tr(isEn, 'Chưa ấn định', 'Unscheduled');
+            const daysText = !isCompleted ? formatDaysLeftLabel(m.days_left, isEn) : '';
+            const localizedName = localizeDynamicText(m.name, isEn);
+            const localizedDesc = localizeDynamicText(m.description || m.name, isEn);
 
             return (
               <div
@@ -68,10 +86,10 @@ const UTCFypTimeline: React.FC<UTCFypTimelineProps> = ({
                 onKeyDown={onStageClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStageClick(m.stage_number); } } : undefined}
                 role={onStageClick ? 'button' : undefined}
                 tabIndex={onStageClick ? 0 : undefined}
-                title={m.description || m.name}
+                title={localizedDesc}
               >
                 <div className="utc-step-icon">{isCompleted ? '✓' : m.stage_number || idx + 1}</div>
-                <div className="utc-step-title">{m.name}</div>
+                <div className="utc-step-title">{localizedName}</div>
                 <div className="utc-step-time">
                   {dateRange}
                   {daysText && (
@@ -99,8 +117,10 @@ const UTCFypTimeline: React.FC<UTCFypTimelineProps> = ({
   return (
     <div className="utc-timeline-card">
       <div className="utc-timeline-header">
-        <h3>📅 Lộ trình 6 giai đoạn Đồ án Tốt nghiệp (UTC)</h3>
-        <span className="utc-timeline-badge">Theo dõi tiến trình 6 giai đoạn ĐATN</span>
+        <h3>{tr(isEn, '📅 Lộ trình 6 giai đoạn Đồ án Tốt nghiệp (UTC)', '📅 6-Stage UTC Graduation Thesis Timeline')}</h3>
+        <span className="utc-timeline-badge">
+          {tr(isEn, 'Theo dõi tiến trình 6 giai đoạn ĐATN', '6-Stage Thesis Progress Tracker')}
+        </span>
       </div>
       <div className="utc-timeline-steps">
         {GRADUATION_STAGES.map((stage) => {
@@ -109,6 +129,7 @@ const UTCFypTimeline: React.FC<UTCFypTimelineProps> = ({
           const isActive = progressStage ? progressStage.status === 'active' : stage.number === activeStageNumber;
           const cls = isCompleted ? 'completed' : isActive ? 'active' : '';
           const clickableCls = onStageClick ? 'clickable' : '';
+          const stageLoc = getLocalizedStageText(stage.number, stage, isEn);
 
           return (
             <div
@@ -118,12 +139,16 @@ const UTCFypTimeline: React.FC<UTCFypTimelineProps> = ({
               onKeyDown={onStageClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStageClick(stage.number); } } : undefined}
               role={onStageClick ? 'button' : undefined}
               tabIndex={onStageClick ? 0 : undefined}
-              title={stage.description}
+              title={stageLoc.description}
             >
               <div className="utc-step-icon">{isCompleted ? '✓' : stage.number}</div>
-              <div className="utc-step-title">{stage.shortLabel}</div>
+              <div className="utc-step-title">{stageLoc.shortLabel}</div>
               <div className="utc-step-time">
-                {isCompleted ? 'Đã hoàn thành' : isActive ? <em>Đang thực hiện</em> : 'Chưa mở khóa'}
+                {isCompleted
+                  ? tr(isEn, 'Đã hoàn thành', 'Completed')
+                  : isActive
+                  ? <em>{tr(isEn, 'Đang thực hiện', 'In Progress')}</em>
+                  : tr(isEn, 'Chưa mở khóa', 'Locked')}
               </div>
             </div>
           );

@@ -5,6 +5,7 @@ import utcLogo from '../asset/images/utc_logo.webp';
 import type { Student, Supervisor, CommitteeMember, UserType } from '../types';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
+import { getLocalizedStageText, isEnglish, tr } from '../utils/i18nHelper';
 import { BatchProgressProvider } from '../contexts/BatchProgressContext';
 import {
   GRADUATION_STAGES,
@@ -53,6 +54,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   portalRole,
 }) => {
   const { t, i18n } = useTranslation();
+  const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const { toggleTheme, isDark } = useTheme();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -155,7 +157,10 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   };
 
   const toggleLanguage = () => {
-    const nextLng = i18n.language.startsWith('vi') ? 'en' : 'vi';
+    const nextLng = isEn ? 'vi' : 'en';
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('i18nextLng', nextLng);
+    }
     i18n.changeLanguage(nextLng);
   };
 
@@ -356,15 +361,19 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
           <div className="utc-logo-text-group">
             <span className="utc-school-title">SMART FYP UTC</span>
             <span className="utc-school-title-sub">
-              {userType === 'student' ? 'CỔNG SINH VIÊN' : userType === 'supervisor' ? 'CỔNG GIẢNG VIÊN' : 'HỘI ĐỒNG ĐÁNH GIÁ'}
+              {userType === 'student'
+                ? tr(isEn, 'CỔNG SINH VIÊN', 'STUDENT PORTAL')
+                : userType === 'supervisor'
+                ? tr(isEn, 'CỔNG GIẢNG VIÊN', 'SUPERVISOR PORTAL')
+                : tr(isEn, 'HỘI ĐỒNG ĐÁNH GIÁ', 'EVALUATION COMMITTEE')}
             </span>
           </div>
           <button
             type="button"
             className="utc-sidebar-close-btn"
             onClick={() => setSidebarOpen(false)}
-            title="Đóng menu"
-            aria-label="Đóng menu"
+            title={tr(isEn, 'Đóng menu', 'Close menu')}
+            aria-label={tr(isEn, 'Đóng menu', 'Close menu')}
           >
             ✕
           </button>
@@ -374,19 +383,19 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
           {userType === 'student' ? (
             <>
               {/* 1. TỔNG QUAN HỆ THỐNG */}
-              <div className="utc-sidebar-section-title">TỔNG QUAN HỆ THỐNG</div>
+              <div className="utc-sidebar-section-title">{tr(isEn, 'TỔNG QUAN HỆ THỐNG', 'SYSTEM OVERVIEW')}</div>
               <div
                 className={`utc-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
                 onClick={() => handleNavClick('overview')}
-                title="Tổng Quan Dashboard & Tiến Độ Học Vụ"
+                title={tr(isEn, 'Tổng Quan Dashboard & Tiến Độ Học Vụ', 'Dashboard Overview & Academic Progress')}
               >
                 <span className="utc-nav-icon">📊</span>
-                <span className="utc-nav-label">Tổng Quan Dashboard</span>
+                <span className="utc-nav-label">{tr(isEn, 'Tổng Quan Dashboard', 'Dashboard Overview')}</span>
               </div>
 
               {/* 2. QUY TRÌNH ĐỒ ÁN UTC (6 GIAI ĐOẠN) */}
               <div className="utc-sidebar-section-title">
-                QUY TRÌNH ĐỒ ÁN UTC ({effectiveStageNumber}/6)
+                {tr(isEn, 'QUY TRÌNH ĐỒ ÁN UTC', 'UTC THESIS WORKFLOW')} ({effectiveStageNumber}/6)
               </div>
               {GRADUATION_STAGES.map((st) => {
                 const isCurrent = st.number === effectiveStageNumber;
@@ -395,6 +404,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                 const isActive =
                   activeTab === st.key ||
                   (st.number === 1 && (activeTab === 'project' || activeTab === 'utc_graduation'));
+                const stageLoc = getLocalizedStageText(st.number, st, isEn);
 
                 return (
                   <div
@@ -409,12 +419,12 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                     }}
                     title={
                       !isAccessible
-                        ? stageAccess.reason || `Chờ hoàn thành bước trước để mở ${st.label}`
-                        : `${st.label} ${isCurrent ? '- Giai đoạn bạn đang thực hiện' : ''}`
+                        ? stageAccess.reason || tr(isEn, `Chờ hoàn thành bước trước để mở ${stageLoc.label}`, `Complete previous stage to unlock ${stageLoc.label}`)
+                        : `${stageLoc.label} ${isCurrent ? tr(isEn, '- Giai đoạn bạn đang thực hiện', '- Current stage') : ''}`
                     }
                   >
                     <span className="utc-nav-icon">{isAccessible ? st.icon : '🔒'}</span>
-                    <span className="utc-nav-label">{st.sidebarLabel}</span>
+                    <span className="utc-nav-label">{stageLoc.sidebarLabel}</span>
                     {isCurrent && (
                       <span
                         className="utc-nav-badge"
@@ -427,7 +437,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                           fontSize: '0.7rem',
                         }}
                       >
-                        GĐ {st.number}
+                        {tr(isEn, `GĐ ${st.number}`, `S${st.number}`)}
                       </span>
                     )}
                   </div>
@@ -435,73 +445,73 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
               })}
 
               {/* 3. TRAO ĐỔI & THẢO LUẬN */}
-              <div className="utc-sidebar-section-title">TRAO ĐỔI & THẢO LUẬN</div>
+              <div className="utc-sidebar-section-title">{tr(isEn, 'TRAO ĐỔI & THẢO LUẬN', 'DISCUSSION & CHAT')}</div>
               <div
                 className={`utc-nav-item ${activeTab === 'chat' || activeTab === 'groups' ? 'active' : ''}`}
                 onClick={() => handleNavClick('chat')}
-                title="Nhóm Đồ Án & Kênh Chat Trực Tiếp GVHD"
+                title={tr(isEn, 'Nhóm Đồ Án & Kênh Chat Trực Tiếp GVHD', 'Project Group & Direct Supervisor Chat')}
               >
                 <span className="utc-nav-icon">💬</span>
-                <span className="utc-nav-label">Nhóm Đồ Án & Chat GVHD</span>
+                <span className="utc-nav-label">{tr(isEn, 'Nhóm Đồ Án & Chat GVHD', 'Project Group & Supervisor Chat')}</span>
               </div>
 
               {/* 4. TÀI NGUYÊN & TIỆN ÍCH */}
-              <div className="utc-sidebar-section-title">TÀI NGUYÊN & TIỆN ÍCH</div>
+              <div className="utc-sidebar-section-title">{tr(isEn, 'TÀI NGUYÊN & TIỆN ÍCH', 'RESOURCES & UTILITIES')}</div>
               <div
                 className={`utc-nav-item ${activeTab === 'templates' ? 'active' : ''}`}
                 onClick={() => handleNavClick('templates')}
-                title="Kho Biểu Mẫu Chuẩn & Quy Định ĐATN UTC"
+                title={tr(isEn, 'Kho Biểu Mẫu Chuẩn & Quy Định ĐATN UTC', 'UTC Official Templates & Thesis Guidelines')}
               >
                 <span className="utc-nav-icon">📑</span>
-                <span className="utc-nav-label">Biểu Mẫu Chuẩn UTC</span>
+                <span className="utc-nav-label">{tr(isEn, 'Biểu Mẫu Chuẩn UTC', 'UTC Official Templates')}</span>
               </div>
 
             </>
           ) : userType === 'committee_member' ? (
             // Committee member navigation: ONLY defense schedule, students/projects and grading
             <>
-              <div className="utc-sidebar-section-title">HỘI ĐỒNG ĐÁNH GIÁ</div>
+              <div className="utc-sidebar-section-title">{tr(isEn, 'HỘI ĐỒNG ĐÁNH GIÁ', 'EVALUATION COMMITTEE')}</div>
               <div
                 className={`utc-nav-item ${activeTab === 'utc_live_defense' ? 'active' : ''}`}
                 onClick={() => handleNavClick('utc_live_defense')}
-                title="Lịch bảo vệ, phòng/ca bảo vệ và chấm điểm trực tiếp"
+                title={tr(isEn, 'Lịch bảo vệ, phòng/ca bảo vệ và chấm điểm trực tiếp', 'Defense schedule, rooms/sessions and live grading')}
               >
                 <span className="utc-nav-icon">🏛️</span>
-                <span className="utc-nav-label">Lịch Bảo Vệ</span>
+                <span className="utc-nav-label">{tr(isEn, 'Lịch Bảo Vệ', 'Defense Schedule')}</span>
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'groups' ? 'active' : ''}`}
                 onClick={() => handleNavClick('groups')}
-                title="Sinh viên và đồ án thuộc Hội đồng của bạn"
+                title={tr(isEn, 'Sinh viên và đồ án thuộc Hội đồng của bạn', 'Students and projects assigned to your committee')}
               >
                 <span className="utc-nav-icon">👥</span>
-                <span className="utc-nav-label">Sinh Viên & Đồ Án</span>
+                <span className="utc-nav-label">{tr(isEn, 'Sinh Viên & Đồ Án', 'Students & Projects')}</span>
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'evaluations' ? 'active' : ''}`}
                 onClick={() => handleNavClick('evaluations')}
-                title="Chấm điểm Hội đồng cho sinh viên"
+                title={tr(isEn, 'Chấm điểm Hội đồng cho sinh viên', 'Committee grading for students')}
               >
                 <span className="utc-nav-icon">📝</span>
-                <span className="utc-nav-label">Chấm Điểm</span>
+                <span className="utc-nav-label">{tr(isEn, 'Chấm Điểm', 'Evaluations')}</span>
               </div>
             </>
           ) : (
             // Supervisor navigation (Hiện TẤT CẢ các giai đoạn ở bên cạnh + số sinh viên ở giai đoạn đó)
             <>
               {/* 1. TỔNG QUAN */}
-              <div className="utc-sidebar-section-title">TỔNG QUAN HỆ THỐNG</div>
+              <div className="utc-sidebar-section-title">{tr(isEn, 'TỔNG QUAN HỆ THỐNG', 'SYSTEM OVERVIEW')}</div>
               <div
                 className={`utc-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
                 onClick={() => handleNavClick('overview')}
-                title="Trang Chủ & Thống Kê Giảng Viên"
+                title={tr(isEn, 'Trang Chủ & Thống Kê Giảng Viên', 'Supervisor Home & Statistics')}
               >
                 <span className="utc-nav-icon">🏠</span>
-                <span className="utc-nav-label">Tổng Quan Dashboard</span>
+                <span className="utc-nav-label">{tr(isEn, 'Tổng Quan Dashboard', 'Dashboard Overview')}</span>
               </div>
 
               {/* 2. QUY TRÌNH HƯỚNG DẪN ĐATN (HIỂN THỊ TẤT CẢ 6 GIAI ĐOẠN + SỐ SINH VIÊN CÒN LẠI) */}
-              <div className="utc-sidebar-section-title">QUY TRÌNH HƯỚNG DẪN ĐATN</div>
+              <div className="utc-sidebar-section-title">{tr(isEn, 'QUY TRÌNH HƯỚNG DẪN ĐATN', 'THESIS SUPERVISION WORKFLOW')}</div>
               {GRADUATION_STAGES.map((st) => {
                 const count = stageCounts?.[st.number] ?? 0;
                 const currentBatchStage = synchronizedProgress?.current_stage_number ?? 1;
@@ -517,6 +527,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                   (st.number === 4 && activeTab === 'weekly') ||
                   (st.number === 5 && activeTab === 'supervision') ||
                   (st.number === 6 && activeTab === 'eval');
+                const stageLoc = getLocalizedStageText(st.number, st, isEn);
 
                 return (
                   <div
@@ -530,11 +541,11 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                       handleNavClick(`stage_${st.number}`);
                     }}
                     title={!isAccessible
-                      ? `Chưa mở: đợt hiện đang ở GĐ ${currentBatchStage}`
-                      : `${st.sidebarLabel} - Hiện có ${count} sinh viên đang ở giai đoạn này`}
+                      ? tr(isEn, `Chưa mở: đợt hiện đang ở GĐ ${currentBatchStage}`, `Locked: batch is currently at Stage ${currentBatchStage}`)
+                      : tr(isEn, `${stageLoc.sidebarLabel} - Hiện có ${count} sinh viên đang ở giai đoạn này`, `${stageLoc.sidebarLabel} - ${count} student(s) in this stage`)}
                   >
                     <span className="utc-nav-icon">{isAccessible ? st.icon : '🔒'}</span>
-                    <span className="utc-nav-label">{st.sidebarLabel}</span>
+                    <span className="utc-nav-label">{stageLoc.sidebarLabel}</span>
                     <span
                       className="utc-nav-badge"
                       style={{
@@ -547,56 +558,56 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                         boxShadow: count > 0 ? '0 0 8px rgba(2, 132, 199, 0.35)' : 'none',
                       }}
                     >
-                      {count} SV
+                      {count} {tr(isEn, 'SV', 'ST')}
                     </span>
                   </div>
                 );
               })}
 
               {/* 3. ĐÁNH GIÁ & BẢO LƯU */}
-              <div className="utc-sidebar-section-title">ĐÁNH GIÁ & BẢO LƯU</div>
+              <div className="utc-sidebar-section-title">{tr(isEn, 'ĐÁNH GIÁ & BẢO LƯU', 'REVIEW & DEFERRALS')}</div>
               <div
                 className={`utc-nav-item ${activeTab === 'reviewer' ? 'active' : ''}`}
                 onClick={() => handleNavClick('reviewer')}
-                title="Đồ Án Phản Biện Độc Lập"
+                title={tr(isEn, 'Đồ Án Phản Biện Độc Lập', 'Independent Peer Review Projects')}
               >
                 <span className="utc-nav-icon">🔍</span>
-                <span className="utc-nav-label">Đồ Án Phản Biện</span>
+                <span className="utc-nav-label">{tr(isEn, 'Đồ Án Phản Biện', 'Reviewed Projects')}</span>
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'deferrals' ? 'active' : ''}`}
                 onClick={() => handleNavClick('deferrals')}
-                title="Đơn Xin Hoãn / Bảo Lưu Đồ Án Tốt Nghiệp"
+                title={tr(isEn, 'Đơn Xin Hoãn / Bảo Lưu Đồ Án Tốt Nghiệp', 'Thesis Deferral Requests')}
               >
                 <span className="utc-nav-icon">📋</span>
-                <span className="utc-nav-label">Đơn Xin Bảo Lưu</span>
+                <span className="utc-nav-label">{tr(isEn, 'Đơn Xin Bảo Lưu', 'Deferral Requests')}</span>
               </div>
 
               {/* 4. TRAO ĐỔI & TIỆN ÍCH */}
-              <div className="utc-sidebar-section-title">TRAO ĐỔI & TIỆN ÍCH</div>
+              <div className="utc-sidebar-section-title">{tr(isEn, 'TRAO ĐỔI & TIỆN ÍCH', 'CHAT & UTILITIES')}</div>
               <div
                 className={`utc-nav-item ${activeTab === 'chat' || activeTab === 'groups' ? 'active' : ''}`}
                 onClick={() => handleNavClick('chat')}
-                title="Nhóm Đồ Án & Kênh Chat Trực Tiếp Sinh Viên"
+                title={tr(isEn, 'Nhóm Đồ Án & Kênh Chat Trực Tiếp Sinh Viên', 'Project Groups & Student Direct Chat')}
               >
                 <span className="utc-nav-icon">💬</span>
-                <span className="utc-nav-label">Nhóm Đồ Án & Chat</span>
+                <span className="utc-nav-label">{tr(isEn, 'Nhóm Đồ Án & Chat', 'Project Groups & Chat')}</span>
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'templates' ? 'active' : ''}`}
                 onClick={() => handleNavClick('templates')}
-                title="Kho Biểu Mẫu Chuẩn & Quy Định ĐATN UTC"
+                title={tr(isEn, 'Kho Biểu Mẫu Chuẩn & Quy Định ĐATN UTC', 'UTC Official Templates & Thesis Guidelines')}
               >
                 <span className="utc-nav-icon">📑</span>
-                <span className="utc-nav-label">Biểu Mẫu Chuẩn UTC</span>
+                <span className="utc-nav-label">{tr(isEn, 'Biểu Mẫu Chuẩn UTC', 'UTC Official Templates')}</span>
               </div>
               <div
                 className={`utc-nav-item ${activeTab === 'audit' ? 'active' : ''}`}
                 onClick={() => handleNavClick('audit')}
-                title="Nhật Ký Hoạt Động & Thống Kê"
+                title={tr(isEn, 'Nhật Ký Hoạt Động & Thống Kê', 'Activity Audit Logs & Statistics')}
               >
                 <span className="utc-nav-icon">📈</span>
-                <span className="utc-nav-label">Nhật Ký Hệ Thống</span>
+                <span className="utc-nav-label">{tr(isEn, 'Nhật Ký Hệ Thống', 'System Audit Logs')}</span>
               </div>
             </>
           )}
@@ -621,20 +632,28 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
             </button>
             <GlobalSearchBar
               className="utc-header-global-search"
-              placeholder={t('common.search', 'Tìm kiếm đề tài, sinh viên, GV, biểu mẫu... (Ctrl+K)')}
+              placeholder={tr(
+                isEn,
+                'Tìm kiếm đề tài, sinh viên, GV, biểu mẫu... (Ctrl+K)',
+                'Search projects, students, supervisors, templates... (Ctrl+K)'
+              )}
             />
           </div>
 
           <div className="utc-topbar-right">
-            <button className="utc-top-btn" onClick={toggleLanguage} title="Language">
-              {i18n.language.startsWith('vi') ? '🇻🇳 VI' : '🇬🇧 EN'}
+            <button
+              className="utc-top-btn"
+              onClick={toggleLanguage}
+              title={tr(isEn, 'Chuyển sang Tiếng Anh (EN)', 'Switch to Vietnamese (VI)')}
+            >
+              {!isEn ? '🇻🇳 VI' : '🇬🇧 EN'}
             </button>
 
             <button
               className="utc-top-btn"
               onClick={toggleTheme}
-              title={isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
-              aria-label={isDark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+              title={isDark ? tr(isEn, 'Chuyển sang chế độ sáng', 'Switch to light mode') : tr(isEn, 'Chuyển sang chế độ tối', 'Switch to dark mode')}
+              aria-label={isDark ? tr(isEn, 'Chuyển sang chế độ sáng', 'Switch to light mode') : tr(isEn, 'Chuyển sang chế độ tối', 'Switch to dark mode')}
               aria-pressed={isDark}
             >
               {isDark ? '☀️' : '🌙'}
@@ -730,16 +749,18 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                   {supervisorDisplayName ? '👨‍🏫' : '⏳'}
                 </div>
                 <div className="utc-supervisor-summary-content">
-                  <span className="utc-supervisor-summary-label">GIẢNG VIÊN HƯỚNG DẪN CỦA BẠN</span>
-                  <h3>{supervisorDisplayName || 'Chưa được phân giảng viên hướng dẫn'}</h3>
+                  <span className="utc-supervisor-summary-label">
+                    {tr(isEn, 'GIẢNG VIÊN HƯỚNG DẪN CỦA BẠN', 'YOUR ACADEMIC SUPERVISOR')}
+                  </span>
+                  <h3>{supervisorDisplayName || tr(isEn, 'Chưa được phân giảng viên hướng dẫn', 'Supervisor not assigned yet')}</h3>
                   <p>
                     {supervisorDisplayName
-                      ? supervisorEmail || 'Giảng viên đã được Khoa phân công hướng dẫn đồ án của bạn.'
-                      : 'Khoa đang thực hiện phân công. Thông tin giảng viên sẽ xuất hiện tại đây sau khi hoàn tất.'}
+                      ? supervisorEmail || tr(isEn, 'Giảng viên đã được Khoa phân công hướng dẫn đồ án của bạn.', 'Faculty has assigned this supervisor to guide your thesis.')
+                      : tr(isEn, 'Khoa đang thực hiện phân công. Thông tin giảng viên sẽ xuất hiện tại đây sau khi hoàn tất.', 'Faculty is currently allocating supervisors. Details will appear here once finalized.')}
                   </p>
                 </div>
                 <span className="utc-supervisor-summary-status">
-                  {supervisorDisplayName ? '✓ Đã phân công' : 'Đang chờ phân công'}
+                  {supervisorDisplayName ? tr(isEn, '✓ Đã phân công', '✓ Assigned') : tr(isEn, 'Đang chờ phân công', 'Pending Allocation')}
                 </span>
               </section>
             )}
@@ -750,32 +771,32 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                   <div className="utc-quick-card action-blue" onClick={() => onTabChange && onTabChange('project')}>
                     <div className="qc-icon icon-bg-blue">📘</div>
                     <div className="qc-text">
-                      <span className="qc-tag">HỌC TẬP</span>
-                      <h4 className="qc-title">Đăng ký đồ án</h4>
+                      <span className="qc-tag">{tr(isEn, 'HỌC TẬP', 'ACADEMIC')}</span>
+                      <h4 className="qc-title">{tr(isEn, 'Đăng ký đồ án', 'Project Registration')}</h4>
                     </div>
                   </div>
 
                   <div className="utc-quick-card action-amber" onClick={() => handleNavClick('templates')}>
                     <div className="qc-icon icon-bg-amber">📅</div>
                     <div className="qc-text">
-                      <span className="qc-tag">LỊCH</span>
-                      <h4 className="qc-title">Thời khóa biểu & Tiến độ</h4>
+                      <span className="qc-tag">{tr(isEn, 'LỊCH', 'SCHEDULE')}</span>
+                      <h4 className="qc-title">{tr(isEn, 'Thời khóa biểu & Tiến độ', 'Timeline & Templates')}</h4>
                     </div>
                   </div>
 
                   <div className="utc-quick-card action-green" onClick={() => onTabChange && onTabChange('documents')}>
                     <div className="qc-icon icon-bg-green">📑</div>
                     <div className="qc-text">
-                      <span className="qc-tag">TÀI LIỆU</span>
-                      <h4 className="qc-title">Nộp báo cáo & Đề cương</h4>
+                      <span className="qc-tag">{tr(isEn, 'TÀI LIỆU', 'DOCUMENTS')}</span>
+                      <h4 className="qc-title">{tr(isEn, 'Nộp báo cáo & Đề cương', 'Submit Outline & Reports')}</h4>
                     </div>
                   </div>
 
                   <div className="utc-quick-card action-red" onClick={() => handleNavClick('evaluations')}>
                     <div className="qc-icon icon-bg-red">📊</div>
                     <div className="qc-text">
-                      <span className="qc-tag">THÔNG TIN</span>
-                      <h4 className="qc-title">Kết quả điểm & Đánh giá</h4>
+                      <span className="qc-tag">{tr(isEn, 'THÔNG TIN', 'GRADES')}</span>
+                      <h4 className="qc-title">{tr(isEn, 'Kết quả điểm & Đánh giá', 'Scores & Evaluations')}</h4>
                     </div>
                   </div>
                 </section>
@@ -783,15 +804,17 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
                 <section className="utc-news-grid">
                   <div className="utc-news-card">
                     <div className="utc-news-header">
-                      <h3 className="utc-news-title blue-border">| TIN NHÀ TRƯỜNG</h3>
+                      <h3 className="utc-news-title blue-border">
+                        {tr(isEn, '| TIN NHÀ TRƯỜNG', '| UNIVERSITY NEWS')}
+                      </h3>
                       <button
                         type="button"
                         onClick={() => handleOpenNewsPortal('school')}
                         className="utc-news-link"
                         style={{ border: 'none', cursor: 'pointer' }}
-                        title="Xem toàn bộ thông báo nhà trường"
+                        title={tr(isEn, 'Xem toàn bộ thông báo nhà trường', 'View all university news')}
                       >
-                        Xem tất cả
+                        {tr(isEn, 'Xem tất cả', 'View all')}
                       </button>
                     </div>
                     <ul className="utc-news-list">
@@ -848,15 +871,17 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
 
                   <div className="utc-news-card">
                     <div className="utc-news-header">
-                      <h3 className="utc-news-title blue-border">| TIN ĐÀO TẠO & ĐỒ ÁN TỐT NGHIỆP</h3>
+                      <h3 className="utc-news-title blue-border">
+                        {tr(isEn, '| TIN ĐÀO TẠO & ĐỒ ÁN TỐT NGHIỆP', '| ACADEMIC & THESIS ANNOUNCEMENTS')}
+                      </h3>
                       <button
                         type="button"
                         onClick={() => handleOpenNewsPortal('training')}
                         className="utc-news-link"
                         style={{ border: 'none', cursor: 'pointer' }}
-                        title="Xem toàn bộ thông báo đào tạo và đồ án"
+                        title={tr(isEn, 'Xem toàn bộ thông báo đào tạo và đồ án', 'View all academic & thesis announcements')}
                       >
-                        Xem tất cả
+                        {tr(isEn, 'Xem tất cả', 'View all')}
                       </button>
                     </div>
                     <ul className="utc-news-list">

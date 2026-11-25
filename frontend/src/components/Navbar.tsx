@@ -23,7 +23,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const navigate = useNavigate();
 
   const toggleLanguage = () => {
-    const nextLng = i18n.language.startsWith('vi') ? 'en' : 'vi';
+    const cur = i18n.resolvedLanguage || i18n.language || 'vi';
+    const nextLng = cur.startsWith('vi') ? 'en' : 'vi';
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('i18nextLng', nextLng);
+    }
     i18n.changeLanguage(nextLng);
   };
 

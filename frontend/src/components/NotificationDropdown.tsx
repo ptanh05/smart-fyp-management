@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { apiService } from '../services/api';
 import { isSafeInternalPath } from '../utils/safeUrl';
+import { isEnglish, tr } from '../utils/i18nHelper';
 import { useAuth } from '../contexts/AuthContext';
 import type { Notification, NotificationType } from '../types';
 import { getRelativeTime } from '../utils/dateUtils';
@@ -13,6 +15,8 @@ interface NotificationDropdownProps {
 
 const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
+  const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const { userType } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [filterTab, setFilterTab] = useState<'all' | 'grades'>('all');
@@ -390,10 +394,10 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
         <div className="notification-dropdown">
           {/* Header */}
           <div className="notification-header">
-            <h3 className="notification-header-title">Thông báo</h3>
+            <h3 className="notification-header-title">{tr(isEn, 'Thông báo', 'Notifications')}</h3>
             {unreadCount > 0 && (
               <button onClick={handleMarkAllAsRead} className="notification-mark-all-btn">
-                Đánh dấu đã đọc
+                {tr(isEn, 'Đánh dấu đã đọc', 'Mark all read')}
               </button>
             )}
           </div>
@@ -413,14 +417,14 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
                     className={`notif-tab-btn ${filterTab === 'all' ? 'active' : ''}`}
                     onClick={() => setFilterTab('all')}
                   >
-                    Tất cả ({notifications.length})
+                    {tr(isEn, 'Tất cả', 'All')} ({notifications.length})
                   </button>
                   <button
                     type="button"
                     className={`notif-tab-btn ${filterTab === 'grades' ? 'active' : ''}`}
                     onClick={() => setFilterTab('grades')}
                   >
-                    📊 Điểm số
+                    📊 {tr(isEn, 'Điểm số', 'Grades')}
                     {gradeCount > 0 && <span className="notif-tab-badge">{gradeCount}</span>}
                   </button>
                 </div>
@@ -432,8 +436,8 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onNavigate 
                       <span className="notification-empty-icon">{filterTab === 'grades' ? '📊' : '🔔'}</span>
                       <p>
                         {filterTab === 'grades'
-                          ? 'Không có thông báo nào về điểm số và bảo vệ.'
-                          : 'Chưa có thông báo nào'}
+                          ? tr(isEn, 'Không có thông báo nào về điểm số và bảo vệ.', 'No notifications about grades or defense.')
+                          : tr(isEn, 'Chưa có thông báo nào', 'No notifications yet')}
                       </p>
                     </div>
                   ) : (

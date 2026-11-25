@@ -1,6 +1,8 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { isSafeInternalPath } from '../utils/safeUrl';
+import { isEnglish, tr } from '../utils/i18nHelper';
 import { apiService } from '../services/api';
 import './GlobalSearchBar.css';
 
@@ -23,12 +25,12 @@ interface GlobalSearchBarProps {
 }
 
 const CATEGORIES = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'projects', label: 'Đề tài' },
-  { id: 'faculty', label: 'Giảng viên' },
-  { id: 'students', label: 'Sinh viên' },
-  { id: 'councils', label: 'Hội đồng' },
-  { id: 'documents', label: 'Biểu mẫu' },
+  { id: 'all', label: 'Tất cả', labelEn: 'All' },
+  { id: 'projects', label: 'Đề tài', labelEn: 'Projects' },
+  { id: 'faculty', label: 'Giảng viên', labelEn: 'Faculty' },
+  { id: 'students', label: 'Sinh viên', labelEn: 'Students' },
+  { id: 'councils', label: 'Hội đồng', labelEn: 'Councils' },
+  { id: 'documents', label: 'Biểu mẫu', labelEn: 'Templates' },
 ];
 
 export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
@@ -36,6 +38,8 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
   className = '',
   onSelectResult,
 }) => {
+  const { i18n } = useTranslation();
+  const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [results, setResults] = useState<SearchResultItem[]>([]);
@@ -221,7 +225,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
                   className={`search-tab-item ${activeCategory === cat.id ? 'active' : ''}`}
                   onClick={() => handleCategoryChange(cat.id)}
                 >
-                  {cat.label}
+                  {isEn ? cat.labelEn : cat.label}
                   {count > 0 && <span className="search-tab-badge">{count}</span>}
                 </button>
               );
@@ -233,7 +237,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
             {loading && results.length === 0 ? (
               <div className="search-status-box">
                 <span className="search-status-spinner">⏳</span>
-                <span>Đang tìm kiếm trên toàn hệ thống...</span>
+                <span>{tr(isEn, 'Đang tìm kiếm trên toàn hệ thống...', 'Searching across the system...')}</span>
               </div>
             ) : results.length > 0 ? (
               results.map((item, idx) => (
@@ -257,16 +261,28 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
               ))
             ) : (
               <div className="search-status-box empty">
-                <span>🔍 Không tìm thấy kết quả nào phù hợp cho "<strong>{query}</strong>"</span>
-                <p className="search-tip">Mẹo: Bạn có thể tìm theo tên đề tài, mã sinh viên (MSSV), tên giảng viên hoặc số hội đồng.</p>
+                <span>🔍 {tr(isEn, 'Không tìm thấy kết quả nào phù hợp cho', 'No matching results found for')} "<strong>{query}</strong>"</span>
+                <p className="search-tip">
+                  {tr(
+                    isEn,
+                    'Mẹo: Bạn có thể tìm theo tên đề tài, mã sinh viên (MSSV), tên giảng viên hoặc số hội đồng.',
+                    'Tip: You can search by project title, student ID, supervisor name, or council number.'
+                  )}
+                </p>
               </div>
             )}
           </div>
 
           {/* Footer Bar */}
           <div className="global-search-footer">
-            <span>Tìm thấy <strong>{totalResults}</strong> kết quả</span>
-            <span className="keyboard-hint">Dùng phím <kbd>↑</kbd> <kbd>↓</kbd> để di chuyển, <kbd>Enter</kbd> để chọn, <kbd>Esc</kbd> để đóng</span>
+            <span>{tr(isEn, 'Tìm thấy', 'Found')} <strong>{totalResults}</strong> {tr(isEn, 'kết quả', 'results')}</span>
+            <span className="keyboard-hint">
+              {isEn ? (
+                <>Use <kbd>↑</kbd> <kbd>↓</kbd> to navigate, <kbd>Enter</kbd> to select, <kbd>Esc</kbd> to close</>
+              ) : (
+                <>Dùng phím <kbd>↑</kbd> <kbd>↓</kbd> để di chuyển, <kbd>Enter</kbd> để chọn, <kbd>Esc</kbd> để đóng</>
+              )}
+            </span>
           </div>
         </div>
       )}

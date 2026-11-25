@@ -1,10 +1,14 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import i18n from '../../i18n';
 import { BatchProgressProvider } from '../../contexts/BatchProgressContext';
 import BatchProgressBar, { type BatchProgressData } from '../BatchProgressBar';
 import UTCFypTimeline from '../UTCFypTimeline';
+import RagUtcChatWidget from '../RagUtcChatWidget';
 import { GRADUATION_STAGES } from '../../utils/graduationStages';
+import { localizeDynamicText } from '../../utils/i18nHelper';
 
 const buildProgressData = (withMilestones = true): BatchProgressData => ({
   batch: {
@@ -97,5 +101,42 @@ describe('BatchProgressBar & UTCFypTimeline milestone sync', () => {
 
     fireEvent.click(screen.getByText(GRADUATION_STAGES[4].shortLabel));
     expect(onStageClick).toHaveBeenCalledWith(5);
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('vi');
+  });
+
+  it('switches between Vietnamese (vi) and English (en) across timeline, progress bar, and AI widget', async () => {
+    await i18n.changeLanguage('en');
+
+    const progress = buildProgressData(true);
+    progress.milestones[1].name = 'Xây dựng & Phê duyệt Đề cương ĐATN';
+    if (progress.current_milestone) {
+      progress.current_milestone.name = 'Xây dựng & Phê duyệt Đề cương ĐATN';
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/student/dashboard']}>
+        <BatchProgressProvider progress={progress} loading={false}>
+          <BatchProgressBar data={progress} variant="portal" />
+          <UTCFypTimeline currentStep={3} />
+          <RagUtcChatWidget />
+        </BatchProgressProvider>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Thesis Batch Progress')).toBeInTheDocument();
+    expect(screen.getByText(/Batch Open/)).toBeInTheDocument();
+    expect(screen.getByText('✓ Done')).toBeInTheDocument();
+    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(screen.getAllByText(/Due today/).length).toBeGreaterThan(0);
+    expect(screen.getByText('3. Thesis Outline')).toBeInTheDocument();
+    expect(localizeDynamicText('Duyệt đề cương', true)).toBe('Outline Approval');
+    expect(screen.getAllByText(/Thesis Outline Drafting & Approval/).length).toBeGreaterThan(0);
+    expect(screen.getByText('Ask AI RAG-UTC')).toBeInTheDocument();
+    expect(
+      localizeDynamicText('Chưa nộp phiếu khảo sát & nguyện vọng', true)
+    ).toBe('Preference survey not submitted yet');
   });
 });

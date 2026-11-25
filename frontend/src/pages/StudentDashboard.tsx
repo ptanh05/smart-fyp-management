@@ -24,12 +24,14 @@ import {
   getStageInfo,
   resolveStageTab,
 } from '../utils/graduationStages';
+import { getLocalizedStageText, isEnglish, tr } from '../utils/i18nHelper';
 import './Dashboard.css';
 import '../components/SkeletonLoader.css';
 import '../components/StudentTemplatesView.css';
 
 const StudentDashboard: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const { user, logout } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const student = user as Student;
@@ -219,65 +221,105 @@ const StudentDashboard: React.FC = () => {
     switch (tab) {
       case 'overview':
         return {
-          title: 'Tổng Quan Dashboard & Học Vụ',
-          subtitle: 'Theo dõi tiến trình 6 giai đoạn UTC FYP Milestone, hồ sơ học vụ và lịch gặp GVHD',
-          badge: 'Tổng quan',
+          title: tr(isEn, 'Tổng Quan Dashboard & Học Vụ', 'Academic & Dashboard Overview'),
+          subtitle: tr(
+            isEn,
+            'Theo dõi tiến trình 6 giai đoạn UTC FYP Milestone, hồ sơ học vụ và lịch gặp GVHD',
+            'Track the 6-stage UTC FYP Milestone workflow, academic profile, and supervision meetings'
+          ),
+          badge: tr(isEn, 'Tổng quan', 'Overview'),
         };
       case 'project':
       case 'utc_graduation':
         return {
-          title: 'GĐ 1: Đề Tài & Giảng Viên Hướng Dẫn',
-          subtitle: 'Thông tin chi tiết đề tài được phân công, trạng thái phê duyệt từ Khoa và điều kiện học vụ',
-          badge: 'Giai đoạn 1',
+          title: tr(isEn, 'GĐ 1: Đề Tài & Giảng Viên Hướng Dẫn', 'Stage 1: Thesis Topic & Academic Supervisor'),
+          subtitle: tr(
+            isEn,
+            'Thông tin chi tiết đề tài được phân công, trạng thái phê duyệt từ Khoa và điều kiện học vụ',
+            'Detailed information on your assigned topic, Faculty approval status, and academic eligibility'
+          ),
+          badge: tr(isEn, 'Giai đoạn 1', 'Stage 1'),
         };
       case 'survey':
         return {
-          title: 'GĐ 2: Khảo Sát Doanh Nghiệp & Nguyện Vọng Đề Tài',
-          subtitle: 'Đăng ký 3 nguyện vọng GVHD, hướng nghiên cứu mong muốn và thông tin thực tập doanh nghiệp',
-          badge: 'Giai đoạn 2',
+          title: tr(isEn, 'GĐ 2: Khảo Sát Doanh Nghiệp & Nguyện Vọng Đề Tài', 'Stage 2: Enterprise Survey & Supervisor Preferences'),
+          subtitle: tr(
+            isEn,
+            'Đăng ký 3 nguyện vọng GVHD, hướng nghiên cứu mong muốn và thông tin thực tập doanh nghiệp',
+            'Register 3 supervisor preferences, research direction, and enterprise internship information'
+          ),
+          badge: tr(isEn, 'Giai đoạn 2', 'Stage 2'),
         };
       case 'outline':
         return {
-          title: 'GĐ 3: Đề Cương ĐATN & Nộp Bản Ký Duyệt',
-          subtitle: 'Dự thảo đề tài song ngữ, xuất phiếu đề cương PDF chuẩn UTC và nộp bản scan có chữ ký GVHD',
-          badge: 'Giai đoạn 3',
+          title: tr(isEn, 'GĐ 3: Đề Cương ĐATN & Nộp Bản Ký Duyệt', 'Stage 3: Thesis Outline & Signed Submission'),
+          subtitle: tr(
+            isEn,
+            'Dự thảo đề tài song ngữ, xuất phiếu đề cương PDF chuẩn UTC và nộp bản scan có chữ ký GVHD',
+            'Draft bilingual topic outline, export official UTC PDF form, and upload supervisor-signed scan'
+          ),
+          badge: tr(isEn, 'Giai đoạn 3', 'Stage 3'),
         };
       case 'weekly':
         return {
-          title: 'GĐ 4: Nộp Bản Nháp Đồ Án',
-          subtitle: 'Nộp và quản lý các phiên bản bản nháp báo cáo/quyển đồ án trước khi bước vào giai đoạn thực hiện',
-          badge: 'Giai đoạn 4',
+          title: tr(isEn, 'GĐ 4: Nộp Bản Nháp Đồ Án', 'Stage 4: Thesis Draft Report Submission'),
+          subtitle: tr(
+            isEn,
+            'Nộp và quản lý các phiên bản bản nháp báo cáo/quyển đồ án trước khi bước vào giai đoạn thực hiện',
+            'Upload and manage draft thesis report versions prior to the execution stage'
+          ),
+          badge: tr(isEn, 'Giai đoạn 4', 'Stage 4'),
         };
       case 'supervision':
         return {
-          title: 'GĐ 5: Thực Hiện Đồ Án & Báo Cáo Tiến Độ',
-          subtitle: 'Nhận task từ GVHD, nộp sản phẩm, báo cáo tiến độ tuần và theo dõi nhật ký hướng dẫn',
-          badge: 'Giai đoạn 5',
+          title: tr(isEn, 'GĐ 5: Thực Hiện Đồ Án & Báo Cáo Tiến Độ', 'Stage 5: Thesis Execution & Progress Reports'),
+          subtitle: tr(
+            isEn,
+            'Nhận task từ GVHD, nộp sản phẩm, báo cáo tiến độ tuần và theo dõi nhật ký hướng dẫn',
+            'Receive tasks from your supervisor, submit deliverables, weekly progress reports, and supervision logs'
+          ),
+          badge: tr(isEn, 'Giai đoạn 5', 'Stage 5'),
         };
       case 'grade':
         return {
-          title: 'GĐ 6: Bảng Điểm Tổng Hợp & Đánh Giá Bảo Vệ UTC',
-          subtitle: 'Điểm quá trình GVHD, Điểm phản biện, Điểm Hội đồng bảo vệ và đơn xin hoãn/bảo lưu ĐATN',
-          badge: 'Giai đoạn 6',
+          title: tr(isEn, 'GĐ 6: Bảng Điểm Tổng Hợp & Đánh Giá Bảo Vệ UTC', 'Stage 6: Final Scoreboard & UTC Defense Evaluation'),
+          subtitle: tr(
+            isEn,
+            'Điểm quá trình GVHD, Điểm phản biện, Điểm Hội đồng bảo vệ và đơn xin hoãn/bảo lưu ĐATN',
+            'Supervisor score, Reviewer score, Defense Council grades, and thesis deferral requests'
+          ),
+          badge: tr(isEn, 'Giai đoạn 6', 'Stage 6'),
         };
       case 'chat':
       case 'groups':
         return {
-          title: 'Kênh Trao Đổi & Nhóm Đồ Án GVHD',
-          subtitle: 'Kênh nhắn tin tức thời giữa Giảng viên hướng dẫn và các sinh viên trong nhóm đề tài',
-          badge: 'Nhóm đồ án',
+          title: tr(isEn, 'Kênh Trao Đổi & Nhóm Đồ Án GVHD', 'Project Group & Supervisor Discussion Channel'),
+          subtitle: tr(
+            isEn,
+            'Kênh nhắn tin tức thời giữa Giảng viên hướng dẫn và các sinh viên trong nhóm đề tài',
+            'Instant messaging channel between your academic supervisor and students in the project group'
+          ),
+          badge: tr(isEn, 'Nhóm đồ án', 'Project Group'),
         };
       case 'templates':
         return {
-          title: 'Biểu Mẫu Chuẩn & Quy Định ĐATN UTC',
-          subtitle: 'Tải về và tra cứu các mẫu đơn, đề cương, nhật ký và báo cáo tốt nghiệp chuẩn Trường ĐHGTVT',
-          badge: 'Biểu mẫu UTC',
+          title: tr(isEn, 'Biểu Mẫu Chuẩn & Quy Định ĐATN UTC', 'Official UTC Thesis Templates & Guidelines'),
+          subtitle: tr(
+            isEn,
+            'Tải về và tra cứu các mẫu đơn, đề cương, nhật ký và báo cáo tốt nghiệp chuẩn Trường ĐHGTVT',
+            'Download and browse official UTC application forms, outlines, supervision logs, and thesis templates'
+          ),
+          badge: tr(isEn, 'Biểu mẫu UTC', 'UTC Templates'),
         };
       default:
         return {
-          title: 'Bảng Điều Khiển Sinh Viên UTC',
-          subtitle: 'Cổng thông tin đồ án tốt nghiệp Trường Đại học Giao thông Vận tải',
-          badge: 'Hệ thống',
+          title: tr(isEn, 'Bảng Điều Khiển Sinh Viên UTC', 'UTC Student Dashboard'),
+          subtitle: tr(
+            isEn,
+            'Cổng thông tin đồ án tốt nghiệp Trường Đại học Giao thông Vận tải',
+            'University of Transport and Communications Graduation Thesis Portal'
+          ),
+          badge: tr(isEn, 'Hệ thống', 'System'),
         };
     }
   };
@@ -343,11 +385,11 @@ const StudentDashboard: React.FC = () => {
                     {tabInfo.badge}
                   </span>
                   <span className="utc-header-meta">
-                    MSSV: <strong>{profile?.registration_no || (student as any)?.registration_no || '---'}</strong>
+                    {tr(isEn, 'MSSV:', 'Student ID:')} <strong>{profile?.registration_no || (student as any)?.registration_no || '---'}</strong>
                   </span>
                   {profile?.department && (
                     <span className="utc-header-meta">
-                      | Khoa: <strong>{profile.department}</strong>
+                      | {tr(isEn, 'Khoa:', 'Faculty:')} <strong>{profile.department}</strong>
                     </span>
                   )}
                 </div>
@@ -366,7 +408,7 @@ const StudentDashboard: React.FC = () => {
                   className="utc-header-refresh-btn"
                   onClick={loadData}
                 >
-                  🔄 Tải Lại
+                  🔄 {tr(isEn, 'Tải Lại', 'Reload')}
                 </button>
               </div>
             </div>
@@ -423,10 +465,10 @@ const StudentDashboard: React.FC = () => {
                           textTransform: 'uppercase',
                           letterSpacing: '0.5px'
                         }}>
-                          Đợt Đồ Án Chính Thức
+                          {tr(isEn, 'Đợt Đồ Án Chính Thức', 'Official Thesis Batch')}
                         </span>
                         <span style={{ fontSize: '0.85rem', color: '#93c5fd' }}>
-                          Mã đợt: {profile.academic_batch.batch_code}
+                          {tr(isEn, 'Mã đợt:', 'Batch Code:')} {profile.academic_batch.batch_code}
                         </span>
                       </div>
                       <h2 style={{ margin: '0 0 10px 0', fontSize: '1.35rem', fontWeight: 700, color: '#ffffff' }}>
@@ -437,22 +479,22 @@ const StudentDashboard: React.FC = () => {
                         <div style={{ background: 'rgba(255, 255, 255, 0.08)', borderRadius: '8px', padding: '14px 16px', marginTop: '12px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
                             <span style={{ fontSize: '0.85rem', color: '#93c5fd' }}>
-                              Đề tài được phân công:
+                              {tr(isEn, 'Đề tài được phân công:', 'Assigned Topic:')}
                             </span>
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                               {(profile.graduation_project.topic_review_status === 'APPROVED' || profile.graduation_project.status === 'TOPIC_APPROVED') && (
                                 <span style={{ background: '#059669', color: '#fff', fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
-                                  ✅ Khoa đã duyệt đề tài
+                                  ✅ {tr(isEn, 'Khoa đã duyệt đề tài', 'Faculty Approved Topic')}
                                 </span>
                               )}
                               {(profile.graduation_project.topic_review_status === 'REVISION_REQUIRED' || profile.graduation_project.status === 'TOPIC_REVISION') && (
                                 <span style={{ background: '#dc2626', color: '#fff', fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
-                                  ⚠️ Khoa yêu cầu sửa đề tài
+                                  ⚠️ {tr(isEn, 'Khoa yêu cầu sửa đề tài', 'Faculty Requested Revision')}
                                 </span>
                               )}
                               {profile.graduation_project.initial_eligibility === 'FORCE_APPROVED' && (
                                 <span style={{ background: '#d97706', color: '#fff', fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px' }}>
-                                  ⚡ Đặc cách (Force Approve)
+                                  ⚡ {tr(isEn, 'Đặc cách (Force Approve)', 'Force Approved')}
                                 </span>
                               )}
                             </div>
@@ -462,18 +504,22 @@ const StudentDashboard: React.FC = () => {
                           </div>
                           {(profile.graduation_project.topic_review_status === 'REVISION_REQUIRED' || profile.graduation_project.status === 'TOPIC_REVISION') && (
                             <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '6px', padding: '8px 12px', marginBottom: '10px', fontSize: '0.85rem', color: '#fca5a5' }}>
-                              <strong>Ý kiến nhận xét từ Khoa: </strong> {profile.graduation_project.topic_revision_notes || 'Cần chỉnh sửa lại đề tài theo góp ý'}
+                              <strong>{tr(isEn, 'Ý kiến nhận xét từ Khoa: ', 'Faculty Feedback: ')}</strong> {profile.graduation_project.topic_revision_notes || tr(isEn, 'Cần chỉnh sửa lại đề tài theo góp ý', 'Please revise the topic according to feedback')}
                             </div>
                           )}
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                            <span>👨‍🏫 GVHD: <strong>{profile.graduation_project.supervisor_name || 'Đang phân công'}</strong></span>
-                            <span>📊 Trạng thái: <strong style={{ color: '#34d399' }}>{profile.graduation_project.status_display || profile.graduation_project.status}</strong></span>
+                            <span>👨‍🏫 {tr(isEn, 'GVHD:', 'Supervisor:')} <strong>{profile.graduation_project.supervisor_name || tr(isEn, 'Đang phân công', 'Allocating')}</strong></span>
+                            <span>📊 {tr(isEn, 'Trạng thái:', 'Status:')} <strong style={{ color: '#34d399' }}>{profile.graduation_project.status_display || profile.graduation_project.status}</strong></span>
                           </div>
                         </div>
                       ) : (
                         <div style={{ background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(250, 204, 21, 0.3)', borderRadius: '8px', padding: '12px 16px', marginTop: '12px' }}>
                           <div style={{ color: '#fef08a', fontSize: '0.9rem', fontWeight: 500 }}>
-                            ⚠️ Bạn đã được thêm vào đợt làm đồ án nhưng chưa được phân công Đề tài & GVHD. Hãy vào mục Khảo sát & Nguyện vọng để chọn GVHD mong muốn!
+                            {tr(
+                              isEn,
+                              '⚠️ Bạn đã được thêm vào đợt làm đồ án nhưng chưa được phân công Đề tài & GVHD. Hãy vào mục Khảo sát & Nguyện vọng để chọn GVHD mong muốn!',
+                              '⚠️ You are enrolled in this thesis batch but have not been assigned a Topic & Supervisor yet. Please go to Preference Survey to submit your choices!'
+                            )}
                           </div>
                         </div>
                       )}
@@ -508,9 +554,13 @@ const StudentDashboard: React.FC = () => {
                       >
                         <span>{currentStageInfo.icon}</span>
                         <span>
-                          {currentStageInfo.label.startsWith('GĐ ')
-                            ? `Vào ${currentStageInfo.label}`
-                            : `Vào GĐ ${currentStageInfo.number}: ${currentStageInfo.label}`}
+                          {(() => {
+                            const locStage = getLocalizedStageText(currentStageInfo.number, currentStageInfo, isEn);
+                            if (isEn) return `Open ${locStage.label}`;
+                            return currentStageInfo.label.startsWith('GĐ ')
+                              ? `Vào ${currentStageInfo.label}`
+                              : `Vào GĐ ${currentStageInfo.number}: ${currentStageInfo.label}`;
+                          })()}
                         </span>
                         <span>➔</span>
                       </button>
@@ -529,39 +579,47 @@ const StudentDashboard: React.FC = () => {
                       title="Mở biểu mẫu biên bản đánh giá ĐATN UTC có chữ ký và điểm chi tiết"
                     >
                       <span>📄</span>
-                      <span>Xem Phiếu Đánh Giá ĐATN Chuẩn UTC</span>
-                      <span className="utc-unlocked-badge">✅ Đã công bố</span>
+                      <span>{tr(isEn, 'Xem Phiếu Đánh Giá ĐATN Chuẩn UTC', 'View Official UTC Evaluation Sheet')}</span>
+                      <span className="utc-unlocked-badge">✅ {tr(isEn, 'Đã công bố', 'Published')}</span>
                     </button>
                   ) : (
                     <button
                       className="btn utc-btn-view-sheet-locked"
                       onClick={() => {
                         notify.warning(
-                          `🔒 Phiếu Đánh Giá ĐATN Chuẩn UTC hiện đang khóa.\n\nBiểu mẫu đánh giá và bảng điểm chính thức chỉ được mở sau khi bạn hoàn thành Giai đoạn 6 (Hội đồng bảo vệ hoàn tất chấm điểm & công bố kết quả đồ án).\n\nHiện tại bạn đang ở GĐ ${currentStageInfo.number}: ${currentStageInfo.label}.`
+                          tr(
+                            isEn,
+                            `🔒 Phiếu Đánh Giá ĐATN Chuẩn UTC hiện đang khóa.\n\nBiểu mẫu đánh giá và bảng điểm chính thức chỉ được mở sau khi bạn hoàn thành Giai đoạn 6 (Hội đồng bảo vệ hoàn tất chấm điểm & công bố kết quả đồ án).\n\nHiện tại bạn đang ở GĐ ${currentStageInfo.number}: ${currentStageInfo.label}.`,
+                            `🔒 The Official UTC Evaluation Sheet is currently locked.\n\nOfficial scores and evaluation minutes unlock only after Stage 6 is completed (Defense Committee finalizes and publishes grades).\n\nYou are currently at Stage ${currentStageInfo.number}.`
+                          )
                         );
                       }}
-                      title={`Chưa mở: Cần hoàn tất chấm điểm và kết thúc Giai đoạn 6 (Bảo vệ đồ án) mới có thể xem phiếu đánh giá. Hiện tại bạn đang ở GĐ ${currentStageInfo.number}.`}
+                      title={tr(
+                        isEn,
+                        `Chưa mở: Cần hoàn tất chấm điểm và kết thúc Giai đoạn 6 (Bảo vệ đồ án) mới có thể xem phiếu đánh giá. Hiện tại bạn đang ở GĐ ${currentStageInfo.number}.`,
+                        `Locked until Stage 6 defense grading is finalized. Currently at Stage ${currentStageInfo.number}.`
+                      )}
                     >
                       <span>🔒</span>
-                      <span>Xem Phiếu Đánh Giá ĐATN Chuẩn UTC</span>
-                      <span className="utc-locked-badge">Khóa đến hết GĐ 6</span>
+                      <span>{tr(isEn, 'Xem Phiếu Đánh Giá ĐATN Chuẩn UTC', 'View Official UTC Evaluation Sheet')}</span>
+                      <span className="utc-locked-badge">{tr(isEn, 'Khóa đến hết GĐ 6', 'Locked until Stage 6')}</span>
                     </button>
                   )}
                 </div>
                 <div className="profile-info">
-                  <p><strong>{t('profile.registration_no', 'Mã Sinh Viên (MSSV)')}:</strong> {profile?.registration_no}</p>
-                  <p><strong>{t('profile.semester', 'Học Kỳ Đang Học')}:</strong> {profile?.semester ? `Kỳ ${profile.semester}` : 'Chưa có'}</p>
-                  <p><strong>{t('profile.cgpa', 'Điểm Trung Bình Tích Lũy (GPA)')}:</strong> {(profile as any)?.cgpa || 'Chưa cập nhật'}</p>
-                  <p><strong>{t('profile.department', 'Khoa / Viện Đào Tạo')}:</strong> {profile?.department || 'Khoa Công nghệ Thông tin - UTC'}</p>
+                  <p><strong>{t('profile.regNo', tr(isEn, 'Mã Sinh Viên (MSSV)', 'Student Registration No'))}:</strong> {profile?.registration_no}</p>
+                  <p><strong>{t('profile.semester', tr(isEn, 'Học Kỳ Đang Học', 'Current Semester'))}:</strong> {profile?.semester ? `${tr(isEn, 'Kỳ', 'Semester')} ${profile.semester}` : tr(isEn, 'Chưa có', 'N/A')}</p>
+                  <p><strong>{tr(isEn, 'Điểm Trung Bình Tích Lũy (GPA)', 'Cumulative GPA')}:</strong> {(profile as any)?.cgpa || tr(isEn, 'Chưa cập nhật', 'Not updated')}</p>
+                  <p><strong>{t('profile.department', tr(isEn, 'Khoa / Viện Đào Tạo', 'Faculty / Department'))}:</strong> {profile?.department || tr(isEn, 'Khoa Công nghệ Thông tin - UTC', 'Faculty of Information Technology - UTC')}</p>
                   <p>
-                    <strong>Trạng thái học vụ đồ án:</strong>{' '}
+                    <strong>{tr(isEn, 'Trạng thái học vụ đồ án:', 'Academic Eligibility:')}</strong>{' '}
                     {profile?.graduation_project?.initial_eligibility === 'INELIGIBLE' ? (
                       <span style={{ color: '#ef4444', fontWeight: 600 }}>
-                        ❌ Không đủ điều kiện (Nợ ≥ 10 tín chỉ)
+                        ❌ {tr(isEn, 'Không đủ điều kiện (Nợ ≥ 10 tín chỉ)', 'Ineligible (≥ 10 overdue credits)')}
                       </span>
                     ) : (
                       <span style={{ color: '#10b981', fontWeight: 600 }}>
-                        ✓ Đủ điều kiện làm đồ án tốt nghiệp
+                        ✓ {tr(isEn, 'Đủ điều kiện làm đồ án tốt nghiệp', 'Eligible for graduation thesis')}
                       </span>
                     )}
                   </p>
@@ -572,24 +630,28 @@ const StudentDashboard: React.FC = () => {
               <div className="card" style={{ marginTop: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🗓️</span> Lịch Hẹn Gặp & Họp Trực Tuyến Với GVHD
+                    <span>🗓️</span> {tr(isEn, 'Lịch Hẹn Gặp & Họp Trực Tuyến Với GVHD', 'Supervision Meetings & Online Schedule')}
                   </h2>
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={loadSupervisionLogs}
                     style={{ fontSize: '0.85rem' }}
                   >
-                    🔄 Cập nhật
+                    🔄 {tr(isEn, 'Cập nhật', 'Refresh')}
                   </button>
                 </div>
 
                 {supervisionLogsLoading ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>
-                    Đang tải lịch hẹn gặp từ giảng viên...
+                    {tr(isEn, 'Đang tải lịch hẹn gặp từ giảng viên...', 'Loading supervision schedule...')}
                   </div>
                 ) : supervisionLogs.length === 0 ? (
                   <div className="utc-empty-meeting-box">
-                    Chưa có lịch hẹn gặp trực tuyến hoặc buổi họp nào được lên lịch từ GVHD.
+                    {tr(
+                      isEn,
+                      'Chưa có lịch hẹn gặp trực tuyến hoặc buổi họp nào được lên lịch từ GVHD.',
+                      'No online or in-person supervision meetings have been scheduled by your supervisor yet.'
+                    )}
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -603,28 +665,28 @@ const StudentDashboard: React.FC = () => {
                           <div style={{ flex: '1 1 300px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                               <span className={`utc-meeting-type-badge ${isOnline ? 'badge-online' : ''}`}>
-                                {isOnline ? '📹 TRỰC TUYẾN (MEET/ZOOM)' : '📍 GẶP TRỰC TIẾP'}
+                                {isOnline ? tr(isEn, '📹 TRỰC TUYẾN (MEET/ZOOM)', '📹 ONLINE (MEET/ZOOM)') : tr(isEn, '📍 GẶP TRỰC TIẾP', '📍 IN-PERSON')}
                               </span>
                               <span className="utc-meeting-time">
-                                Ngày: {meeting.meeting_date} ({meeting.meeting_time})
+                                {tr(isEn, 'Ngày:', 'Date:')} {meeting.meeting_date} ({meeting.meeting_time})
                               </span>
                             </div>
 
                             {meeting.content_discussed && (
                               <p style={{ margin: '4px 0', fontSize: '0.88rem' }}>
-                                <strong>Nội dung:</strong> {meeting.content_discussed}
+                                <strong>{tr(isEn, 'Nội dung:', 'Agenda:')}</strong> {meeting.content_discussed}
                               </p>
                             )}
 
                             {meeting.supervisor_notes && (
                               <p style={{ margin: '4px 0', fontSize: '0.85rem', color: '#10b981' }}>
-                                <strong>Nhận xét GV:</strong> {meeting.supervisor_notes}
+                                <strong>{tr(isEn, 'Nhận xét GV:', 'Supervisor Notes:')}</strong> {meeting.supervisor_notes}
                               </p>
                             )}
 
                             {!isOnline && meeting.location_or_link && (
                               <p style={{ margin: '4px 0', fontSize: '0.85rem' }}>
-                                <strong>Địa điểm:</strong> {meeting.location_or_link}
+                                <strong>{tr(isEn, 'Địa điểm:', 'Location:')}</strong> {meeting.location_or_link}
                               </p>
                             )}
                           </div>
@@ -649,10 +711,10 @@ const StudentDashboard: React.FC = () => {
                                   borderRadius: '6px',
                                   boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
                                 }}
-                                title="Bấm vào để mở phòng họp trực tuyến"
+                                title={tr(isEn, 'Bấm vào để mở phòng họp trực tuyến', 'Click to open online meeting room')}
                               >
                                 <span>📹</span>
-                                <span>Tham gia cuộc họp trực tuyến ↗</span>
+                                <span>{tr(isEn, 'Tham gia cuộc họp trực tuyến ↗', 'Join Online Meeting ↗')}</span>
                               </a>
                             </div>
                           )}

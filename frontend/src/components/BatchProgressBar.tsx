@@ -1,14 +1,12 @@
 /**
- * Thanh tiến trình đợt đồ án (6 giai đoạn) — hiển thị ở đầu trang
- * để người dùng theo dõi đợt đồ án đang ở giai đoạn nào.
- *
- * Dùng chung cho:
- *  - Admin Portal (Smart-Fyp-Admin)
- *  - Cổng Sinh viên / Cổng Giảng viên (smart-fyp-management)
+ * BatchProgressBar — Thanh tiến trình 6 giai đoạn của một Đợt đồ án (song ngữ Việt – Anh).
+ * Dùng chung cho Admin Portal và Cổng Sinh viên / Giảng viên.
  */
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import './BatchProgressBar.css';
 import type { ProjectWorkflow } from '../utils/graduationStages';
+import { isEnglish, localizeDynamicText, tr } from '../utils/i18nHelper';
 
 export interface BatchStage {
   number: number;
@@ -32,7 +30,7 @@ export interface BatchMilestoneItem {
   start_date?: string | null;
   end_date?: string | null;
   description?: string;
-  order_index: number;
+  order_index?: number;
   status: 'UPCOMING' | 'ACTIVE' | 'EXPIRED' | 'UNSCHEDULED';
   days_left?: number | null;
 }
@@ -50,7 +48,7 @@ export interface BatchProgressData {
     start_date?: string | null;
     end_date?: string | null;
   };
-  is_open: boolean;
+  is_open?: boolean;
   supplementary_open?: boolean;
   current_stage_number: number;
   current_stage?: BatchStage;
@@ -63,9 +61,8 @@ export interface BatchProgressData {
   current_milestone?: BatchMilestoneItem | null;
   days_left?: number | null;
   next_actions?: string[];
-  summary?: Record<string, number>;
   my_project?: {
-    has_project: boolean;
+    id?: number;
     status?: string;
     topic_title?: string;
     supervisor_name?: string;
@@ -79,23 +76,12 @@ export interface BatchProgressData {
 interface Props {
   data: BatchProgressData | null;
   loading?: boolean;
-  /** Hiển thị chi tiết chỉ số của từng giai đoạn (mặc định: có) */
   showStats?: boolean;
-  /** Cho phép bấm vào giai đoạn để điều hướng */
   onStageClick?: (stage: BatchStage) => void;
-  /** Gọi lại khi người dùng bấm nút làm mới */
   onRefresh?: () => void;
-  /** Tiêu đề hiển thị */
   title?: string;
   variant?: 'admin' | 'portal';
 }
-
-const STATUS_LABEL: Record<BatchStage['status'], string> = {
-  done: 'Đã hoàn thành',
-  active: 'Đang thực hiện',
-  pending: 'Chưa bắt đầu',
-  locked: 'Đang khóa',
-};
 
 const shortDateVi = (iso?: string | null): string => {
   if (!iso) return '';
@@ -111,11 +97,29 @@ const pickStageMilestone = (milestones: BatchMilestoneItem[] | undefined, stageN
   return list.find((m) => m.status === 'ACTIVE') || list.find((m) => m.status === 'UPCOMING') || list[0];
 };
 
-const formatMilestoneCountdown = (daysLeft?: number | null, compact = false): { text: string; cls: string } | null => {
+const formatMilestoneCountdown = (
+  daysLeft: number | null | undefined,
+  compact: boolean,
+  isEn: boolean
+): { text: string; cls: string } | null => {
   if (daysLeft === null || daysLeft === undefined) return null;
-  if (daysLeft < 0) return { text: compact ? `Quá ${Math.abs(daysLeft)}n` : `Quá hạn ${Math.abs(daysLeft)} ngày`, cls: 'overdue' };
-  if (daysLeft === 0) return { text: compact ? 'Hôm nay' : 'Hạn hôm nay', cls: 'today' };
-  return { text: compact ? `Còn ${daysLeft}n` : `Còn ${daysLeft} ngày`, cls: '' };
+  if (daysLeft < 0) {
+    const abs = Math.abs(daysLeft);
+    return {
+      text: compact ? tr(isEn, `Quá ${abs}n`, `${abs}d late`) : tr(isEn, `Quá hạn ${abs} ngày`, `Overdue ${abs} days`),
+      cls: 'overdue',
+    };
+  }
+  if (daysLeft === 0) {
+    return {
+      text: compact ? tr(isEn, 'Hôm nay', 'Today') : tr(isEn, 'Hạn hôm nay', 'Due today'),
+      cls: 'today',
+    };
+  }
+  return {
+    text: compact ? tr(isEn, `Còn ${daysLeft}n`, `${daysLeft}d left`) : tr(isEn, `Còn ${daysLeft} ngày`, `${daysLeft} days left`),
+    cls: '',
+  };
 };
 
 export const BatchProgressBar: React.FC<Props> = ({
@@ -127,7 +131,16 @@ export const BatchProgressBar: React.FC<Props> = ({
   title,
   variant = 'portal',
 }) => {
+  const { i18n } = useTranslation();
+  const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const [expanded, setExpanded] = useState<number | null>(null);
+
+  const statusLabels: Record<BatchStage['status'], string> = {
+    done: tr(isEn, 'Đã hoàn thành', 'Completed'),
+    active: tr(isEn, 'Đang thực hiện', 'In Progress'),
+    pending: tr(isEn, 'Chưa bắt đầu', 'Not Started'),
+    locked: tr(isEn, 'Đang khóa', 'Locked'),
+  };
 
   if (loading) {
     return (
@@ -147,8 +160,8 @@ export const BatchProgressBar: React.FC<Props> = ({
       <div className={`utc-bpb utc-bpb-${variant} utc-bpb-empty`}>
         <div className="utc-bpb-empty-icon">📭</div>
         <div className="utc-bpb-empty-text">
-          <strong>Chưa có đợt đồ án nào đang hoạt động</strong>
-          <span>Liên hệ Khoa CNTT để được thêm vào đợt đồ án hiện tại.</span>
+          <strong>{tr(isEn, 'Chưa có đợt đồ án nào đang hoạt động', 'No active thesis batch available')}</strong>
+          <span>{tr(isEn, 'Liên hệ Khoa CNTT để được thêm vào đợt đồ án hiện tại.', 'Please contact FIT Faculty to be enrolled in the current thesis batch.')}</span>
         </div>
       </div>
     );
@@ -157,10 +170,15 @@ export const BatchProgressBar: React.FC<Props> = ({
   const currentStage = data.stages.find((s) => s.number === data.current_stage_number);
   const programLabel =
     data.batch?.program_type === 'ENGINEER'
-      ? '⚙️ Hệ Kỹ sư'
+      ? tr(isEn, '⚙️ Hệ Kỹ sư', '⚙️ Engineer Program')
       : data.batch?.program_type === 'BACHELOR'
-        ? '🎓 Hệ Cử nhân'
-        : '🔄 Cả Cử nhân & Kỹ sư';
+        ? tr(isEn, '🎓 Hệ Cử nhân', '🎓 Bachelor Program')
+        : tr(isEn, '🔄 Cả Cử nhân & Kỹ sư', '🔄 Bachelor & Engineer');
+
+  const resolvedTitle =
+    !title || title === 'Tiến Trình Đợt Đồ Án'
+      ? tr(isEn, 'Tiến Trình Đợt Đồ Án', 'Thesis Batch Progress')
+      : title;
 
   return (
     <div className={`utc-bpb utc-bpb-${variant}`}>
@@ -170,7 +188,7 @@ export const BatchProgressBar: React.FC<Props> = ({
           <span className="utc-bpb-title-icon">🚦</span>
           <div className="utc-bpb-title-group">
             <span className="utc-bpb-title">
-              {title || 'Tiến Trình Đợt Đồ Án'}
+              {resolvedTitle}
               {data.batch?.batch_code ? (
                 <span className="utc-bpb-batch-code">{data.batch.batch_code}</span>
               ) : null}
@@ -183,16 +201,16 @@ export const BatchProgressBar: React.FC<Props> = ({
 
         <div className="utc-bpb-header-right">
           <span
-            className={`utc-bpb-status-pill ${data.is_open ? 'open' : 'closed'}`}
+            className={`utc-bpb-status-pill ${data.is_open !== false ? 'open' : 'closed'}`}
             title={
-              data.is_open
-                ? 'Đợt đang mở cho sinh viên đăng ký'
-                : 'Đợt đang đóng / đã kết thúc'
+              data.is_open !== false
+                ? tr(isEn, 'Đợt đang mở cho sinh viên đăng ký', 'Batch is currently open')
+                : tr(isEn, 'Đợt đang đóng / đã kết thúc', 'Batch is closed / completed')
             }
           >
-            {data.is_open ? '🟢 Đợt đang mở' : '🔴 Đợt đã đóng'}
+            {data.is_open !== false ? tr(isEn, '🟢 Đợt đang mở', '🟢 Batch Open') : tr(isEn, '🔴 Đợt đã đóng', '🔴 Batch Closed')}
           </span>
-          <span className="utc-bpb-percent" title="Tiến độ tổng thể của đợt">
+          <span className="utc-bpb-percent" title={tr(isEn, 'Tiến độ tổng thể của đợt', 'Overall batch progress')}>
             {Math.round(data.overall_percent || 0)}%
           </span>
           {onRefresh && (
@@ -200,7 +218,7 @@ export const BatchProgressBar: React.FC<Props> = ({
               type="button"
               className="utc-bpb-refresh"
               onClick={onRefresh}
-              title="Làm mới tiến trình"
+              title={tr(isEn, 'Làm mới tiến trình', 'Refresh progress')}
             >
               🔄
             </button>
@@ -221,6 +239,9 @@ export const BatchProgressBar: React.FC<Props> = ({
         {data.stages.map((stage) => {
           const isActive = stage.number === data.current_stage_number;
           const isExpanded = expanded === stage.number;
+          const localizedShortLabel = localizeDynamicText(stage.short_label, isEn);
+          const localizedDesc = localizeDynamicText(stage.description, isEn);
+
           return (
             <div
               key={stage.number}
@@ -233,25 +254,25 @@ export const BatchProgressBar: React.FC<Props> = ({
                   setExpanded(isExpanded ? null : stage.number);
                   if (onStageClick) onStageClick(stage);
                 }}
-                title={stage.description}
+                title={localizedDesc}
               >
                 <span className="utc-bpb-step-dot">
                   {stage.status === 'done' ? '✓' : stage.number}
                 </span>
                 <span className="utc-bpb-step-icon">{stage.icon}</span>
                 <span className="utc-bpb-step-body">
-                  <span className="utc-bpb-step-label">{stage.short_label}</span>
-                  <span className="utc-bpb-step-status">{STATUS_LABEL[stage.status]}</span>
+                  <span className="utc-bpb-step-label">{localizedShortLabel}</span>
+                  <span className="utc-bpb-step-status">{statusLabels[stage.status]}</span>
                   {(() => {
                     const ms = pickStageMilestone(data.milestones, stage.number);
                     if (!ms) return null;
                     const sStr = shortDateVi(ms.start_date);
                     const eStr = shortDateVi(ms.end_date);
-                    const dateRange = sStr && eStr ? `${sStr}–${eStr}` : eStr ? `Hạn ${eStr}` : sStr ? `Từ ${sStr}` : '';
+                    const dateRange = sStr && eStr ? `${sStr}–${eStr}` : eStr ? `${tr(isEn, 'Hạn', 'Due')} ${eStr}` : sStr ? `${tr(isEn, 'Từ', 'From')} ${sStr}` : '';
                     const badge =
                       stage.status === 'done'
-                        ? { text: '✓ Xong', cls: 'done' }
-                        : formatMilestoneCountdown(ms.days_left, true);
+                        ? { text: tr(isEn, '✓ Xong', '✓ Done'), cls: 'done' }
+                        : formatMilestoneCountdown(ms.days_left, true, isEn);
                     if (!dateRange && !badge) return null;
                     return (
                       <span className="utc-bpb-step-ms-meta">
@@ -270,26 +291,26 @@ export const BatchProgressBar: React.FC<Props> = ({
                     if (!ms) return null;
                     const sStr = shortDateVi(ms.start_date);
                     const eStr = shortDateVi(ms.end_date);
-                    const rangeText = sStr && eStr ? `${sStr} → ${eStr}` : eStr ? `Hạn ${eStr}` : sStr ? `Từ ${sStr}` : '';
-                    const cd = stage.status === 'done' ? null : formatMilestoneCountdown(ms.days_left, false);
+                    const rangeText = sStr && eStr ? `${sStr} → ${eStr}` : eStr ? `${tr(isEn, 'Hạn', 'Due')} ${eStr}` : sStr ? `${tr(isEn, 'Từ', 'From')} ${sStr}` : '';
+                    const cd = stage.status === 'done' ? null : formatMilestoneCountdown(ms.days_left, false, isEn);
                     return (
                       <p className="utc-bpb-step-ms-detail">
-                        🗓️ {ms.name}{rangeText ? ` (${rangeText})` : ''}{cd ? ` · ${cd.text}` : ''}
+                        🗓️ {localizeDynamicText(ms.name, isEn)}{rangeText ? ` (${rangeText})` : ''}{cd ? ` · ${cd.text}` : ''}
                       </p>
                     );
                   })()}
-                  <p className="utc-bpb-step-desc">{stage.description}</p>
+                  <p className="utc-bpb-step-desc">{localizedDesc}</p>
                   {stage.role_hint && (
-                    <p className="utc-bpb-step-role">👤 Trách nhiệm: {stage.role_hint}</p>
+                    <p className="utc-bpb-step-role">👤 {tr(isEn, 'Trách nhiệm', 'Responsibility')}: {localizeDynamicText(stage.role_hint, isEn)}</p>
                   )}
                   {stage.action_hint && (
-                    <p className="utc-bpb-step-action">👉 {stage.action_hint}</p>
+                    <p className="utc-bpb-step-action">👉 {localizeDynamicText(stage.action_hint, isEn)}</p>
                   )}
                   {stage.stats && Object.keys(stage.stats).length > 0 && (
                     <div className="utc-bpb-step-stats">
                       {Object.entries(stage.stats).map(([k, v]) => (
                         <span key={k} className="utc-bpb-stat-chip">
-                          {k}: <strong>{v}</strong>
+                          {localizeDynamicText(k, isEn)}: <strong>{v}</strong>
                         </span>
                       ))}
                     </div>
@@ -313,28 +334,28 @@ export const BatchProgressBar: React.FC<Props> = ({
       {/* ---------- Hành động tiếp theo ---------- */}
       {currentStage && (
         <div className="utc-bpb-next">
-          <span className="utc-bpb-next-label">Giai đoạn hiện tại:</span>
+          <span className="utc-bpb-next-label">{tr(isEn, 'Giai đoạn hiện tại:', 'Current stage:')}</span>
           <span className="utc-bpb-next-value">
-            {currentStage.icon} {currentStage.label}
+            {currentStage.icon} {localizeDynamicText(currentStage.label, isEn)}
           </span>
           {data.next_actions && data.next_actions.length > 0 && (
-            <span className="utc-bpb-next-hint">· {data.next_actions[0]}</span>
+            <span className="utc-bpb-next-hint">· {localizeDynamicText(data.next_actions[0], isEn)}</span>
           )}
           {data.current_milestone && (
             <span className="utc-bpb-next-hint" style={{ fontWeight: 700, color: (data.current_milestone.days_left ?? 1) < 0 ? '#dc2626' : data.current_milestone.days_left === 0 ? '#b45309' : '#0369a1' }}>
-              · 🗓️ {data.current_milestone.name}
+              · 🗓️ {localizeDynamicText(data.current_milestone.name, isEn)}
               {data.current_milestone.days_left !== null && data.current_milestone.days_left !== undefined
                 ? (data.current_milestone.days_left === 0
-                    ? ' (Hạn hôm nay)'
+                    ? tr(isEn, ' (Hạn hôm nay)', ' (Due today)')
                     : data.current_milestone.days_left > 0
-                    ? ` (Còn ${data.current_milestone.days_left} ngày)`
-                    : ` (Quá hạn ${Math.abs(data.current_milestone.days_left)} ngày)`)
+                    ? tr(isEn, ` (Còn ${data.current_milestone.days_left} ngày)`, ` (${data.current_milestone.days_left} days left)`)
+                    : tr(isEn, ` (Quá hạn ${Math.abs(data.current_milestone.days_left)} ngày)`, ` (Overdue ${Math.abs(data.current_milestone.days_left)} days)`))
                 : ''}
             </span>
           )}
           {(data.supplementary_open || data.batch?.supplementary_open) && (
             <span className="utc-bpb-next-hint" style={{ fontWeight: 700, color: '#b45309' }}>
-              · 🔔 Đang mở ĐK bổ sung
+              · 🔔 {tr(isEn, 'Đang mở ĐK bổ sung', 'Supplementary Reg. Open')}
             </span>
           )}
         </div>
