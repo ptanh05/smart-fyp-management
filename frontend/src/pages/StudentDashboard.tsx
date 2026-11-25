@@ -440,45 +440,25 @@ const StudentDashboard: React.FC = () => {
 
               {/* UTC Academic Batch & Project Quick Action Banner */}
               {profile?.academic_batch && (
-                <div
-                  className="card utc-batch-banner"
-                  style={{
-                    background: 'linear-gradient(135deg, #0a2540 0%, #004b87 100%)',
-                    color: '#ffffff',
-                    borderRadius: '12px',
-                    padding: '24px',
-                    marginBottom: '20px',
-                    boxShadow: '0 8px 24px rgba(0, 43, 73, 0.25)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-                    <div style={{ flex: '1 1 350px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                        <span style={{
-                          background: '#38bdf8',
-                          color: '#0f172a',
-                          fontSize: '0.75rem',
-                          fontWeight: 800,
-                          padding: '3px 10px',
-                          borderRadius: '20px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
+                <div className="card utc-batch-banner">
+                  <div className="utc-batch-banner-inner">
+                    <div className="utc-batch-banner-main">
+                      <div className="utc-batch-banner-head">
+                        <span className="utc-batch-banner-pill">
                           {tr(isEn, 'Đợt Đồ Án Chính Thức', 'Official Thesis Batch')}
                         </span>
-                        <span style={{ fontSize: '0.85rem', color: '#93c5fd' }}>
-                          {tr(isEn, 'Mã đợt:', 'Batch Code:')} {profile.academic_batch.batch_code}
+                        <span className="utc-batch-banner-code">
+                          {tr(isEn, 'Mã đợt:', 'Batch Code:')} <strong>{profile.academic_batch.batch_code}</strong>
                         </span>
                       </div>
-                      <h2 style={{ margin: '0 0 10px 0', fontSize: '1.35rem', fontWeight: 700, color: '#ffffff' }}>
+                      <h2 className="utc-batch-banner-title">
                         {profile.academic_batch.batch_name}
                       </h2>
 
                       {profile.graduation_project ? (
-                        <div style={{ background: 'rgba(255, 255, 255, 0.08)', borderRadius: '8px', padding: '14px 16px', marginTop: '12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
-                            <span style={{ fontSize: '0.85rem', color: '#93c5fd' }}>
+                        <div className="utc-batch-banner-project-box">
+                          <div className="utc-batch-banner-project-top">
+                            <span className="utc-batch-banner-project-label">
                               {tr(isEn, 'Đề tài được phân công:', 'Assigned Topic:')}
                             </span>
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -499,22 +479,22 @@ const StudentDashboard: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          <div style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: '8px' }}>
+                          <div className="utc-batch-banner-project-title">
                             {profile.graduation_project.topic_title_vi}
                           </div>
                           {(profile.graduation_project.topic_review_status === 'REVISION_REQUIRED' || profile.graduation_project.status === 'TOPIC_REVISION') && (
-                            <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '6px', padding: '8px 12px', marginBottom: '10px', fontSize: '0.85rem', color: '#fca5a5' }}>
+                            <div className="utc-batch-banner-revision-box">
                               <strong>{tr(isEn, 'Ý kiến nhận xét từ Khoa: ', 'Faculty Feedback: ')}</strong> {profile.graduation_project.topic_revision_notes || tr(isEn, 'Cần chỉnh sửa lại đề tài theo góp ý', 'Please revise the topic according to feedback')}
                             </div>
                           )}
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                          <div className="utc-batch-banner-project-meta">
                             <span>👨‍🏫 {tr(isEn, 'GVHD:', 'Supervisor:')} <strong>{profile.graduation_project.supervisor_name || tr(isEn, 'Đang phân công', 'Allocating')}</strong></span>
-                            <span>📊 {tr(isEn, 'Trạng thái:', 'Status:')} <strong style={{ color: '#34d399' }}>{profile.graduation_project.status_display || profile.graduation_project.status}</strong></span>
+                            <span>📊 {tr(isEn, 'Trạng thái:', 'Status:')} <strong className="utc-batch-banner-status">{profile.graduation_project.status_display || profile.graduation_project.status}</strong></span>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(250, 204, 21, 0.3)', borderRadius: '8px', padding: '12px 16px', marginTop: '12px' }}>
-                          <div style={{ color: '#fef08a', fontSize: '0.9rem', fontWeight: 500 }}>
+                        <div className="utc-batch-banner-warning-box">
+                          <div className="utc-batch-banner-warning-text">
                             {tr(
                               isEn,
                               '⚠️ Bạn đã được thêm vào đợt làm đồ án nhưng chưa được phân công Đề tài & GVHD. Hãy vào mục Khảo sát & Nguyện vọng để chọn GVHD mong muốn!',
@@ -527,30 +507,9 @@ const StudentDashboard: React.FC = () => {
 
                     <div style={{ alignSelf: 'center' }}>
                       <button
+                        type="button"
+                        className="utc-batch-banner-cta"
                         onClick={() => setActiveTab(currentStageInfo.key)}
-                        style={{
-                          background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                          color: '#ffffff',
-                          border: '1px solid rgba(255, 255, 255, 0.25)',
-                          padding: '12px 24px',
-                          borderRadius: '10px',
-                          fontSize: '0.92rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
-                          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 6px 20px rgba(2, 132, 199, 0.55)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = '0 4px 14px rgba(2, 132, 199, 0.4)';
-                        }}
                       >
                         <span>{currentStageInfo.icon}</span>
                         <span>
