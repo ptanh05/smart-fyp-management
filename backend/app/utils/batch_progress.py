@@ -120,7 +120,7 @@ def compute_scaled_stage_offsets(batch):
     end_date = getattr(batch, "end_date", None)
     if start_date and end_date:
         total_days = (end_date - start_date).days
-        total_span = total_days + 1
+        total_span = total_days + 1  # tính cả ngày bắt đầu và ngày kết thúc
         if total_span >= 6:
             scaled = [0]
             total_stages = len(DEFAULT_STAGE_MILESTONES)

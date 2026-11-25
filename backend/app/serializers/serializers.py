@@ -103,7 +103,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         batch = getattr(obj, "academic_batch", None)
         if not batch:
             from ..models import AcademicBatch
-            batch = AcademicBatch.get_active_batch()
+            from app.utils.stage_deadline_enforcement import is_student_expelled_from_batch
+            candidate = AcademicBatch.get_active_batch()
+            if not is_student_expelled_from_batch(obj, candidate):
+                batch = candidate
         if batch:
             return {
                 "id": batch.id,
@@ -234,6 +237,21 @@ class StudentProfileSerializer(serializers.ModelSerializer):
                 from app.models import AcademicBatch
                 batch = AcademicBatch.get_active_batch()
             workflow = compute_project_progress(None, batch)
+            from app.utils.stage_deadline_enforcement import is_student_expelled_from_batch
+            if is_student_expelled_from_batch(obj, batch):
+                reason = "Sinh viên đã bị loại khỏi đợt đồ án do quá hạn hoàn thành giai đoạn."
+                workflow = {
+                    **workflow,
+                    "is_blocked": True,
+                    "blocked_reason": reason,
+                    "block_kind": "disqualified",
+                    "current_step_key": "disqualified",
+                    "current_step_label": reason,
+                    "stages": [
+                        {**s, "editable": False, "reason": reason if s["status"] == "active" else s.get("reason")}
+                        for s in workflow.get("stages", [])
+                    ],
+                }
         cache[obj.pk] = workflow
         return workflow
 

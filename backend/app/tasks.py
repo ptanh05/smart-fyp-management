@@ -118,8 +118,27 @@ def dispatch_async_notification(recipient_user_ids, title, message, notification
 
 @shared_task(ignore_result=True)
 def send_deadline_reminders_task():
-    """Nhắc SV các task sắp tới hạn (D-3, D-1) hoặc quá hạn. Chạy hằng ngày qua Celery beat."""
+    """Nhắc SV các task sắp tới hạn (D-3, D-1) hoặc quá hạn, đồng thời quét quá hạn giai đoạn. Chạy hằng ngày qua Celery beat."""
     from .feature_services import send_deadline_reminders
+    from .utils.stage_deadline_enforcement import enforce_all_active_batches_stage_deadlines
+
     sent = send_deadline_reminders()
+    try:
+        summary = enforce_all_active_batches_stage_deadlines()
+        logger.info(
+            "[STAGE_DEADLINE_ENFORCE] scanned=%s removed=%s",
+            summary.get("scanned_batches", 0),
+            summary.get("total_removed", 0),
+        )
+    except Exception as exc:
+        logger.warning("[STAGE_DEADLINE_ENFORCE] error=%s", exc)
     logger.info("[DEADLINE_REMINDER] sent=%s", sent)
     return sent
+
+
+@shared_task(ignore_result=True)
+def enforce_stage_deadlines_task():
+    """Task riêng quét quá hạn GĐ2–GĐ5 trên toàn bộ các đợt đang mở."""
+    from .utils.stage_deadline_enforcement import enforce_all_active_batches_stage_deadlines
+
+    return enforce_all_active_batches_stage_deadlines()

@@ -427,3 +427,69 @@ class MilestoneSyncAndTimelineIntegrationTests(APITestCase):
 
         events = collect_calendar_events(sv_user)
         self.assertTrue(any(ev["uid"] == f"batch-milestone-{ms5.id}" for ev in events))
+
+
+class PortalExpelledStudentGuardTests(APITestCase):
+    def test_expelled_unallocated_and_allocated_students_blocked_on_portal(self):
+        import datetime as dt
+        from app.models import AcademicBatch, BatchMilestone, CustomUser, GraduationProject, Notification, Student, Supervisor
+        from app.utils.stage_deadline_enforcement import enforce_batch_stage_deadlines
+
+        now = timezone.now()
+        batch = AcademicBatch.objects.create(
+            batch_code="K65-PRT",
+            batch_name="Đợt Portal Guard",
+            current_stage="PHASE_2_ALLOCATING",
+            is_active=True,
+            is_closed=False,
+        )
+        BatchMilestone.objects.create(
+            batch=batch,
+            name="GĐ2 Hết Hạn",
+            stage_number=2,
+            start_date=now - dt.timedelta(days=10),
+            end_date=now - dt.timedelta(hours=1),
+            order_index=1,
+            is_active=True,
+        )
+
+        sup_user = CustomUser.objects.create_user(
+            username="prt_sup", email="prt_sup@utc.edu.vn", password="Password123!", user_type="supervisor"
+        )
+        sup = Supervisor.objects.create(user=sup_user, supervisor_id="PRT_SUP")
+
+        sv_lazy_user = CustomUser.objects.create_user(
+            username="prt_lazy", email="prt_lazy@utc.edu.vn", password="Password123!", user_type="student"
+        )
+        sv_lazy = Student.objects.create(user=sv_lazy_user, registration_no="PRT001", academic_batch=batch)
+
+        sv_ok_user = CustomUser.objects.create_user(
+            username="prt_ok", email="prt_ok@utc.edu.vn", password="Password123!", user_type="student"
+        )
+        sv_ok = Student.objects.create(user=sv_ok_user, registration_no="PRT002", academic_batch=batch)
+        GraduationProject.objects.create(student=sv_ok, supervisor=sup, batch=batch, status="ALLOCATED")
+
+        res = enforce_batch_stage_deadlines(batch)
+        self.assertEqual(res["removed_count"], 1)
+
+        sv_lazy.refresh_from_db()
+        sv_ok.refresh_from_db()
+        self.assertIsNone(sv_lazy.academic_batch_id)
+        self.assertEqual(sv_ok.academic_batch_id, batch.id)
+        self.assertTrue(Notification.objects.filter(user=sv_lazy_user, title__startswith="[Loại khỏi đợt K65-PRT]").exists())
+
+        # Expelled student CANNOT submit survey or re-attach to active batch
+        self.client.force_authenticate(user=sv_lazy_user)
+        survey_get = self.client.get("/app/student/survey/")
+        self.assertEqual(survey_get.status_code, status.HTTP_403_FORBIDDEN)
+        survey_post = self.client.post("/app/student/survey/", {"is_interning": False}, format="json")
+        self.assertEqual(survey_post.status_code, status.HTTP_403_FORBIDDEN)
+
+        sv_lazy.refresh_from_db()
+        self.assertIsNone(sv_lazy.academic_batch_id)
+
+        prof = self.client.get("/app/student/profile/")
+        self.assertEqual(prof.status_code, status.HTTP_200_OK)
+        self.assertIsNone(prof.data["academic_batch"])
+        self.assertTrue(prof.data["workflow"]["is_blocked"])
+        self.assertEqual(prof.data["workflow"]["block_kind"], "disqualified")

@@ -843,6 +843,15 @@ class StudentSurveyAPIView(APIView):
             return Response({"detail": "Hồ sơ sinh viên không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
 
         batch = student.academic_batch or AcademicBatch.get_active_batch()
+        from app.utils.stage_deadline_enforcement import is_student_expelled_from_batch
+        if is_student_expelled_from_batch(student, batch):
+            return Response(
+                {
+                    "detail": "Bạn đã bị loại khỏi đợt đồ án do quá hạn hoàn thành giai đoạn.",
+                    "disqualified": True,
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         
         from django.core.cache import cache
 
@@ -929,6 +938,15 @@ class StudentSurveyAPIView(APIView):
             return Response({"detail": "Hồ sơ sinh viên không tồn tại."}, status=status.HTTP_404_NOT_FOUND)
 
         batch = student.academic_batch or AcademicBatch.get_active_batch()
+        from app.utils.stage_deadline_enforcement import is_student_expelled_from_batch
+        if is_student_expelled_from_batch(student, batch):
+            return Response(
+                {
+                    "detail": "Bạn đã bị loại khỏi đợt đồ án do quá hạn hoàn thành giai đoạn.",
+                    "disqualified": True,
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if not batch:
             return Response({"detail": "Không có đợt làm đồ án nào đang hoạt động."}, status=status.HTTP_400_BAD_REQUEST)
 
