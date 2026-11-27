@@ -248,6 +248,8 @@ class BatchCreateAPIView(APIView):
                 end_date=end_date or None,
                 is_active=is_active
             )
+            # objects.create() giữ nguyên ngày dạng chuỗi từ request -> nạp lại để có kiểu date.
+            batch.refresh_from_db()
             from app.utils.batch_progress import seed_default_milestones_for_batch
             seed_default_milestones_for_batch(batch, replace=False)
             # Ensure evaluation policy exists for batch
@@ -861,16 +863,27 @@ class StudentSurveyAPIView(APIView):
             topic_areas_data = ProjectTopicAreaSerializer(topic_areas, many=True).data
             cache.set("utc_active_topic_areas_data", topic_areas_data, 600)
 
-        supervisors_data = cache.get("utc_active_supervisors_brief_data")
+        # Chỉ hiển thị GV được Khoa chọn tham gia đợt (SupervisorQuota). Đợt cũ
+        # chưa cấu hình quota thì giữ hành vi cũ (toàn bộ GV đang hoạt động).
+        from .models import SupervisorQuota
+        quota_sup_ids = (
+            list(SupervisorQuota.objects.filter(batch=batch).values_list("supervisor_id", flat=True))
+            if batch else []
+        )
+        sup_cache_key = f"utc_active_supervisors_brief_data_b{batch.id if batch and quota_sup_ids else 'all'}"
+        supervisors_data = cache.get(sup_cache_key)
         if supervisors_data is None:
+            sup_qs = Supervisor.objects.filter(is_active=True)
+            if quota_sup_ids:
+                sup_qs = sup_qs.filter(id__in=quota_sup_ids)
             supervisors = (
-                Supervisor.objects.filter(is_active=True)
+                sup_qs
                 .select_related("user")
                 .prefetch_related("topic_area_links__topic_area")
                 .order_by("user__first_name")
             )
             supervisors_data = SupervisorBriefSerializer(supervisors, many=True).data
-            cache.set("utc_active_supervisors_brief_data", supervisors_data, 300)
+            cache.set(sup_cache_key, supervisors_data, 300)
 
         survey = InternshipInfo.objects.filter(student=student).first()
         survey_data = InternshipInfoSerializer(survey).data if survey else None
@@ -1019,6 +1032,18 @@ class StudentSurveyAPIView(APIView):
         selected_ids = [s.id for s in selected_sups]
         if len(selected_ids) != len(set(selected_ids)):
             return Response({"detail": "Các nguyện vọng NV1, NV2, NV3 không được trùng nhau. Vui lòng chọn các thầy cô khác nhau!"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # NV phải là GV tham gia đợt (nếu đợt đã cấu hình danh sách GV).
+        from .models import SupervisorQuota
+        batch_sup_ids = set(SupervisorQuota.objects.filter(batch=batch).values_list("supervisor_id", flat=True))
+        if batch_sup_ids:
+            outside = [s for s in selected_sups if s.id not in batch_sup_ids]
+            if outside:
+                names = ", ".join(s.user.get_full_name() or s.user.username for s in outside)
+                return Response(
+                    {"detail": f"Giảng viên không tham gia đợt đồ án này: {names}. Vui lòng chọn GV trong danh sách của đợt."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Nút quyết định Giai đoạn 2: SV Kỹ sư -> Kiểm tra học vị GV tối thiểu (Tiến sĩ trở lên)
         try:

@@ -321,10 +321,10 @@ class MilestoneSyncAndTimelineIntegrationTests(APITestCase):
         import datetime as dt
         from app.feature_services import collect_calendar_events
         from app.models import AcademicBatch, BatchMilestone, CustomUser, GraduationProject, Student, Supervisor
-        from app.utils.batch_progress import compute_milestone_days_left
+        from app.utils.batch_progress import BUSINESS_TIME_ZONE, compute_milestone_days_left, vietnam_local_date
 
-        today = timezone.localdate()
-        tz = timezone.get_current_timezone()
+        today = vietnam_local_date()
+        tz = BUSINESS_TIME_ZONE
 
         sup_user = CustomUser.objects.create_user(
             username="sup_ms_sync",
