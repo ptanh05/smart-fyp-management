@@ -696,6 +696,12 @@
     padding: 16px;
   }
 
+  .utc-supervisor-summary-content {
+    flex: 1 1 calc(100% - 80px);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
   .utc-supervisor-summary-status {
     margin-left: 70px;
   }
@@ -1036,6 +1042,27 @@
     width: 28px;
     height: 28px;
     font-size: 0.8rem;
+  }
+  /* Màn hẹp: ô tìm kiếm co theo chỗ trống, không đè lên các nút bên phải */
+  .utc-header-global-search,
+  .utc-search-bar {
+    flex: 1 1 auto;
+    max-width: none;
+    min-width: 0;
+  }
+  .utc-header-global-search .global-search-shortcut,
+  .utc-user-pill .dropdown-arrow {
+    display: none;
+  }
+  .utc-topbar-right {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 400px) {
+  /* Điện thoại nhỏ: ẩn nút đổi ngôn ngữ trên thanh đầu để đủ chỗ */
+  .utc-topbar-right .utc-top-btn:first-child {
+    display: none;
   }
 }
 

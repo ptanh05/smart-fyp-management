@@ -83,7 +83,7 @@
 /* Skeleton card grid */
 .skeleton-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 20px;
 }
 
@@ -122,7 +122,7 @@
 /* Skeleton document grid */
 .skeleton-document-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 20px;
 }
 
@@ -132,7 +132,7 @@
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 20px;
-  min-width: 200px;
+  min-width: min(200px, 100%);
   transition: background-color 0.3s ease;
 }
 
@@ -153,7 +153,7 @@
 /* Skeleton evaluation grid */
 .skeleton-evaluation-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
   gap: 16px;
 }
 
