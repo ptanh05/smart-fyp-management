@@ -27,14 +27,11 @@ export interface UTCStudentGraduationViewProps {
   initialTab?: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade';
   onSubtabChange?: (tab: 'project' | 'survey' | 'outline' | 'weekly' | 'supervision' | 'grade') => void;
   initialProjectData?: any;
-  /** Báo workflow mới nhất (cùng nguồn với sidebar) lên trang cha để điều hướng GĐ đồng bộ. */
-  onWorkflowChange?: (workflow: ProjectWorkflow | null) => void;
 }
 
 export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> = ({
   initialTab,
   onSubtabChange,
-  onWorkflowChange,
   initialProjectData,
 }) => {
   const [searchParams] = useSearchParams();
@@ -97,13 +94,6 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
       refreshBatchProgress?.().catch(() => undefined);
     }
   }, [fetchedStage, sharedStage, fetchedPercent, sharedPercent, batchProgressLoading, refreshBatchProgress]);
-  const workflowSignature = workflow
-    ? `${workflow.current_stage_number}:${JSON.stringify((workflow as any).stages ?? null)}`
-    : '';
-  useEffect(() => {
-    if (workflow) onWorkflowChange?.(workflow);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workflowSignature, onWorkflowChange]);
   const currentStageNum = workflow
     ? workflow.current_stage_number
     : getProjectStageNumber(projectData || initialProjectData);

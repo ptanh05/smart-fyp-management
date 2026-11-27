@@ -13,6 +13,7 @@ import StudentTemplatesView from '../components/StudentTemplatesView';
 import UTCFypTimeline from '../components/UTCFypTimeline';
 import RoleHomeWidget from '../components/RoleHomeWidget';
 import UTCEvaluationSheetModal from '../components/UTCEvaluationSheetModal';
+import { useOptionalBatchProgress } from '../contexts/BatchProgressContext';
 import { UTCStudentGraduationView } from '../components/UTCStudentGraduationView';
 import { UTCSupervisorGroupChatView } from '../components/UTCSupervisorGroupChatView';
 import { SkeletonProfile } from '../components/SkeletonLoader';
@@ -29,6 +30,22 @@ import { getLocalizedStageText, isEnglish, tr } from '../utils/i18nHelper';
 import './Dashboard.css';
 import '../components/SkeletonLoader.css';
 import '../components/StudentTemplatesView.css';
+
+/**
+ * Nằm bên trong UTCAppLayout (BatchProgressProvider) để đọc cùng `workflow` mà
+ * sidebar/thanh tiến trình đang dùng và báo lên StudentDashboard. Nhờ vậy bộ
+ * điều hướng GĐ luôn dùng một nguồn duy nhất, kể cả khi đang ở tab Tổng quan.
+ */
+const StudentWorkflowBridge: React.FC<{ onChange: (wf: ProjectWorkflow | null) => void }> = ({ onChange }) => {
+  const ctx = useOptionalBatchProgress();
+  const wf = getProjectWorkflow(ctx?.progress?.workflow) || getProjectWorkflow((ctx?.progress as any)?.my_project);
+  const signature = wf ? `${wf.current_stage_number}:${JSON.stringify((wf as any).stages ?? null)}` : '';
+  useEffect(() => {
+    if (wf) onChange(wf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature, onChange]);
+  return null;
+};
 
 const StudentDashboard: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -207,7 +224,7 @@ const StudentDashboard: React.FC = () => {
     return (
       <div>
         <Navbar user={student} onLogout={logout} />
-        <div className="container">
+      <div className="container">
           <div className="dashboard-header">
             <h1>Student Dashboard</h1>
             <p>Loading your dashboard...</p>
@@ -379,6 +396,7 @@ const StudentDashboard: React.FC = () => {
       currentStageNumber={currentStageInfo.number}
       selectedBatchId={profile?.academic_batch?.id || (profile as any)?.academic_batch_id || (student as any)?.academic_batch_id}
     >
+      <StudentWorkflowBridge onChange={setLiveWorkflow} />
       <div className="container">
         {/* Modern Executive Header Card (Left-sidebar first UI like Admin) */}
         {(() => {
@@ -426,7 +444,6 @@ const StudentDashboard: React.FC = () => {
             <UTCStudentGraduationView
               initialTab={(graduationSubtabs.includes(activeTab) ? activeTab : currentStageInfo.key) as any}
               onSubtabChange={handleTabChange}
-              onWorkflowChange={setLiveWorkflow}
               initialProjectData={profile?.graduation_project || (student as any)?.graduation_project}
             />
           )}
