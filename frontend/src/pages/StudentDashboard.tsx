@@ -22,6 +22,7 @@ import {
   getProjectStageInfo,
   getProjectWorkflow,
   getStageInfo,
+  type ProjectWorkflow,
   resolveStageTab,
 } from '../utils/graduationStages';
 import { getLocalizedStageText, isEnglish, tr } from '../utils/i18nHelper';
@@ -45,7 +46,12 @@ const StudentDashboard: React.FC = () => {
   // Giai đoạn hiện tại lấy từ `workflow` do backend tính (cùng nguồn với sidebar
   // và thanh tiến trình). Fallback trạng thái chỉ dùng khi API chưa trả workflow.
   const graduationProject = profile?.graduation_project || (student as any)?.graduation_project;
+  // Workflow mới nhất do UTCStudentGraduationView báo lên (cùng nguồn với sidebar
+  // và thanh tiến trình). Hồ sơ `profile` chỉ tải 1 lần nên có thể đã cũ: nếu chỉ
+  // dựa vào nó, bấm sang GĐ mới mở sẽ bị coi là "chưa mở" và bị bẻ về GĐ cũ.
+  const [liveWorkflow, setLiveWorkflow] = useState<ProjectWorkflow | null>(null);
   const studentWorkflow =
+    liveWorkflow ||
     getProjectWorkflow((profile as any)?.workflow) || getProjectWorkflow(graduationProject);
   const currentStageInfo = studentWorkflow
     ? getStageInfo(studentWorkflow.current_stage_number)
@@ -420,6 +426,7 @@ const StudentDashboard: React.FC = () => {
             <UTCStudentGraduationView
               initialTab={(graduationSubtabs.includes(activeTab) ? activeTab : currentStageInfo.key) as any}
               onSubtabChange={handleTabChange}
+              onWorkflowChange={setLiveWorkflow}
               initialProjectData={profile?.graduation_project || (student as any)?.graduation_project}
             />
           )}
