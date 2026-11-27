@@ -479,7 +479,7 @@ export const SupervisorOfferedTopics: React.FC<SupervisorOfferedTopicsProps> = (
                   Hủy
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Đang lưu...' : isEditing ? '💾 Lưu Thay Đổi' : '➕ Tạo Đề Tài'}
+                  {saving ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : isEditing ? '💾 Lưu Thay Đổi' : '➕ Tạo Đề Tài'}
                 </button>
               </div>
             </form>

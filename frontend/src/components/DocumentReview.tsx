@@ -297,7 +297,7 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
                 disabled={bulkDownloading || selectedGroupIds.length === 0}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#0284c7' }}
               >
-                {bulkDownloading ? 'Đang nén file zip...' : `⬇️ Tải xuống tất cả (.zip) (${selectedGroupIds.length})`}
+                {bulkDownloading ? <><span className="m-spinner" aria-hidden="true" /> Đang nén file zip...</> : `⬇️ Tải xuống tất cả (.zip) (${selectedGroupIds.length})`}
               </button>
             </div>
           </div>
@@ -627,7 +627,7 @@ const DocumentReview: React.FC<DocumentReviewProps> = ({ groups }) => {
                       className="btn btn-primary btn-sm"
                       disabled={savingComment || !commentText.trim()}
                     >
-                      {savingComment ? 'Đang lưu...' : '💾 Lưu nhận xét'}
+                      {savingComment ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : '💾 Lưu nhận xét'}
                     </button>
                   </div>
                 </form>

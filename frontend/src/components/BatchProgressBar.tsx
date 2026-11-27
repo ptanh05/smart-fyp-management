@@ -2,6 +2,7 @@
  * BatchProgressBar — Thanh tiến trình 6 giai đoạn của một Đợt đồ án (song ngữ Việt – Anh).
  * Dùng chung cho Admin Portal và Cổng Sinh viên / Giảng viên.
  */
+import { PopOnChange } from '../utils/motion';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import './BatchProgressBar.css';
@@ -262,7 +263,7 @@ export const BatchProgressBar: React.FC<Props> = ({
                 <span className="utc-bpb-step-icon">{stage.icon}</span>
                 <span className="utc-bpb-step-body">
                   <span className="utc-bpb-step-label">{localizedShortLabel}</span>
-                  <span className="utc-bpb-step-status">{statusLabels[stage.status]}</span>
+                  <PopOnChange value={stage.status}><span className="utc-bpb-step-status">{statusLabels[stage.status]}</span></PopOnChange>
                   {(() => {
                     const ms = pickStageMilestone(data.milestones, stage.number);
                     if (!ms) return null;

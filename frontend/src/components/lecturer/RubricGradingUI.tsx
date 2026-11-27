@@ -399,14 +399,14 @@ export const RubricGradingUI: React.FC<RubricGradingUIProps> = ({ project, onBac
                       disabled={saving}
                       onClick={() => handleSubmit(true)}
                     >
-                      {saving ? 'Đang lưu...' : 'Lưu nháp'}
+                      {saving ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : 'Lưu nháp'}
                     </button>
                     <button
                       className="utc-btn disabled:opacity-50"
                       disabled={saving}
                       onClick={() => handleSubmit(false)}
                     >
-                      {saving ? 'Đang xử lý...' : 'Xác nhận điểm'}
+                      {saving ? <><span className="m-spinner" aria-hidden="true" /> Đang xử lý...</> : 'Xác nhận điểm'}
                     </button>
                   </div>
                 )}

@@ -174,7 +174,7 @@ const TemplatesList: React.FC<TemplatesListProps> = ({ templateType }) => {
           ) : templates.length === 0 ? (
             <div className="empty-state">No templates uploaded yet for this semester</div>
           ) : (
-            <table className="table">
+            <table className="m-stagger table">
               <thead>
                 <tr>
                   <th>Title</th>

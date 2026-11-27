@@ -932,7 +932,7 @@ const GroupDocumentsList: React.FC<{ groupId: number }> = ({ groupId }) => {
             <h3 style={{ marginBottom: '15px', borderBottom: '2px solid var(--divider, #e0e0e0)', paddingBottom: '8px' }}>
               {docType.label}
             </h3>
-            <table className="table">
+            <table className="m-stagger table">
               <thead>
                 <tr>
                   <th>{t('committee.docTitle', 'Tiêu đề')}</th>

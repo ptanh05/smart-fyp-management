@@ -199,7 +199,7 @@ const AuditLogViewer: React.FC<AuditLogViewerProps> = ({ groupId, showStats = tr
             transition: 'background-color 0.2s',
           }}
         >
-          {exporting ? '⏳ Đang xuất...' : '📥 Xuất Excel/CSV (Export Logs)'}
+          {exporting ? <><span className="m-spinner" aria-hidden="true" /> Đang xuất...</> : '📥 Xuất Excel/CSV (Export Logs)'}
         </button>
       </div>
 

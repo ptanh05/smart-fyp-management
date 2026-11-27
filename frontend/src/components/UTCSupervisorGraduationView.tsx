@@ -1075,7 +1075,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="utc-supervisor-table">
+              <table className="m-stagger utc-supervisor-table">
                 <thead>
                   <tr>
                     <th className="p-3">MSSV</th>
@@ -1241,7 +1241,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="utc-supervisor-table">
+                  <table className="m-stagger utc-supervisor-table">
                     <thead>
                       <tr>
                         <th className="p-3">MSSV</th>
@@ -2371,7 +2371,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         disabled={savingTask}
                         className="px-4 py-1.5 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm disabled:opacity-50"
                       >
-                        {savingTask ? 'Đang lưu...' : 'Giao việc ngay'}
+                        {savingTask ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : 'Giao việc ngay'}
                       </button>
                     </div>
                   </form>
@@ -2716,7 +2716,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                         disabled={savingLog}
                         className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm disabled:opacity-50"
                       >
-                        {savingLog ? 'Đang lưu...' : 'Lưu nhật ký & Căn cứ đánh giá'}
+                        {savingLog ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : 'Lưu nhật ký & Căn cứ đánh giá'}
                       </button>
                     </div>
                   </form>
@@ -2868,7 +2868,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   disabled={confirmingTopic}
                   className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
                 >
-                  {confirmingTopic ? 'Đang xác nhận...' : '✓ Xác nhận đề tài'}
+                  {confirmingTopic ? <><span className="m-spinner" aria-hidden="true" /> Đang xác nhận...</> : '✓ Xác nhận đề tài'}
                 </button>
               </div>
             </form>
@@ -2975,7 +2975,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   disabled={reviewingTask}
                   className="px-5 py-2 rounded-lg bg-[#2D469E] hover:bg-[#1D327B] text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
                 >
-                  {reviewingTask ? 'Đang lưu...' : 'Lưu kết quả đánh giá'}
+                  {reviewingTask ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : 'Lưu kết quả đánh giá'}
                 </button>
               </div>
             </form>
@@ -3009,7 +3009,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="utc-supervisor-table">
+              <table className="m-stagger utc-supervisor-table">
                 <thead>
                   <tr>
                     <th className="p-3">MSSV</th>
@@ -3161,7 +3161,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   disabled={adminTopicSubmitting}
                   className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
                 >
-                  {adminTopicSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu sửa đổi'}
+                  {adminTopicSubmitting ? <><span className="m-spinner" aria-hidden="true" /> Đang gửi...</> : 'Gửi yêu cầu sửa đổi'}
                 </button>
               </div>
             </form>
@@ -3208,7 +3208,7 @@ export const UTCSupervisorGraduationView: React.FC<UTCSupervisorGraduationViewPr
                   disabled={savingDeferralFeedback}
                   className="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-sm transition disabled:opacity-50"
                 >
-                  {savingDeferralFeedback ? 'Đang lưu...' : '💾 Lưu góp ý GVHD'}
+                  {savingDeferralFeedback ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : '💾 Lưu góp ý GVHD'}
                 </button>
               </div>
             </form>

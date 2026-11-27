@@ -763,7 +763,7 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button type="submit" className="btn btn-primary" disabled={topicSubmitting}>
-                    {topicSubmitting ? 'Đang lưu...' : '📤 Cập nhật đề xuất (Gửi duyệt lại)'}
+                    {topicSubmitting ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : '📤 Cập nhật đề xuất (Gửi duyệt lại)'}
                   </button>
                 </div>
               </form>
@@ -1030,7 +1030,7 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
                   Hủy
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={submittingCreate}>
-                  {submittingCreate ? 'Đang tạo nhóm...' : 'Tạo nhóm & Làm Trưởng nhóm'}
+                  {submittingCreate ? <><span className="m-spinner" aria-hidden="true" /> Đang tạo nhóm...</> : 'Tạo nhóm & Làm Trưởng nhóm'}
                 </button>
               </div>
             </form>
@@ -1182,7 +1182,7 @@ export const StudentGroupManagement: React.FC<StudentGroupManagementProps> = ({
                   Hủy
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={submittingRename || !newGroupName.trim()}>
-                  {submittingRename ? 'Đang lưu...' : 'Lưu tên mới'}
+                  {submittingRename ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : 'Lưu tên mới'}
                 </button>
               </div>
             </form>

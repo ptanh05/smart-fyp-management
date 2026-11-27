@@ -419,7 +419,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
               onClick={() => handleSave(true)}
               disabled={saving}
             >
-              {saving ? 'Đang lưu...' : '💾 Lưu nháp'}
+              {saving ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : '💾 Lưu nháp'}
             </button>
             <button
               type="button"
@@ -427,7 +427,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
               onClick={() => handleSave(false)}
               disabled={saving}
             >
-              {saving ? 'Đang lưu...' : '✓ Hoàn thành & Lưu'}
+              {saving ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : '✓ Hoàn thành & Lưu'}
             </button>
           </div>
         </div>

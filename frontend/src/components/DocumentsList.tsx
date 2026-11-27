@@ -667,7 +667,7 @@ const DocumentsList: React.FC<DocumentsListProps> = ({ groupId }) => {
           </div>
         ) : (
           <div className="documents-table-wrapper">
-            <table className="table documents-table">
+            <table className="m-stagger table documents-table">
               <thead>
                 <tr>
                   <th>Document</th>

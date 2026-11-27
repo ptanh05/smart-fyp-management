@@ -257,7 +257,7 @@ const StudentTemplatesView: React.FC<StudentTemplatesViewProps> = ({ studentSeme
             📁 Biểu Mẫu Bổ Sung Do Khoa/Bộ Môn Đăng Tải
           </h3>
           <div className="templates-table-wrapper">
-            <table className="table templates-table" style={{ width: '100%' }}>
+            <table className="m-stagger table templates-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
                   <th>Tên Tài Liệu</th>

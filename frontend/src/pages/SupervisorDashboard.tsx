@@ -634,7 +634,7 @@ const SupervisorDashboard: React.FC = () => {
                             gap: '8px',
                           }}
                         >
-                          {broadcasting ? 'Đang gửi...' : 'Gửi thông báo ngay 🚀'}
+                          {broadcasting ? <><span className="m-spinner" aria-hidden="true" /> Đang gửi...</> : 'Gửi thông báo ngay 🚀'}
                         </button>
                       </div>
                     </form>
@@ -1067,7 +1067,7 @@ const GroupsList: React.FC<{
         /* TABLE VIEW WITH SORTING & PAGINATION */
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table className="table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
+            <table className="m-stagger table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f1f5f9' }}>
                   <th style={{ padding: '12px 14px', textAlign: 'left', width: '80px' }}>Mã nhóm</th>

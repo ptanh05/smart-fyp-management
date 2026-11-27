@@ -1038,7 +1038,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 </p>
               </div>
               <div className="overflow-x-auto rounded-xl border border-slate-200 utc-survey-table-wrap">
-                <table className="w-full text-sm">
+                <table className="m-stagger w-full text-sm">
                   <thead className="bg-slate-100 text-slate-700">
                     <tr>
                       <th className="p-3 text-left w-20">Thứ tự</th>
@@ -1348,7 +1348,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 className="utc-btn utc-btn-survey-submit"
               >
                 <span>💾</span>
-                <span>{surveySaving ? 'Đang lưu...' : 'Lưu thông tin khảo sát'}</span>
+                <span>{surveySaving ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : 'Lưu thông tin khảo sát'}</span>
               </button>
             </div>
           </form>
@@ -1378,7 +1378,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 title="Tải biểu mẫu đề cương chi tiết chuẩn UTC"
               >
                 <span>📄</span>
-                <span>{generatingOutlinePdf ? 'Đang xuất PDF...' : 'Tải Mẫu Đề Cương UTC (PDF)'}</span>
+                <span>{generatingOutlinePdf ? <><span className="m-spinner" aria-hidden="true" /> Đang xuất PDF...</> : 'Tải Mẫu Đề Cương UTC (PDF)'}</span>
               </button>
             )}
           </div>
@@ -1724,7 +1724,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 style={{ width: '100%' }}
               >
                 <span>📊</span>
-                <span>{reportSubmitting ? 'Đang nộp...' : `Nộp Báo cáo Tuần ${selectedWeek}`}</span>
+                <span>{reportSubmitting ? <><span className="m-spinner" aria-hidden="true" /> Đang nộp...</> : `Nộp Báo cáo Tuần ${selectedWeek}`}</span>
               </button>
             </form>
           </div>
@@ -2381,7 +2381,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                 }}
               >
                 <span>✓</span>
-                {confirmingTaskComplete ? 'Đang xác nhận...' : 'Xác nhận hoàn tất'}
+                {confirmingTaskComplete ? <><span className="m-spinner" aria-hidden="true" /> Đang xác nhận...</> : 'Xác nhận hoàn tất'}
               </button>
             </div>
           </div>
@@ -2434,7 +2434,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   className="utc-btn utc-btn-topic-save"
                 >
                   <span>💾</span>
-                  <span>{savingTaskNote ? 'Đang lưu...' : 'Lưu ghi chú'}</span>
+                  <span>{savingTaskNote ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : 'Lưu ghi chú'}</span>
                 </button>
               </div>
             </form>
@@ -2514,7 +2514,7 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
                   className="utc-btn utc-btn-topic-approved"
                 >
                   <span>📤</span>
-                  <span>{submittingDeliverable ? 'Đang nộp...' : 'Nộp sản phẩm'}</span>
+                  <span>{submittingDeliverable ? <><span className="m-spinner" aria-hidden="true" /> Đang nộp...</> : 'Nộp sản phẩm'}</span>
                 </button>
               </div>
             </form>
@@ -2524,145 +2524,155 @@ export const UTCStudentGraduationView: React.FC<UTCStudentGraduationViewProps> =
 
       {/* Modal: Đơn xin bảo lưu đồ án tốt nghiệp */}
       {showDeferralModal && (
-        <div className="utc-modal-overlay">
-          <div className="utc-modal-card">
-            <div className="utc-modal-header utc-deferral-modal-header">
-              <div>
-                <h3 className="utc-modal-title">
-                  <span>📝</span> Đơn Xin Bảo Lưu Đồ Án Tốt Nghiệp
-                </h3>
-                <p className="utc-modal-subtitle">
-                  Dành cho trường hợp chưa đủ điều kiện học vụ hoặc lý do chính đáng cần bảo lưu kết quả sang đợt tiếp theo.
-                </p>
+        <div className="utc-modal-overlay" onClick={() => setShowDeferralModal(false)}>
+          <div className="dfr-modal" role="dialog" aria-modal="true" aria-labelledby="dfr-title" onClick={(e) => e.stopPropagation()}>
+            <div className="dfr-header">
+              <div className="dfr-header-icon" aria-hidden="true">📝</div>
+              <div className="dfr-header-text">
+                <h3 id="dfr-title">Đơn xin bảo lưu đồ án tốt nghiệp</h3>
+                <p>Dành cho trường hợp chưa đủ điều kiện học vụ hoặc có lý do chính đáng cần bảo lưu kết quả sang đợt tiếp theo.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowDeferralModal(false)}
-                className="utc-modal-close-btn"
-                title="Đóng"
-              >
+              <button type="button" onClick={() => setShowDeferralModal(false)} className="dfr-close" title="Đóng" aria-label="Đóng">
                 ✕
               </button>
             </div>
 
-            {/* List of existing requests */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Lịch sử đơn đã nộp</h4>
-              {deferralRequests.length === 0 ? (
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 text-xs text-center">
-                  Bạn chưa gửi đơn xin bảo lưu nào trong đợt này.
+            <div className="dfr-body">
+              {/* Lịch sử đơn đã nộp */}
+              <section className="dfr-section">
+                <div className="dfr-section-title">
+                  <span>Lịch sử đơn đã nộp</span>
+                  {deferralRequests.length > 0 && <span className="dfr-count">{deferralRequests.length}</span>}
                 </div>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {deferralRequests.map((req) => (
-                    <div key={req.id} className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800">
-                          Lý do: {req.reason_category_display || req.reason_category}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                          req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
-                          req.status === 'REJECTED' ? 'bg-rose-50 text-rose-800 border-rose-300' :
-                          'bg-amber-50 text-amber-800 border-amber-300'
-                        }`}>
-                          {req.status_display || req.status}
-                        </span>
-                      </div>
-                      <p className="text-slate-700 whitespace-pre-line">{req.reason || req.reason_details}</p>
-                      {req.evidence_file && (
-                        <p>
-                          <a href={req.evidence_file} target="_blank" rel="noreferrer" className="text-[#2D469E] underline font-bold hover:text-blue-900">
-                            Xem minh chứng đính kèm ↗
-                          </a>
-                        </p>
-                      )}
-                      {req.supervisor_feedback && (
-                        <div className="p-2.5 rounded bg-sky-50 border border-sky-200 text-sky-950">
-                          <span className="font-bold text-sky-800">Nhận xét GVHD:</span> {req.supervisor_feedback}
+                {deferralRequests.length === 0 ? (
+                  <div className="dfr-empty">
+                    <span aria-hidden="true">📭</span>
+                    Bạn chưa gửi đơn xin bảo lưu nào trong đợt này.
+                  </div>
+                ) : (
+                  <div className="dfr-history">
+                    {deferralRequests.map((req) => {
+                      const tone = req.status === 'APPROVED' ? 'ok' : req.status === 'REJECTED' ? 'bad' : 'wait';
+                      return (
+                        <div key={req.id} className={`dfr-req dfr-req-${tone}`}>
+                          <div className="dfr-req-top">
+                            <span className="dfr-req-reason">{req.reason_category_display || req.reason_category}</span>
+                            <span className={`dfr-pill dfr-pill-${tone}`}>{req.status_display || req.status}</span>
+                          </div>
+                          <p className="dfr-req-text">{req.reason || req.reason_details}</p>
+                          {req.evidence_file && (
+                            <a href={req.evidence_file} target="_blank" rel="noreferrer" className="dfr-link">
+                              📎 Xem minh chứng đính kèm ↗
+                            </a>
+                          )}
+                          {req.supervisor_feedback && (
+                            <div className="dfr-note dfr-note-gv">
+                              <strong>Nhận xét GVHD:</strong> {req.supervisor_feedback}
+                            </div>
+                          )}
+                          {(req.admin_notes || req.faculty_review_notes) && (
+                            <div className="dfr-note dfr-note-khoa">
+                              <strong>Ý kiến Khoa:</strong> {req.admin_notes || req.faculty_review_notes}
+                            </div>
+                          )}
+                          <div className="dfr-req-time">
+                            🕒 Nộp lúc: {(req.submitted_at || req.created_at) ? new Date(req.submitted_at || req.created_at).toLocaleString('vi-VN') : '—'}
+                          </div>
                         </div>
-                      )}
-                      {(req.admin_notes || req.faculty_review_notes) && (
-                        <div className="p-2.5 rounded bg-amber-50 border border-amber-200 text-amber-950">
-                          <span className="font-bold text-amber-800">Ý kiến Khoa:</span> {req.admin_notes || req.faculty_review_notes}
-                        </div>
-                      )}
-                      <div className="text-[10px] text-slate-500">
-                        Nộp lúc: {(req.submitted_at || req.created_at) ? new Date(req.submitted_at || req.created_at).toLocaleString('vi-VN') : '—'}
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {/* Form nộp đơn mới */}
+              <form id="dfr-form" onSubmit={handleSubmitDeferral} className="dfr-section dfr-form">
+                <div className="dfr-section-title"><span>Nộp đơn xin bảo lưu mới</span></div>
+
+                <div className="dfr-field">
+                  <span className="dfr-label">Phân loại lý do <span className="dfr-req-mark">*</span></span>
+                  <div className="dfr-reasons" role="radiogroup">
+                    {[
+                      { v: 'ACADEMIC', icon: '🎓', t: 'Học vụ', d: 'Chưa đủ tín chỉ / nợ môn tiên quyết' },
+                      { v: 'HEALTH', icon: '🏥', t: 'Sức khỏe', d: 'Có chứng nhận y tế / điều trị' },
+                      { v: 'FINANCIAL', icon: '💰', t: 'Tài chính', d: 'Hoàn cảnh gia đình khó khăn' },
+                      { v: 'PERSONAL', icon: '👤', t: 'Cá nhân khác', d: 'Công tác đột xuất, lý do gia đình' },
+                    ].map((o) => (
+                      <button
+                        key={o.v}
+                        type="button"
+                        role="radio"
+                        aria-checked={deferralReasonCategory === o.v}
+                        className={`dfr-reason ${deferralReasonCategory === o.v ? 'active' : ''}`}
+                        onClick={() => setDeferralReasonCategory(o.v as any)}
+                      >
+                        <span className="dfr-reason-icon" aria-hidden="true">{o.icon}</span>
+                        <span className="dfr-reason-text">
+                          <strong>{o.t}</strong>
+                          <small>{o.d}</small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
+
+                <div className="dfr-field">
+                  <label className="dfr-label" htmlFor="dfr-details">Chi tiết lý do & đề xuất <span className="dfr-req-mark">*</span></label>
+                  <textarea
+                    id="dfr-details"
+                    rows={4}
+                    required
+                    value={deferralReasonDetails}
+                    onChange={(e) => setDeferralReasonDetails(e.target.value)}
+                    placeholder="Trình bày chi tiết lý do và mong muốn được bảo lưu đề tài/kết quả sang đợt tiếp theo..."
+                    className="dfr-textarea"
+                  />
+                </div>
+
+                <div className="dfr-field">
+                  <span className="dfr-label">File minh chứng <span className="dfr-optional">(giấy tờ y tế / xác nhận — tối đa 25MB)</span></span>
+                  <label className={`dfr-drop ${deferralEvidenceFile ? 'has-file' : ''}`}>
+                    <input
+                      type="file"
+                      accept=".pdf,.zip,.docx,.png,.jpg"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        // Khớp giới hạn của backend (validate_uploaded_file: tối đa 25MB) để báo lỗi ngay thay vì chờ upload.
+                        if (file && file.size > 25 * 1024 * 1024) {
+                          notify.warning('File minh chứng không được vượt quá 25MB.');
+                          e.target.value = '';
+                          setDeferralEvidenceFile(null);
+                          return;
+                        }
+                        setDeferralEvidenceFile(file);
+                      }}
+                    />
+                    <span className="dfr-drop-icon" aria-hidden="true">{deferralEvidenceFile ? '📄' : '☁️'}</span>
+                    {deferralEvidenceFile ? (
+                      <span className="dfr-drop-text">
+                        <strong>{deferralEvidenceFile.name}</strong>
+                        <small>{(deferralEvidenceFile.size / 1024 / 1024).toFixed(2)} MB · Bấm để chọn file khác</small>
+                      </span>
+                    ) : (
+                      <span className="dfr-drop-text">
+                        <strong>Bấm để chọn file minh chứng</strong>
+                        <small>PDF, DOCX, ZIP, PNG, JPG</small>
+                      </span>
+                    )}
+                  </label>
+                </div>
+              </form>
             </div>
 
-            {/* Form to submit new request */}
-            <form onSubmit={handleSubmitDeferral} className="space-y-3 pt-3 border-t border-slate-800 text-xs">
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Nộp đơn xin bảo lưu mới</h4>
-
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Phân loại lý do (*)</label>
-                <select
-                  value={deferralReasonCategory}
-                  onChange={(e) => setDeferralReasonCategory(e.target.value as any)}
-                  className="utc-modal-select"
-                >
-                  <option value="ACADEMIC">Học vụ (Chưa hoàn thành đủ tín chỉ / nợ môn tiên quyết)</option>
-                  <option value="HEALTH">Sức khỏe (Có chứng nhận y tế / điều trị)</option>
-                  <option value="FINANCIAL">Tài chính (Hoàn cảnh gia đình khó khăn)</option>
-                  <option value="PERSONAL">Cá nhân khác (Công tác đột xuất, lý do gia đình)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Chi tiết lý do & Đề xuất (*)</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={deferralReasonDetails}
-                  onChange={(e) => setDeferralReasonDetails(e.target.value)}
-                  placeholder="Trình bày chi tiết lý do và mong muốn được bảo lưu đề tài/kết quả sang đợt tiếp theo..."
-                  className="utc-modal-textarea"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">File minh chứng đính kèm (Giấy tờ y tế / xác nhận, PDF/Ảnh):</label>
-                <input
-                  type="file"
-                  accept=".pdf,.zip,.docx,.png,.jpg"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    // Khớp giới hạn của backend (validate_uploaded_file: tối đa 25MB) để báo lỗi ngay thay vì chờ upload.
-                    if (file && file.size > 25 * 1024 * 1024) {
-                      notify.warning('File minh chứng không được vượt quá 25MB.');
-                      e.target.value = '';
-                      setDeferralEvidenceFile(null);
-                      return;
-                    }
-                    setDeferralEvidenceFile(file);
-                  }}
-                  className="w-full text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-[11px] file:bg-slate-800 file:text-slate-200"
-                />
-              </div>
-
-              <div className="utc-modal-footer">
-                <button
-                  type="button"
-                  onClick={() => setShowDeferralModal(false)}
-                  className="utc-btn utc-btn-ghost"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingDeferral}
-                  className="utc-btn utc-btn-deferral-submit"
-                >
-                  <span>{submittingDeferral ? '⏳' : '📨'}</span>
-                  <span>{submittingDeferral ? 'Đang gửi...' : 'Gửi đơn bảo lưu'}</span>
-                </button>
-              </div>
-            </form>
+            <div className="dfr-footer">
+              <button type="button" onClick={() => setShowDeferralModal(false)} className="dfr-btn dfr-btn-ghost">
+                Hủy
+              </button>
+              <button type="submit" form="dfr-form" disabled={submittingDeferral} className="dfr-btn dfr-btn-primary">
+                {submittingDeferral ? <span className="m-spinner" aria-hidden="true" /> : <span aria-hidden="true">📨</span>}
+                {submittingDeferral ? <><span className="m-spinner" aria-hidden="true" /> Đang gửi...</> : 'Gửi đơn bảo lưu'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { notify } from '../utils/notify';
+import { useReplayAnimation } from '../utils/motion';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import utcLogo from '../asset/images/utc_logo.webp';
@@ -53,6 +54,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
   selectedBatchId,
   portalRole,
 }) => {
+  const pageRef = useReplayAnimation<HTMLElement>(activeTab);
   const { t, i18n } = useTranslation();
   const isEn = isEnglish(i18n?.resolvedLanguage || i18n?.language);
   const { toggleTheme, isDark } = useTheme();
@@ -942,7 +944,7 @@ const UTCAppLayout: React.FC<UTCAppLayoutProps> = ({
         )}
 
         {/* 6. Children Inner Content (Dynamic Dashboard Tabs) */}
-        <main className="utc-dashboard-body-content">
+        <main className="utc-dashboard-body-content" ref={pageRef}>
           {children}
         </main>
       </div>

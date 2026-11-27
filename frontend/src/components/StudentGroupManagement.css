@@ -38,7 +38,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  animation: fadeIn 0.3s ease;
+  animation: sgmFadeIn 0.3s ease;
 }
 
 .group-alert-success {
@@ -485,7 +485,7 @@
   margin-top: 2px;
 }
 
-@keyframes fadeIn {
+@keyframes sgmFadeIn {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }

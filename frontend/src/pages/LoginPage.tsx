@@ -905,7 +905,7 @@ const LoginPage: React.FC = () => {
                     disabled={forgotLoading}
                     className="w-2/3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold disabled:opacity-50"
                   >
-                    {forgotLoading ? 'Đang gửi mã...' : '📩 Gửi mã xác nhận'}
+                    {forgotLoading ? <><span className="m-spinner" aria-hidden="true" /> Đang gửi mã...</> : '📩 Gửi mã xác nhận'}
                   </button>
                 </div>
               </form>
@@ -975,7 +975,7 @@ const LoginPage: React.FC = () => {
                     disabled={forgotLoading}
                     className="w-2/3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50"
                   >
-                    {forgotLoading ? 'Đang cập nhật...' : '✅ Xác nhận đổi mật khẩu'}
+                    {forgotLoading ? <><span className="m-spinner" aria-hidden="true" /> Đang cập nhật...</> : '✅ Xác nhận đổi mật khẩu'}
                   </button>
                 </div>
               </form>

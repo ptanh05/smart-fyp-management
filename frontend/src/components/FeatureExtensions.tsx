@@ -172,7 +172,7 @@ export function SubmissionVersionsPanel({
                 disabled={!file || busy}
                 className="utc-btn-submit-version"
               >
-                <span>{busy ? '⏳ Đang nộp...' : '📤 Nộp phiên bản'}</span>
+                <span>{busy ? <><span className="m-spinner" aria-hidden="true" /> Đang nộp...</> : '📤 Nộp phiên bản'}</span>
               </button>
             </div>
           </div>

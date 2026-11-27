@@ -246,7 +246,7 @@ const DocumentRequirementsManager: React.FC = () => {
           <div className="empty-state">No document requirements yet.</div>
         ) : (
           <div className="dr-table-wrapper">
-            <table className="table dr-table">
+            <table className="m-stagger table dr-table">
               <thead>
                 <tr>
                   <th>Document type</th>

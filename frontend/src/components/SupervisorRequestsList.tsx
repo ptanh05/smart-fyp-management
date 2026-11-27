@@ -65,7 +65,7 @@ const SupervisorRequestsList: React.FC<SupervisorRequestsListProps> = ({
   // Supervisor view: Shows requests from students to this supervisor
   if (viewType === 'supervisor') {
     return (
-      <table className="table">
+      <table className="m-stagger table">
         <thead>
           <tr>
             <th>Group ID</th>
@@ -150,7 +150,7 @@ const SupervisorRequestsList: React.FC<SupervisorRequestsListProps> = ({
 
   // Student view: Shows requests from this student to supervisors
   return (
-    <table className="table">
+    <table className="m-stagger table">
       <thead>
         <tr>
           <th>Supervisor</th>

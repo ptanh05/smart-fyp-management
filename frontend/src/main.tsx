@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './style.css'
+import './styles/motion.css'
 import './i18n'
 
 // Auto-reload on chunk load error after a new deployment on Vercel

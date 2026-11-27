@@ -459,7 +459,7 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
             title="Xuất biên bản tổng hợp điểm bảo vệ của Hội đồng chuẩn định dạng PDF"
           >
             <span>📄</span>
-            <span>{exportingMinutes ? 'Đang xuất PDF...' : 'Xuất Biên Bản Hội Đồng (PDF)'}</span>
+            <span>{exportingMinutes ? <><span className="m-spinner" aria-hidden="true" /> Đang xuất PDF...</> : 'Xuất Biên Bản Hội Đồng (PDF)'}</span>
           </button>
 
           {/* Live Sync Toggle */}
@@ -1062,7 +1062,7 @@ export const UTCCouncilLiveDefenseView: React.FC<UTCCouncilLiveDefenseViewProps>
                     disabled={submitting}
                     className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 disabled:opacity-50"
                   >
-                    {submitting ? 'Đang lưu...' : 'Xác nhận Điểm Chấm'}
+                    {submitting ? <><span className="m-spinner" aria-hidden="true" /> Đang lưu...</> : 'Xác nhận Điểm Chấm'}
                   </button>
                 )}
               </div>

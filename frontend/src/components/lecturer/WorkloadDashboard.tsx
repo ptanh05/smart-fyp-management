@@ -166,7 +166,7 @@ export const WorkloadDashboard: React.FC<WorkloadDashboardProps> = ({ onSelectPr
             <span className="ml-2 text-xs text-blue-500">({roleItems.length} đồ án)</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="m-stagger w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
                   <th className="text-left px-3 py-2 font-medium text-slate-600">Sinh viên</th>

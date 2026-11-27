@@ -517,7 +517,7 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
                               title="Tải về máy tính"
                               disabled={downloadingId === msg.id}
                             >
-                              {downloadingId === msg.id ? '⏳' : '⬇️'}
+                              {downloadingId === msg.id ? <span className="m-spinner" aria-hidden="true" /> : '⬇️'}
                             </button>
                           </div>
                         )}
@@ -713,7 +713,7 @@ export const UTCSupervisorGroupChatView: React.FC<UTCSupervisorGroupChatViewProp
                 className="utc-chat-send-btn"
                 disabled={sending || (!inputText.trim() && !selectedFile)}
               >
-                <span>{sending ? 'Đang gửi...' : 'Gửi'}</span>
+                <span>{sending ? <><span className="m-spinner" aria-hidden="true" /> Đang gửi...</> : 'Gửi'}</span>
                 {!sending && <span className="utc-send-arrow">➔</span>}
               </button>
             </div>

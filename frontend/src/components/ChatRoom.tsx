@@ -851,7 +851,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ groupId }) => {
             className="btn btn-primary chat-send-btn"
             disabled={loading || (!newMessage.trim() && !selectedAttachment)}
           >
-            {loading ? 'Đang gửi...' : 'Gửi'}
+            {loading ? <><span className="m-spinner" aria-hidden="true" /> Đang gửi...</> : 'Gửi'}
           </button>
         </div>
         <div className="chat-input-hint">

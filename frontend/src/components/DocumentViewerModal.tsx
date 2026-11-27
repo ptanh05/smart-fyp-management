@@ -153,7 +153,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
               className="btn-download"
               title="Tải tài liệu về máy"
             >
-              {downloading ? '⏳ Đang tải...' : '📥 Tải về'}
+              {downloading ? <><span className="m-spinner" aria-hidden="true" /> Đang tải...</> : '📥 Tải về'}
             </button>
 
             <button onClick={requestClose} className="btn-close" title="Đóng">

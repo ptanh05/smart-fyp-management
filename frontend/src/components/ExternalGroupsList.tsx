@@ -140,7 +140,7 @@ const ExternalGroupsList: React.FC<ExternalGroupsListProps> = ({
                     </div>
                   ) : (
                     <div className="students-table-wrapper">
-                      <table className="students-table">
+                      <table className="m-stagger students-table">
                         <thead>
                           <tr>
                             <th>Slot</th>
